@@ -1,74 +1,139 @@
 # Escalation Rules
 
-## Overview
-
-Rules engine for routing classified conversations to appropriate actions and tools.
+Rules for routing classified conversations to alerts and tickets.
 
 ## Rule Priority
 
-Rules are evaluated in priority order. Higher priority rules (lower numbers) take precedence.
+Rules are evaluated in priority order. First matching rule triggers action.
 
 ## Active Rules
 
-### Priority 1: Critical Escalations
+### Priority 1: Immediate Alerts (Slack)
 
-| Rule ID | Name | Condition | Action |
-|---------|------|-----------|--------|
-| R001 | P0 Bug (Enterprise) | `issue_type=PRODUCT_BUG AND priority=CRITICAL AND segment=enterprise` | Page on-call engineer |
-| R002 | High Churn Risk | `churn_risk=HIGH AND sentiment_score < -0.7` | Alert CS manager |
+| Rule ID | Name              | Condition                                    | Action              |
+| ------- | ----------------- | -------------------------------------------- | ------------------- |
+| R001    | Churn Risk Alert  | `churn_risk = true`                          | Slack #churn-alerts |
+| R002    | Urgent Priority   | `priority = urgent`                          | Slack #urgent       |
+| R003    | Frustrated + High | `priority = high AND sentiment = frustrated` | Slack #support      |
 
-### Priority 2: Revenue-Impacting
+### Priority 2: Ticket Creation (Shortcut)
 
-| Rule ID | Name | Condition | Action |
-|---------|------|-----------|--------|
-| R003 | Billing Critical | `issue_type=BILLING AND priority IN [CRITICAL, HIGH]` | Escalate to finance team |
-
-### Priority 3: Product Feedback
-
-| Rule ID | Name | Condition | Action |
-|---------|------|-----------|--------|
-| R004 | Popular Feature Request | `issue_type=FEATURE_REQUEST AND frequency >= 10` | Create Productboard note |
-| R005 | UX Friction Pattern | `issue_type=UX_FRICTION AND frequency >= 5` | Schedule UX review |
+| Rule ID | Name            | Condition                                 | Action                  |
+| ------- | --------------- | ----------------------------------------- | ----------------------- |
+| R004    | Bug Report      | `issue_type = bug_report`                 | Create Shortcut bug     |
+| R005    | Feature Request | `issue_type = feature_request` (freq ≥ 3) | Create Shortcut feature |
 
 ### Priority 999: Default
 
-| Rule ID | Name | Condition | Action |
-|---------|------|-----------|--------|
-| R999 | Default Queue | `*` (matches all) | Add to PM review queue |
+| Rule ID | Name     | Condition         | Action          |
+| ------- | -------- | ----------------- | --------------- |
+| R999    | Log Only | `*` (matches all) | Log to database |
 
-## Actions
+## Slack Alert Templates
 
-### Notification Actions
-- `PAGE_ONCALL_ENGINEER` - PagerDuty integration
-- `ALERT_CS_MANAGER` - Slack #customer-success-alerts
-- `SEND_SLACK_MESSAGE` - Custom channel/message
+### R001: Churn Risk Alert
 
-### Ticket Actions
-- `CREATE_JIRA_P0` - High-priority bug ticket
-- `CREATE_JIRA_STANDARD` - Normal priority ticket
-- `CREATE_PRODUCTBOARD_NOTE` - Feature request tracking
+```
+:warning: *Churn Risk Detected*
+Customer: {contact_email}
+Issue Type: {issue_type}
+Message: {source_body_preview}
+<{intercom_url}|View in Intercom>
+```
 
-### Assignment Actions
-- `ASSIGN_TO_FINANCE` - Billing team queue
-- `ADD_TO_PM_QUEUE` - Product manager review
+### R002: Urgent Priority
 
-## Thresholds
+```
+:rotating_light: *Urgent Issue*
+Type: {issue_type}
+Customer: {contact_email}
+Message: {source_body_preview}
+<{intercom_url}|View in Intercom>
+```
 
-| Metric | Threshold | Notes |
-|--------|-----------|-------|
-| Feature request frequency | 10 mentions | Before auto-creating Productboard note |
-| UX friction frequency | 5 mentions | Before scheduling UX review |
-| High churn sentiment | < -0.7 | Combined with churn_risk=HIGH |
+### R003: Frustrated + High Priority
 
-## Integration Credentials
+```
+:face_with_symbols_on_mouth: *Frustrated Customer - High Priority*
+Type: {issue_type}
+Customer: {contact_email}
+Message: {source_body_preview}
+<{intercom_url}|View in Intercom>
+```
 
-See `.env.example` for required tokens:
-- Jira: `JIRA_API_TOKEN`, `JIRA_BASE_URL`
-- Productboard: `PRODUCTBOARD_API_TOKEN`
-- Slack: `SLACK_WEBHOOK_URL`, `SLACK_BOT_TOKEN`
+## Shortcut Ticket Templates
+
+### R004: Bug Report
+
+```yaml
+story_type: bug
+name: "Bug: {source_subject_or_preview}"
+description: |
+  ## Customer Report
+  {source_body}
+
+  ## Classification
+  - Priority: {priority}
+  - Sentiment: {sentiment}
+  - Churn Risk: {churn_risk}
+
+  ## Source
+  - Intercom ID: {id}
+  - Customer: {contact_email}
+priority_map:
+  urgent: highest
+  high: high
+  normal: medium
+  low: low
+```
+
+### R005: Feature Request (Aggregated)
+
+```yaml
+story_type: feature
+name: "Feature Request: {aggregated_summary}"
+description: |
+  ## Request Summary
+  Requested by {request_count} customers
+
+  ## Sample Messages
+  {sample_messages}
+```
+
+## Deduplication
+
+### Slack Deduplication
+
+- Track alerts by conversation ID in `escalation_log` table
+- Don't re-alert for same conversation within 24 hours
+
+### Shortcut Deduplication
+
+- Check for existing ticket with same conversation ID before creating
+- Store mapping in `escalation_log` table
+
+## Configuration
+
+Environment variables (see `.env.example`):
+
+```bash
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+SLACK_BOT_TOKEN=xoxb-...
+SHORTCUT_API_TOKEN=...
+```
+
+## Dry Run Mode
+
+When `--dry-run` is passed:
+
+- Log what would be sent/created
+- Don't make actual API calls
+- Useful for testing rule logic
 
 ## Rule Change Log
 
-| Date | Change | Rationale |
-|------|--------|-----------|
-| - | Initial rules defined | Based on intercom-llm-guide.md recommendations |
+| Date       | Change                        | Rationale                      |
+| ---------- | ----------------------------- | ------------------------------ |
+| 2026-01-06 | Align with implemented schema | Match classifier output fields |
+| 2026-01-06 | Add Slack alert templates     | Clear notification format      |
+| 2026-01-06 | Add deduplication rules       | Prevent alert/ticket spam      |

@@ -72,6 +72,30 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     error_message TEXT
 );
 
+-- Escalation log: tracks alerts and tickets created
+CREATE TABLE IF NOT EXISTS escalation_log (
+    id SERIAL PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id),
+    rule_id TEXT NOT NULL,              -- e.g., 'R001', 'R002'
+    action_type TEXT NOT NULL CHECK (action_type IN (
+        'slack_alert', 'shortcut_ticket', 'log_only'
+    )),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    -- Action details
+    slack_channel TEXT,                 -- For slack_alert
+    shortcut_story_id TEXT,             -- For shortcut_ticket
+
+    -- Deduplication
+    UNIQUE (conversation_id, rule_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_escalation_log_conversation
+    ON escalation_log(conversation_id);
+
+CREATE INDEX IF NOT EXISTS idx_escalation_log_created_at
+    ON escalation_log(created_at DESC);
+
 -- Useful views
 CREATE OR REPLACE VIEW conversation_summary AS
 SELECT
