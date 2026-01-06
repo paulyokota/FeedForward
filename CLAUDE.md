@@ -32,6 +32,14 @@ See `reference/intercom-llm-guide.md` for detailed implementation specs.
 # TBD - will add as project develops
 ```
 
+## Project Docs
+
+- `docs/architecture.md` - System design and components
+- `docs/status.md` - Current progress and next steps
+- `docs/changelog.md` - What's shipped
+- `docs/prompts.md` - Classification prompts and accuracy metrics
+- `docs/escalation-rules.md` - Routing rules and thresholds
+
 ## Reference Docs
 
 - `reference/intercom-llm-guide.md` - Technical implementation guide
