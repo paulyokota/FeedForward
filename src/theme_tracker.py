@@ -79,10 +79,20 @@ class ThemeTracker:
         Store a theme and update aggregates.
 
         Returns True if this is a new occurrence, False if duplicate.
+        Uses the conversation's created_at date for first_seen_at/last_seen_at
+        to track actual occurrence times, not processing times.
         """
         try:
             with get_connection() as conn:
                 with conn.cursor() as cur:
+                    # Get the conversation's actual created_at date
+                    cur.execute(
+                        "SELECT created_at FROM conversations WHERE id = %s",
+                        (theme.conversation_id,)
+                    )
+                    conv_row = cur.fetchone()
+                    conversation_date = conv_row[0] if conv_row else theme.extracted_at
+
                     # Insert theme (ignore if already exists for this conversation)
                     cur.execute(
                         """
@@ -113,6 +123,7 @@ class ThemeTracker:
                         return False
 
                     # Update or insert aggregate
+                    # Uses LEAST/GREATEST to track actual first/last conversation dates
                     cur.execute(
                         """
                         INSERT INTO theme_aggregates (
@@ -123,7 +134,8 @@ class ThemeTracker:
                         ) VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (issue_signature) DO UPDATE SET
                             occurrence_count = theme_aggregates.occurrence_count + 1,
-                            last_seen_at = EXCLUDED.last_seen_at,
+                            first_seen_at = LEAST(theme_aggregates.first_seen_at, EXCLUDED.first_seen_at),
+                            last_seen_at = GREATEST(theme_aggregates.last_seen_at, EXCLUDED.last_seen_at),
                             sample_user_intent = EXCLUDED.sample_user_intent,
                             sample_symptoms = EXCLUDED.sample_symptoms,
                             sample_affected_flow = EXCLUDED.sample_affected_flow,
@@ -133,8 +145,8 @@ class ThemeTracker:
                             theme.issue_signature,
                             theme.product_area,
                             theme.component,
-                            theme.extracted_at,
-                            theme.extracted_at,
+                            conversation_date,
+                            conversation_date,
                             theme.user_intent,
                             json.dumps(theme.symptoms),
                             theme.affected_flow,
@@ -270,8 +282,16 @@ class ThemeTracker:
             logger.error(f"Failed to get trending themes: {e}")
             return []
 
-    def get_themes_needing_tickets(self) -> list[ThemeAggregate]:
-        """Get themes that have reached ticket threshold but no ticket created."""
+    def get_themes_needing_tickets(
+        self,
+        recency_days: int = 30,
+    ) -> list[ThemeAggregate]:
+        """
+        Get themes that have reached ticket threshold but no ticket created.
+
+        Only returns themes with recent activity (within recency_days) to avoid
+        creating tickets for old/resolved issues in historical data.
+        """
         try:
             with get_connection() as conn:
                 with conn.cursor() as cur:
@@ -286,9 +306,10 @@ class ThemeTracker:
                         FROM theme_aggregates
                         WHERE occurrence_count >= %s
                           AND ticket_created = FALSE
+                          AND last_seen_at >= NOW() - INTERVAL '%s days'
                         ORDER BY occurrence_count DESC
                         """,
-                        (self.ticket_threshold,)
+                        (self.ticket_threshold, recency_days)
                     )
                     rows = cur.fetchall()
 

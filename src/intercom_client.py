@@ -251,6 +251,70 @@ class IntercomClient:
         for conv in data.get("conversations", []):
             yield conv
 
+    def search_by_date_range(
+        self,
+        start_timestamp: int,
+        end_timestamp: int,
+        per_page: int = 50,
+        max_results: Optional[int] = None,
+    ) -> Generator[dict, None, None]:
+        """
+        Search conversations within a date range using Intercom search API.
+
+        Args:
+            start_timestamp: Unix timestamp for start of range
+            end_timestamp: Unix timestamp for end of range
+            per_page: Results per page
+            max_results: Maximum conversations to return
+
+        Yields raw conversation dicts.
+        """
+        search_query = {
+            "query": {
+                "operator": "AND",
+                "value": [
+                    {
+                        "field": "created_at",
+                        "operator": ">",
+                        "value": start_timestamp,
+                    },
+                    {
+                        "field": "created_at",
+                        "operator": "<",
+                        "value": end_timestamp,
+                    },
+                ],
+            },
+            "pagination": {"per_page": per_page},
+        }
+
+        count = 0
+        starting_after = None
+
+        while True:
+            if starting_after:
+                search_query["pagination"]["starting_after"] = starting_after
+
+            data = self._post("/conversations/search", search_query)
+            conversations = data.get("conversations", [])
+
+            if not conversations:
+                break
+
+            for conv in conversations:
+                yield conv
+                count += 1
+                if max_results and count >= max_results:
+                    return
+
+            # Check for next page
+            pages = data.get("pages", {})
+            next_page = pages.get("next", {})
+            starting_after = next_page.get("starting_after")
+
+            if not starting_after:
+                break
+
 
 # Convenience function
 def fetch_recent_conversations(
