@@ -41,6 +41,18 @@ See `reference/intercom-llm-guide.md` for detailed implementation specs.
 | `/create-issues [source]` | Generate GitHub issues from spec, file, or prompt |
 | `/prompt-iteration [version]` | Log new classification prompt version with metrics |
 
+## Subagents
+
+Auto-invoked agents that handle specialized tasks. Claude decides when to use them based on context.
+
+| Agent | Purpose | Trigger |
+|-------|---------|---------|
+| `changelog` | Updates docs/changelog.md with user-facing entries | After features complete |
+| `retro` | Post-session retrospective, captures learnings | After significant sessions |
+| `prompt-tester` | Tests classification prompts, measures accuracy | When iterating on prompts |
+| `schema-validator` | Validates Pydantic/DB/LLM schema consistency | When models change |
+| `escalation-validator` | Validates escalation rules and edge cases | When rules change |
+
 ## Project Docs
 
 - `docs/architecture.md` - System design and components

@@ -20,20 +20,30 @@ Review recent changes and update project documentation accordingly.
    - Add any new blockers
    - Update "What's Next" section
 
-4. **Update docs/changelog.md**:
-   - Add entries under [Unreleased] for new features, changes, or fixes
-   - Use clear, user-facing language
+4. **Update docs/changelog.md** (delegate to `changelog` agent):
+   - The `changelog` agent reviews commits and adds entries under [Unreleased]
+   - It uses proper categorization (Added/Changed/Fixed/Removed)
+   - Writes user-facing language, not implementation details
 
 5. **Update docs/prompts.md** if:
    - Classification prompts were modified
    - New accuracy metrics are available
+   - Consider using `prompt-tester` agent to validate changes
 
 6. **Update docs/escalation-rules.md** if:
    - Rules were added or modified
    - Thresholds changed
+   - Consider using `escalation-validator` agent to check consistency
 
 7. **Update CLAUDE.md** if:
    - Major architectural decisions were made
    - New commands or workflows were added
 
 Keep documentation concise and consistent with existing style.
+
+## Related Agents
+
+- `changelog` - Formats changelog entries from commits
+- `prompt-tester` - Validates prompt changes against test data
+- `escalation-validator` - Validates rule consistency
+- `schema-validator` - Checks Pydantic/DB/LLM schema alignment

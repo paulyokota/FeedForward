@@ -13,6 +13,18 @@ Format: [ISO Date] - Summary of changes
 - Reference documentation (`reference/`)
 - Starter `CLAUDE.md`
 - Documentation scaffolding (`docs/`)
+- Slash commands for workflow automation:
+  - `/update-docs` - Update all project docs after changes
+  - `/session-end` - End-of-session cleanup and commit
+  - `/create-issues` - Generate GitHub issues from specs
+  - `/prompt-iteration` - Log prompt versions with metrics
+- Subagents for specialized tasks:
+  - `changelog` - Auto-format changelog entries
+  - `retro` - Post-session retrospective
+  - `prompt-tester` - Test prompts and measure accuracy
+  - `schema-validator` - Validate schema consistency
+  - `escalation-validator` - Validate escalation rules
+- Environment configuration (`.env.example`) with tokens for GitHub, Intercom, Shortcut, OpenAI, Slack
 
 ### Changed
 - N/A

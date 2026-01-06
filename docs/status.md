@@ -11,6 +11,8 @@
 - [x] `.env.example` with required variables
 - [x] `CLAUDE.md` starter file
 - [x] Documentation structure (`docs/`)
+- [x] Slash commands (`/update-docs`, `/session-end`, `/create-issues`, `/prompt-iteration`)
+- [x] Subagents (`changelog`, `retro`, `prompt-tester`, `schema-validator`, `escalation-validator`)
 
 ## What's Next
 
@@ -47,6 +49,9 @@ None currently.
 - Set up environment variables (OpenAI for classification)
 - Configured GitHub MCP access
 - Created documentation scaffolding
+- Created 4 slash commands for workflow automation
+- Created 5 subagents for specialized tasks
+- Integrated slash commands with subagents (commands delegate to agents)
 
 ---
 
