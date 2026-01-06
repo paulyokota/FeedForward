@@ -5,6 +5,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator, Optional
 
+# Load .env file if present
+from dotenv import load_dotenv
+env_path = Path(__file__).parent.parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 

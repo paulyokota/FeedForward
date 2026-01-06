@@ -30,9 +30,11 @@ class SlackClient:
     def __init__(
         self,
         webhook_url: Optional[str] = None,
+        channel: Optional[str] = None,
         dry_run: bool = False,
     ):
         self.webhook_url = webhook_url or os.getenv("SLACK_WEBHOOK_URL")
+        self.channel = channel or os.getenv("SLACK_CHANNEL", "#ff-testing")
         self.dry_run = dry_run
 
         if not self.webhook_url and not self.dry_run:
@@ -89,7 +91,7 @@ class SlackClient:
             f"<https://app.intercom.com/a/inbox/conversation/{conversation_id}|View in Intercom>"
         )
         return self.send(SlackMessage(
-            channel="#churn-alerts",
+            channel=self.channel,
             text=text,
             priority="high",
         ))
@@ -110,7 +112,7 @@ class SlackClient:
             f"<https://app.intercom.com/a/inbox/conversation/{conversation_id}|View in Intercom>"
         )
         return self.send(SlackMessage(
-            channel="#urgent",
+            channel=self.channel,
             text=text,
             priority="high",
         ))
@@ -131,7 +133,7 @@ class SlackClient:
             f"<https://app.intercom.com/a/inbox/conversation/{conversation_id}|View in Intercom>"
         )
         return self.send(SlackMessage(
-            channel="#support",
+            channel=self.channel,
             text=text,
             priority="medium",
         ))

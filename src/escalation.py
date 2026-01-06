@@ -6,9 +6,17 @@ Evaluates rules against conversations and triggers appropriate actions
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
+
+# Load .env file if present
+from dotenv import load_dotenv
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
 
 from .db.models import Conversation
 from .db.connection import get_connection
