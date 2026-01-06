@@ -14,6 +14,7 @@
 
 ## What's Next
 
+- [ ] Add `.gitignore` with `.env` to protect secrets
 - [ ] Finalize tech stack decisions (database choice)
 - [ ] Create project spec from reference docs
 - [ ] Begin Phase 1: Prototype
