@@ -2,64 +2,64 @@
 
 ## Current Phase
 
-**Phase 1: Prototype** - Ready to begin with Intercom data fetch.
+**Phase 2: Batch Pipeline MVP** - Ready to begin
 
-## What's Done
+## Phase 1: COMPLETE ✅
 
-- [x] GitHub repo created
-- [x] Reference documentation added
-- [x] `.env.example` with required variables
-- [x] `CLAUDE.md` starter file
-- [x] Documentation structure (`docs/`)
-- [x] Slash commands (`/update-docs`, `/session-end`, `/create-issues`, `/prompt-iteration`)
-- [x] Subagents (`prompt-tester`, `schema-validator`, `escalation-validator`)
-- [x] Permissions and hooks (`.claude/settings.json`, block main push, test gate)
-- [x] `.gitignore` with `.env` protection
-- [x] Database decision: PostgreSQL
-- [x] Project spec (`PLAN.md`) with VDD methodology
-- [x] Claudebase Developer Kit plugin (14 agents, 26 skills, 5 command groups)
+**Final Metrics** (all targets exceeded):
+
+| Metric               | Result | Target |
+| -------------------- | ------ | ------ |
+| Issue Type Accuracy  | 100%   | 80%    |
+| Sentiment Accuracy   | 81.2%  | 75%    |
+| Churn Risk Precision | 100%   | 75%    |
+| Churn Risk Recall    | 100%   | 85%    |
+| Priority Accuracy    | 93.8%  | 70%    |
+
+**Deliverables**:
+
+- [x] `src/classifier.py` - OpenAI gpt-4o-mini + rule-based post-processing
+- [x] `tests/test_classifier.py` - 13 tests, all passing
+- [x] `data/labeled_fixtures.json` - 50 human-labeled samples
+- [x] `docs/acceptance-criteria.md` - Measurable thresholds
+- [x] `docs/intercom-data-patterns.md` - API access patterns, quality filtering
+- [x] `tools/labeler.py` - Streamlit UI for labeling
+
+**Key Learnings** (incorporated into PLAN.md):
+
+- Only ~50% of Intercom conversations are usable (quality filtering needed)
+- LLMs need rule-based post-processing for edge cases (hybrid pattern)
+- Churn risk is boolean, not enum (stacks with any issue type)
 
 ## What's Next
 
-See [GitHub Issues](https://github.com/paulyokota/FeedForward/issues) for current backlog.
+**Phase 2: Batch Pipeline MVP**
 
-**Phase 1 execution order** (data-driven approach):
-1. #9 - Fetch sample Intercom data ← **START HERE**
-2. #10 - Analyze patterns → finalize schema
-3. #1 - Create acceptance criteria (informed by schema)
-4. #2 - Label fixtures from real data
-5. #3 - Write failing tests
-6. #4 - Build classification prompt
-7. #5 - Implement classifier
+```
+┌──────────────┐     ┌─────────────────┐     ┌────────────┐     ┌────────────┐
+│   Intercom   │ ──▶ │ Quality Filter  │ ──▶ │ Classifier │ ──▶ │ PostgreSQL │
+│    Fetch     │     │ (~50% pass)     │     │ (LLM+Rules)│     │   Store    │
+└──────────────┘     └─────────────────┘     └────────────┘     └────────────┘
+```
+
+Deliverables:
+
+- [ ] `src/intercom_client.py` - Fetch + quality filter
+- [ ] `src/pipeline.py` - Orchestration
+- [ ] `src/db/models.py` - Pydantic models
+- [ ] `src/db/schema.sql` - PostgreSQL schema
+- [ ] `tests/test_pipeline.py` - Pipeline tests
 
 ## Blockers
 
-- **#9 requires `INTERCOM_ACCESS_TOKEN`** - need API key to fetch sample data
-
-## Deferred
-
-Integration issues for later phases: #6 (Intercom MCP), #7 (Shortcut), #8 (Slack)
-
-## Recent Session Notes
-
-**2026-01-06**: Initial setup session
-- Reviewed reference docs (UAT research, Intercom guide, PSB system)
-- Set up environment variables (OpenAI for classification)
-- Configured GitHub MCP access
-- Created documentation scaffolding
-- Created 4 slash commands for workflow automation
-- Created 5 subagents for specialized tasks
-- Integrated slash commands with subagents (commands delegate to agents)
-- Added project permissions and hooks (block main push, test gate)
-
----
+- PostgreSQL hosting decision pending (local vs Supabase vs Railway)
 
 ## Decision Log
 
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| 2026-01-06 | OpenAI for LLM classification | User preference |
-| 2026-01-06 | Batch processing pattern | Cost-effective, suits daily/weekly reporting use case |
-| 2026-01-06 | Issue-based development | Better organization, enables parallel work |
-| 2026-01-06 | Data-driven schema | Fetch real Intercom data first, let patterns inform categories rather than guessing |
-| 2026-01-06 | GitHub Issues over file-based | Migrated from issues/backlog.md to GitHub Issues for better tracking |
+| Date       | Decision                  | Rationale                                    |
+| ---------- | ------------------------- | -------------------------------------------- |
+| 2026-01-06 | OpenAI for LLM            | User preference                              |
+| 2026-01-06 | Batch processing          | Cost-effective for ~100/week                 |
+| 2026-01-06 | Data-driven schema        | Let real data inform categories              |
+| 2026-01-06 | Hybrid LLM + rules        | LLM for semantics, rules for edge cases      |
+| 2026-01-06 | Quality filter before LLM | ~50% of conversations not useful, saves cost |

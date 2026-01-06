@@ -37,6 +37,7 @@ This project follows **Validation-Driven Development**, a methodology derived fr
 > "The key is not to eliminate human oversight, but to **shift it earlier**—from reviewing code post-generation to defining criteria pre-generation."
 
 **Critical findings that shaped our approach:**
+
 - Agentic systems suffer from **overeagerness** (adding unrequested features) and **shifting assumptions** across iterations
 - **37.6% security degradation** occurs after just 5 autonomous iterations without human oversight
 - Only **14.5%** of agent context files specify non-functional requirements
@@ -44,12 +45,12 @@ This project follows **Validation-Driven Development**, a methodology derived fr
 
 ### VDD vs Traditional Development
 
-| Traditional | VDD (Our Approach) |
-|-------------|-------------------|
+| Traditional                         | VDD (Our Approach)                                                             |
+| ----------------------------------- | ------------------------------------------------------------------------------ |
 | Write code → Test → See if it works | Define acceptance criteria → Write failing tests → Generate code to pass tests |
-| "Let's see if the LLM can classify" | "Here's exactly what good classification means—make it pass" |
-| Iterate until it "looks good" | Iterate until acceptance criteria are met (max 3-5 cycles) |
-| Quality is subjective | Quality is measurable |
+| "Let's see if the LLM can classify" | "Here's exactly what good classification means—make it pass"                   |
+| Iterate until it "looks good"       | Iterate until acceptance criteria are met (max 3-5 cycles)                     |
+| Quality is subjective               | Quality is measurable                                                          |
 
 ### The Generate-Test-Refine (GTR) Loop
 
@@ -75,6 +76,7 @@ Every phase follows this pattern:
 ### Iteration Limits
 
 **Critical constraint**: Maximum **3-5 autonomous iterations** per task before human review. This prevents:
+
 - Security degradation through compounding errors
 - Overeagerness (agents adding unrequested features)
 - Brute-force fixes that mask real problems
@@ -116,43 +118,68 @@ Every phase follows this pattern:
 
 ## 4. Technical Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| **LLM Provider** | OpenAI (gpt-4o-mini) | Cost-efficient (~$1.35/10K conversations), good structured output |
-| **Processing Pattern** | Batch (daily/weekly) | Sufficient for ~100/week volume, cost-effective, simpler ops |
-| **Database** | PostgreSQL | Structured output schema, SQL aggregation for reporting, lower volume doesn't need horizontal scaling |
-| **Issue Tracker** | Shortcut | Organization's existing tool (not Jira) |
-| **Hosting (MVP)** | Local | User preference for MVP, can migrate later |
+| Decision               | Choice               | Rationale                                                                                             |
+| ---------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- |
+| **LLM Provider**       | OpenAI (gpt-4o-mini) | Cost-efficient (~$1.35/10K conversations), good structured output                                     |
+| **Processing Pattern** | Batch (daily/weekly) | Sufficient for ~100/week volume, cost-effective, simpler ops                                          |
+| **Database**           | PostgreSQL           | Structured output schema, SQL aggregation for reporting, lower volume doesn't need horizontal scaling |
+| **Issue Tracker**      | Shortcut             | Organization's existing tool (not Jira)                                                               |
+| **Hosting (MVP)**      | Local                | User preference for MVP, can migrate later                                                            |
 
 ### Classification Schema
 
-(Defined in `docs/prompts.md`)
+(Implemented in `src/classifier.py`, criteria in `docs/acceptance-criteria.md`)
 
 ```yaml
-issue_type:
-  - PRODUCT_BUG
-  - ACCOUNT_ACCESS
-  - BILLING
-  - FEATURE_REQUEST
-  - UX_FRICTION
-  - USAGE_QUESTION
-  - OTHER
-
-priority:
-  - CRITICAL
-  - HIGH
-  - MEDIUM
-  - LOW
+issue_type: # Mutually exclusive
+  - bug_report # Something broken, errors, not working
+  - feature_request # Wants new capability
+  - product_question # How do I use feature X?
+  - plan_question # What's included in my plan?
+  - marketing_question # Social media strategy, platform issues
+  - billing # Payments, refunds, subscription changes
+  - account_access # Tailwind login/password issues
+  - feedback # General feedback, praise, complaints
+  - other # Truly unclassifiable
 
 sentiment:
-  range: -1.0 to 1.0
-  categories: [VERY_NEGATIVE, NEGATIVE, NEUTRAL, POSITIVE, VERY_POSITIVE]
+  - frustrated # Emotion words, ALL CAPS, complaints
+  - neutral # Matter-of-fact, no emotion
+  - satisfied # Positive feedback, gratitude
 
 churn_risk:
-  - HIGH
-  - MEDIUM
-  - LOW
+  boolean # Stacks with any issue_type
+  # true: Active cancellation intent ("I want to cancel")
+  # false: Everything else (including past cancellations, billing disputes)
+
+priority:
+  - urgent # Complete account lockout, payment system failure
+  - high # Customer explicitly can't work
+  - normal # Most issues (default)
+  - low # Pure positive feedback
 ```
+
+### Architectural Pattern: Hybrid LLM + Rules
+
+Phase 1 revealed that LLMs struggle with certain semantic distinctions (e.g., past-tense "I cancelled" vs present-intent "I want to cancel"). Our solution:
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  LLM Classifier │ ──▶ │ Rule-Based Post- │ ──▶ │  Final Output   │
+│  (gpt-4o-mini)  │     │   Processing     │     │                 │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+```
+
+**When to use rules vs LLM:**
+
+- **LLM**: Semantic understanding, nuance, context (issue type, sentiment)
+- **Rules**: Pattern matching, edge case overrides, deterministic logic
+
+This pattern applies to:
+
+- Churn risk validation (implemented)
+- Escalation routing (Phase 3)
+- Deduplication logic (Phase 3)
 
 ---
 
@@ -160,13 +187,13 @@ churn_risk:
 
 ### Phase Overview
 
-| Phase | Name | Focus | Success Criteria |
-|-------|------|-------|------------------|
-| 1 | Prototype | Classification accuracy | ≥80% agreement with human baseline |
-| 2 | Batch Pipeline MVP | End-to-end pipeline | Runs daily, stores to DB, zero data loss |
-| 3 | Product Tool Integration | Shortcut tickets | Escalation rules route to correct queues |
-| 4 | Real-Time Workflows | Webhooks | <5 min latency for critical issues |
-| 5 | Optimization | Cost & quality | <$50/month, maintain accuracy |
+| Phase | Name                     | Focus                   | Success Criteria                         |
+| ----- | ------------------------ | ----------------------- | ---------------------------------------- |
+| 1     | Prototype                | Classification accuracy | ≥80% agreement with human baseline       |
+| 2     | Batch Pipeline MVP       | End-to-end pipeline     | Runs daily, stores to DB, zero data loss |
+| 3     | Product Tool Integration | Shortcut tickets        | Escalation rules route to correct queues |
+| 4     | Real-Time Workflows      | Webhooks                | <5 min latency for critical issues       |
+| 5     | Optimization             | Cost & quality          | <$50/month, maintain accuracy            |
 
 ---
 
@@ -220,6 +247,7 @@ acceptance_criteria:
 #### Step 1.2: Create Labeled Test Fixtures
 
 Create `tests/fixtures/labeled_conversations.json`:
+
 - 30-50 sample Intercom conversations (anonymized)
 - Each labeled with expected: issue_type, priority, sentiment, churn_risk
 - Include edge cases: ambiguous conversations, multi-issue threads, empty messages
@@ -228,6 +256,7 @@ Create `tests/fixtures/labeled_conversations.json`:
 #### Step 1.3: Write Failing Tests
 
 Create `tests/test_classification.py`:
+
 - Tests that load fixtures, run classification, compare to expected labels
 - Calculate per-field accuracy
 - Tests FAIL initially (no prompt exists yet)
@@ -247,6 +276,7 @@ Create `tests/test_classification.py`:
 - Final accuracy must meet thresholds before proceeding
 
 **Deliverables**:
+
 - `acceptance_criteria/phase1.yaml`
 - `tests/fixtures/labeled_conversations.json`
 - `tests/test_classification.py`
@@ -259,41 +289,39 @@ Create `tests/test_classification.py`:
 
 **Goal**: End-to-end pipeline that fetches from Intercom, classifies, and stores to PostgreSQL.
 
-#### Acceptance Criteria (Preview)
+#### Pipeline Architecture
 
-```yaml
-acceptance_criteria:
-  - id: AC-P2-001
-    description: "Intercom fetch completes without error"
-    test_script: tests/test_pipeline.py::test_intercom_fetch
-
-  - id: AC-P2-002
-    description: "All fetched conversations are classified"
-    metric: classification_coverage
-    threshold: "100%"
-    test_script: tests/test_pipeline.py::test_classification_coverage
-
-  - id: AC-P2-003
-    description: "Results stored to database"
-    metric: db_insert_success
-    threshold: "100%"
-    test_script: tests/test_pipeline.py::test_db_storage
-
-  - id: AC-P2-004
-    description: "Pipeline is idempotent"
-    description: "Re-running on same data doesn't create duplicates"
-    test_script: tests/test_pipeline.py::test_idempotency
-
-  - id: AC-P2-005
-    description: "Pipeline completes in reasonable time"
-    metric: execution_time
-    threshold: "< 5 minutes for 100 conversations"
-    test_script: tests/test_pipeline.py::test_performance
+```
+┌──────────────┐     ┌─────────────────┐     ┌────────────┐     ┌────────────┐
+│   Intercom   │ ──▶ │ Quality Filter  │ ──▶ │ Classifier │ ──▶ │ PostgreSQL │
+│    Fetch     │     │ (~50% pass)     │     │ (LLM+Rules)│     │   Store    │
+└──────────────┘     └─────────────────┘     └────────────┘     └────────────┘
 ```
 
+**Quality Filter** (learned from Phase 1):
+
+- Only process `customer_initiated` conversations
+- Author must be `user` (not admin, bot, lead)
+- Body must have >20 characters of real content
+- Skip template clicks ("I have a product question")
+
+This filter reduces LLM costs by ~50% while improving classification quality.
+
+#### Acceptance Criteria
+
+| ID        | Description                          | Threshold                    |
+| --------- | ------------------------------------ | ---------------------------- |
+| AC-P2-001 | Intercom fetch completes             | No errors                    |
+| AC-P2-002 | Quality filter applied before LLM    | ~50% filtered                |
+| AC-P2-003 | All quality conversations classified | 100%                         |
+| AC-P2-004 | Results stored to database           | 100%                         |
+| AC-P2-005 | Pipeline is idempotent               | No duplicates                |
+| AC-P2-006 | Performance                          | <5 min for 100 conversations |
+
 **Deliverables**:
-- `acceptance_criteria/phase2.yaml`
-- `src/intercom_client.py` - Intercom API integration
+
+- `docs/acceptance-criteria-phase2.md` - Detailed criteria
+- `src/intercom_client.py` - Intercom API integration + quality filter
 - `src/pipeline.py` - Orchestration
 - `src/db/models.py` - Pydantic models
 - `src/db/schema.sql` - PostgreSQL schema
@@ -314,6 +342,7 @@ acceptance_criteria:
 - `escalation-validator` subagent confirms rule consistency
 
 **Deliverables**:
+
 - `acceptance_criteria/phase3.yaml`
 - `src/escalation_engine.py` - Rule evaluation
 - `src/shortcut_client.py` - Shortcut API integration
@@ -447,20 +476,20 @@ FeedForward/
 
 ## 9. Open Questions & Decisions Pending
 
-| Question | Status | Notes |
-|----------|--------|-------|
-| How to source labeled test fixtures? | Pending | Options: Export from Intercom, manually label, synthesize |
-| PostgreSQL hosting for MVP? | Pending | Options: Local, Supabase, Railway |
-| Shortcut workspace/project for tickets? | Pending | Need user to specify |
+| Question                                | Status  | Notes                                                     |
+| --------------------------------------- | ------- | --------------------------------------------------------- |
+| How to source labeled test fixtures?    | Pending | Options: Export from Intercom, manually label, synthesize |
+| PostgreSQL hosting for MVP?             | Pending | Options: Local, Supabase, Railway                         |
+| Shortcut workspace/project for tickets? | Pending | Need user to specify                                      |
 
 ---
 
 ## 10. Revision History
 
-| Date | Author | Change |
-|------|--------|--------|
+| Date       | Author        | Change        |
+| ---------- | ------------- | ------------- |
 | 2026-01-06 | Claude + User | Initial draft |
 
 ---
 
-*This document is the source of truth for FeedForward. Update it when decisions change.*
+_This document is the source of truth for FeedForward. Update it when decisions change._
