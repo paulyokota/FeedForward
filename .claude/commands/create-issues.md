@@ -5,7 +5,7 @@ argument-hint: [source-file-or-description]
 
 # Create Issues
 
-Parse the provided source and add well-structured issues to the backlog.
+Parse the provided source and create well-structured GitHub Issues.
 
 ## Input
 
@@ -27,24 +27,23 @@ If a file path is provided, read the file. Otherwise, treat the argument as a de
    - Type: feature/bug/task
    - Subtasks if applicable
 
-3. **Get next issue number**:
-   - Check `issues/backlog.md` for highest existing ISSUE-XXX
-   - Increment for new issues
+3. **Create GitHub Issues**:
+   - Use `gh issue create --title "Title" --body "Body" --label "phase-N"`
+   - Include phase, priority, and type in the body
+   - Add subtasks as a checklist in the body
 
-4. **Add to backlog**:
-   - Append each issue to the Backlog section of `issues/backlog.md`
-   - Use the standard format from `issues/README.md`
-
-5. **Report created issues**:
-   - List all created issue numbers and titles
+4. **Report created issues**:
+   - List all created issue URLs and titles
    - Note any items that couldn't be converted to issues
 
-## Issue Format
+## Issue Body Format
 
 ```markdown
-### [ISSUE-XXX] Title
 **Phase**: N | **Priority**: high/medium/low | **Type**: feature/bug/task
+
 Description of what needs to be done.
+
+## Tasks
 - [ ] Subtask 1
 - [ ] Subtask 2
 ```
@@ -52,6 +51,7 @@ Description of what needs to be done.
 ## Guidelines
 
 - Keep issues atomic - one task per issue
-- Reference related issues where applicable (e.g., "Depends on ISSUE-001")
+- Reference related issues where applicable (e.g., "Depends on #1")
 - Link to relevant phase in PLAN.md
 - Subtasks are optional but helpful for larger issues
+- Use labels like `phase-1`, `phase-2`, etc.

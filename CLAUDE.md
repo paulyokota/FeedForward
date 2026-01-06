@@ -31,10 +31,10 @@ See `reference/intercom-llm-guide.md` for detailed implementation specs.
 
 ## Issue Tracking
 
-File-based issue tracking (no GitHub Issues access from browser):
-- `issues/backlog.md` - All issues organized by status (Backlog → In Progress → Done)
-- `issues/README.md` - Format and workflow docs
-- Reference issues in commits: `[ISSUE-XXX] Description`
+GitHub Issues: https://github.com/paulyokota/FeedForward/issues
+- Use `gh issue list` to view open issues
+- Use `gh issue create` to create new issues
+- Reference issues in commits: `Fixes #N` or `Closes #N`
 
 ## Development Constraints
 
@@ -55,7 +55,7 @@ File-based issue tracking (no GitHub Issues access from browser):
 |---------|---------|
 | `/update-docs` | Update all project docs after making changes |
 | `/session-end [summary]` | End-of-session cleanup, status update, and commit |
-| `/create-issues [source]` | Generate issues in backlog from spec, file, or prompt |
+| `/create-issues [source]` | Generate GitHub Issues from spec, file, or prompt |
 | `/prompt-iteration [version]` | Log new classification prompt version with metrics |
 
 ## Subagents

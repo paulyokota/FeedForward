@@ -20,32 +20,17 @@
 
 ## What's Next
 
-- [ ] **Review and approve `PLAN.md`**
-- [ ] Create `acceptance_criteria/phase1.yaml`
-- [ ] Create labeled test fixtures (`tests/fixtures/labeled_conversations.json`)
-- [ ] Write failing classification tests
-- [ ] Begin Phase 1: Prototype
+See [GitHub Issues](https://github.com/paulyokota/FeedForward/issues) for current backlog.
+
+**Phase 1 issues**: #1-#5
 
 ## Blockers
 
 None currently.
 
-## Future/Deferred
+## Deferred
 
-- [ ] **Install Claude Code plugins** - `/plugin` command not available in current version. Revisit when plugin marketplace is accessible. Candidates:
-  - Anthropic official marketplace: `anthropics/claude-plugins-official`
-  - Claudebase Developer Kit: `claudebase/marketplace`
-
-- [ ] **Configure Intercom MCP** - Official server at `https://mcp.intercom.com/mcp` (US workspaces only)
-  - Setup: `claude mcp add intercom --transport http https://mcp.intercom.com/mcp`
-  - Requires: `INTERCOM_ACCESS_TOKEN`
-
-- [ ] **Configure Shortcut MCP** - Official server for project management
-  - Setup: `claude mcp add shortcut --transport=stdio -e SHORTCUT_API_TOKEN=xxx -- npx -y @shortcut/mcp@latest`
-  - Requires: `SHORTCUT_API_TOKEN`
-
-- [ ] **Configure Slack MCP** - For escalation alerts (research needed)
-  - Requires: `SLACK_WEBHOOK_URL`, `SLACK_BOT_TOKEN`
+Integration issues awaiting API tokens: #6 (Intercom), #7 (Shortcut), #8 (Slack)
 
 ## Recent Session Notes
 

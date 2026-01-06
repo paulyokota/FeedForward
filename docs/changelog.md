@@ -34,26 +34,6 @@ Format: [ISO Date] - Summary of changes
 
 ---
 
-## Project Milestones
+## Roadmap
 
-### Phase 1: Prototype
-- [ ] Intercom API integration
-- [ ] LLM classification prompt
-- [ ] Accuracy baseline
-
-### Phase 2: Batch Pipeline MVP
-- [ ] Database schema
-- [ ] Batch processing pipeline
-- [ ] Basic reporting
-
-### Phase 3: Product Tool Integration
-- [ ] Escalation rules engine
-- [ ] Jira/Productboard/Slack integrations
-
-### Phase 4: Real-Time Workflows
-- [ ] Webhook-driven processing
-- [ ] Real-time alerts
-
-### Phase 5: Optimization
-- [ ] Cost optimization
-- [ ] Quality monitoring
+See [PLAN.md](/PLAN.md) for the 5-phase implementation plan and [GitHub Issues](https://github.com/paulyokota/FeedForward/issues) for current backlog.
