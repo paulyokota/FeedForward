@@ -1,11 +1,11 @@
 ---
-description: Generate GitHub issues from a spec, file, or prompt
+description: Generate issues from a spec, file, or prompt
 argument-hint: [source-file-or-description]
 ---
 
-# Create GitHub Issues
+# Create Issues
 
-Parse the provided source and create well-structured GitHub issues.
+Parse the provided source and add well-structured issues to the backlog.
 
 ## Input
 
@@ -22,38 +22,36 @@ If a file path is provided, read the file. Otherwise, treat the argument as a de
 
 2. **For each issue, determine**:
    - Clear, actionable title
-   - Description with context and acceptance criteria
-   - Appropriate labels (bug, enhancement, documentation, etc.)
-   - Priority if discernible
+   - Phase (from PLAN.md)
+   - Priority: high/medium/low
+   - Type: feature/bug/task
+   - Subtasks if applicable
 
-3. **Create issues using GitHub CLI**:
-   ```bash
-   gh issue create --title "Title" --body "Description" --label "label"
-   ```
+3. **Get next issue number**:
+   - Check `issues/backlog.md` for highest existing ISSUE-XXX
+   - Increment for new issues
 
-4. **Report created issues**:
+4. **Add to backlog**:
+   - Append each issue to the Backlog section of `issues/backlog.md`
+   - Use the standard format from `issues/README.md`
+
+5. **Report created issues**:
    - List all created issue numbers and titles
    - Note any items that couldn't be converted to issues
 
 ## Issue Format
 
-Title: Brief, actionable description
-Body:
-```
-## Context
-[Why this is needed]
-
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-
-## Notes
-[Any relevant details]
+```markdown
+### [ISSUE-XXX] Title
+**Phase**: N | **Priority**: high/medium/low | **Type**: feature/bug/task
+Description of what needs to be done.
+- [ ] Subtask 1
+- [ ] Subtask 2
 ```
 
 ## Guidelines
 
 - Keep issues atomic - one task per issue
-- Reference related issues where applicable
-- Use consistent labeling
-- Estimate complexity if possible (small, medium, large)
+- Reference related issues where applicable (e.g., "Depends on ISSUE-001")
+- Link to relevant phase in PLAN.md
+- Subtasks are optional but helpful for larger issues

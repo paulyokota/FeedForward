@@ -29,6 +29,13 @@ Batch processing pattern (scheduled daily/weekly):
 
 See `reference/intercom-llm-guide.md` for detailed implementation specs.
 
+## Issue Tracking
+
+File-based issue tracking (no GitHub Issues access from browser):
+- `issues/backlog.md` - All issues organized by status (Backlog → In Progress → Done)
+- `issues/README.md` - Format and workflow docs
+- Reference issues in commits: `[ISSUE-XXX] Description`
+
 ## Development Constraints
 
 - Define acceptance criteria before implementing features
@@ -48,7 +55,7 @@ See `reference/intercom-llm-guide.md` for detailed implementation specs.
 |---------|---------|
 | `/update-docs` | Update all project docs after making changes |
 | `/session-end [summary]` | End-of-session cleanup, status update, and commit |
-| `/create-issues [source]` | Generate GitHub issues from spec, file, or prompt |
+| `/create-issues [source]` | Generate issues in backlog from spec, file, or prompt |
 | `/prompt-iteration [version]` | Log new classification prompt version with metrics |
 
 ## Subagents
