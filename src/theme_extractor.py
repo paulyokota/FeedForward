@@ -19,6 +19,7 @@ if env_path.exists():
     load_dotenv(env_path)
 
 from openai import OpenAI
+import numpy as np
 
 # Handle both module and script execution
 try:
@@ -27,6 +28,13 @@ except ImportError:
     from db.models import Conversation
 
 logger = logging.getLogger(__name__)
+
+
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    """Calculate cosine similarity between two vectors."""
+    a = np.array(a)
+    b = np.array(b)
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 # Load product context
 PRODUCT_CONTEXT_PATH = Path(__file__).parent.parent / "context" / "product"
@@ -206,6 +214,58 @@ class ThemeExtractor:
             logger.warning(f"Could not fetch existing signatures: {e}")
             return []
 
+    def get_embedding(self, text: str) -> list[float]:
+        """Get embedding for a text string."""
+        response = self.client.embeddings.create(
+            model="text-embedding-3-small",
+            input=text,
+        )
+        return response.data[0].embedding
+
+    def canonicalize_via_embedding(
+        self,
+        proposed_signature: str,
+        user_intent: str,
+        symptoms: list[str],
+        threshold: float = 0.85,
+    ) -> str:
+        """
+        Canonicalize signature using embedding similarity (cheaper than LLM).
+
+        Compares the semantic meaning of the new issue against existing signatures.
+        If similarity > threshold, reuses existing signature.
+        """
+        existing = self.get_existing_signatures()
+
+        # If no existing signatures, return normalized proposed
+        if not existing:
+            return proposed_signature.lower().replace(" ", "_").replace("-", "_")
+
+        # Create a description of the new issue for embedding
+        new_description = f"{proposed_signature.replace('_', ' ')}: {user_intent}. Symptoms: {', '.join(symptoms)}"
+        new_embedding = self.get_embedding(new_description)
+
+        best_match = None
+        best_similarity = 0.0
+
+        for sig_info in existing:
+            # Create description for existing signature
+            existing_desc = f"{sig_info['signature'].replace('_', ' ')}: {sig_info['product_area']} {sig_info['component']}"
+            existing_embedding = self.get_embedding(existing_desc)
+
+            similarity = cosine_similarity(new_embedding, existing_embedding)
+
+            if similarity > best_similarity:
+                best_similarity = similarity
+                best_match = sig_info['signature']
+
+        if best_similarity >= threshold:
+            logger.info(f"Embedding match: {best_match} (similarity={best_similarity:.3f}, was: {proposed_signature})")
+            return best_match
+        else:
+            logger.info(f"New signature: {proposed_signature} (best match: {best_match} at {best_similarity:.3f})")
+            return proposed_signature.lower().replace(" ", "_").replace("-", "_")
+
     def canonicalize_signature(
         self,
         proposed_signature: str,
@@ -213,11 +273,14 @@ class ThemeExtractor:
         component: str,
         user_intent: str,
         symptoms: list[str],
+        use_llm: bool = True,
     ) -> str:
         """
         Canonicalize a proposed signature against existing signatures.
 
-        Uses LLM to determine if this matches an existing signature or needs a new one.
+        Args:
+            use_llm: If True, use LLM for canonicalization (more accurate, slower).
+                     If False, use embedding similarity (faster, cheaper).
         """
         existing = self.get_existing_signatures()
 
@@ -225,7 +288,13 @@ class ThemeExtractor:
         if not existing:
             return proposed_signature.lower().replace(" ", "_").replace("-", "_")
 
-        # Format existing signatures for the prompt
+        # Use embedding-based approach if requested
+        if not use_llm:
+            return self.canonicalize_via_embedding(
+                proposed_signature, user_intent, symptoms
+            )
+
+        # LLM-based canonicalization (original approach)
         sig_list = "\n".join(
             f"- {s['signature']} ({s['product_area']}/{s['component']})"
             for s in existing
@@ -262,13 +331,21 @@ class ThemeExtractor:
 
         return final_sig
 
-    def extract(self, conv: Conversation, canonicalize: bool = True) -> Theme:
+    def extract(
+        self,
+        conv: Conversation,
+        canonicalize: bool = True,
+        use_embedding: bool = False,
+    ) -> Theme:
         """
         Extract theme from a single conversation.
 
         Args:
             conv: The conversation to extract from
-            canonicalize: If True, run signature through canonicalization (2nd LLM call)
+            canonicalize: If True, run signature through canonicalization (recommended)
+            use_embedding: If True, use embedding similarity instead of LLM.
+                          WARNING: Experimental - testing showed lower accuracy than LLM.
+                          LLM approach is actually faster (1 call vs N embedding calls).
         """
         # Phase 1: Extract theme details
         prompt = THEME_EXTRACTION_PROMPT.format(
@@ -306,6 +383,7 @@ class ThemeExtractor:
                 component=component,
                 user_intent=user_intent,
                 symptoms=symptoms,
+                use_llm=not use_embedding,  # use_embedding=True means use_llm=False
             )
         else:
             final_signature = proposed_signature

@@ -35,7 +35,12 @@ python src/cli.py extract <id>     # Extract theme from conversation
 - Sample customer messages
 - Suggested investigation steps
 
-**Known Issue**: LLM sometimes generates slightly different signatures for similar issues (e.g., `csv_column_mapping_failure` vs `pin_description_mapping_error`). May need prompt refinement or post-processing.
+**Signature Canonicalization**: Two-phase extraction ensures consistent signatures:
+
+1. Phase 1: Extract theme details (product_area, component, symptoms, etc.)
+2. Phase 2: Canonicalize signature against existing signatures in database
+
+Tested embedding-based canonicalization as cheaper alternative - rejected due to lower accuracy (0.627 similarity) and actually slower (N API calls vs 1 LLM call).
 
 **Branch**: `feature/theme-extraction` - ready for PR
 
@@ -159,3 +164,4 @@ None
 | 2026-01-06 | Data-driven schema        | Let real data inform categories              |
 | 2026-01-06 | Hybrid LLM + rules        | LLM for semantics, rules for edge cases      |
 | 2026-01-06 | Quality filter before LLM | ~50% of conversations not useful, saves cost |
+| 2026-01-06 | LLM for canonicalization  | Embedding approach slower & less accurate    |
