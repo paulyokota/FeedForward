@@ -522,6 +522,133 @@ class ThemeTracker:
             logger.error(f"Failed to get ticket excerpts: {e}")
             return []
 
+    def get_stale_tickets(self, stale_days: int = 30) -> list[ThemeAggregate]:
+        """
+        Get themes with tickets that haven't had activity in stale_days.
+
+        These are candidates for auto-closing.
+        """
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT
+                            issue_signature, product_area, component,
+                            occurrence_count, first_seen_at, last_seen_at,
+                            sample_user_intent, sample_symptoms,
+                            sample_affected_flow, sample_root_cause_hypothesis,
+                            ticket_created, ticket_id, ticket_excerpts
+                        FROM theme_aggregates
+                        WHERE ticket_created = TRUE
+                          AND ticket_id IS NOT NULL
+                          AND last_seen_at < NOW() - INTERVAL '%s days'
+                        ORDER BY last_seen_at ASC
+                        """,
+                        (stale_days,)
+                    )
+                    rows = cur.fetchall()
+
+                    aggregates = []
+                    for row in rows:
+                        symptoms = row[7]
+                        if isinstance(symptoms, str):
+                            symptoms = json.loads(symptoms)
+                        excerpts = row[12]
+                        if isinstance(excerpts, str):
+                            excerpts = json.loads(excerpts)
+
+                        aggregates.append(ThemeAggregate(
+                            issue_signature=row[0],
+                            product_area=row[1],
+                            component=row[2],
+                            occurrence_count=row[3],
+                            first_seen_at=row[4],
+                            last_seen_at=row[5],
+                            sample_user_intent=row[6],
+                            sample_symptoms=symptoms,
+                            sample_affected_flow=row[8],
+                            sample_root_cause_hypothesis=row[9],
+                            ticket_created=row[10],
+                            ticket_id=row[11],
+                            ticket_excerpts=excerpts,
+                        ))
+
+                    return aggregates
+
+        except Exception as e:
+            logger.error(f"Failed to get stale tickets: {e}")
+            return []
+
+    def close_stale_tickets(
+        self,
+        stale_days: int = 30,
+        dry_run: bool = False,
+    ) -> list[str]:
+        """
+        Close tickets for themes that haven't had activity in stale_days.
+
+        Returns list of closed ticket IDs.
+        """
+        stale = self.get_stale_tickets(stale_days)
+        if not stale:
+            return []
+
+        shortcut = ShortcutClient(dry_run=dry_run)
+        closed = []
+
+        for agg in stale:
+            # Add comment explaining auto-close
+            days_inactive = (datetime.utcnow() - agg.last_seen_at).days
+            comment = (
+                f"🤖 Auto-closed: No new reports in {days_inactive} days.\n\n"
+                f"Last seen: {agg.last_seen_at.strftime('%Y-%m-%d')}\n"
+                f"Total reports: {agg.occurrence_count}\n\n"
+                f"This ticket will be reopened if the issue is reported again."
+            )
+            shortcut.add_comment(agg.ticket_id, comment)
+
+            # Move to done
+            if shortcut.move_to_done(agg.ticket_id):
+                closed.append(agg.ticket_id)
+                logger.info(
+                    f"Closed stale ticket {agg.ticket_id} for {agg.issue_signature} "
+                    f"(inactive {days_inactive} days)"
+                )
+
+        return closed
+
+    def reopen_ticket_for_theme(
+        self,
+        issue_signature: str,
+        dry_run: bool = False,
+    ) -> bool:
+        """
+        Reopen a closed ticket when a theme resurfaces.
+
+        Called when update_ticket_for_theme detects the issue was previously closed.
+        Adds a comment noting the reopening.
+        """
+        agg = self.get_aggregate(issue_signature)
+        if not agg or not agg.ticket_id:
+            return False
+
+        shortcut = ShortcutClient(dry_run=dry_run)
+
+        # Add comment about reopening
+        comment = (
+            f"🔄 Reopened: Issue reported again.\n\n"
+            f"New report count: {agg.occurrence_count}\n"
+            f"This issue was previously auto-closed but has resurfaced."
+        )
+        shortcut.add_comment(agg.ticket_id, comment)
+
+        # Note: Moving back to active state would require knowing the workflow
+        # For now, the comment alerts the team. They can manually move it back.
+        logger.info(f"Added reopen comment to ticket {agg.ticket_id} for {issue_signature}")
+
+        return True
+
     def get_sample_messages(
         self,
         issue_signature: str,

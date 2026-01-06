@@ -247,3 +247,47 @@ class ShortcutClient:
             new_desc = current_desc + f"\n\n{section_header}\n\n" + new_content
 
         return self.update_story(story_id, description=new_desc)
+
+    def move_to_done(self, story_id: str, done_state_id: Optional[int] = None) -> bool:
+        """
+        Move a story to the 'Done' workflow state.
+
+        If done_state_id not provided, attempts to find a 'Done' or 'Completed' state.
+        """
+        if self.dry_run or not self.api_token:
+            logger.info(f"[DRY RUN] Would move story {story_id} to Done")
+            return True
+
+        # If no state ID provided, try to get workflows and find Done state
+        if done_state_id is None:
+            done_state_id = self._find_done_state_id()
+            if done_state_id is None:
+                logger.warning("Could not find Done state - story not moved")
+                return False
+
+        result = self._put(f"/stories/{story_id}", {"workflow_state_id": done_state_id})
+        if result:
+            logger.info(f"Moved story {story_id} to Done state")
+            return True
+        return False
+
+    def _find_done_state_id(self) -> Optional[int]:
+        """Find the ID of a 'Done' or 'Completed' workflow state."""
+        result = self._get("/workflows")
+        if not result:
+            return None
+
+        for workflow in result:
+            for state in workflow.get("states", []):
+                name = state.get("name", "").lower()
+                if name in ("done", "completed", "closed"):
+                    return state.get("id")
+        return None
+
+    def add_comment(self, story_id: str, text: str) -> bool:
+        """Add a comment to a story."""
+        result = self._post(f"/stories/{story_id}/comments", {"text": text})
+        if result:
+            logger.info(f"Added comment to story {story_id}")
+            return True
+        return False
