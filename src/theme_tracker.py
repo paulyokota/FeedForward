@@ -7,6 +7,7 @@ and generates tickets when thresholds are met.
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -22,11 +23,70 @@ if env_path.exists():
 try:
     from .db.connection import get_connection
     from .theme_extractor import Theme, format_theme_for_ticket
+    from .shortcut_client import ShortcutClient
 except ImportError:
     from db.connection import get_connection
     from theme_extractor import Theme, format_theme_for_ticket
+    from shortcut_client import ShortcutClient
 
 logger = logging.getLogger(__name__)
+
+
+# Patterns that indicate specific/actionable excerpts
+SPECIFICITY_PATTERNS = [
+    r'\berror\b',           # Error mentions
+    r'\b\d{3,}\b',          # Error codes, IDs
+    r'https?://',           # URLs
+    r'\bfailed\b',          # Failure mentions
+    r'\bcrash',             # Crash mentions
+    r'\bbug\b',             # Bug mentions
+    r'\bversion\b',         # Version mentions
+    r'\bchrome\b|\bsafari\b|\bfirefox\b',  # Browser mentions
+    r'\bios\b|\bandroid\b|\bmobile\b',     # Platform mentions
+    r'\bstep\s*\d',         # Steps to reproduce
+    r'"[^"]{5,}"',          # Quoted text (specific values)
+    r"'[^']{5,}'",          # Single-quoted text
+]
+
+
+def score_excerpt_specificity(text: str) -> int:
+    """
+    Score an excerpt by specificity (higher = more useful for debugging).
+
+    Prefers excerpts with:
+    - Error codes/messages
+    - URLs
+    - Specific feature names
+    - Steps to reproduce
+    - Platform/browser info
+
+    Over generic complaints.
+    """
+    if not text:
+        return 0
+
+    text_lower = text.lower()
+    score = 0
+
+    # Check for specificity patterns
+    for pattern in SPECIFICITY_PATTERNS:
+        if re.search(pattern, text_lower):
+            score += 10
+
+    # Slight bonus for medium length (not too short, not too long)
+    length = len(text)
+    if 50 <= length <= 500:
+        score += 5
+    elif 500 < length <= 1000:
+        score += 3
+
+    # Penalty for very short or very long
+    if length < 30:
+        score -= 10
+    elif length > 2000:
+        score -= 5
+
+    return score
 
 
 @dataclass
@@ -45,6 +105,7 @@ class ThemeAggregate:
     sample_root_cause_hypothesis: str
     ticket_created: bool = False
     ticket_id: Optional[str] = None
+    ticket_excerpts: list[str] = None  # Excerpts already in ticket
     affected_conversations: list[str] = None
 
     def to_theme(self) -> Theme:
@@ -79,10 +140,20 @@ class ThemeTracker:
         Store a theme and update aggregates.
 
         Returns True if this is a new occurrence, False if duplicate.
+        Uses the conversation's created_at date for first_seen_at/last_seen_at
+        to track actual occurrence times, not processing times.
         """
         try:
             with get_connection() as conn:
                 with conn.cursor() as cur:
+                    # Get the conversation's actual created_at date
+                    cur.execute(
+                        "SELECT created_at FROM conversations WHERE id = %s",
+                        (theme.conversation_id,)
+                    )
+                    conv_row = cur.fetchone()
+                    conversation_date = conv_row[0] if conv_row else theme.extracted_at
+
                     # Insert theme (ignore if already exists for this conversation)
                     cur.execute(
                         """
@@ -113,6 +184,7 @@ class ThemeTracker:
                         return False
 
                     # Update or insert aggregate
+                    # Uses LEAST/GREATEST to track actual first/last conversation dates
                     cur.execute(
                         """
                         INSERT INTO theme_aggregates (
@@ -123,7 +195,8 @@ class ThemeTracker:
                         ) VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (issue_signature) DO UPDATE SET
                             occurrence_count = theme_aggregates.occurrence_count + 1,
-                            last_seen_at = EXCLUDED.last_seen_at,
+                            first_seen_at = LEAST(theme_aggregates.first_seen_at, EXCLUDED.first_seen_at),
+                            last_seen_at = GREATEST(theme_aggregates.last_seen_at, EXCLUDED.last_seen_at),
                             sample_user_intent = EXCLUDED.sample_user_intent,
                             sample_symptoms = EXCLUDED.sample_symptoms,
                             sample_affected_flow = EXCLUDED.sample_affected_flow,
@@ -133,8 +206,8 @@ class ThemeTracker:
                             theme.issue_signature,
                             theme.product_area,
                             theme.component,
-                            theme.extracted_at,
-                            theme.extracted_at,
+                            conversation_date,
+                            conversation_date,
                             theme.user_intent,
                             json.dumps(theme.symptoms),
                             theme.affected_flow,
@@ -169,7 +242,7 @@ class ThemeTracker:
                             occurrence_count, first_seen_at, last_seen_at,
                             sample_user_intent, sample_symptoms,
                             sample_affected_flow, sample_root_cause_hypothesis,
-                            ticket_created, ticket_id
+                            ticket_created, ticket_id, ticket_excerpts
                         FROM theme_aggregates
                         WHERE issue_signature = %s
                         """,
@@ -195,6 +268,10 @@ class ThemeTracker:
                     if isinstance(symptoms, str):
                         symptoms = json.loads(symptoms)
 
+                    excerpts = row[12]
+                    if isinstance(excerpts, str):
+                        excerpts = json.loads(excerpts)
+
                     return ThemeAggregate(
                         issue_signature=row[0],
                         product_area=row[1],
@@ -208,6 +285,7 @@ class ThemeTracker:
                         sample_root_cause_hypothesis=row[9],
                         ticket_created=row[10],
                         ticket_id=row[11],
+                        ticket_excerpts=excerpts,
                         affected_conversations=conv_ids,
                     )
 
@@ -270,8 +348,16 @@ class ThemeTracker:
             logger.error(f"Failed to get trending themes: {e}")
             return []
 
-    def get_themes_needing_tickets(self) -> list[ThemeAggregate]:
-        """Get themes that have reached ticket threshold but no ticket created."""
+    def get_themes_needing_tickets(
+        self,
+        recency_days: int = 30,
+    ) -> list[ThemeAggregate]:
+        """
+        Get themes that have reached ticket threshold but no ticket created.
+
+        Only returns themes with recent activity (within recency_days) to avoid
+        creating tickets for old/resolved issues in historical data.
+        """
         try:
             with get_connection() as conn:
                 with conn.cursor() as cur:
@@ -286,9 +372,10 @@ class ThemeTracker:
                         FROM theme_aggregates
                         WHERE occurrence_count >= %s
                           AND ticket_created = FALSE
+                          AND last_seen_at >= NOW() - INTERVAL '%s days'
                         ORDER BY occurrence_count DESC
                         """,
-                        (self.ticket_threshold,)
+                        (self.ticket_threshold, recency_days)
                     )
                     rows = cur.fetchall()
 
@@ -319,7 +406,12 @@ class ThemeTracker:
             logger.error(f"Failed to get themes needing tickets: {e}")
             return []
 
-    def mark_ticket_created(self, issue_signature: str, ticket_id: str) -> None:
+    def mark_ticket_created(
+        self,
+        issue_signature: str,
+        ticket_id: str,
+        initial_excerpts: Optional[list[str]] = None,
+    ) -> None:
         """Mark that a ticket was created for this theme."""
         try:
             with get_connection() as conn:
@@ -327,15 +419,235 @@ class ThemeTracker:
                     cur.execute(
                         """
                         UPDATE theme_aggregates
-                        SET ticket_created = TRUE, ticket_id = %s
+                        SET ticket_created = TRUE,
+                            ticket_id = %s,
+                            ticket_excerpts = %s
                         WHERE issue_signature = %s
                         """,
-                        (ticket_id, issue_signature)
+                        (ticket_id, json.dumps(initial_excerpts or []), issue_signature)
                     )
                     logger.info(f"Marked ticket created for {issue_signature}: {ticket_id}")
 
         except Exception as e:
             logger.error(f"Failed to mark ticket created: {e}")
+
+    def update_ticket_for_theme(
+        self,
+        issue_signature: str,
+        new_excerpt: Optional[str] = None,
+        max_excerpts: int = 10,
+        dry_run: bool = False,
+    ) -> bool:
+        """
+        Update an existing ticket with new count and optionally add excerpt.
+
+        Called when a new conversation is added to a theme that already has a ticket.
+        Updates the ticket title to reflect new count [N] and adds excerpt if:
+        - We have fewer than max_excerpts
+        - The new excerpt is specific enough (scores above threshold)
+
+        Returns True if ticket was updated.
+        """
+        agg = self.get_aggregate(issue_signature)
+        if not agg or not agg.ticket_created or not agg.ticket_id:
+            return False
+
+        shortcut = ShortcutClient(dry_run=dry_run)
+
+        # Update count in title
+        shortcut.update_story_count(agg.ticket_id, agg.occurrence_count)
+
+        # Check if we should add the excerpt
+        if new_excerpt:
+            current_excerpts = agg.ticket_excerpts or []
+
+            if len(current_excerpts) < max_excerpts:
+                # Check if excerpt is specific enough
+                score = score_excerpt_specificity(new_excerpt)
+                if score >= 5:  # Minimum threshold
+                    # Check it's not a duplicate (simple substring check)
+                    excerpt_preview = new_excerpt[:100]
+                    is_duplicate = any(
+                        excerpt_preview in existing or existing[:100] in new_excerpt
+                        for existing in current_excerpts
+                    )
+
+                    if not is_duplicate:
+                        # Add to ticket
+                        formatted = f"**Customer report (score: {score}):**\n> {new_excerpt[:500]}..."
+                        if shortcut.append_to_description(agg.ticket_id, formatted):
+                            # Update stored excerpts
+                            self._add_ticket_excerpt(issue_signature, new_excerpt)
+                            logger.info(
+                                f"Added excerpt to ticket {agg.ticket_id} "
+                                f"(score: {score}, total: {len(current_excerpts) + 1})"
+                            )
+
+        return True
+
+    def _add_ticket_excerpt(self, issue_signature: str, excerpt: str) -> None:
+        """Add an excerpt to the stored list for a theme."""
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE theme_aggregates
+                        SET ticket_excerpts = ticket_excerpts || %s::jsonb
+                        WHERE issue_signature = %s
+                        """,
+                        (json.dumps([excerpt]), issue_signature)
+                    )
+        except Exception as e:
+            logger.error(f"Failed to add ticket excerpt: {e}")
+
+    def get_ticket_excerpts(self, issue_signature: str) -> list[str]:
+        """Get the excerpts already added to a theme's ticket."""
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT ticket_excerpts
+                        FROM theme_aggregates
+                        WHERE issue_signature = %s
+                        """,
+                        (issue_signature,)
+                    )
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        return row[0] if isinstance(row[0], list) else json.loads(row[0])
+                    return []
+        except Exception as e:
+            logger.error(f"Failed to get ticket excerpts: {e}")
+            return []
+
+    def get_stale_tickets(self, stale_days: int = 30) -> list[ThemeAggregate]:
+        """
+        Get themes with tickets that haven't had activity in stale_days.
+
+        These are candidates for auto-closing.
+        """
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT
+                            issue_signature, product_area, component,
+                            occurrence_count, first_seen_at, last_seen_at,
+                            sample_user_intent, sample_symptoms,
+                            sample_affected_flow, sample_root_cause_hypothesis,
+                            ticket_created, ticket_id, ticket_excerpts
+                        FROM theme_aggregates
+                        WHERE ticket_created = TRUE
+                          AND ticket_id IS NOT NULL
+                          AND last_seen_at < NOW() - INTERVAL '%s days'
+                        ORDER BY last_seen_at ASC
+                        """,
+                        (stale_days,)
+                    )
+                    rows = cur.fetchall()
+
+                    aggregates = []
+                    for row in rows:
+                        symptoms = row[7]
+                        if isinstance(symptoms, str):
+                            symptoms = json.loads(symptoms)
+                        excerpts = row[12]
+                        if isinstance(excerpts, str):
+                            excerpts = json.loads(excerpts)
+
+                        aggregates.append(ThemeAggregate(
+                            issue_signature=row[0],
+                            product_area=row[1],
+                            component=row[2],
+                            occurrence_count=row[3],
+                            first_seen_at=row[4],
+                            last_seen_at=row[5],
+                            sample_user_intent=row[6],
+                            sample_symptoms=symptoms,
+                            sample_affected_flow=row[8],
+                            sample_root_cause_hypothesis=row[9],
+                            ticket_created=row[10],
+                            ticket_id=row[11],
+                            ticket_excerpts=excerpts,
+                        ))
+
+                    return aggregates
+
+        except Exception as e:
+            logger.error(f"Failed to get stale tickets: {e}")
+            return []
+
+    def close_stale_tickets(
+        self,
+        stale_days: int = 30,
+        dry_run: bool = False,
+    ) -> list[str]:
+        """
+        Close tickets for themes that haven't had activity in stale_days.
+
+        Returns list of closed ticket IDs.
+        """
+        stale = self.get_stale_tickets(stale_days)
+        if not stale:
+            return []
+
+        shortcut = ShortcutClient(dry_run=dry_run)
+        closed = []
+
+        for agg in stale:
+            # Add comment explaining auto-close
+            days_inactive = (datetime.utcnow() - agg.last_seen_at).days
+            comment = (
+                f"🤖 Auto-closed: No new reports in {days_inactive} days.\n\n"
+                f"Last seen: {agg.last_seen_at.strftime('%Y-%m-%d')}\n"
+                f"Total reports: {agg.occurrence_count}\n\n"
+                f"This ticket will be reopened if the issue is reported again."
+            )
+            shortcut.add_comment(agg.ticket_id, comment)
+
+            # Move to done
+            if shortcut.move_to_done(agg.ticket_id):
+                closed.append(agg.ticket_id)
+                logger.info(
+                    f"Closed stale ticket {agg.ticket_id} for {agg.issue_signature} "
+                    f"(inactive {days_inactive} days)"
+                )
+
+        return closed
+
+    def reopen_ticket_for_theme(
+        self,
+        issue_signature: str,
+        dry_run: bool = False,
+    ) -> bool:
+        """
+        Reopen a closed ticket when a theme resurfaces.
+
+        Called when update_ticket_for_theme detects the issue was previously closed.
+        Adds a comment noting the reopening.
+        """
+        agg = self.get_aggregate(issue_signature)
+        if not agg or not agg.ticket_id:
+            return False
+
+        shortcut = ShortcutClient(dry_run=dry_run)
+
+        # Add comment about reopening
+        comment = (
+            f"🔄 Reopened: Issue reported again.\n\n"
+            f"New report count: {agg.occurrence_count}\n"
+            f"This issue was previously auto-closed but has resurfaced."
+        )
+        shortcut.add_comment(agg.ticket_id, comment)
+
+        # Note: Moving back to active state would require knowing the workflow
+        # For now, the comment alerts the team. They can manually move it back.
+        logger.info(f"Added reopen comment to ticket {agg.ticket_id} for {issue_signature}")
+
+        return True
 
     def get_sample_messages(
         self,
