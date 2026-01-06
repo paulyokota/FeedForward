@@ -17,6 +17,7 @@
 - [x] `.gitignore` with `.env` protection
 - [x] Database decision: PostgreSQL
 - [x] Project spec (`PLAN.md`) with VDD methodology
+- [x] Claudebase Developer Kit plugin (14 agents, 26 skills, 5 command groups)
 
 ## What's Next
 
