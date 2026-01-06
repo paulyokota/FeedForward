@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-**Planning** - Project spec drafted, awaiting approval before Phase 1.
+**Phase 1: Prototype** - Ready to begin with Intercom data fetch.
 
 ## What's Done
 
@@ -22,15 +22,22 @@
 
 See [GitHub Issues](https://github.com/paulyokota/FeedForward/issues) for current backlog.
 
-**Phase 1 issues**: #1-#5
+**Phase 1 execution order** (data-driven approach):
+1. #9 - Fetch sample Intercom data ← **START HERE**
+2. #10 - Analyze patterns → finalize schema
+3. #1 - Create acceptance criteria (informed by schema)
+4. #2 - Label fixtures from real data
+5. #3 - Write failing tests
+6. #4 - Build classification prompt
+7. #5 - Implement classifier
 
 ## Blockers
 
-None currently.
+- **#9 requires `INTERCOM_ACCESS_TOKEN`** - need API key to fetch sample data
 
 ## Deferred
 
-Integration issues awaiting API tokens: #6 (Intercom), #7 (Shortcut), #8 (Slack)
+Integration issues for later phases: #6 (Intercom MCP), #7 (Shortcut), #8 (Slack)
 
 ## Recent Session Notes
 
@@ -53,3 +60,5 @@ Integration issues awaiting API tokens: #6 (Intercom), #7 (Shortcut), #8 (Slack)
 | 2026-01-06 | OpenAI for LLM classification | User preference |
 | 2026-01-06 | Batch processing pattern | Cost-effective, suits daily/weekly reporting use case |
 | 2026-01-06 | Issue-based development | Better organization, enables parallel work |
+| 2026-01-06 | Data-driven schema | Fetch real Intercom data first, let patterns inform categories rather than guessing |
+| 2026-01-06 | GitHub Issues over file-based | Migrated from issues/backlog.md to GitHub Issues for better tracking |
