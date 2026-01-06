@@ -29,8 +29,17 @@ See `reference/intercom-llm-guide.md` for detailed implementation specs.
 ## Commands
 
 ```bash
-# TBD - will add as project develops
+# TBD - build/test commands will be added as project develops
 ```
+
+## Slash Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/update-docs` | Update all project docs after making changes |
+| `/session-end [summary]` | End-of-session cleanup, status update, and commit |
+| `/create-issues [source]` | Generate GitHub issues from spec, file, or prompt |
+| `/prompt-iteration [version]` | Log new classification prompt version with metrics |
 
 ## Project Docs
 
