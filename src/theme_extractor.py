@@ -72,14 +72,12 @@ Extract these fields:
    - analytics (keyword research, performance tracking)
    - billing (plans, credits, payments, subscriptions)
    - account (login, connections, OAuth, profile management)
-   - integrations (Canva, browser extension, e-commerce)
+   - integrations (Canva, browser extension, CSV import, e-commerce)
    - other
 
 2. **component**: The specific feature or sub-component (e.g., "smartschedule", "pin_spacing", "ghostwriter", "csv_import")
 
 3. **issue_signature**: A canonical, lowercase, underscore-separated identifier for this specific issue type.
-   This should be reusable - if another customer has the same issue, they should get the same signature.
-   Examples: "pins_not_publishing_to_board", "smartschedule_times_not_optimal", "ai_credits_exhausted"
 
 4. **user_intent**: What the user was trying to accomplish (in plain English)
 
@@ -102,11 +100,45 @@ Message:
 ## Instructions
 
 1. Use your product knowledge to map user language to actual features
-2. Create issue_signatures that would match across similar reports
-3. Be specific in symptoms - these help engineers reproduce
-4. If unsure about a field, make your best inference
+2. Be specific in symptoms - these help engineers reproduce
+3. If unsure about a field, make your best inference
 
 Respond with valid JSON only:
+"""
+
+
+SIGNATURE_CANONICALIZATION_PROMPT = """You are normalizing issue signatures for a support ticket system.
+
+Given a NEW issue and a list of EXISTING signatures, decide:
+1. If the new issue matches an existing signature, return that signature
+2. If it's truly new, create a canonical signature
+
+## Rules for Signatures
+- Use lowercase with underscores: "csv_field_mapping_error"
+- Focus on the WHAT not the HOW: "pins_not_publishing" not "pinterest_api_timeout"
+- Be specific enough to group similar issues, general enough to not over-fragment
+- Structure: [feature]_[problem] e.g., "csv_import_field_mapping_error", "smartschedule_wrong_times"
+
+## Existing Signatures
+{existing_signatures}
+
+## New Issue
+Product Area: {product_area}
+Component: {component}
+Proposed Signature: {proposed_signature}
+User Intent: {user_intent}
+Symptoms: {symptoms}
+
+## Decision
+If this matches an existing signature conceptually (same root issue even if worded differently), return that signature.
+If it's genuinely new, return a well-formed canonical signature.
+
+Return JSON with:
+- "signature": the final canonical signature to use
+- "matched_existing": true if matched an existing signature, false if new
+- "reasoning": brief explanation of your decision
+
+JSON only:
 """
 
 
@@ -135,12 +167,13 @@ class Theme:
 
 
 class ThemeExtractor:
-    """Extracts themes from classified conversations."""
+    """Extracts themes from classified conversations with signature canonicalization."""
 
     def __init__(self, model: str = "gpt-4o-mini"):
         self.client = OpenAI()
         self.model = model
         self._product_context = None
+        self._existing_signatures = None
 
     @property
     def product_context(self) -> str:
@@ -149,9 +182,95 @@ class ThemeExtractor:
             logger.info(f"Loaded {len(self._product_context)} chars of product context")
         return self._product_context
 
-    def extract(self, conv: Conversation) -> Theme:
-        """Extract theme from a single conversation."""
+    def get_existing_signatures(self) -> list[dict]:
+        """Fetch existing signatures from database for canonicalization."""
+        try:
+            from .db.connection import get_connection
+        except ImportError:
+            from db.connection import get_connection
 
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT issue_signature, product_area, component
+                        FROM theme_aggregates
+                        ORDER BY occurrence_count DESC
+                        LIMIT 50
+                    """)
+                    return [
+                        {"signature": row[0], "product_area": row[1], "component": row[2]}
+                        for row in cur.fetchall()
+                    ]
+        except Exception as e:
+            logger.warning(f"Could not fetch existing signatures: {e}")
+            return []
+
+    def canonicalize_signature(
+        self,
+        proposed_signature: str,
+        product_area: str,
+        component: str,
+        user_intent: str,
+        symptoms: list[str],
+    ) -> str:
+        """
+        Canonicalize a proposed signature against existing signatures.
+
+        Uses LLM to determine if this matches an existing signature or needs a new one.
+        """
+        existing = self.get_existing_signatures()
+
+        # If no existing signatures, just return the proposed one (normalized)
+        if not existing:
+            return proposed_signature.lower().replace(" ", "_").replace("-", "_")
+
+        # Format existing signatures for the prompt
+        sig_list = "\n".join(
+            f"- {s['signature']} ({s['product_area']}/{s['component']})"
+            for s in existing
+        )
+
+        prompt = SIGNATURE_CANONICALIZATION_PROMPT.format(
+            existing_signatures=sig_list if sig_list else "(none yet)",
+            product_area=product_area,
+            component=component,
+            proposed_signature=proposed_signature,
+            user_intent=user_intent,
+            symptoms=", ".join(symptoms) if symptoms else "none specified",
+        )
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": "You normalize issue signatures. Respond with valid JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,  # Low temperature for consistency
+            response_format={"type": "json_object"},
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        final_sig = result.get("signature", proposed_signature)
+        matched = result.get("matched_existing", False)
+        reasoning = result.get("reasoning", "")
+
+        if matched:
+            logger.info(f"Matched existing signature: {final_sig} (was: {proposed_signature})")
+        else:
+            logger.info(f"New signature: {final_sig} - {reasoning}")
+
+        return final_sig
+
+    def extract(self, conv: Conversation, canonicalize: bool = True) -> Theme:
+        """
+        Extract theme from a single conversation.
+
+        Args:
+            conv: The conversation to extract from
+            canonicalize: If True, run signature through canonicalization (2nd LLM call)
+        """
+        # Phase 1: Extract theme details
         prompt = THEME_EXTRACTION_PROMPT.format(
             product_context=self.product_context[:10000],  # Limit context size
             issue_type=conv.issue_type,
@@ -173,23 +292,41 @@ class ThemeExtractor:
 
         result = json.loads(response.choices[0].message.content)
 
+        proposed_signature = result.get("issue_signature", "unknown_issue")
+        product_area = result.get("product_area", "other")
+        component = result.get("component", "unknown")
+        user_intent = result.get("user_intent", "")
+        symptoms = result.get("symptoms", [])
+
+        # Phase 2: Canonicalize signature (optional but recommended)
+        if canonicalize:
+            final_signature = self.canonicalize_signature(
+                proposed_signature=proposed_signature,
+                product_area=product_area,
+                component=component,
+                user_intent=user_intent,
+                symptoms=symptoms,
+            )
+        else:
+            final_signature = proposed_signature
+
         return Theme(
             conversation_id=conv.id,
-            product_area=result.get("product_area", "other"),
-            component=result.get("component", "unknown"),
-            issue_signature=result.get("issue_signature", "unknown_issue"),
-            user_intent=result.get("user_intent", ""),
-            symptoms=result.get("symptoms", []),
+            product_area=product_area,
+            component=component,
+            issue_signature=final_signature,
+            user_intent=user_intent,
+            symptoms=symptoms,
             affected_flow=result.get("affected_flow", ""),
             root_cause_hypothesis=result.get("root_cause_hypothesis", ""),
         )
 
-    def extract_batch(self, conversations: list[Conversation]) -> list[Theme]:
+    def extract_batch(self, conversations: list[Conversation], canonicalize: bool = True) -> list[Theme]:
         """Extract themes from multiple conversations."""
         themes = []
         for conv in conversations:
             try:
-                theme = self.extract(conv)
+                theme = self.extract(conv, canonicalize=canonicalize)
                 themes.append(theme)
                 logger.info(f"Extracted theme: {theme.issue_signature}")
             except Exception as e:
