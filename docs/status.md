@@ -28,6 +28,17 @@ None currently.
   - Anthropic official marketplace: `anthropics/claude-plugins-official`
   - Claudebase Developer Kit: `claudebase/marketplace`
 
+- [ ] **Configure Intercom MCP** - Official server at `https://mcp.intercom.com/mcp` (US workspaces only)
+  - Setup: `claude mcp add intercom --transport http https://mcp.intercom.com/mcp`
+  - Requires: `INTERCOM_ACCESS_TOKEN`
+
+- [ ] **Configure Shortcut MCP** - Official server for project management
+  - Setup: `claude mcp add shortcut --transport=stdio -e SHORTCUT_API_TOKEN=xxx -- npx -y @shortcut/mcp@latest`
+  - Requires: `SHORTCUT_API_TOKEN`
+
+- [ ] **Configure Slack MCP** - For escalation alerts (research needed)
+  - Requires: `SLACK_WEBHOOK_URL`, `SLACK_BOT_TOKEN`
+
 ## Recent Session Notes
 
 **2026-01-06**: Initial setup session
