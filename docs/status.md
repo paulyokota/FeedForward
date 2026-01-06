@@ -2,7 +2,44 @@
 
 ## Current Phase
 
-**Phase 4: Real-Time Workflows** - Ready to begin (optional)
+**Phase 4: Theme Extraction & Aggregation** - IN PROGRESS 🚧
+
+## Phase 4: Theme Extraction 🚧
+
+**Status**: Core functionality complete, testing with real data
+
+**Deliverables**:
+
+- [x] `src/theme_extractor.py` - LLM-based theme extraction with product context
+- [x] `src/theme_tracker.py` - Store, aggregate, and query themes
+- [x] `src/cli.py` - CLI for viewing themes and ticket previews
+- [x] `src/db/schema.sql` - themes + theme_aggregates tables
+- [x] `context/product/*.md` - Product documentation for context
+
+**CLI Commands**:
+
+```bash
+python src/cli.py themes           # List all themes
+python src/cli.py trending         # Trending (2+ occurrences in 7 days)
+python src/cli.py pending          # Preview ALL pending tickets
+python src/cli.py ticket <sig>     # Preview specific ticket
+python src/cli.py extract <id>     # Extract theme from conversation
+```
+
+**Ticket Format**: Each ticket includes:
+
+- Product area and component mapping
+- Canonical issue_signature for aggregation
+- User intent and symptoms
+- Affected flow and root cause hypothesis
+- Sample customer messages
+- Suggested investigation steps
+
+**Known Issue**: LLM sometimes generates slightly different signatures for similar issues (e.g., `csv_column_mapping_failure` vs `pin_description_mapping_error`). May need prompt refinement or post-processing.
+
+**Branch**: `feature/theme-extraction` - ready for PR
+
+---
 
 ## Phase 3: COMPLETE ✅
 
