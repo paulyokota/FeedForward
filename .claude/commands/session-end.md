@@ -21,16 +21,14 @@ Complete the current work session with proper documentation and commits.
    - Update "What's Next" with follow-up tasks
    - Note any blockers encountered
 
-3. **Update changelog** (delegate to `changelog` agent):
-   - The `changelog` agent will review commits and add appropriate entries
-   - It categorizes changes as Added/Changed/Fixed/Removed
-   - Uses user-facing language, not implementation details
+3. **Update changelog** (use developer-kit):
+   - Run `/developer-kit:changelog` to generate entries from git history
+   - Review and add to `docs/changelog.md` under [Unreleased]
 
-4. **Conduct retrospective** (optionally delegate to `retro` agent):
-   - If this was a significant session, use the `retro` agent to:
-     - Identify what went well and what didn't
-     - Capture patterns worth codifying in CLAUDE.md
-     - Suggest workflow improvements
+4. **Session reflection** (use developer-kit):
+   - Run `/developer-kit:reflect --summary --decisions`
+   - Captures what was accomplished, key decisions, and learnings
+   - Optionally save with `--save docs/session/[date].md`
 
 5. **Stage and commit changes**:
    - Group related changes into logical commits
@@ -44,7 +42,8 @@ Complete the current work session with proper documentation and commits.
 
 Session summary from user: $ARGUMENTS
 
-## Related Agents
+## Developer-Kit Integration
 
-- `changelog` - Automatically formats changelog entries
-- `retro` - Captures learnings and improves workflows
+This command leverages the Claudebase Developer Kit:
+- `/developer-kit:changelog` - Parses git history, generates formatted changelog
+- `/developer-kit:reflect` - Structured session reflection with decisions/learnings

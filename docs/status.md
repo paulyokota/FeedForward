@@ -12,7 +12,7 @@
 - [x] `CLAUDE.md` starter file
 - [x] Documentation structure (`docs/`)
 - [x] Slash commands (`/update-docs`, `/session-end`, `/create-issues`, `/prompt-iteration`)
-- [x] Subagents (`changelog`, `retro`, `prompt-tester`, `schema-validator`, `escalation-validator`)
+- [x] Subagents (`prompt-tester`, `schema-validator`, `escalation-validator`)
 - [x] Permissions and hooks (`.claude/settings.json`, block main push, test gate)
 - [x] `.gitignore` with `.env` protection
 - [x] Database decision: PostgreSQL

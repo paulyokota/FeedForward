@@ -19,11 +19,10 @@ Format: [ISO Date] - Summary of changes
   - `/create-issues` - Generate GitHub issues from specs
   - `/prompt-iteration` - Log prompt versions with metrics
 - Subagents for specialized tasks:
-  - `changelog` - Auto-format changelog entries
-  - `retro` - Post-session retrospective
   - `prompt-tester` - Test prompts and measure accuracy
   - `schema-validator` - Validate schema consistency
   - `escalation-validator` - Validate escalation rules
+- Claudebase Developer Kit plugin (14 agents, 26 skills, 5 command groups)
 - Environment configuration (`.env.example`) with tokens for GitHub, Intercom, Shortcut, OpenAI, Slack
 
 ### Changed

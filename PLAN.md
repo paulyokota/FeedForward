@@ -352,9 +352,7 @@ FeedForward/
 │   │   ├── session-end.md
 │   │   ├── create-issues.md
 │   │   └── prompt-iteration.md
-│   ├── agents/             # Subagents
-│   │   ├── changelog.md
-│   │   ├── retro.md
+│   ├── agents/             # Subagents (domain-specific)
 │   │   ├── prompt-tester.md
 │   │   ├── schema-validator.md
 │   │   └── escalation-validator.md
@@ -443,7 +441,7 @@ FeedForward/
 
 1. Run `/update-docs` to sync documentation
 2. Use `/session-end [summary]` to commit and log progress
-3. The `changelog` and `retro` agents will be invoked as appropriate
+3. Developer-kit commands (`/developer-kit:changelog`, `/developer-kit:reflect`) handle changelog and session reflection
 
 ---
 

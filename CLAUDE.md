@@ -64,11 +64,21 @@ Auto-invoked agents that handle specialized tasks. Claude decides when to use th
 
 | Agent | Purpose | Trigger |
 |-------|---------|---------|
-| `changelog` | Updates docs/changelog.md with user-facing entries | After features complete |
-| `retro` | Post-session retrospective, captures learnings | After significant sessions |
 | `prompt-tester` | Tests classification prompts, measures accuracy | When iterating on prompts |
 | `schema-validator` | Validates Pydantic/DB/LLM schema consistency | When models change |
 | `escalation-validator` | Validates escalation rules and edge cases | When rules change |
+
+## Developer Kit (Plugin)
+
+Claudebase Developer Kit (`developer-kit@claudebase`) provides general-purpose development capabilities:
+
+| Type | Examples |
+|------|----------|
+| Agents | `architect`, `code-reviewer`, `database-admin`, `security-expert`, `python-expert` |
+| Skills | `analyze`, `debug`, `design`, `implement`, `test`, `security`, `quality` |
+| Commands | `/developer-kit:changelog`, `/developer-kit:reflect`, `/developer-kit:code-review` |
+
+Use these for general development tasks. Our custom subagents above are FeedForward-specific.
 
 ## Project Docs
 
