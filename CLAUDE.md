@@ -2,11 +2,21 @@
 
 LLM-powered Intercom conversation analysis pipeline for extracting product insights.
 
+**Start here**: Read `PLAN.md` for full project context, methodology, and phased implementation plan.
+
+## Methodology: Validation-Driven Development (VDD)
+
+This project follows VDD principles from `reference/UAT-Agentic-Coding-Research.md`:
+- **Define acceptance criteria BEFORE writing code**
+- **Write failing tests first**, then implement to pass them
+- **Max 3-5 autonomous iterations** before human review
+- **Measure success objectively** (accuracy thresholds, not "looks good")
+
 ## Tech Stack
 
 - **LLM Classification**: OpenAI (gpt-4o-mini for cost efficiency)
-- **Database**: TBD (PostgreSQL or MongoDB)
-- **Integrations**: Intercom API, potentially Jira/Productboard/Slack
+- **Database**: PostgreSQL (structured output, SQL aggregation for reporting)
+- **Integrations**: Intercom API, Shortcut (issue tracking), Slack (alerts)
 
 ## Architecture
 

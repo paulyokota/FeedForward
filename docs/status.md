@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-**Setup** - Establishing project foundation and documentation.
+**Planning** - Project spec drafted, awaiting approval before Phase 1.
 
 ## What's Done
 
@@ -14,12 +14,16 @@
 - [x] Slash commands (`/update-docs`, `/session-end`, `/create-issues`, `/prompt-iteration`)
 - [x] Subagents (`changelog`, `retro`, `prompt-tester`, `schema-validator`, `escalation-validator`)
 - [x] Permissions and hooks (`.claude/settings.json`, block main push, test gate)
+- [x] `.gitignore` with `.env` protection
+- [x] Database decision: PostgreSQL
+- [x] Project spec (`PLAN.md`) with VDD methodology
 
 ## What's Next
 
-- [ ] Add `.gitignore` with `.env` to protect secrets
-- [ ] Finalize tech stack decisions (database choice)
-- [ ] Create project spec from reference docs
+- [ ] **Review and approve `PLAN.md`**
+- [ ] Create `acceptance_criteria/phase1.yaml`
+- [ ] Create labeled test fixtures (`tests/fixtures/labeled_conversations.json`)
+- [ ] Write failing classification tests
 - [ ] Begin Phase 1: Prototype
 
 ## Blockers
