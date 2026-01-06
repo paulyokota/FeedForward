@@ -2,7 +2,49 @@
 
 ## Current Phase
 
-**Phase 4: Real-Time Workflows** - Ready to begin (optional)
+**Phase 4: Theme Extraction & Aggregation** - IN PROGRESS 🚧
+
+## Phase 4: Theme Extraction 🚧
+
+**Status**: Core functionality complete, testing with real data
+
+**Deliverables**:
+
+- [x] `src/theme_extractor.py` - LLM-based theme extraction with product context
+- [x] `src/theme_tracker.py` - Store, aggregate, and query themes
+- [x] `src/cli.py` - CLI for viewing themes and ticket previews
+- [x] `src/db/schema.sql` - themes + theme_aggregates tables
+- [x] `context/product/*.md` - Product documentation for context
+
+**CLI Commands**:
+
+```bash
+python src/cli.py themes           # List all themes
+python src/cli.py trending         # Trending (2+ occurrences in 7 days)
+python src/cli.py pending          # Preview ALL pending tickets
+python src/cli.py ticket <sig>     # Preview specific ticket
+python src/cli.py extract <id>     # Extract theme from conversation
+```
+
+**Ticket Format**: Each ticket includes:
+
+- Product area and component mapping
+- Canonical issue_signature for aggregation
+- User intent and symptoms
+- Affected flow and root cause hypothesis
+- Sample customer messages
+- Suggested investigation steps
+
+**Signature Canonicalization**: Two-phase extraction ensures consistent signatures:
+
+1. Phase 1: Extract theme details (product_area, component, symptoms, etc.)
+2. Phase 2: Canonicalize signature against existing signatures in database
+
+Tested embedding-based canonicalization as cheaper alternative - rejected due to lower accuracy (0.627 similarity) and actually slower (N API calls vs 1 LLM call).
+
+**Branch**: `feature/theme-extraction` - ready for PR
+
+---
 
 ## Phase 3: COMPLETE ✅
 
@@ -122,3 +164,4 @@ None
 | 2026-01-06 | Data-driven schema        | Let real data inform categories              |
 | 2026-01-06 | Hybrid LLM + rules        | LLM for semantics, rules for edge cases      |
 | 2026-01-06 | Quality filter before LLM | ~50% of conversations not useful, saves cost |
+| 2026-01-06 | LLM for canonicalization  | Embedding approach slower & less accurate    |

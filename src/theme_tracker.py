@@ -1,0 +1,426 @@
+"""
+Theme tracker for storing, aggregating, and querying themes.
+
+Manages the themes and theme_aggregates tables, tracks trending issues,
+and generates tickets when thresholds are met.
+"""
+
+import json
+import logging
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Optional
+
+# Load .env file if present
+from dotenv import load_dotenv
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+
+# Handle both module and script execution
+try:
+    from .db.connection import get_connection
+    from .theme_extractor import Theme, format_theme_for_ticket
+except ImportError:
+    from db.connection import get_connection
+    from theme_extractor import Theme, format_theme_for_ticket
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ThemeAggregate:
+    """Aggregated theme data across multiple conversations."""
+
+    issue_signature: str
+    product_area: str
+    component: str
+    occurrence_count: int
+    first_seen_at: datetime
+    last_seen_at: datetime
+    sample_user_intent: str
+    sample_symptoms: list[str]
+    sample_affected_flow: str
+    sample_root_cause_hypothesis: str
+    ticket_created: bool = False
+    ticket_id: Optional[str] = None
+    affected_conversations: list[str] = None
+
+    def to_theme(self) -> Theme:
+        """Convert aggregate to Theme for formatting."""
+        return Theme(
+            conversation_id=f"aggregate_{self.issue_signature}",
+            product_area=self.product_area,
+            component=self.component,
+            issue_signature=self.issue_signature,
+            user_intent=self.sample_user_intent,
+            symptoms=self.sample_symptoms or [],
+            affected_flow=self.sample_affected_flow,
+            root_cause_hypothesis=self.sample_root_cause_hypothesis,
+            extracted_at=self.last_seen_at,
+        )
+
+
+class ThemeTracker:
+    """Tracks and aggregates themes from conversations."""
+
+    def __init__(self, ticket_threshold: int = 3):
+        """
+        Initialize the theme tracker.
+
+        Args:
+            ticket_threshold: Number of occurrences before auto-creating a ticket
+        """
+        self.ticket_threshold = ticket_threshold
+
+    def store_theme(self, theme: Theme) -> bool:
+        """
+        Store a theme and update aggregates.
+
+        Returns True if this is a new occurrence, False if duplicate.
+        """
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    # Insert theme (ignore if already exists for this conversation)
+                    cur.execute(
+                        """
+                        INSERT INTO themes (
+                            conversation_id, product_area, component, issue_signature,
+                            user_intent, symptoms, affected_flow, root_cause_hypothesis,
+                            extracted_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (conversation_id) DO NOTHING
+                        RETURNING id
+                        """,
+                        (
+                            theme.conversation_id,
+                            theme.product_area,
+                            theme.component,
+                            theme.issue_signature,
+                            theme.user_intent,
+                            json.dumps(theme.symptoms),
+                            theme.affected_flow,
+                            theme.root_cause_hypothesis,
+                            theme.extracted_at,
+                        )
+                    )
+                    result = cur.fetchone()
+
+                    if result is None:
+                        # Already exists
+                        return False
+
+                    # Update or insert aggregate
+                    cur.execute(
+                        """
+                        INSERT INTO theme_aggregates (
+                            issue_signature, product_area, component,
+                            occurrence_count, first_seen_at, last_seen_at,
+                            sample_user_intent, sample_symptoms,
+                            sample_affected_flow, sample_root_cause_hypothesis
+                        ) VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (issue_signature) DO UPDATE SET
+                            occurrence_count = theme_aggregates.occurrence_count + 1,
+                            last_seen_at = EXCLUDED.last_seen_at,
+                            sample_user_intent = EXCLUDED.sample_user_intent,
+                            sample_symptoms = EXCLUDED.sample_symptoms,
+                            sample_affected_flow = EXCLUDED.sample_affected_flow,
+                            sample_root_cause_hypothesis = EXCLUDED.sample_root_cause_hypothesis
+                        """,
+                        (
+                            theme.issue_signature,
+                            theme.product_area,
+                            theme.component,
+                            theme.extracted_at,
+                            theme.extracted_at,
+                            theme.user_intent,
+                            json.dumps(theme.symptoms),
+                            theme.affected_flow,
+                            theme.root_cause_hypothesis,
+                        )
+                    )
+
+                    logger.info(f"Stored theme: {theme.issue_signature}")
+                    return True
+
+        except Exception as e:
+            logger.error(f"Failed to store theme: {e}")
+            raise
+
+    def store_batch(self, themes: list[Theme]) -> int:
+        """Store multiple themes. Returns count of new themes stored."""
+        count = 0
+        for theme in themes:
+            if self.store_theme(theme):
+                count += 1
+        return count
+
+    def get_aggregate(self, issue_signature: str) -> Optional[ThemeAggregate]:
+        """Get aggregate data for a specific issue signature."""
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT
+                            issue_signature, product_area, component,
+                            occurrence_count, first_seen_at, last_seen_at,
+                            sample_user_intent, sample_symptoms,
+                            sample_affected_flow, sample_root_cause_hypothesis,
+                            ticket_created, ticket_id
+                        FROM theme_aggregates
+                        WHERE issue_signature = %s
+                        """,
+                        (issue_signature,)
+                    )
+                    row = cur.fetchone()
+
+                    if row is None:
+                        return None
+
+                    # Get affected conversation IDs
+                    cur.execute(
+                        """
+                        SELECT conversation_id FROM themes
+                        WHERE issue_signature = %s
+                        ORDER BY extracted_at DESC
+                        """,
+                        (issue_signature,)
+                    )
+                    conv_ids = [r[0] for r in cur.fetchall()]
+
+                    symptoms = row[7]
+                    if isinstance(symptoms, str):
+                        symptoms = json.loads(symptoms)
+
+                    return ThemeAggregate(
+                        issue_signature=row[0],
+                        product_area=row[1],
+                        component=row[2],
+                        occurrence_count=row[3],
+                        first_seen_at=row[4],
+                        last_seen_at=row[5],
+                        sample_user_intent=row[6],
+                        sample_symptoms=symptoms,
+                        sample_affected_flow=row[8],
+                        sample_root_cause_hypothesis=row[9],
+                        ticket_created=row[10],
+                        ticket_id=row[11],
+                        affected_conversations=conv_ids,
+                    )
+
+        except Exception as e:
+            logger.error(f"Failed to get aggregate: {e}")
+            return None
+
+    def get_trending_themes(
+        self,
+        days: int = 7,
+        min_occurrences: int = 2,
+        limit: int = 20,
+    ) -> list[ThemeAggregate]:
+        """Get trending themes (multiple occurrences in time window)."""
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT
+                            ta.issue_signature, ta.product_area, ta.component,
+                            ta.occurrence_count, ta.first_seen_at, ta.last_seen_at,
+                            ta.sample_user_intent, ta.sample_symptoms,
+                            ta.sample_affected_flow, ta.sample_root_cause_hypothesis,
+                            ta.ticket_created, ta.ticket_id
+                        FROM theme_aggregates ta
+                        WHERE ta.last_seen_at > NOW() - INTERVAL '%s days'
+                          AND ta.occurrence_count >= %s
+                        ORDER BY ta.occurrence_count DESC, ta.last_seen_at DESC
+                        LIMIT %s
+                        """,
+                        (days, min_occurrences, limit)
+                    )
+                    rows = cur.fetchall()
+
+                    aggregates = []
+                    for row in rows:
+                        symptoms = row[7]
+                        if isinstance(symptoms, str):
+                            symptoms = json.loads(symptoms)
+
+                        aggregates.append(ThemeAggregate(
+                            issue_signature=row[0],
+                            product_area=row[1],
+                            component=row[2],
+                            occurrence_count=row[3],
+                            first_seen_at=row[4],
+                            last_seen_at=row[5],
+                            sample_user_intent=row[6],
+                            sample_symptoms=symptoms,
+                            sample_affected_flow=row[8],
+                            sample_root_cause_hypothesis=row[9],
+                            ticket_created=row[10],
+                            ticket_id=row[11],
+                        ))
+
+                    return aggregates
+
+        except Exception as e:
+            logger.error(f"Failed to get trending themes: {e}")
+            return []
+
+    def get_themes_needing_tickets(self) -> list[ThemeAggregate]:
+        """Get themes that have reached ticket threshold but no ticket created."""
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT
+                            issue_signature, product_area, component,
+                            occurrence_count, first_seen_at, last_seen_at,
+                            sample_user_intent, sample_symptoms,
+                            sample_affected_flow, sample_root_cause_hypothesis,
+                            ticket_created, ticket_id
+                        FROM theme_aggregates
+                        WHERE occurrence_count >= %s
+                          AND ticket_created = FALSE
+                        ORDER BY occurrence_count DESC
+                        """,
+                        (self.ticket_threshold,)
+                    )
+                    rows = cur.fetchall()
+
+                    aggregates = []
+                    for row in rows:
+                        symptoms = row[7]
+                        if isinstance(symptoms, str):
+                            symptoms = json.loads(symptoms)
+
+                        aggregates.append(ThemeAggregate(
+                            issue_signature=row[0],
+                            product_area=row[1],
+                            component=row[2],
+                            occurrence_count=row[3],
+                            first_seen_at=row[4],
+                            last_seen_at=row[5],
+                            sample_user_intent=row[6],
+                            sample_symptoms=symptoms,
+                            sample_affected_flow=row[8],
+                            sample_root_cause_hypothesis=row[9],
+                            ticket_created=row[10],
+                            ticket_id=row[11],
+                        ))
+
+                    return aggregates
+
+        except Exception as e:
+            logger.error(f"Failed to get themes needing tickets: {e}")
+            return []
+
+    def mark_ticket_created(self, issue_signature: str, ticket_id: str) -> None:
+        """Mark that a ticket was created for this theme."""
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE theme_aggregates
+                        SET ticket_created = TRUE, ticket_id = %s
+                        WHERE issue_signature = %s
+                        """,
+                        (ticket_id, issue_signature)
+                    )
+                    logger.info(f"Marked ticket created for {issue_signature}: {ticket_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to mark ticket created: {e}")
+
+    def get_sample_messages(
+        self,
+        issue_signature: str,
+        limit: int = 5,
+    ) -> list[str]:
+        """Get sample customer messages for a theme."""
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT c.source_body
+                        FROM themes t
+                        JOIN conversations c ON t.conversation_id = c.id
+                        WHERE t.issue_signature = %s
+                          AND c.source_body IS NOT NULL
+                        ORDER BY t.extracted_at DESC
+                        LIMIT %s
+                        """,
+                        (issue_signature, limit)
+                    )
+                    return [row[0] for row in cur.fetchall()]
+
+        except Exception as e:
+            logger.error(f"Failed to get sample messages: {e}")
+            return []
+
+    def format_trending_report(self, days: int = 7) -> str:
+        """Generate a report of trending themes."""
+        themes = self.get_trending_themes(days=days)
+
+        if not themes:
+            return f"No trending themes in the last {days} days."
+
+        lines = [
+            f"# Trending Themes (Last {days} Days)",
+            "",
+            f"Found {len(themes)} themes with 2+ occurrences:",
+            "",
+        ]
+
+        for agg in themes:
+            ticket_status = f" [Ticket: {agg.ticket_id}]" if agg.ticket_created else ""
+            lines.append(
+                f"- **{agg.issue_signature}** ({agg.occurrence_count}x) "
+                f"[{agg.product_area}/{agg.component}]{ticket_status}"
+            )
+
+        return "\n".join(lines)
+
+
+def generate_ticket_content(tracker: ThemeTracker, issue_signature: str) -> str:
+    """Generate full ticket content for an issue signature."""
+    agg = tracker.get_aggregate(issue_signature)
+    if agg is None:
+        return f"Theme not found: {issue_signature}"
+
+    samples = tracker.get_sample_messages(issue_signature, limit=3)
+    theme = agg.to_theme()
+
+    return format_theme_for_ticket(
+        theme,
+        similar_count=agg.occurrence_count,
+        sample_messages=samples,
+    )
+
+
+# Quick test
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
+    tracker = ThemeTracker(ticket_threshold=3)
+
+    print("=" * 60)
+    print("TRENDING THEMES REPORT")
+    print("=" * 60)
+    print(tracker.format_trending_report())
+
+    print("\n" + "=" * 60)
+    print("THEMES NEEDING TICKETS")
+    print("=" * 60)
+    needing_tickets = tracker.get_themes_needing_tickets()
+    if needing_tickets:
+        for agg in needing_tickets:
+            print(f"- {agg.issue_signature} ({agg.occurrence_count}x)")
+    else:
+        print("No themes have reached the ticket threshold yet.")

@@ -96,6 +96,69 @@ CREATE INDEX IF NOT EXISTS idx_escalation_log_conversation
 CREATE INDEX IF NOT EXISTS idx_escalation_log_created_at
     ON escalation_log(created_at DESC);
 
+-- Themes table: extracted themes from conversations
+CREATE TABLE IF NOT EXISTS themes (
+    id SERIAL PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id),
+
+    -- Theme classification
+    product_area TEXT NOT NULL,          -- e.g., 'scheduling', 'pinterest_publishing'
+    component TEXT NOT NULL,              -- e.g., 'csv_import', 'smartschedule'
+    issue_signature TEXT NOT NULL,        -- Canonical identifier for grouping
+
+    -- Details
+    user_intent TEXT,
+    symptoms JSONB,                       -- Array of symptom strings
+    affected_flow TEXT,
+    root_cause_hypothesis TEXT,
+
+    -- Metadata
+    extracted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    extractor_version TEXT DEFAULT 'v1',
+
+    UNIQUE (conversation_id)              -- One theme per conversation
+);
+
+CREATE INDEX IF NOT EXISTS idx_themes_issue_signature
+    ON themes(issue_signature);
+
+CREATE INDEX IF NOT EXISTS idx_themes_product_area
+    ON themes(product_area);
+
+CREATE INDEX IF NOT EXISTS idx_themes_extracted_at
+    ON themes(extracted_at DESC);
+
+-- Theme aggregates: pre-computed counts for trending themes
+CREATE TABLE IF NOT EXISTS theme_aggregates (
+    id SERIAL PRIMARY KEY,
+    issue_signature TEXT NOT NULL,
+    product_area TEXT NOT NULL,
+    component TEXT NOT NULL,
+
+    -- Counts
+    occurrence_count INTEGER DEFAULT 1,
+    first_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    -- Representative data (from most recent occurrence)
+    sample_user_intent TEXT,
+    sample_symptoms JSONB,
+    sample_affected_flow TEXT,
+    sample_root_cause_hypothesis TEXT,
+
+    -- For ticket creation
+    ticket_created BOOLEAN DEFAULT FALSE,
+    ticket_id TEXT,                       -- Shortcut story ID if created
+
+    UNIQUE (issue_signature)
+);
+
+CREATE INDEX IF NOT EXISTS idx_theme_aggregates_count
+    ON theme_aggregates(occurrence_count DESC);
+
+CREATE INDEX IF NOT EXISTS idx_theme_aggregates_last_seen
+    ON theme_aggregates(last_seen_at DESC);
+
 -- Useful views
 CREATE OR REPLACE VIEW conversation_summary AS
 SELECT
@@ -107,3 +170,20 @@ FROM conversations
 WHERE created_at > NOW() - INTERVAL '30 days'
 GROUP BY issue_type
 ORDER BY count DESC;
+
+-- Trending themes view: themes with multiple occurrences in last 7 days
+CREATE OR REPLACE VIEW trending_themes AS
+SELECT
+    t.issue_signature,
+    t.product_area,
+    t.component,
+    COUNT(*) as occurrence_count,
+    MIN(t.extracted_at) as first_seen,
+    MAX(t.extracted_at) as last_seen,
+    array_agg(DISTINCT c.contact_email) FILTER (WHERE c.contact_email IS NOT NULL) as affected_users
+FROM themes t
+JOIN conversations c ON t.conversation_id = c.id
+WHERE t.extracted_at > NOW() - INTERVAL '7 days'
+GROUP BY t.issue_signature, t.product_area, t.component
+HAVING COUNT(*) >= 2
+ORDER BY occurrence_count DESC;
