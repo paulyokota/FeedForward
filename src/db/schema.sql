@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS theme_aggregates (
     -- For ticket creation
     ticket_created BOOLEAN DEFAULT FALSE,
     ticket_id TEXT,                       -- Shortcut story ID if created
+    ticket_excerpts JSONB DEFAULT '[]',   -- Excerpts already added to ticket
 
     UNIQUE (issue_signature)
 );
