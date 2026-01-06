@@ -2,7 +2,38 @@
 
 ## Current Phase
 
-**Phase 2: Batch Pipeline MVP** - Ready to begin
+**Phase 3: Escalation Engine** - Ready to begin
+
+## Phase 2: COMPLETE ✅
+
+**Final Metrics**:
+
+| Metric                | Result      | Target        |
+| --------------------- | ----------- | ------------- |
+| Intercom Fetch        | ✅ Working  | Functional    |
+| Quality Filter        | 17%         | ~50% (varies) |
+| Classification        | 100%        | 100%          |
+| DB Storage            | ✅ Working  | Functional    |
+| Idempotency           | ✅ Verified | No duplicates |
+| Pipeline Time (5 msg) | ~10s        | <5min/100     |
+
+**Deliverables**:
+
+- [x] `src/intercom_client.py` - Fetch + quality filter
+- [x] `src/pipeline.py` - CLI orchestration (--days, --dry-run, --max)
+- [x] `src/db/models.py` - Pydantic models
+- [x] `src/db/schema.sql` - PostgreSQL schema
+- [x] `src/db/connection.py` - Database operations
+- [x] `tests/test_pipeline.py` - 13 unit tests passing
+- [x] `docs/acceptance-criteria-phase2.md` - Acceptance criteria
+
+**Run the pipeline**:
+
+```bash
+python -m src.pipeline --days 7             # Last 7 days
+python -m src.pipeline --days 1 --max 10    # Test with 10 conversations
+python -m src.pipeline --dry-run            # No DB writes
+```
 
 ## Phase 1: COMPLETE ✅
 
@@ -33,26 +64,20 @@
 
 ## What's Next
 
-**Phase 2: Batch Pipeline MVP**
+**Phase 3: Escalation Engine**
 
-```
-┌──────────────┐     ┌─────────────────┐     ┌────────────┐     ┌────────────┐
-│   Intercom   │ ──▶ │ Quality Filter  │ ──▶ │ Classifier │ ──▶ │ PostgreSQL │
-│    Fetch     │     │ (~50% pass)     │     │ (LLM+Rules)│     │   Store    │
-└──────────────┘     └─────────────────┘     └────────────┘     └────────────┘
-```
+Apply rules to classified conversations → Route urgent issues → Alert via Slack
 
 Deliverables:
 
-- [ ] `src/intercom_client.py` - Fetch + quality filter
-- [ ] `src/pipeline.py` - Orchestration
-- [ ] `src/db/models.py` - Pydantic models
-- [ ] `src/db/schema.sql` - PostgreSQL schema
-- [ ] `tests/test_pipeline.py` - Pipeline tests
+- [ ] `docs/escalation-rules.md` - Rule definitions
+- [ ] `src/escalation.py` - Rule engine
+- [ ] `src/slack_client.py` - Slack webhook integration
+- [ ] `tests/test_escalation.py` - Rule tests
 
 ## Blockers
 
-- PostgreSQL hosting decision pending (local vs Supabase vs Railway)
+None
 
 ## Decision Log
 
