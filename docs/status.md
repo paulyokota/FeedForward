@@ -22,6 +22,12 @@
 
 None currently.
 
+## Future/Deferred
+
+- [ ] **Install Claude Code plugins** - `/plugin` command not available in current version. Revisit when plugin marketplace is accessible. Candidates:
+  - Anthropic official marketplace: `anthropics/claude-plugins-official`
+  - Claudebase Developer Kit: `claudebase/marketplace`
+
 ## Recent Session Notes
 
 **2026-01-06**: Initial setup session
