@@ -1,7 +1,7 @@
 {
-  "version": "2.12",
-  "updated_at": "2026-01-07T13:53:42.736568",
-  "description": "v2.12: Expanded URL patterns to 34 total (added home, account, upgrade, connections, extension)",
+  "version": "2.13",
+  "updated_at": "2026-01-07T14:09:48.674928",
+  "description": "v2.13: Added 6 support-derived themes (signup downtime, account deletion, multi-account, Instagram OAuth, Pinterest org conflict, session clearing) + enhanced keywords from support terminology",
   "url_context_mapping": {
     "_comment": "Maps Intercom source.url patterns to Product Areas for disambiguating vague messages. Three schedulers: Pin Scheduler (Next Publisher, Pinterest-only new), Legacy Publisher (Pinterest-only old), Multi-Network (cross-platform).",
     "/insights/pinterest/": "Analytics",
@@ -63,7 +63,13 @@
       "account_password_reset",
       "account_locked_or_suspended",
       "social_account_reconnection",
-      "account_email_change"
+      "account_email_change",
+      "service_downtime_signup",
+      "account_deletion_request",
+      "multi_account_switching",
+      "instagram_oauth_multi_account",
+      "pinterest_org_conflict",
+      "session_clearing_required"
     ],
     "Next Publisher": [
       "scheduling_failure",
@@ -175,7 +181,10 @@
         "can't connect",
         "connection failed",
         "oauth error",
-        "reconnect pinterest"
+        "reconnect pinterest",
+        "pinterest won't connect",
+        "pinterest oauth",
+        "can't authorize pinterest"
       ],
       "example_intents": [
         "I can't connect my Pinterest account",
@@ -314,7 +323,10 @@
         "cancel subscription",
         "end subscription",
         "how to cancel",
-        "stop billing"
+        "stop billing",
+        "close my account",
+        "stop subscription",
+        "don't want to continue"
       ],
       "example_intents": [
         "I want to cancel my subscription",
@@ -407,7 +419,11 @@
         "delete account",
         "disconnect",
         "remove account",
-        "unlink"
+        "unlink",
+        "profile removal",
+        "switch account",
+        "drafts download",
+        "create files export"
       ],
       "example_intents": [
         "How do I disconnect my Pinterest account?",
@@ -1887,6 +1903,164 @@
       "merged_into": null,
       "created_at": "2026-01-07T00:00:00",
       "updated_at": "2026-01-07T00:00:00"
+    },
+    "service_downtime_signup": {
+      "issue_signature": "service_downtime_signup",
+      "product_area": "account",
+      "component": "signup",
+      "description": "User unable to sign up due to temporary service downtime or outage - not a user error",
+      "keywords": [
+        "downtime",
+        "signup failed",
+        "can't sign up",
+        "sign up error",
+        "service unavailable",
+        "signup not working",
+        "try again later"
+      ],
+      "example_intents": [
+        "I'm getting an error when trying to sign up",
+        "Sign up page isn't working",
+        "Can't create my account"
+      ],
+      "engineering_fix": "Service reliability, signup flow error handling, status page, downtime notifications",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00",
+      "support_solution": "Try signing up again now that the issue has been resolved",
+      "root_cause": "Downtime experienced by the service"
+    },
+    "account_deletion_request": {
+      "issue_signature": "account_deletion_request",
+      "product_area": "account",
+      "component": "account_management",
+      "description": "User wants to permanently delete account and remove all data - requires downloading drafts/create files first",
+      "keywords": [
+        "delete account",
+        "remove account",
+        "delete profile",
+        "remove profile",
+        "close account",
+        "account removal",
+        "delete my data"
+      ],
+      "example_intents": [
+        "I want to delete my account",
+        "Can you remove my profile?",
+        "How do I close my account?"
+      ],
+      "engineering_fix": "Self-service account deletion, data export flow, confirm data download before deletion",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00",
+      "support_solution": "Support offered to remove the profile after customer downloads drafts/create files",
+      "root_cause": null
+    },
+    "multi_account_switching": {
+      "issue_signature": "multi_account_switching",
+      "product_area": "account",
+      "component": "multi_account",
+      "description": "User needs help switching between multiple connected accounts in dashboard",
+      "keywords": [
+        "switch account",
+        "change account",
+        "multiple accounts",
+        "different account",
+        "swap accounts",
+        "account switcher"
+      ],
+      "example_intents": [
+        "How do I switch to my other account?",
+        "Can I change between accounts?",
+        "I have multiple accounts, how do I switch?"
+      ],
+      "engineering_fix": "Account switcher UI discoverability, clearer navigation, account selection",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00",
+      "support_solution": "Instructions on how to hover over menu bar to switch accounts",
+      "root_cause": null
+    },
+    "instagram_oauth_multi_account": {
+      "issue_signature": "instagram_oauth_multi_account",
+      "product_area": "account",
+      "component": "oauth",
+      "description": "User unable to connect desired Instagram account due to Single Sign-On pulling primary account instead",
+      "keywords": [
+        "wrong instagram account",
+        "instagram connects wrong account",
+        "can't choose instagram account",
+        "instagram sso",
+        "instagram primary account",
+        "instagram multi account"
+      ],
+      "example_intents": [
+        "It's connecting the wrong Instagram account",
+        "I want to connect a different Instagram profile",
+        "Instagram keeps connecting my personal instead of business"
+      ],
+      "engineering_fix": "Instagram OAuth account selection, multi-account support, clearer UI for account choice",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00",
+      "support_solution": "Use incognito browser to sign in to Instagram and connect desired profile, or contact Facebook/Instagram Support",
+      "root_cause": "Authentication process pulls primary account information due to same login credentials for multiple accounts"
+    },
+    "pinterest_org_conflict": {
+      "issue_signature": "pinterest_org_conflict",
+      "product_area": "account",
+      "component": "oauth",
+      "description": "User cannot connect Pinterest account because it's already linked to different Tailwind organization",
+      "keywords": [
+        "already linked",
+        "different organization",
+        "org conflict",
+        "pinterest already connected",
+        "account in use",
+        "pinterest assigned"
+      ],
+      "example_intents": [
+        "Says my Pinterest account is already assigned",
+        "Can't connect Pinterest, it's linked to another org",
+        "Pinterest account already in use"
+      ],
+      "engineering_fix": "Account unlinking flow, organization transfer, clearer error messages, self-service account migration",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00",
+      "support_solution": null,
+      "root_cause": "Account is already linked to a different organization, preventing the connection"
+    },
+    "session_clearing_required": {
+      "issue_signature": "session_clearing_required",
+      "product_area": "account",
+      "component": "authentication",
+      "description": "User needs to clear session to fix login/access issues - common troubleshooting step",
+      "keywords": [
+        "clear session",
+        "session clearing",
+        "stuck at login",
+        "login loop",
+        "won't log in",
+        "try different browser"
+      ],
+      "example_intents": [
+        "I'm stuck in a login loop",
+        "Can't get past login page",
+        "Login page keeps refreshing"
+      ],
+      "engineering_fix": "Session management, auto-clear stale sessions, better browser compatibility, clearer logout flow",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00",
+      "support_solution": "Visit clear session link and log back in, or try using a different web browser",
+      "root_cause": null
     }
   }
 }
