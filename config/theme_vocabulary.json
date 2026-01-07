@@ -1,7 +1,147 @@
 {
-  "version": "2.2",
-  "updated_at": "2026-01-07T00:00:00",
-  "description": "Themes organized by engineering fix bucket. v2.2 splits broad themes (analytics_data_issue, feature_access_question) into specific actionable issues",
+  "version": "2.12",
+  "updated_at": "2026-01-07T13:53:42.736568",
+  "description": "v2.12: Expanded URL patterns to 34 total (added home, account, upgrade, connections, extension)",
+  "url_context_mapping": {
+    "_comment": "Maps Intercom source.url patterns to Product Areas for disambiguating vague messages. Three schedulers: Pin Scheduler (Next Publisher, Pinterest-only new), Legacy Publisher (Pinterest-only old), Multi-Network (cross-platform).",
+    "/insights/pinterest/": "Analytics",
+    "/pin-inspector": "Analytics",
+    "/v2/insights/": "Analytics",
+    "/dashboard/v2/advanced-scheduler/pinterest": "Next Publisher",
+    "/advanced-scheduler/pinterest": "Next Publisher",
+    "/publisher/queue": "Legacy Publisher",
+    "/publisher/drafts": "Legacy Publisher",
+    "/dashboard/v2/drafts": "Multi-Network",
+    "/dashboard/v2/scheduler": "Multi-Network",
+    "/smartbio": "Smart.bio",
+    "/smart.bio": "Smart.bio",
+    "/tribes/": "Communities",
+    "/communities/": "Communities",
+    "/v2/create/": "Create",
+    "/create/": "Create",
+    "/ghostwriter": "GW Labs",
+    "/ai-labs": "GW Labs",
+    "/copilot": "CoPilot",
+    "/marketing-plan": "CoPilot",
+    "/settings/billing": "Billing & Settings",
+    "/settings/": "Billing & Settings",
+    "/product-dashboard": "Product Dashboard",
+    "/shopify": "Product Dashboard",
+    "/ads": "Ads",
+    "/onboarding": "Onboarding",
+    "/m4u": "Made For You",
+    "/made-for-you": "Made For You",
+    "/dashboard/v2/home": "Dashboard",
+    "/dashboard/home": "Dashboard",
+    "/settings/account": "Billing & Settings",
+    "/settings/upgrade": "Billing & Settings",
+    "/settings/connections": "Billing & Settings",
+    "/extension": "Extension",
+    "/browser-extension": "Extension"
+  },
+  "product_area_mapping": {
+    "_comment": "Terminology: THREE SCHEDULERS - Next Publisher = Pin Scheduler (Pinterest-only, new), Legacy Publisher = Original Publisher (Pinterest-only, old), Multi-Network = cross-platform scheduler (Pinterest/Instagram/Facebook). Product Dashboard = e-commerce integration (Shopify). CoPilot = Planning tool. GW Labs = Ghostwriter. Made For You vs SmartPin = both AI content, different features. Create = Tailwind Create design tool.",
+    "Analytics": [
+      "analytics_counter_bug",
+      "engagement_decline_feedback",
+      "analytics_interpretation_question"
+    ],
+    "Billing & Settings": [
+      "billing_flow_error",
+      "billing_unexpected_charge",
+      "billing_cancellation_request",
+      "billing_plan_change_request",
+      "billing_refund_request",
+      "billing_settings_guidance",
+      "account_settings_guidance",
+      "pinterest_connection_failure",
+      "multi_account_question",
+      "dashboard_loading_error",
+      "billing_payment_failure",
+      "billing_plan_comparison_question",
+      "account_login_failure",
+      "account_password_reset",
+      "account_locked_or_suspended",
+      "social_account_reconnection",
+      "account_email_change"
+    ],
+    "Next Publisher": [
+      "scheduling_failure",
+      "scheduling_feature_question",
+      "pin_editing_question",
+      "pinterest_publishing_failure",
+      "original_publisher_access"
+    ],
+    "Legacy Publisher": [
+      "dashboard_version_issue",
+      "legacy_pin_editing_blocked",
+      "scheduling_failure_legacy"
+    ],
+    "SmartLoop": [
+      "smartloop_pin_loading_failure",
+      "smartloop_ui_bug"
+    ],
+    "Multi-Network": [
+      "crossposting_failure",
+      "multinetwork_scheduling_failure",
+      "multinetwork_feature_question"
+    ],
+    "Communities": [
+      "communities_feature_question"
+    ],
+    "CoPilot": [
+      "copilot_plan_reset_request",
+      "copilot_personalization_issue",
+      "copilot_feature_question"
+    ],
+    "Create": [
+      "create_image_loading_failure",
+      "create_design_question",
+      "create_template_issue"
+    ],
+    "Made For You": [
+      "m4u_content_quality_issue",
+      "m4u_generation_failure",
+      "m4u_feature_question"
+    ],
+    "GW Labs": [
+      "ghostwriter_generation_failure",
+      "ghostwriter_output_mismatch",
+      "ghostwriter_usage_guidance",
+      "ghostwriter_sync_failure",
+      "ai_language_mismatch"
+    ],
+    "Ads": [
+      "ads_onboarding_error",
+      "ads_connection_failure",
+      "ads_feature_question"
+    ],
+    "Product Dashboard": [
+      "product_dashboard_sync_failure",
+      "product_dashboard_integration_loop",
+      "product_dashboard_feature_question"
+    ],
+    "Smart.bio": [
+      "smartbio_configuration",
+      "smartbio_display_issue"
+    ],
+    "Extension": [
+      "integration_connection_failure",
+      "extension_ui_bug",
+      "extension_data_extraction_issue",
+      "extension_publisher_interaction_failure"
+    ],
+    "System wide": [
+      "csv_import_failure",
+      "blog_indexing_failure",
+      "integration_feature_question",
+      "unsupported_platform_inquiry",
+      "professional_services_inquiry",
+      "general_product_question",
+      "misdirected_inquiry",
+      "unclassified_needs_review"
+    ]
+  },
   "themes": {
     "pinterest_publishing_failure": {
       "issue_signature": "pinterest_publishing_failure",
@@ -9,11 +149,11 @@
       "component": "api",
       "description": "Pins scheduled but not posting to Pinterest - API errors, auth failures, or silent failures",
       "keywords": [
-        "pins not publishing",
-        "not posting",
-        "stuck in queue",
         "never posted",
-        "pinterest error"
+        "not posting",
+        "pins not publishing",
+        "pinterest error",
+        "stuck in queue"
       ],
       "example_intents": [
         "My pins are scheduled but never post to Pinterest",
@@ -31,11 +171,11 @@
       "component": "oauth",
       "description": "Cannot connect or reconnect Pinterest account - OAuth flow failures",
       "keywords": [
+        "authorization failed",
         "can't connect",
         "connection failed",
         "oauth error",
-        "reconnect pinterest",
-        "authorization failed"
+        "reconnect pinterest"
       ],
       "example_intents": [
         "I can't connect my Pinterest account",
@@ -53,13 +193,13 @@
       "component": "ghostwriter",
       "description": "AI generation fails with error, times out, or produces garbled/truncated output",
       "keywords": [
-        "generation failed",
+        "credits lost",
         "error generating",
-        "timeout",
         "garbled text",
-        "truncated",
+        "generation failed",
         "gibberish",
-        "credits lost"
+        "timeout",
+        "truncated"
       ],
       "example_intents": [
         "Ghostwriter keeps failing with an error",
@@ -78,12 +218,12 @@
       "component": "ghostwriter",
       "description": "AI generates coherent but wrong content - ignores input, off-topic, wrong tone/format",
       "keywords": [
-        "wrong output",
+        "completely different",
         "ignored my input",
-        "off-topic",
-        "wrong tone",
         "not what I asked",
-        "completely different"
+        "off-topic",
+        "wrong output",
+        "wrong tone"
       ],
       "example_intents": [
         "The AI completely ignored what I asked for",
@@ -102,11 +242,11 @@
       "component": "ghostwriter",
       "description": "User needs help understanding how to use AI features effectively",
       "keywords": [
-        "how to use",
-        "how does it work",
-        "what can it do",
         "best practices",
-        "tips"
+        "how does it work",
+        "how to use",
+        "tips",
+        "what can it do"
       ],
       "example_intents": [
         "How do I use Ghostwriter?",
@@ -127,8 +267,8 @@
         "can't cancel",
         "cancel button not working",
         "error canceling",
-        "won't let me cancel",
-        "upgrade failed"
+        "upgrade failed",
+        "won't let me cancel"
       ],
       "example_intents": [
         "I keep getting an error when trying to cancel",
@@ -146,12 +286,12 @@
       "component": "payments",
       "description": "User charged when they shouldn't be - after cancellation, wrong amount, duplicate charge, failed payment still charged",
       "keywords": [
-        "unexpected charge",
         "charged after cancel",
-        "wrong amount",
         "duplicate charge",
+        "payment failed but charged",
         "unauthorized",
-        "payment failed but charged"
+        "unexpected charge",
+        "wrong amount"
       ],
       "example_intents": [
         "I was charged after I cancelled",
@@ -170,11 +310,11 @@
       "component": "subscription",
       "description": "User wants to cancel subscription - no error, just needs to do it or needs help finding it",
       "keywords": [
-        "cancel subscription",
         "cancel my account",
-        "stop billing",
+        "cancel subscription",
         "end subscription",
-        "how to cancel"
+        "how to cancel",
+        "stop billing"
       ],
       "example_intents": [
         "I want to cancel my subscription",
@@ -192,12 +332,12 @@
       "component": "plans",
       "description": "User wants to upgrade, downgrade, or change their plan",
       "keywords": [
-        "downgrade",
-        "upgrade",
         "change plan",
-        "switch plan",
         "different plan",
-        "free plan"
+        "downgrade",
+        "free plan",
+        "switch plan",
+        "upgrade"
       ],
       "example_intents": [
         "I want to downgrade to the free plan",
@@ -215,8 +355,16 @@
       "product_area": "billing",
       "component": "payments",
       "description": "User requesting refund for any reason",
-      "keywords": ["refund", "money back", "get refund", "want refund"],
-      "example_intents": ["I want a refund", "Can I get my money back?"],
+      "keywords": [
+        "get refund",
+        "money back",
+        "refund",
+        "want refund"
+      ],
+      "example_intents": [
+        "I want a refund",
+        "Can I get my money back?"
+      ],
       "engineering_fix": "Refund policy clarity, self-service refund flow, support process automation",
       "status": "active",
       "merged_into": null,
@@ -229,12 +377,12 @@
       "component": "settings",
       "description": "User needs help with billing settings - update card, change address, view invoices, renewal date",
       "keywords": [
-        "update card",
         "billing address",
         "invoice",
-        "receipt",
         "payment method",
+        "receipt",
         "renewal date",
+        "update card",
         "when renew"
       ],
       "example_intents": [
@@ -254,10 +402,10 @@
       "component": "settings",
       "description": "User needs help with account settings - disconnect accounts, delete account, change email, manage connections",
       "keywords": [
-        "disconnect",
-        "delete account",
-        "change email",
         "account settings",
+        "change email",
+        "delete account",
+        "disconnect",
         "remove account",
         "unlink"
       ],
@@ -278,12 +426,12 @@
       "component": "csv_import",
       "description": "CSV upload fails - parsing errors, column mapping issues, validation failures",
       "keywords": [
-        "csv error",
-        "import failed",
+        "can't upload",
         "column mapping",
-        "upload failed",
+        "csv error",
         "csv not working",
-        "can't upload"
+        "import failed",
+        "upload failed"
       ],
       "example_intents": [
         "My CSV won't upload",
@@ -296,27 +444,166 @@
       "created_at": "2025-01-06T00:00:00",
       "updated_at": "2025-01-06T00:00:00"
     },
-    "scheduling_failure": {
-      "issue_signature": "scheduling_failure",
-      "product_area": "scheduling",
-      "component": "scheduler",
-      "description": "Scheduled content doesn't post at the right time or at all (general, not Pinterest-specific)",
+    "crossposting_failure": {
+      "issue_signature": "crossposting_failure",
+      "product_area": "multi-network",
+      "component": "crosspost",
+      "description": "Posts not automatically cross-posting between platforms (Instagram to Facebook, etc.) in Multi-Network Scheduler",
       "keywords": [
-        "didn't post",
-        "wrong time",
-        "missed schedule",
-        "not scheduled",
-        "schedule failed"
+        "auto-post",
+        "auto-post to facebook",
+        "automatically posted",
+        "automatically posted on facebook",
+        "autopost",
+        "cross-post",
+        "cross-publishing",
+        "cross-publishing issues",
+        "crosspost",
+        "instagram posts not on facebook",
+        "not being automatically",
+        "not being automatically posted",
+        "not posting to facebook"
       ],
       "example_intents": [
-        "My post didn't go out at the scheduled time",
-        "Schedule isn't working"
+        "our instagram posts are not being automatically posted on Facebook",
+        "Posts aren't cross-posting to Facebook",
+        "Auto-post to Facebook stopped working"
       ],
-      "engineering_fix": "Scheduler service reliability, queue processing, timezone handling",
+      "engineering_fix": "Cross-posting service, Facebook API integration, permissions sync",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "multinetwork_scheduling_failure": {
+      "issue_signature": "multinetwork_scheduling_failure",
+      "product_area": "multi-network",
+      "component": "scheduler",
+      "description": "Multi-Network Scheduler posts not publishing at scheduled time to Pinterest, Instagram, or Facebook - drafts stuck, scheduling errors, posts missing from calendar",
+      "keywords": [
+        "multi-network not posting",
+        "multi-network posts failing",
+        "multinetwork scheduler",
+        "quick schedule",
+        "cross-platform scheduler not working",
+        "instagram not posting",
+        "facebook not posting",
+        "drafts not scheduling",
+        "scheduled posts missing",
+        "posts not showing in calendar",
+        "multi-network drafts",
+        "instagram stories not posting",
+        "instagram feed not posting"
+      ],
+      "example_intents": [
+        "My Instagram posts aren't publishing from Multi-Network Scheduler",
+        "Facebook posts scheduled but not posting",
+        "Drafts stuck in Multi-Network Scheduler"
+      ],
+      "engineering_fix": "Multi-network scheduler reliability, Instagram/Facebook API integration, draft processing, calendar sync",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "multinetwork_feature_question": {
+      "issue_signature": "multinetwork_feature_question",
+      "product_area": "multi-network",
+      "component": "features",
+      "description": "User needs help understanding Multi-Network Scheduler features - how to schedule to multiple platforms, Instagram Stories, carousel posts, SMS reminders",
+      "keywords": [
+        "how to schedule instagram",
+        "how to schedule facebook",
+        "multi-network posts",
+        "schedule to multiple platforms",
+        "instagram stories how to",
+        "carousel posts",
+        "sms reminder",
+        "auto-post vs reminder",
+        "instagram grid preview",
+        "hashtag finder",
+        "schedule cross-platform"
+      ],
+      "example_intents": [
+        "How do I schedule Instagram Stories?",
+        "Can I schedule the same post to Pinterest and Instagram?",
+        "What's the difference between auto-post and SMS reminder?"
+      ],
+      "engineering_fix": "Documentation, onboarding flow, tooltips, feature discoverability for multi-network scheduling",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "scheduling_failure": {
+      "issue_signature": "scheduling_failure",
+      "product_area": "next_publisher",
+      "component": "scheduler",
+      "description": "Scheduled content doesn't post at the right time or at all in Next Publisher (Pin Scheduler) - drag/drop issues, interval pins, queue problems",
+      "keywords": [
+        "didn't post",
+        "drag and drop",
+        "drag drop slow",
+        "failed pins",
+        "failed posts",
+        "failed to schedule",
+        "failing to publish",
+        "interval pins",
+        "keeps uploading",
+        "missed schedule",
+        "not scheduled",
+        "not scheduling",
+        "pin scheduler",
+        "pins aren't publishing",
+        "pins failing",
+        "posts failing",
+        "queue",
+        "schedule failed",
+        "uploading pins without",
+        "won't schedule",
+        "wrong time"
+      ],
+      "example_intents": [
+        "My post didn't go out at the scheduled time in Pin Scheduler",
+        "Drag and drop is running slow",
+        "Interval pins don't show the date"
+      ],
+      "engineering_fix": "Next Publisher scheduler reliability, queue processing, timezone handling, UI performance",
       "status": "active",
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
-      "updated_at": "2025-01-06T00:00:00"
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "scheduling_failure_legacy": {
+      "issue_signature": "scheduling_failure",
+      "product_area": "legacy_publisher",
+      "component": "scheduler",
+      "description": "Scheduled content doesn't post at the right time or at all in Legacy Publisher (Original Publisher) - fill empty time slots, drafts issues, your schedule problems",
+      "keywords": [
+        "dates in legacy",
+        "empty time slots",
+        "fill empty time slots",
+        "fill in empty",
+        "legacy publisher",
+        "legacy schedule",
+        "original publisher",
+        "original scheduler",
+        "publisher queue",
+        "sent back to drafts",
+        "smartloop error",
+        "unable to fill",
+        "your schedule"
+      ],
+      "example_intents": [
+        "Fill in empty time slots is not working in Publisher",
+        "Many users are unable to fill empty timeslots",
+        "Dates in legacy Your Schedule are off"
+      ],
+      "engineering_fix": "Legacy Publisher scheduler reliability, auto-fill logic, draft management",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
     },
     "scheduling_feature_question": {
       "issue_signature": "scheduling_feature_question",
@@ -325,10 +612,10 @@
       "description": "User needs help understanding scheduling features - SmartSchedule, spacing, rescheduling",
       "keywords": [
         "how to schedule",
-        "smartschedule",
-        "spacing",
         "reschedule",
         "schedule for tomorrow",
+        "smartschedule",
+        "spacing",
         "turbo"
       ],
       "example_intents": [
@@ -342,16 +629,84 @@
       "created_at": "2025-01-06T00:00:00",
       "updated_at": "2025-01-06T00:00:00"
     },
+    "smartloop_pin_loading_failure": {
+      "issue_signature": "smartloop_pin_loading_failure",
+      "product_area": "smartloop",
+      "component": "content_sync",
+      "description": "Pins not loading, not refreshing, or not pulling from Pinterest boards into SmartLoop dashboard",
+      "keywords": [
+        "board not pulling",
+        "not pulling into smartloop",
+        "not pulling pins",
+        "pinterest board not pulling",
+        "pins aren't loading in smartloop",
+        "pins not loading smartloop",
+        "smartloop not loading",
+        "smartloop not pulling",
+        "smartloop pins not loading"
+      ],
+      "example_intents": [
+        "One specific Pinterest board is not pulling Pins into Smartloop",
+        "Pins aren't loading in SmartLoop",
+        "SmartLoop isn't refreshing my pins"
+      ],
+      "engineering_fix": "Pinterest API integration, board sync logic, pin refresh mechanism",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "smartloop_ui_bug": {
+      "issue_signature": "smartloop_ui_bug",
+      "product_area": "smartloop",
+      "component": "ui",
+      "description": "SmartLoop UI elements not working - edit buttons, search, broken images, continuously spinning interface",
+      "keywords": [
+        "broken imgur",
+        "broken in smartloop",
+        "edit buttons not working",
+        "editing smartloop continuously spins",
+        "issues when searching in smartloop",
+        "remove broken gif",
+        "smartloop edit",
+        "smartloop search",
+        "smartloop spinning",
+        "smartloop ui"
+      ],
+      "example_intents": [
+        "Smartloop 'edit' buttons aren't working for this org",
+        "Issues when searching in SmartLoop",
+        "Remove broken imgur gif from Smartloop dashboard",
+        "Editing Smartloop continuously spins"
+      ],
+      "engineering_fix": "SmartLoop UI/UX bugs, button handlers, search functionality, loading states",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
     "analytics_counter_bug": {
       "issue_signature": "analytics_counter_bug",
       "product_area": "analytics",
       "component": "dashboard",
       "description": "Dashboard counters showing wrong values - pin count, post count, or other metrics displaying incorrectly",
       "keywords": [
-        "counter wrong",
-        "showing zero",
+        "aren't showing up",
+        "can't find them in my pinterest insights",
         "count not updating",
+        "counter wrong",
+        "insights won't show",
+        "not pulling data",
+        "not reflecting",
+        "not showing in pin inspector",
         "pins posted showing zero",
+        "pinterest insights",
+        "pulling data",
+        "restricted statistics",
+        "show zeros",
+        "showing zero",
+        "shows zero",
+        "statistics restricted",
         "wrong number of pins"
       ],
       "example_intents": [
@@ -370,11 +725,11 @@
       "component": "blog_crawler",
       "description": "Tailwind cannot find or index blogs/posts from user's website",
       "keywords": [
-        "can't find blogs",
         "blogs not showing",
+        "can't find blogs",
         "not indexing",
-        "website not found",
-        "posts not appearing"
+        "posts not appearing",
+        "website not found"
       ],
       "example_intents": [
         "Why can't Tailwind find the blogs on my site?",
@@ -392,12 +747,12 @@
       "component": "nps_feedback",
       "description": "User reporting that their Pinterest engagement/traffic has declined since using Tailwind - NPS feedback, not a bug",
       "keywords": [
-        "traffic down",
         "engagement dropped",
-        "views decreased",
         "less engagement",
-        "worse performance",
-        "not working for me"
+        "not working for me",
+        "traffic down",
+        "views decreased",
+        "worse performance"
       ],
       "example_intents": [
         "My Pinterest traffic has dropped since using Tailwind",
@@ -415,11 +770,11 @@
       "component": "reporting",
       "description": "User needs help understanding what analytics mean or how to use them",
       "keywords": [
-        "what does this mean",
         "how to read",
         "interpret",
+        "is this good",
         "understand analytics",
-        "is this good"
+        "what does this mean"
       ],
       "example_intents": [
         "What do these numbers mean?",
@@ -438,10 +793,24 @@
       "component": "third_party",
       "description": "Cannot connect third-party integration - Canva, browser extension, e-commerce platforms",
       "keywords": [
+        "WHOOPS popup",
+        "browser extension",
         "can't connect canva",
+        "chrome extension",
+        "extension is spinning",
         "extension not working",
+        "extension stopped working",
+        "extension won't connect",
         "integration failed",
-        "shopify connection"
+        "integration loop",
+        "pin from extension",
+        "schedule button",
+        "shopify connection",
+        "shopify store connected but",
+        "spinning extension",
+        "spinning wheel",
+        "store connected but doesn't",
+        "stuck in shopify"
       ],
       "example_intents": [
         "I can't connect my Canva account",
@@ -460,8 +829,8 @@
       "description": "User asking about integration capabilities or how to use them",
       "keywords": [
         "canva integration",
-        "does tailwind work with",
         "connect to",
+        "does tailwind work with",
         "integrate with"
       ],
       "example_intents": [
@@ -474,6 +843,83 @@
       "created_at": "2025-01-06T00:00:00",
       "updated_at": "2025-01-06T00:00:00"
     },
+    "extension_ui_bug": {
+      "issue_signature": "extension_ui_bug",
+      "product_area": "extension",
+      "component": "ui",
+      "description": "Browser extension UI elements not working - buttons, icons, crop tool, or other interface controls broken or unresponsive",
+      "keywords": [
+        "crop icon doesn't work",
+        "extension button not working",
+        "extension crop",
+        "extension icon broken",
+        "extension toolbar",
+        "extension ui",
+        "icons not clickable",
+        "schedule button in extension"
+      ],
+      "example_intents": [
+        "The crop icon doesn't work in the extension",
+        "Extension buttons aren't clickable",
+        "The schedule button in the extension is broken"
+      ],
+      "engineering_fix": "Extension UI/UX bugs, event handlers, CSS issues, browser compatibility",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "extension_data_extraction_issue": {
+      "issue_signature": "extension_data_extraction_issue",
+      "product_area": "extension",
+      "component": "scraping",
+      "description": "Browser extension pulling incorrect or missing data from web pages - wrong title, description, image, or other metadata",
+      "keywords": [
+        "extension incorrect title",
+        "extension pulling wrong",
+        "extension wrong description",
+        "extension wrong image",
+        "not pulling correct",
+        "pulling incorrect data",
+        "pulling incorrect title",
+        "pulling wrong information"
+      ],
+      "example_intents": [
+        "The extension is pulling the incorrect title from the page",
+        "Extension grabbed the wrong image",
+        "Pin title is wrong when using extension"
+      ],
+      "engineering_fix": "Web scraping selectors, DOM parsing, metadata extraction logic",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "extension_publisher_interaction_failure": {
+      "issue_signature": "extension_publisher_interaction_failure",
+      "product_area": "extension",
+      "component": "integration",
+      "description": "Browser extension failing to communicate with Pin Scheduler/Publisher - timeouts, errors when trying to schedule from extension",
+      "keywords": [
+        "extension pin scheduler",
+        "extension timeout",
+        "extension to scheduler",
+        "pin from extension",
+        "pin scheduler timing out",
+        "schedule from extension",
+        "trying to pin from extension"
+      ],
+      "example_intents": [
+        "When trying to pin from the extension, Pin Scheduler is timing out",
+        "Extension won't send pins to scheduler",
+        "Can't schedule from extension"
+      ],
+      "engineering_fix": "Extension-to-backend API communication, timeout handling, error messaging",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
     "professional_services_inquiry": {
       "issue_signature": "professional_services_inquiry",
       "product_area": "other",
@@ -481,12 +927,12 @@
       "description": "User asking about managed services, account management, hiring help to set up campaigns",
       "keywords": [
         "account management",
-        "managed services",
+        "consulting",
         "hire someone",
-        "set up campaign",
+        "managed services",
         "pinterest management",
         "professional help",
-        "consulting"
+        "set up campaign"
       ],
       "example_intents": [
         "I'm interested in Pinterest account management services",
@@ -499,19 +945,49 @@
       "created_at": "2026-01-06T00:00:00",
       "updated_at": "2026-01-06T00:00:00"
     },
+    "smartbio_display_issue": {
+      "issue_signature": "smartbio_display_issue",
+      "product_area": "integrations",
+      "component": "smartbio",
+      "description": "Smart.bio images or posts not showing, links not displaying correctly",
+      "keywords": [
+        "doesn't have a link",
+        "images aren't showing",
+        "images not showing",
+        "links not formatted",
+        "no images coming up",
+        "not showing in smart",
+        "not showing on instagram",
+        "posts aren't showing",
+        "posts not showing",
+        "smart.bio not working",
+        "smartbio broken"
+      ],
+      "example_intents": [
+        "I just set up smart.bio and my images aren't showing",
+        "posts aren't showing in Smart.bio",
+        "Smart.bio links are not formatted correctly"
+      ],
+      "engineering_fix": "Smart.bio image sync, link formatting, Instagram API integration",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
     "smartbio_configuration": {
       "issue_signature": "smartbio_configuration",
       "product_area": "integrations",
       "component": "smartbio",
       "description": "Questions about smart.bio link customization, changing URL handle, profile settings",
       "keywords": [
-        "smart.bio",
-        "smartbio",
         "bio link",
         "change handle",
-        "profile link",
+        "instagram handle",
         "link in bio",
-        "instagram handle"
+        "profile link",
+        "set up smart.bio",
+        "smart.bio",
+        "smartbio"
       ],
       "example_intents": [
         "How do I change my smart.bio link?",
@@ -530,13 +1006,13 @@
       "component": "platform_support",
       "description": "Questions about platforms Tailwind doesn't support - eBay, TikTok, LinkedIn, etc.",
       "keywords": [
-        "ebay",
-        "tiktok",
-        "linkedin",
-        "youtube",
-        "twitter",
+        "can I use with",
         "does tailwind support",
-        "can I use with"
+        "ebay",
+        "linkedin",
+        "tiktok",
+        "twitter",
+        "youtube"
       ],
       "example_intents": [
         "Can I use Tailwind with my eBay store?",
@@ -555,13 +1031,13 @@
       "component": "pin_editor",
       "description": "Questions about editing pins - fixing mistakes, changing links, bulk operations on drafts",
       "keywords": [
-        "edit pin",
-        "spelling mistake",
+        "bulk delete",
         "change link",
         "delete drafts",
-        "bulk delete",
+        "edit pin",
         "fix pin",
-        "modify scheduled"
+        "modify scheduled",
+        "spelling mistake"
       ],
       "example_intents": [
         "I made a spelling mistake on my pins, can I fix it?",
@@ -580,10 +1056,10 @@
       "component": "feature_flags",
       "description": "User requesting access to Original Publisher or new publisher features",
       "keywords": [
-        "original publisher",
+        "enable original publisher",
         "new publisher",
-        "publisher access",
-        "enable original publisher"
+        "original publisher",
+        "publisher access"
       ],
       "example_intents": [
         "I need access to the Original Publisher feature",
@@ -601,11 +1077,18 @@
       "component": "migration",
       "description": "User stuck on old/outdated dashboard version, not migrated to new experience",
       "keywords": [
-        "old dashboard",
-        "outdated dashboard",
-        "older version",
+        "in legacy",
+        "legacy",
+        "legacy publisher",
+        "legacy scheduler",
         "not migrated",
-        "weird dashboard"
+        "old dashboard",
+        "older version",
+        "original publisher",
+        "original scheduler",
+        "outdated dashboard",
+        "weird dashboard",
+        "your schedule"
       ],
       "example_intents": [
         "My client's account has an older dashboard",
@@ -617,17 +1100,50 @@
       "created_at": "2026-01-07T00:00:00",
       "updated_at": "2026-01-07T00:00:00"
     },
+    "legacy_pin_editing_blocked": {
+      "issue_signature": "legacy_pin_editing_blocked",
+      "product_area": "scheduling",
+      "component": "legacy_publisher",
+      "description": "User cannot edit title/description on pins imported from Pinterest in legacy publisher",
+      "keywords": [
+        "add pins to loop",
+        "can't change description",
+        "can't edit description",
+        "change her description",
+        "filter pins for smartloop",
+        "pins from pinterest",
+        "pins sent back to drafts",
+        "pins to a loop",
+        "put pins from pinterest into tailwind",
+        "sent back to drafts",
+        "smartloop error",
+        "spam safeguard",
+        "title or description",
+        "uploading without titles",
+        "without the titles",
+        "won't allow me to change"
+      ],
+      "example_intents": [
+        "when I put any of her pins from Pinterest into Tailwind, it will not allow me to change her description",
+        "I can't change the title or description for a Pin that is from Pinterest"
+      ],
+      "engineering_fix": "Legacy publisher pin editing permissions, claimed domain detection",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
     "multi_account_question": {
       "issue_signature": "multi_account_question",
       "product_area": "billing",
       "component": "plans",
       "description": "Questions about managing multiple accounts, different email addresses, team features",
       "keywords": [
-        "multiple accounts",
-        "different emails",
         "add accounts",
-        "team members",
-        "manage accounts"
+        "different emails",
+        "manage accounts",
+        "multiple accounts",
+        "team members"
       ],
       "example_intents": [
         "Can I add accounts from different email addresses?",
@@ -645,13 +1161,13 @@
       "component": "dashboard",
       "description": "Dashboard won't load, shows errors, spins indefinitely, or displays outdated interface",
       "keywords": [
-        "dashboard error",
-        "won't load",
-        "keeps spinning",
-        "error loading",
-        "page not loading",
         "blank screen",
-        "outdated dashboard"
+        "dashboard error",
+        "error loading",
+        "keeps spinning",
+        "outdated dashboard",
+        "page not loading",
+        "won't load"
       ],
       "example_intents": [
         "My dashboard keeps saying an error occurred",
@@ -671,10 +1187,15 @@
       "description": "Questions about Tailwind Communities - how they work, joining, previewing, submitting content",
       "keywords": [
         "communities",
-        "tailwind community",
-        "join community",
-        "submit to community",
+        "communities show up",
         "community preview",
+        "join community",
+        "joined communities",
+        "share to communities",
+        "submissions",
+        "submit to community",
+        "submitted pins",
+        "tailwind community",
         "tribes"
       ],
       "example_intents": [
@@ -694,12 +1215,12 @@
       "component": "localization",
       "description": "AI generates content in wrong language - Spanish instead of English, etc.",
       "keywords": [
-        "wrong language",
-        "spanish",
         "french",
         "german",
         "language setting",
-        "not in english"
+        "not in english",
+        "spanish",
+        "wrong language"
       ],
       "example_intents": [
         "My Smart Pin was created in Spanish",
@@ -718,13 +1239,16 @@
       "component": "general",
       "description": "General questions about product capabilities, pricing, or getting started - USE ONLY when no other theme fits",
       "keywords": [
-        "how does it work",
-        "what can tailwind do",
-        "getting started",
         "features",
-        "pricing"
+        "getting started",
+        "how does it work",
+        "pricing",
+        "what can tailwind do"
       ],
-      "example_intents": ["What can Tailwind do?", "How do I get started?"],
+      "example_intents": [
+        "What can Tailwind do?",
+        "How do I get started?"
+      ],
       "engineering_fix": "Onboarding improvement, marketing site clarity, help center, feature education",
       "status": "active",
       "merged_into": null,
@@ -737,12 +1261,12 @@
       "component": "support",
       "description": "Message not about Tailwind - spam, wrong company, promotional responses, verification codes",
       "keywords": [
-        "wrong company",
-        "spam",
+        "google code",
         "not tailwind",
         "promotional",
+        "spam",
         "verification code",
-        "google code"
+        "wrong company"
       ],
       "example_intents": [
         "[Message about unrelated product]",
@@ -760,7 +1284,12 @@
       "product_area": "other",
       "component": "review_queue",
       "description": "Issue doesn't fit existing themes well - needs human review to determine if new theme is needed",
-      "keywords": ["unclear", "ambiguous", "doesn't fit", "new category"],
+      "keywords": [
+        "ambiguous",
+        "doesn't fit",
+        "new category",
+        "unclear"
+      ],
       "example_intents": [
         "[Conversation that doesn't match any known theme pattern]"
       ],
@@ -769,6 +1298,595 @@
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
       "updated_at": "2025-01-06T00:00:00"
+    },
+    "copilot_plan_reset_request": {
+      "issue_signature": "copilot_plan_reset_request",
+      "product_area": "copilot",
+      "component": "marketing_plan",
+      "description": "User wants to redo/reset their CoPilot marketing plan or start over with personalization",
+      "keywords": [
+        "change my goals",
+        "change personalization",
+        "go through the process from scratch",
+        "redo copilot",
+        "redo marketing plan",
+        "redo the marketing plan",
+        "reset marketing plan",
+        "restart copilot",
+        "start over"
+      ],
+      "example_intents": [
+        "I wanted to redo the marketing plan but couldn't find a way to go through the process from scratch",
+        "How do I reset my CoPilot plan?",
+        "I want to change my goals in CoPilot"
+      ],
+      "engineering_fix": "Plan reset flow, personalization edit UI, clear restart option",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "copilot_personalization_issue": {
+      "issue_signature": "copilot_personalization_issue",
+      "product_area": "copilot",
+      "component": "personalization",
+      "description": "Issues with CoPilot personalization - wrong actions generated, too many actions, timing issues",
+      "keywords": [
+        "actions not matching",
+        "copilot actions",
+        "many actions same day",
+        "personalization not working",
+        "too many actions",
+        "wrong actions"
+      ],
+      "example_intents": [
+        "I got 5 Actions on the same day after going through personalizing",
+        "CoPilot actions don't match what I asked for",
+        "The personalization isn't working correctly"
+      ],
+      "engineering_fix": "Action scheduling algorithm, personalization logic, action distribution",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "copilot_feature_question": {
+      "issue_signature": "copilot_feature_question",
+      "product_area": "copilot",
+      "component": "education",
+      "description": "Questions about how CoPilot works, what it does, how to use it",
+      "keywords": [
+        "copilot",
+        "copilot feature",
+        "how does copilot work",
+        "lumping prompts together",
+        "marketing plan",
+        "marketing plan not working",
+        "personal trainer for marketing",
+        "prompts in first week",
+        "prompts together",
+        "too many prompts",
+        "what is copilot"
+      ],
+      "example_intents": [
+        "What is Tailwind CoPilot?",
+        "How do I use the marketing plan feature?",
+        "What can CoPilot do for me?"
+      ],
+      "engineering_fix": "Documentation, onboarding, feature education, tooltips",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "create_image_loading_failure": {
+      "issue_signature": "create_image_loading_failure",
+      "product_area": "create",
+      "component": "image_loader",
+      "description": "Images not loading in Create design gallery - photos not pulling from URL, placeholder icons showing",
+      "keywords": [
+        "add photo icon",
+        "create pins for",
+        "design gallery",
+        "grey and white mountain",
+        "images not loading",
+        "photos not auto populating",
+        "photos not pulling",
+        "photos not showing in create",
+        "photos on any of the URLs"
+      ],
+      "example_intents": [
+        "none of the photos on any of the URLs I'm trying to create pins for are auto populating in the design gallery",
+        "I just see the grey and white mountain add photo icon",
+        "Photos won't load in Create"
+      ],
+      "engineering_fix": "Image scraping, URL fetching, cache issues, CORS handling",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "create_design_question": {
+      "issue_signature": "create_design_question",
+      "product_area": "create",
+      "component": "design_tools",
+      "description": "Questions about using Tailwind Create design tools, templates, editing features",
+      "keywords": [
+        "create design",
+        "create editor",
+        "design template",
+        "how to use create",
+        "image design",
+        "tailwind create"
+      ],
+      "example_intents": [
+        "How do I use Tailwind Create?",
+        "How do I edit designs in Create?",
+        "Where are my saved designs?"
+      ],
+      "engineering_fix": "Documentation, tooltips, onboarding, UI discoverability",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "create_template_issue": {
+      "issue_signature": "create_template_issue",
+      "product_area": "create",
+      "component": "templates",
+      "description": "Issues with Create templates - wrong title, text issues, fonts not rendering correctly",
+      "keywords": [
+        "create template",
+        "font issue",
+        "line-height",
+        "template title",
+        "text in template",
+        "text smushed",
+        "your title here"
+      ],
+      "example_intents": [
+        "When you open an old project in Create Next, it sets the title to Your Title Here",
+        "The line-height is off for this font",
+        "Text in template is unable to be moved"
+      ],
+      "engineering_fix": "Template rendering, font handling, text positioning, legacy project migration",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "m4u_content_quality_issue": {
+      "issue_signature": "m4u_content_quality_issue",
+      "product_area": "made_for_you",
+      "component": "content_generation",
+      "description": "Made For You generated content is poor quality - single word captions, wrong labels, incorrect content",
+      "keywords": [
+        "ai generated pins poor",
+        "m 4 u",
+        "m4u",
+        "m4u caption",
+        "made for you caption",
+        "posts called pins",
+        "single sentence caption",
+        "single word caption",
+        "wrong label"
+      ],
+      "example_intents": [
+        "M4U posts have a single word or sentence as the caption",
+        "Pinterest Pins are called Posts in Made for You",
+        "The AI generated content quality is poor"
+      ],
+      "engineering_fix": "Content generation prompts, caption length requirements, platform-aware labeling",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "m4u_generation_failure": {
+      "issue_signature": "m4u_generation_failure",
+      "product_area": "made_for_you",
+      "component": "generation",
+      "description": "Made For You fails to generate content - blog scraping failure, generation errors",
+      "keywords": [
+        "auto generated pins failing",
+        "blog generation failed",
+        "m 4 u",
+        "m4u",
+        "m4u not generating",
+        "m4u not working",
+        "made for you error"
+      ],
+      "example_intents": [
+        "Made for You won't generate pins from my blog",
+        "Blog scraping is failing",
+        "M4U generation errors"
+      ],
+      "engineering_fix": "Blog scraping, content generation pipeline, error handling",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "m4u_feature_question": {
+      "issue_signature": "m4u_feature_question",
+      "product_area": "made_for_you",
+      "component": "education",
+      "description": "Questions about Made For You feature - how it works, how to enable, what it creates",
+      "keywords": [
+        "ai generated pins",
+        "auto generated",
+        "how does m4u work",
+        "m 4 u",
+        "m4u",
+        "m4u drafts",
+        "made for you"
+      ],
+      "example_intents": [
+        "What is Made For You?",
+        "How do I enable AI generated pins?",
+        "Where are my M4U drafts?"
+      ],
+      "engineering_fix": "Documentation, onboarding, feature education",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "ads_onboarding_error": {
+      "issue_signature": "ads_onboarding_error",
+      "product_area": "ads",
+      "component": "onboarding",
+      "description": "Errors during Pinterest Ads onboarding - budget issues, configuration errors",
+      "keywords": [
+        "ads configuration",
+        "ads not found error",
+        "ads onboarding",
+        "ads setup error",
+        "budget error",
+        "decreased budget"
+      ],
+      "example_intents": [
+        "User managed to get back into onboarding and decreased their budget",
+        "NotFoundError in Ads Onboarding",
+        "Error setting up Pinterest Ads"
+      ],
+      "engineering_fix": "Ads onboarding flow, budget validation, error handling",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "ads_connection_failure": {
+      "issue_signature": "ads_connection_failure",
+      "product_area": "ads",
+      "component": "integration",
+      "description": "Cannot connect Pinterest Ads account or Shopify for ads - OAuth or API failures",
+      "keywords": [
+        "ads authorization",
+        "ads oauth",
+        "ads settings",
+        "connect ads account",
+        "pinterest ads connection",
+        "shopify ads"
+      ],
+      "example_intents": [
+        "Can't connect my Pinterest Ads account",
+        "Shopify connection for ads is failing",
+        "Ads OAuth error"
+      ],
+      "engineering_fix": "Ads OAuth flow, Shopify integration, API error handling",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "ads_feature_question": {
+      "issue_signature": "ads_feature_question",
+      "product_area": "ads",
+      "component": "education",
+      "description": "Questions about Pinterest Ads feature - how it works, pricing, capabilities",
+      "keywords": [
+        "ads pricing",
+        "advertising",
+        "boost pins",
+        "how do ads work",
+        "pinterest ads",
+        "promoted pins"
+      ],
+      "example_intents": [
+        "How do Pinterest Ads work in Tailwind?",
+        "What are promoted pins?",
+        "How much do ads cost?"
+      ],
+      "engineering_fix": "Documentation, feature education, pricing clarity",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "ghostwriter_sync_failure": {
+      "issue_signature": "ghostwriter_sync_failure",
+      "product_area": "ai_creation",
+      "component": "ghostwriter",
+      "description": "Ghostwriter content not syncing to Pin Scheduler - titles/descriptions not loading after save",
+      "keywords": [
+        "bulk ghostwriter sync",
+        "credits used but not saved",
+        "ghostwriter didn't save",
+        "ghostwriter not syncing",
+        "pin scheduler not loading",
+        "saved selections not showing",
+        "titles and descriptions not loaded"
+      ],
+      "example_intents": [
+        "I've used ghostwriter on multiple pins, saved selections, go to the pin scheduler and the titles and descriptions are not loaded there",
+        "Credits were used already to write it but it's not showing",
+        "Ghostwriter content didn't transfer to scheduler"
+      ],
+      "engineering_fix": "Ghostwriter-scheduler sync, state persistence, save confirmation",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "product_dashboard_sync_failure": {
+      "issue_signature": "product_dashboard_sync_failure",
+      "product_area": "product_dashboard",
+      "component": "sync",
+      "description": "Products not syncing, refreshing, or pulling from e-commerce platform (Shopify, WooCommerce, Wix)",
+      "keywords": [
+        "products not refreshing",
+        "error syncing",
+        "unable to pull products",
+        "product imports failing",
+        "products not syncing",
+        "error fetching products",
+        "no response from fetching",
+        "product import failed",
+        "sync failed",
+        "refresh products",
+        "products aren't loading",
+        "can't pull products"
+      ],
+      "example_intents": [
+        "My products aren't syncing from Shopify",
+        "Products not refreshing in Product Dashboard",
+        "Error pulling products from my store"
+      ],
+      "engineering_fix": "E-commerce API integration (Shopify, WooCommerce, Wix), product sync service, error handling",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "product_dashboard_integration_loop": {
+      "issue_signature": "product_dashboard_integration_loop",
+      "product_area": "product_dashboard",
+      "component": "integration",
+      "description": "User stuck in integration loop - store shows as connected but Product Dashboard keeps asking to integrate",
+      "keywords": [
+        "stuck in shopify loop",
+        "integration loop",
+        "prompting to integrate",
+        "prompting me to integrate",
+        "product dashboard prompting",
+        "keeps asking to integrate",
+        "store connected but",
+        "shows connected but doesn't",
+        "connect on every visit"
+      ],
+      "example_intents": [
+        "Product Dashboard keeps asking me to connect my store even though it's connected",
+        "Stuck in an integration loop with Shopify",
+        "Store shows as connected but Product Dashboard won't load"
+      ],
+      "engineering_fix": "Integration state management, OAuth token handling, store connection verification",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "product_dashboard_feature_question": {
+      "issue_signature": "product_dashboard_feature_question",
+      "product_area": "product_dashboard",
+      "component": "features",
+      "description": "User needs help understanding how to use Product Dashboard features - setup, product selection, pin generation",
+      "keywords": [
+        "how to use product dashboard",
+        "setup product dashboard",
+        "connect my store",
+        "product dashboard help",
+        "what is product dashboard",
+        "how does product dashboard work"
+      ],
+      "example_intents": [
+        "How do I set up Product Dashboard?",
+        "How do I connect my Shopify store?",
+        "What can I do with Product Dashboard?"
+      ],
+      "engineering_fix": "Documentation, onboarding flow, tooltips, feature discoverability",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "billing_payment_failure": {
+      "issue_signature": "billing_payment_failure",
+      "product_area": "billing",
+      "component": "payments",
+      "description": "User's payment failed or card was declined - needs urgent attention to prevent service interruption",
+      "keywords": [
+        "card declined",
+        "payment failed",
+        "payment failure",
+        "payment problem",
+        "couldn't charge",
+        "charge failed",
+        "payment error",
+        "declined payment"
+      ],
+      "example_intents": [
+        "My card was declined",
+        "Payment failed, how do I fix it?",
+        "Got an email saying my payment didn't go through"
+      ],
+      "engineering_fix": "Payment retry logic, clearer error messages, grace period handling, email notifications",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "billing_plan_comparison_question": {
+      "issue_signature": "billing_plan_comparison_question",
+      "product_area": "billing",
+      "component": "plans",
+      "description": "User asking about plan features, pricing, or which plan to choose - pre-purchase question",
+      "keywords": [
+        "which plan",
+        "what's included",
+        "plan features",
+        "plan comparison",
+        "difference between plans",
+        "what do I get",
+        "plan pricing",
+        "best plan for me"
+      ],
+      "example_intents": [
+        "Which plan should I choose?",
+        "What's the difference between plans?",
+        "What features are included in the Pro plan?"
+      ],
+      "engineering_fix": "Clearer plan comparison page, feature matrix, pricing page UX, plan recommendation tool",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "account_login_failure": {
+      "issue_signature": "account_login_failure",
+      "product_area": "account",
+      "component": "authentication",
+      "description": "User cannot log in - wrong password, account not found, login error, stuck at login screen",
+      "keywords": [
+        "can't log in",
+        "can't sign in",
+        "login failed",
+        "login error",
+        "wrong password",
+        "password incorrect",
+        "account not found",
+        "stuck at login"
+      ],
+      "example_intents": [
+        "I can't log in to my account",
+        "Getting an error when I try to sign in",
+        "My password isn't working"
+      ],
+      "engineering_fix": "Login flow debugging, error messages, password validation, session management",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "account_password_reset": {
+      "issue_signature": "account_password_reset",
+      "product_area": "account",
+      "component": "authentication",
+      "description": "User needs to reset password - forgot password, didn't receive reset email, reset link expired",
+      "keywords": [
+        "forgot password",
+        "reset password",
+        "password reset",
+        "can't reset password",
+        "reset link expired",
+        "didn't get email",
+        "change password"
+      ],
+      "example_intents": [
+        "I forgot my password",
+        "How do I reset my password?",
+        "The password reset email never arrived"
+      ],
+      "engineering_fix": "Password reset flow, email delivery, link expiration handling, self-service",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "account_locked_or_suspended": {
+      "issue_signature": "account_locked_or_suspended",
+      "product_area": "account",
+      "component": "access",
+      "description": "User account locked, suspended, disabled, or access denied - requires support intervention",
+      "keywords": [
+        "account locked",
+        "account suspended",
+        "account disabled",
+        "access denied",
+        "can't access",
+        "locked out",
+        "account blocked"
+      ],
+      "example_intents": [
+        "My account has been suspended",
+        "I'm locked out of my account",
+        "Says my account is disabled"
+      ],
+      "engineering_fix": "Account suspension policies, appeal process, clear communication, unlock flow",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "social_account_reconnection": {
+      "issue_signature": "social_account_reconnection",
+      "product_area": "account",
+      "component": "oauth",
+      "description": "User needs to reconnect disconnected social account (Pinterest, Instagram, Facebook) - OAuth expired or revoked",
+      "keywords": [
+        "reconnect",
+        "disconnected",
+        "reauthorize",
+        "re-authorize",
+        "connection lost",
+        "needs permission",
+        "oauth expired",
+        "link account again"
+      ],
+      "example_intents": [
+        "My Instagram account disconnected",
+        "Need to reconnect Pinterest",
+        "Says I need to reauthorize my Facebook page"
+      ],
+      "engineering_fix": "OAuth token refresh, expiration handling, reconnection UX, clearer error messages",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "account_email_change": {
+      "issue_signature": "account_email_change",
+      "product_area": "account",
+      "component": "settings",
+      "description": "User wants to change account email address or username",
+      "keywords": [
+        "change email",
+        "update email",
+        "new email",
+        "change username",
+        "update username",
+        "email address change"
+      ],
+      "example_intents": [
+        "How do I change my email address?",
+        "I want to update my account email",
+        "Can I change my username?"
+      ],
+      "engineering_fix": "Email change flow, verification process, self-service options",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
     }
   }
 }

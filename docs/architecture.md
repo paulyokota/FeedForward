@@ -137,6 +137,47 @@ FeedForward is an LLM-powered pipeline for analyzing Intercom conversations and 
 
 **Critical for**: Legacy Publisher vs. Pin Scheduler vs. Multi-Network routing
 
+### 6. Conversation Type Classification (NEW)
+
+**Strategic Decision**: All-Support Strategy (2026-01-07)
+
+FeedForward tracks **all support conversations**, not just product issues. This provides richer customer insights for product, support, and success teams.
+
+**Classification Schema** (7 types):
+
+1. **Product Issue** - Bug reports, features not working, data issues
+2. **How-To Question** - Feature usage, workflows, feature discovery
+3. **Feature Request** - New capabilities, enhancements, integrations
+4. **Account Issue** - Login, access, OAuth, permissions
+5. **Billing Question** - Payment, plans, invoices, subscriptions
+6. **Configuration Help** - Setup, integration config, settings
+7. **General Inquiry** - Unclear intent, exploratory questions
+
+Plus: **Spam/Not Support** (filtered out)
+
+**Distribution** (based on 75-conversation analysis, 2026-01-07):
+
+- How-To Questions: 25% (high confidence)
+- Account Issues: 20% (high confidence, 93% from email)
+- Billing Questions: 7% (high confidence)
+- Feature Requests: 1%
+- General/Unclear: 37% (needs quality filtering improvement)
+- Spam: 4% (should be filtered at source)
+
+**Source Type Patterns**:
+
+- **In-app conversations** → 83% how-to + general inquiry (users actively in product)
+- **Email** → 42% account issues + 12% billing (can't access product)
+
+**Vocabulary Implications**:
+
+- ✅ Product themes covered (61 themes, 20+ areas)
+- ❌ **Billing themes missing** (critical gap - 7% of conversations)
+- ❌ Account/auth themes missing (20% of conversations)
+- ⚠️ Onboarding/setup themes sparse
+
+See: `docs/conversation-type-schema.md` for full analysis
+
 ## Data Flow
 
 ### Theme Extraction Pipeline
@@ -265,11 +306,16 @@ Optional:
 ✅ PostgreSQL database schema
 ✅ Theme canonicalization
 ✅ Validation framework
+✅ Conversation type classification schema (all-support strategy)
 
 **In Progress**:
-🚧 Expanding theme vocabulary (billing, questions)
-🚧 Production deployment
-🚧 Monitoring and metrics
+🚧 Expanding theme vocabulary
+
+- ⏳ Billing themes (7% of conversations - critical gap)
+- ⏳ Account/auth themes (20% of conversations)
+- ⏳ Onboarding/setup themes
+  🚧 Production deployment
+  🚧 Monitoring and metrics
 
 **Future**:
 ⏳ Escalation rules engine
