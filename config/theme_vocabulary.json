@@ -1,0 +1,474 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-01-07T01:30:16.831755",
+  "themes": {
+    "account_management_inquiry": {
+      "issue_signature": "account_management_inquiry",
+      "product_area": "account",
+      "component": "account_management",
+      "description": "Learn more about Pinterest account management services offered by Tailwind",
+      "keywords": [
+        "user expressed interest in services",
+        "no specific issues or errors reported",
+        "inquiry about service details"
+      ],
+      "example_intents": [
+        "Learn more about Pinterest account management services offered by Tailwind"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831085",
+      "updated_at": "2026-01-07T01:30:16.831375"
+    },
+    "billing_subscription_cancellation_request": {
+      "issue_signature": "billing_subscription_cancellation_request",
+      "product_area": "billing",
+      "component": "subscription",
+      "description": "Cancel my subscription",
+      "keywords": [
+        "error message when attempting to cancel",
+        "repeated attempts to cancel",
+        "mention of bringing the issue to the bbb"
+      ],
+      "example_intents": [
+        "Cancel my subscription"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831386",
+      "updated_at": "2026-01-07T01:30:16.831387"
+    },
+    "pins_not_publishing": {
+      "issue_signature": "pins_not_publishing",
+      "product_area": "account",
+      "component": "oauth",
+      "description": "Connect Pinterest account to Tailwind",
+      "keywords": [
+        "error message displayed when attempting to connect",
+        "unable to access pinterest features",
+        "frustration with connection process"
+      ],
+      "example_intents": [
+        "Connect Pinterest account to Tailwind"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831391",
+      "updated_at": "2026-01-07T01:30:16.831392"
+    },
+    "promotional_offer_code_usage": {
+      "issue_signature": "promotional_offer_code_usage",
+      "product_area": "other",
+      "component": "promotions",
+      "description": "Receive promotional content from Luxy Hair",
+      "keywords": [
+        "received promotional email",
+        "email contains discount code",
+        "message appears cluttered with excessive characters"
+      ],
+      "example_intents": [
+        "Receive promotional content from Luxy Hair"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831395",
+      "updated_at": "2026-01-07T01:30:16.831396"
+    },
+    "billing_plan_cancellation_request": {
+      "issue_signature": "billing_plan_cancellation_request",
+      "product_area": "billing",
+      "component": "plans",
+      "description": "The user wants to cancel their subscription plan.",
+      "keywords": [
+        "user expressed a desire to cancel",
+        "no specific issues mentioned",
+        "neutral sentiment in the request"
+      ],
+      "example_intents": [
+        "The user wants to cancel their subscription plan."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831399",
+      "updated_at": "2026-01-07T01:30:16.831399"
+    },
+    "billing_plan_question": {
+      "issue_signature": "billing_plan_question",
+      "product_area": "billing",
+      "component": "plans",
+      "description": "Inquire about reducing the cost of the annual plan",
+      "keywords": [
+        "user feels the tool is becoming expensive",
+        "user is considering canceling their subscription",
+        "user is seeking options for pricing adjustments"
+      ],
+      "example_intents": [
+        "Inquire about reducing the cost of the annual plan"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831402",
+      "updated_at": "2026-01-07T01:30:16.831402"
+    },
+    "account_management_disconnect_social_account": {
+      "issue_signature": "account_management_disconnect_social_account",
+      "product_area": "account",
+      "component": "connections",
+      "description": "The user wants to disconnect or remove a connected account from their Tailwind profile.",
+      "keywords": [
+        "user is unsure how to disconnect an account",
+        "user is looking for instructions on account management",
+        "user has multiple accounts connected"
+      ],
+      "example_intents": [
+        "The user wants to disconnect or remove a connected account from their Tailwind profile."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831406",
+      "updated_at": "2026-01-07T01:30:16.831406"
+    },
+    "billing_subscription_cancellation_refund_request": {
+      "issue_signature": "billing_subscription_cancellation_refund_request",
+      "product_area": "billing",
+      "component": "subscriptions",
+      "description": "Get a refund for an unexpected subscription charge after canceling the account",
+      "keywords": [
+        "charged for another year after cancellation",
+        "account was previously canceled",
+        "received a year subscription from pinterest creators fund"
+      ],
+      "example_intents": [
+        "Get a refund for an unexpected subscription charge after canceling the account"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831409",
+      "updated_at": "2026-01-07T01:30:16.831410"
+    },
+    "billing_address_update_request": {
+      "issue_signature": "billing_address_update_request",
+      "product_area": "billing",
+      "component": "billing",
+      "description": "The user wants to update their billing address.",
+      "keywords": [
+        "user is unsure how to add a billing address",
+        "user is looking for guidance on billing address changes",
+        "user may be experiencing issues with incorrect billing information"
+      ],
+      "example_intents": [
+        "The user wants to update their billing address."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831412",
+      "updated_at": "2026-01-07T01:30:16.831413"
+    },
+    "billing_subscription_renewal_issue": {
+      "issue_signature": "billing_subscription_renewal_issue",
+      "product_area": "billing",
+      "component": "subscriptions",
+      "description": "To find out the renewal date of their subscription",
+      "keywords": [
+        "user asked about subscription renewal date",
+        "no issues with payment or access mentioned"
+      ],
+      "example_intents": [
+        "To find out the renewal date of their subscription"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831416",
+      "updated_at": "2026-01-07T01:30:16.831416"
+    },
+    "promotional_offer_notification": {
+      "issue_signature": "promotional_offer_notification",
+      "product_area": "other",
+      "component": "promotional_offer",
+      "description": "User is interested in a sale on yarn products.",
+      "keywords": [
+        "received promotional email about yarn sale",
+        "sale details included discounts and expiration date",
+        "mention of limited editions and product categories"
+      ],
+      "example_intents": [
+        "User is interested in a sale on yarn products."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831419",
+      "updated_at": "2026-01-07T01:30:16.831419"
+    },
+    "customer_support_information_request": {
+      "issue_signature": "customer_support_information_request",
+      "product_area": "other",
+      "component": "customer_support",
+      "description": "The user wants to reach out for assistance.",
+      "keywords": [
+        "user expressed a desire to contact support",
+        "no specific issue described",
+        "neutral sentiment in the message"
+      ],
+      "example_intents": [
+        "The user wants to reach out for assistance."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831423",
+      "updated_at": "2026-01-07T01:30:16.831423"
+    },
+    "csv_column_mapping_failure": {
+      "issue_signature": "csv_column_mapping_failure",
+      "product_area": "integrations",
+      "component": "csv_import",
+      "description": "Upload and schedule pins using CSV files without issues.",
+      "keywords": [
+        "fields couldn't be mapped for some csv files",
+        "upload fails when specific pin descriptions are included",
+        "deleting the problematic descriptions allows the upload to succeed"
+      ],
+      "example_intents": [
+        "Upload and schedule pins using CSV files without issues."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831426",
+      "updated_at": "2026-01-07T01:30:16.831427"
+    },
+    "billing_plan_downgrade_request": {
+      "issue_signature": "billing_plan_downgrade_request",
+      "product_area": "billing",
+      "component": "plan_management",
+      "description": "Downgrade to the free account option",
+      "keywords": [
+        "received a message thanking for upgrading instead of downgrading",
+        "confusion about the message content",
+        "redirected to an ai bot for more information",
+        "interest in learning more about the new pinterest account management service"
+      ],
+      "example_intents": [
+        "Downgrade to the free account option"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831430",
+      "updated_at": "2026-01-07T01:30:16.831430"
+    },
+    "analytics_pinterest_traffic_drop": {
+      "issue_signature": "analytics_pinterest_traffic_drop",
+      "product_area": "analytics",
+      "component": "performance_tracking",
+      "description": "Understand if running ads is worthwhile given no visits",
+      "keywords": [
+        "no visits on webshop",
+        "no activity on pinterest",
+        "questioning the effectiveness of ads"
+      ],
+      "example_intents": [
+        "Understand if running ads is worthwhile given no visits"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831433",
+      "updated_at": "2026-01-07T01:30:16.831433"
+    },
+    "account_management_delete_old_account": {
+      "issue_signature": "account_management_delete_old_account",
+      "product_area": "account",
+      "component": "profile_management",
+      "description": "The user wants to delete or disconnect their Pinterest account from Tailwind.",
+      "keywords": [
+        "user requested to remove their pinterest account",
+        "no additional context provided",
+        "neutral sentiment in the request"
+      ],
+      "example_intents": [
+        "The user wants to delete or disconnect their Pinterest account from Tailwind."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831439",
+      "updated_at": "2026-01-07T01:30:16.831439"
+    },
+    "bulk_creation_question": {
+      "issue_signature": "bulk_creation_question",
+      "product_area": "ai_creation",
+      "component": "canva_integration",
+      "description": "User wants to integrate Tailwind with Canva for easier content creation.",
+      "keywords": [
+        "user expressed interest in canva integration",
+        "no existing integration mentioned",
+        "user is looking for a more streamlined design process"
+      ],
+      "example_intents": [
+        "User wants to integrate Tailwind with Canva for easier content creation."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831442",
+      "updated_at": "2026-01-07T01:30:16.831443"
+    },
+    "custom_content_creation_feedback_request": {
+      "issue_signature": "custom_content_creation_feedback_request",
+      "product_area": "ai_creation",
+      "component": "ghostwriter",
+      "description": "The user wanted to generate a description for a kids party using the AI feature.",
+      "keywords": [
+        "lost 50 credits due to errors",
+        "ai changed the description to a burgundy dark themed wedding",
+        "website showed error messages",
+        "website was unreachable at times"
+      ],
+      "example_intents": [
+        "The user wanted to generate a description for a kids party using the AI feature."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831445",
+      "updated_at": "2026-01-07T01:30:16.831446"
+    },
+    "unexpected_charge_on_failed_payment": {
+      "issue_signature": "unexpected_charge_on_failed_payment",
+      "product_area": "billing",
+      "component": "plans",
+      "description": "Request a refund for an unauthorized charge",
+      "keywords": [
+        "received emails indicating payment was unsuccessful",
+        "charged $506.02 despite payment failure notifications",
+        "user is closing all companies and no longer needs the service",
+        "frustration expressed regarding the billing process"
+      ],
+      "example_intents": [
+        "Request a refund for an unauthorized charge"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831448",
+      "updated_at": "2026-01-07T01:30:16.831449"
+    },
+    "billing_account_cancellation_refund_request": {
+      "issue_signature": "billing_account_cancellation_refund_request",
+      "product_area": "billing",
+      "component": "account",
+      "description": "Request a refund and cancel the account",
+      "keywords": [
+        "charged on october 4",
+        "not using the app anymore",
+        "request for account cancellation"
+      ],
+      "example_intents": [
+        "Request a refund and cancel the account"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831452",
+      "updated_at": "2026-01-07T01:30:16.831452"
+    },
+    "custom_content_creation": {
+      "issue_signature": "custom_content_creation",
+      "product_area": "ai_creation",
+      "component": "ghostwriter",
+      "description": "Change the image on an existing ad without recreating it.",
+      "keywords": [
+        "user wants to update an ad image",
+        "user has a new cover for a resource",
+        "user is looking for a way to modify the ad"
+      ],
+      "example_intents": [
+        "Change the image on an existing ad without recreating it."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831455",
+      "updated_at": "2026-01-07T01:30:16.831455"
+    },
+    "billing_account_cancellation_request": {
+      "issue_signature": "billing_account_cancellation_request",
+      "product_area": "billing",
+      "component": "account management",
+      "description": "User wants to cancel their Tailwind account",
+      "keywords": [
+        "user inquires about account cancellation process",
+        "user expresses intent to discontinue service"
+      ],
+      "example_intents": [
+        "User wants to cancel their Tailwind account"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831458",
+      "updated_at": "2026-01-07T01:30:16.831459"
+    },
+    "account_management_plan_reactivation_failure": {
+      "issue_signature": "account_management_plan_reactivation_failure",
+      "product_area": "billing",
+      "component": "account_management",
+      "description": "Change the linked social account and adjust the current plan to only one account.",
+      "keywords": [
+        "user wants to change the linked social account",
+        "user wants to modify their current plan",
+        "user specifies they only want one account"
+      ],
+      "example_intents": [
+        "Change the linked social account and adjust the current plan to only one account."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831463",
+      "updated_at": "2026-01-07T01:30:16.831463"
+    },
+    "google_verification_code": {
+      "issue_signature": "google_verification_code",
+      "product_area": "other",
+      "component": "google_verification",
+      "description": "Verify email address for a visitor session",
+      "keywords": [
+        "received a google verification code",
+        "email address was recently used to start a visitor session",
+        "code provided in the email"
+      ],
+      "example_intents": [
+        "Verify email address for a visitor session"
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831468",
+      "updated_at": "2026-01-07T01:30:16.831468"
+    },
+    "pins_rescheduling_guidance": {
+      "issue_signature": "pins_rescheduling_guidance",
+      "product_area": "scheduling",
+      "component": "pin_scheduler",
+      "description": "User wants to schedule a post for tomorrow.",
+      "keywords": [
+        "user is asking how to schedule a post",
+        "user specifies a time frame of tomorrow"
+      ],
+      "example_intents": [
+        "User wants to schedule a post for tomorrow."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831471",
+      "updated_at": "2026-01-07T01:30:16.831471"
+    },
+    "pins_disable_spacing": {
+      "issue_signature": "pins_disable_spacing",
+      "product_area": "scheduling",
+      "component": "pin_spacing",
+      "description": "Understand if deleting a pin allows for another pin to be scheduled in its place.",
+      "keywords": [
+        "user asked about deleting a pin",
+        "user inquired about scheduling another pin",
+        "user referenced 'turbo' feature"
+      ],
+      "example_intents": [
+        "Understand if deleting a pin allows for another pin to be scheduled in its place."
+      ],
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T01:30:16.831474",
+      "updated_at": "2026-01-07T01:30:16.831474"
+    }
+  }
+}
