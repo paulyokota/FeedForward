@@ -520,10 +520,16 @@ The user was on a page related to **{url_matched_product_area}** when they start
         matched_existing = result.get("matched_existing", False)
         match_reasoning = result.get("match_reasoning", "")
 
-        # Log vocabulary match status
+        # Log vocabulary match status and lookup vocabulary metadata
         if self.use_vocabulary:
             if matched_existing:
                 logger.info(f"Matched vocabulary theme: {proposed_signature}")
+                # When matched, use vocabulary product_area and component instead of LLM response
+                vocab_theme = self.vocabulary._themes.get(proposed_signature)
+                if vocab_theme:
+                    product_area = vocab_theme.product_area
+                    component = vocab_theme.component
+                    logger.info(f"Using vocabulary metadata: product_area={product_area}, component={component}")
             else:
                 logger.info(f"New theme proposed: {proposed_signature} - {match_reasoning}")
 

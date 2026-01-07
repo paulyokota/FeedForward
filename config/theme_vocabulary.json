@@ -987,7 +987,7 @@
     },
     "consulting_inquiry": {
       "issue_signature": "consulting_inquiry",
-      "product_area": "professional_services",
+      "product_area": "Professional Services",
       "component": "consulting",
       "description": "User asking about consulting services, strategic guidance, or expert advice",
       "keywords": [
@@ -1011,7 +1011,7 @@
     },
     "done_for_you_services_inquiry": {
       "issue_signature": "done_for_you_services_inquiry",
-      "product_area": "professional_services",
+      "product_area": "Professional Services",
       "component": "managed_services",
       "description": "User asking about managed services, account management, or done-for-you campaign setup",
       "keywords": [
@@ -1036,7 +1036,7 @@
     },
     "training_request": {
       "issue_signature": "training_request",
-      "product_area": "professional_services",
+      "product_area": "Professional Services",
       "component": "training",
       "description": "User asking about training sessions, workshops, or educational services",
       "keywords": [
@@ -1061,7 +1061,7 @@
     },
     "custom_development_inquiry": {
       "issue_signature": "custom_development_inquiry",
-      "product_area": "professional_services",
+      "product_area": "Professional Services",
       "component": "custom_development",
       "description": "User asking about custom development, integrations, or technical services",
       "keywords": [
@@ -1085,7 +1085,7 @@
     },
     "professional_services_pricing": {
       "issue_signature": "professional_services_pricing",
-      "product_area": "professional_services",
+      "product_area": "Professional Services",
       "component": "pricing",
       "description": "User asking about pricing for professional services, consulting rates, or service packages",
       "keywords": [
