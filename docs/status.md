@@ -4,9 +4,36 @@
 
 **Phase 4: Theme Extraction & Aggregation** - IN PROGRESS 🚧
 
+## Latest: Vocabulary v2.1 Expansion (2026-01-06)
+
+**Problem**: 37% of themed conversations were in catch-all buckets (`general_product_question`, `unclassified_needs_review`, `misdirected_inquiry`), resulting in only 12 tickets from 400+ conversations.
+
+**Solution**: Expanded vocabulary from 22 to 30 themes, adding:
+
+- `professional_services_inquiry` - managed services/consulting requests
+- `smartbio_configuration` - smart.bio link customization
+- `unsupported_platform_inquiry` - eBay, TikTok, etc.
+- `pin_editing_question` - editing pins, bulk operations
+- `feature_access_question` - Original Publisher, beta features
+- `dashboard_loading_error` - loading errors, blank screens
+- `communities_feature_question` - Tailwind Communities
+- `ai_language_mismatch` - wrong language generation
+
+**Results after re-extraction**:
+
+| Metric             | Before      | After       | Change      |
+| ------------------ | ----------- | ----------- | ----------- |
+| Actionable themes  | 162 (63.0%) | 195 (75.9%) | +33 (+13pp) |
+| Catch-all themes   | 95 (37.0%)  | 62 (24.1%)  | -33         |
+| Themes for tickets | 12          | 20          | +8 new      |
+
+**Scripts added**:
+
+- `scripts/reextract_catchall.py` - Re-extract themes for catch-all conversations
+
 ## Phase 4: Theme Extraction 🚧
 
-**Status**: Core functionality complete, testing with real data
+**Status**: Vocabulary v2.1 complete, ready for ticket creation
 
 **Deliverables**:
 

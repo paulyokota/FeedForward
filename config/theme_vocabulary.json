@@ -1,7 +1,7 @@
 {
-  "version": "2.0",
-  "updated_at": "2025-01-06T00:00:00",
-  "description": "Themes organized by engineering fix bucket - issues with same root cause share a theme",
+  "version": "2.1",
+  "updated_at": "2026-01-06T00:00:00",
+  "description": "Themes organized by engineering fix bucket - issues with same root cause share a theme. v2.1 adds 8 new themes to reduce catch-all bucket usage",
   "themes": {
     "pinterest_publishing_failure": {
       "issue_signature": "pinterest_publishing_failure",
@@ -429,11 +429,209 @@
       "created_at": "2025-01-06T00:00:00",
       "updated_at": "2025-01-06T00:00:00"
     },
+    "professional_services_inquiry": {
+      "issue_signature": "professional_services_inquiry",
+      "product_area": "other",
+      "component": "sales",
+      "description": "User asking about managed services, account management, hiring help to set up campaigns",
+      "keywords": [
+        "account management",
+        "managed services",
+        "hire someone",
+        "set up campaign",
+        "pinterest management",
+        "professional help",
+        "consulting"
+      ],
+      "example_intents": [
+        "I'm interested in Pinterest account management services",
+        "Do you know where I can hire someone to set up my campaign?",
+        "Can Tailwind manage my account for me?"
+      ],
+      "engineering_fix": "Marketing/sales referral - not a product issue",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-06T00:00:00",
+      "updated_at": "2026-01-06T00:00:00"
+    },
+    "smartbio_configuration": {
+      "issue_signature": "smartbio_configuration",
+      "product_area": "integrations",
+      "component": "smartbio",
+      "description": "Questions about smart.bio link customization, changing URL handle, profile settings",
+      "keywords": [
+        "smart.bio",
+        "smartbio",
+        "bio link",
+        "change handle",
+        "profile link",
+        "link in bio",
+        "instagram handle"
+      ],
+      "example_intents": [
+        "How do I change my smart.bio link?",
+        "I want to update my smart.bio handle to match my new Instagram",
+        "How do I customize my smart.bio page?"
+      ],
+      "engineering_fix": "Smart.bio settings UI, handle change flow, documentation",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-06T00:00:00",
+      "updated_at": "2026-01-06T00:00:00"
+    },
+    "unsupported_platform_inquiry": {
+      "issue_signature": "unsupported_platform_inquiry",
+      "product_area": "integrations",
+      "component": "platform_support",
+      "description": "Questions about platforms Tailwind doesn't support - eBay, TikTok, LinkedIn, etc.",
+      "keywords": [
+        "ebay",
+        "tiktok",
+        "linkedin",
+        "youtube",
+        "twitter",
+        "does tailwind support",
+        "can I use with"
+      ],
+      "example_intents": [
+        "Can I use Tailwind with my eBay store?",
+        "Does Tailwind work with TikTok?",
+        "I want to schedule LinkedIn posts"
+      ],
+      "engineering_fix": "Marketing clarity on supported platforms, feature request tracking",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-06T00:00:00",
+      "updated_at": "2026-01-06T00:00:00"
+    },
+    "pin_editing_question": {
+      "issue_signature": "pin_editing_question",
+      "product_area": "scheduling",
+      "component": "pin_editor",
+      "description": "Questions about editing pins - fixing mistakes, changing links, bulk operations on drafts",
+      "keywords": [
+        "edit pin",
+        "spelling mistake",
+        "change link",
+        "delete drafts",
+        "bulk delete",
+        "fix pin",
+        "modify scheduled"
+      ],
+      "example_intents": [
+        "I made a spelling mistake on my pins, can I fix it?",
+        "How do I delete all my draft pins?",
+        "Can I change the link on a scheduled pin?"
+      ],
+      "engineering_fix": "Pin editor UX, bulk operations, draft management UI",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-06T00:00:00",
+      "updated_at": "2026-01-06T00:00:00"
+    },
+    "feature_access_question": {
+      "issue_signature": "feature_access_question",
+      "product_area": "account",
+      "component": "feature_flags",
+      "description": "Questions about accessing specific features - Original Publisher, new dashboard, beta features",
+      "keywords": [
+        "original publisher",
+        "new publisher",
+        "new dashboard",
+        "beta feature",
+        "can't access",
+        "don't have access",
+        "feature missing"
+      ],
+      "example_intents": [
+        "I need access to the Original Publisher feature",
+        "Why don't I have the new dashboard?",
+        "How do I get access to the beta features?"
+      ],
+      "engineering_fix": "Feature flag management, account upgrade paths, feature rollout communication",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-06T00:00:00",
+      "updated_at": "2026-01-06T00:00:00"
+    },
+    "dashboard_loading_error": {
+      "issue_signature": "dashboard_loading_error",
+      "product_area": "account",
+      "component": "dashboard",
+      "description": "Dashboard won't load, shows errors, spins indefinitely, or displays outdated interface",
+      "keywords": [
+        "dashboard error",
+        "won't load",
+        "keeps spinning",
+        "error loading",
+        "page not loading",
+        "blank screen",
+        "outdated dashboard"
+      ],
+      "example_intents": [
+        "My dashboard keeps saying an error occurred",
+        "The page just spins and never loads",
+        "I'm seeing an outdated dashboard"
+      ],
+      "engineering_fix": "Frontend error handling, loading states, account migration, caching issues",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-06T00:00:00",
+      "updated_at": "2026-01-06T00:00:00"
+    },
+    "communities_feature_question": {
+      "issue_signature": "communities_feature_question",
+      "product_area": "communities",
+      "component": "tailwind_communities",
+      "description": "Questions about Tailwind Communities - how they work, joining, previewing, submitting content",
+      "keywords": [
+        "communities",
+        "tailwind community",
+        "join community",
+        "submit to community",
+        "community preview",
+        "tribes"
+      ],
+      "example_intents": [
+        "How do Tailwind Communities work?",
+        "I'm trying to preview a community but it won't load",
+        "How do I join a Tailwind Community?"
+      ],
+      "engineering_fix": "Communities UX, loading performance, onboarding, feature education",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-06T00:00:00",
+      "updated_at": "2026-01-06T00:00:00"
+    },
+    "ai_language_mismatch": {
+      "issue_signature": "ai_language_mismatch",
+      "product_area": "ai_creation",
+      "component": "localization",
+      "description": "AI generates content in wrong language - Spanish instead of English, etc.",
+      "keywords": [
+        "wrong language",
+        "spanish",
+        "french",
+        "german",
+        "language setting",
+        "not in english"
+      ],
+      "example_intents": [
+        "My Smart Pin was created in Spanish",
+        "Ghostwriter generated text in the wrong language",
+        "How do I change the language setting?"
+      ],
+      "engineering_fix": "Language detection, user locale settings, prompt language specification",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-06T00:00:00",
+      "updated_at": "2026-01-06T00:00:00"
+    },
     "general_product_question": {
       "issue_signature": "general_product_question",
       "product_area": "other",
       "component": "general",
-      "description": "General questions about product capabilities, pricing, or getting started",
+      "description": "General questions about product capabilities, pricing, or getting started - USE ONLY when no other theme fits",
       "keywords": [
         "how does it work",
         "what can tailwind do",
@@ -446,7 +644,7 @@
       "status": "active",
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
-      "updated_at": "2025-01-06T00:00:00"
+      "updated_at": "2026-01-06T00:00:00"
     },
     "misdirected_inquiry": {
       "issue_signature": "misdirected_inquiry",

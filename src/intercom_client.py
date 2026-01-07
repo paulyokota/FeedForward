@@ -23,7 +23,9 @@ class IntercomConversation(BaseModel):
     source_type: Optional[str] = None
     source_subject: Optional[str] = None
     contact_email: Optional[str] = None
-    contact_id: Optional[str] = None
+    contact_id: Optional[str] = None      # Intercom contact ID
+    user_id: Optional[str] = None         # Tailwind user ID (from external_id)
+    org_id: Optional[str] = None          # Tailwind org ID (from custom_attributes.account_id)
 
 
 class QualityFilterResult(BaseModel):
@@ -46,6 +48,7 @@ class IntercomClient:
         "hi",
         "hello",
     ]
+
 
     def __init__(self, access_token: Optional[str] = None):
         self.access_token = access_token or os.getenv("INTERCOM_ACCESS_TOKEN")
@@ -145,6 +148,13 @@ class IntercomClient:
 
         created_at = datetime.fromtimestamp(conv.get("created_at", 0))
 
+        # Extract user_id from contacts[].external_id (Tailwind user ID)
+        user_id = None
+        contacts_data = conv.get("contacts", {})
+        contacts_list = contacts_data.get("contacts", []) if isinstance(contacts_data, dict) else []
+        if contacts_list:
+            user_id = contacts_list[0].get("external_id")
+
         return IntercomConversation(
             id=str(conv.get("id")),
             created_at=created_at,
@@ -153,7 +163,23 @@ class IntercomClient:
             source_subject=source.get("subject"),
             contact_email=author.get("email"),
             contact_id=author.get("id"),
+            user_id=user_id,
+            # org_id requires fetching the contact separately
         )
+
+    def fetch_contact_org_id(self, contact_id: str) -> Optional[str]:
+        """Fetch org_id from contact's custom_attributes.account_id."""
+        if not contact_id:
+            return None
+
+        try:
+            response = self.session.get(f"{self.BASE_URL}/contacts/{contact_id}")
+            response.raise_for_status()
+            contact = response.json()
+            custom_attrs = contact.get("custom_attributes", {})
+            return custom_attrs.get("account_id")
+        except requests.RequestException:
+            return None
 
     def fetch_conversations(
         self,
