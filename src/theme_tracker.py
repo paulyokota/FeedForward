@@ -7,6 +7,7 @@ and generates tickets when thresholds are met.
 
 import json
 import logging
+import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -48,6 +49,54 @@ SPECIFICITY_PATTERNS = [
     r"'[^']{5,}'",          # Single-quoted text
 ]
 
+# Patterns that indicate reproduction steps (high value for debugging)
+REPRO_STEP_PATTERNS = [
+    r'\b\d+\.\s+\w',                    # Numbered list: "1. Click..."
+    r'\bfirst\b.*\bthen\b',             # Sequential: "first... then..."
+    r'\bafter\s+(i|that|this)\b',       # "after I...", "after that..."
+    r'\bwhen\s+i\b',                    # "when I..."
+    r'\bif\s+i\b',                      # "if I..."
+    r'\b(click|tap|press|select|choose|open|go to|navigate)\b',  # UI actions
+    r'\b(enter|type|input|fill|submit)\b',  # Form actions
+    r'\b(try|tried|attempt)\b.*\b(to|and)\b',  # "tried to...", "try and..."
+    r'\breproduce\b|\brepro\b',         # Explicit repro mention
+]
+
+# Patterns for media links (screenshots, screen recordings, etc.)
+MEDIA_LINK_PATTERNS = [
+    (r'https?://(?:www\.)?loom\.com/share/[a-zA-Z0-9]+', 'Loom'),
+    (r'https?://(?:www\.)?jam\.dev/c/[a-zA-Z0-9-]+', 'Jam'),
+    (r'https?://(?:www\.)?jamdev\.io/[a-zA-Z0-9-]+', 'Jam'),
+    (r'https?://(?:www\.)?screencast\.com/[^\s]+', 'Screencast'),
+    (r'https?://(?:www\.)?share\.cleanshot\.com/[a-zA-Z0-9]+', 'CleanShot'),
+    (r'https?://(?:www\.)?cl\.ly/[a-zA-Z0-9]+', 'CloudApp'),
+    (r'https?://(?:www\.)?droplr\.com/[^\s]+', 'Droplr'),
+    (r'https?://(?:www\.)?gyazo\.com/[a-zA-Z0-9]+', 'Gyazo'),
+    (r'https?://(?:www\.)?snipboard\.io/[a-zA-Z0-9]+', 'Snipboard'),
+    (r'https?://(?:i\.)?imgur\.com/[a-zA-Z0-9]+', 'Imgur'),
+    (r'https?://[^\s]+\.(?:png|jpg|jpeg|gif|webp|mp4|mov|webm)(?:\?[^\s]*)?', 'Image/Video'),
+    (r'https?://(?:www\.)?youtube\.com/watch\?v=[a-zA-Z0-9_-]+', 'YouTube'),
+    (r'https?://youtu\.be/[a-zA-Z0-9_-]+', 'YouTube'),
+]
+
+
+def extract_media_links(text: str) -> list[tuple[str, str]]:
+    """
+    Extract media links (screenshots, Looms, etc.) from text.
+
+    Returns list of (url, type) tuples.
+    """
+    if not text:
+        return []
+
+    links = []
+    for pattern, link_type in MEDIA_LINK_PATTERNS:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        for match in matches:
+            links.append((match, link_type))
+
+    return links
+
 
 def score_excerpt_specificity(text: str) -> int:
     """
@@ -72,6 +121,21 @@ def score_excerpt_specificity(text: str) -> int:
     for pattern in SPECIFICITY_PATTERNS:
         if re.search(pattern, text_lower):
             score += 10
+
+    # Check for reproduction steps (higher value - these are gold for debugging)
+    repro_matches = 0
+    for pattern in REPRO_STEP_PATTERNS:
+        if re.search(pattern, text_lower):
+            repro_matches += 1
+    if repro_matches > 0:
+        # Bonus scales with number of repro indicators (max +50)
+        score += min(15 * repro_matches, 50)
+
+    # Check for media links (screenshots, Looms, etc. - very high value)
+    media_links = extract_media_links(text)
+    if media_links:
+        # Big bonus for visual evidence
+        score += 30 * len(media_links)
 
     # Slight bonus for medium length (not too short, not too long)
     length = len(text)
@@ -431,12 +495,176 @@ class ThemeTracker:
         except Exception as e:
             logger.error(f"Failed to mark ticket created: {e}")
 
+    @staticmethod
+    def get_theme_type(issue_signature: str) -> str:
+        """
+        Categorize theme as 'bug' (technical) or 'trend' (support/ops pattern).
+
+        Used to select the appropriate ticket template.
+        """
+        sig_lower = issue_signature.lower()
+
+        # Patterns that indicate technical/engineering issues
+        bug_patterns = [
+            '_error',
+            '_failure',
+            '_bug',
+            '_broken',
+            '_not_working',
+            '_crash',
+            '_timeout',
+            '_slow',
+            '_missing',
+            '_stuck',
+            '_drop',
+            '_issue',
+            'not_publishing',
+            'not_loading',
+            'not_showing',
+        ]
+
+        for pattern in bug_patterns:
+            if pattern in sig_lower:
+                return 'bug'
+
+        # Default to trend (support/ops pattern)
+        return 'trend'
+
+    def _build_bug_description(self, agg: ThemeAggregate) -> str:
+        """Build ticket description for bug/technical issues."""
+        symptoms_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(agg.sample_symptoms or []))
+
+        return f"""## Problem
+
+Users are experiencing issues with **{agg.component}** in the **{agg.product_area}** area. This has been reported {agg.occurrence_count} times.
+
+**User Goal:** {agg.sample_user_intent or 'Not specified'}
+
+## Steps to Reproduce
+
+{symptoms_list or '1. (No specific reproduction steps captured)'}
+
+## Affected Flow
+
+{agg.sample_affected_flow or 'Not specified'}
+
+## Technical Context
+
+**Root Cause Hypothesis:** {agg.sample_root_cause_hypothesis or 'Not yet analyzed'}
+
+**Frequency:** {agg.occurrence_count} reports between {agg.first_seen_at.strftime('%Y-%m-%d') if agg.first_seen_at else 'N/A'} and {agg.last_seen_at.strftime('%Y-%m-%d') if agg.last_seen_at else 'N/A'}
+
+## Acceptance Criteria
+
+- [ ] Root cause identified and documented
+- [ ] Fix implemented that addresses the symptoms above
+- [ ] No regression in related {agg.product_area} functionality
+
+## Investigation Starting Points
+
+Look for code related to: `{agg.component}`, `{agg.product_area}`
+
+---
+*Auto-generated by FeedForward from {agg.occurrence_count} customer reports*
+"""
+
+    def _build_trend_description(self, agg: ThemeAggregate) -> str:
+        """Build ticket description for support/ops trends."""
+        symptoms_list = "\n".join(f"- {s}" for s in (agg.sample_symptoms or []))
+
+        return f"""## Support Trend: {agg.issue_signature.replace('_', ' ').title()}
+
+**Volume:** {agg.occurrence_count} conversations
+**Product Area:** {agg.product_area}
+**Component:** {agg.component}
+**Period:** {agg.first_seen_at.strftime('%Y-%m-%d') if agg.first_seen_at else 'N/A'} to {agg.last_seen_at.strftime('%Y-%m-%d') if agg.last_seen_at else 'N/A'}
+
+## What Users Are Asking
+
+{agg.sample_user_intent or 'Not specified'}
+
+## Common Patterns
+
+{symptoms_list or '- No specific patterns captured'}
+
+## Suggested Actions
+
+- [ ] Review if FAQ/docs need updating for this topic
+- [ ] Consider if self-service options could reduce volume
+- [ ] Evaluate if product changes could address root cause
+- [ ] Update support macros/templates if needed
+
+---
+*Auto-generated by FeedForward from {agg.occurrence_count} customer conversations*
+"""
+
+    def create_tickets_for_themes(
+        self,
+        recency_days: int = 30,
+        dry_run: bool = False,
+    ) -> list[str]:
+        """
+        Create Shortcut tickets for all themes that have reached threshold.
+
+        Uses different templates based on theme type:
+        - 'bug': Technical issues with steps to reproduce, acceptance criteria
+        - 'trend': Support patterns with volume analysis, suggested actions
+
+        Returns list of created ticket IDs.
+        """
+        themes = self.get_themes_needing_tickets(recency_days=recency_days)
+        if not themes:
+            logger.info("No themes need tickets")
+            return []
+
+        shortcut = ShortcutClient(dry_run=dry_run)
+
+        if not shortcut.backlog_state_id:
+            logger.error("SHORTCUT_BACKLOG_STATE_ID not set - cannot create tickets")
+            return []
+
+        created_ids = []
+
+        for agg in themes:
+            # Determine theme type and build appropriate description
+            theme_type = self.get_theme_type(agg.issue_signature)
+
+            if theme_type == 'bug':
+                description = self._build_bug_description(agg)
+                story_type = "bug"
+            else:
+                description = self._build_trend_description(agg)
+                story_type = "chore"  # Trends are chores, not bugs
+
+            # Create the story
+            title = f"[{agg.occurrence_count}] {agg.issue_signature}"
+            story_id = shortcut.create_story(
+                name=title,
+                description=description,
+                story_type=story_type,
+                workflow_state_id=shortcut.backlog_state_id,
+            )
+
+            if story_id:
+                created_ids.append(story_id)
+                self.mark_ticket_created(agg.issue_signature, story_id)
+                logger.info(f"Created ticket {story_id} for {agg.issue_signature}")
+            else:
+                logger.error(f"Failed to create ticket for {agg.issue_signature}")
+
+        return created_ids
+
     def update_ticket_for_theme(
         self,
         issue_signature: str,
         new_excerpt: Optional[str] = None,
         max_excerpts: int = 10,
         dry_run: bool = False,
+        # User metadata for context
+        email: Optional[str] = None,
+        org_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,  # Intercom conversation ID
     ) -> bool:
         """
         Update an existing ticket with new count and optionally add excerpt.
@@ -445,6 +673,15 @@ class ThemeTracker:
         Updates the ticket title to reflect new count [N] and adds excerpt if:
         - We have fewer than max_excerpts
         - The new excerpt is specific enough (scores above threshold)
+
+        Args:
+            issue_signature: The theme's canonical signature
+            new_excerpt: Customer message excerpt to add
+            max_excerpts: Maximum excerpts per ticket (default 10)
+            dry_run: If True, don't actually update Shortcut
+            email: Customer email address
+            org_id: Customer's organization ID
+            user_id: Customer's user ID
 
         Returns True if ticket was updated.
         """
@@ -473,8 +710,41 @@ class ThemeTracker:
                     )
 
                     if not is_duplicate:
+                        # Build user info line with links
+                        user_info_parts = []
+
+                        # Intercom conversation link
+                        if conversation_id:
+                            intercom_app_id = os.getenv("INTERCOM_APP_ID", "2t3d8az2")
+                            convo_url = f"https://app.intercom.com/a/apps/{intercom_app_id}/inbox/inbox/conversation/{conversation_id}"
+                            label = email if email else f"Conversation {conversation_id}"
+                            user_info_parts.append(f"[{label}]({convo_url})")
+                        elif email:
+                            user_info_parts.append(f"Email: {email}")
+
+                        # Jarvis org link
+                        if org_id:
+                            org_url = f"https://jarvis.tailwind.ai/organizations/{org_id}"
+                            user_info_parts.append(f"[Org: {org_id}]({org_url})")
+
+                        # Jarvis user link (requires org_id)
+                        if user_id and org_id:
+                            user_url = f"https://jarvis.tailwind.ai/organizations/{org_id}/users/{user_id}"
+                            user_info_parts.append(f"[User: {user_id}]({user_url})")
+                        elif user_id:
+                            user_info_parts.append(f"User ID: {user_id}")
+
+                        user_info = " | ".join(user_info_parts) if user_info_parts else "Unknown user"
+
+                        # Extract media links (screenshots, Looms, etc.)
+                        media_links = extract_media_links(new_excerpt)
+                        media_section = ""
+                        if media_links:
+                            media_items = [f"- [{link_type}]({url})" for url, link_type in media_links]
+                            media_section = "\n📎 **Attachments:**\n" + "\n".join(media_items) + "\n"
+
                         # Add to ticket
-                        formatted = f"**Customer report (score: {score}):**\n> {new_excerpt[:500]}..."
+                        formatted = f"**Customer report:**\n{user_info}\n> {new_excerpt[:500]}{media_section}"
                         if shortcut.append_to_description(agg.ticket_id, formatted):
                             # Update stored excerpts
                             self._add_ticket_excerpt(issue_signature, new_excerpt)
