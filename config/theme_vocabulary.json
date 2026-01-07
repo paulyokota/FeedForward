@@ -1,7 +1,7 @@
 {
-  "version": "2.1",
-  "updated_at": "2026-01-06T00:00:00",
-  "description": "Themes organized by engineering fix bucket - issues with same root cause share a theme. v2.1 adds 8 new themes to reduce catch-all bucket usage",
+  "version": "2.2",
+  "updated_at": "2026-01-07T00:00:00",
+  "description": "Themes organized by engineering fix bucket. v2.2 splits broad themes (analytics_data_issue, feature_access_question) into specific actionable issues",
   "themes": {
     "pinterest_publishing_failure": {
       "issue_signature": "pinterest_publishing_failure",
@@ -342,27 +342,72 @@
       "created_at": "2025-01-06T00:00:00",
       "updated_at": "2025-01-06T00:00:00"
     },
-    "analytics_data_issue": {
-      "issue_signature": "analytics_data_issue",
+    "analytics_counter_bug": {
+      "issue_signature": "analytics_counter_bug",
       "product_area": "analytics",
-      "component": "reporting",
-      "description": "Analytics data missing, incorrect, or not updating",
+      "component": "dashboard",
+      "description": "Dashboard counters showing wrong values - pin count, post count, or other metrics displaying incorrectly",
       "keywords": [
-        "data missing",
-        "wrong numbers",
-        "not updating",
-        "analytics broken",
-        "no data"
+        "counter wrong",
+        "showing zero",
+        "count not updating",
+        "pins posted showing zero",
+        "wrong number of pins"
       ],
       "example_intents": [
-        "My analytics aren't showing any data",
-        "The numbers look wrong"
+        "My pin count is showing zero but I posted several pins",
+        "The number of scheduled posts is wrong"
       ],
-      "engineering_fix": "Data pipeline reliability, API sync, caching invalidation, data accuracy",
+      "engineering_fix": "Counter state management, cache invalidation, real-time updates",
       "status": "active",
       "merged_into": null,
-      "created_at": "2025-01-06T00:00:00",
-      "updated_at": "2025-01-06T00:00:00"
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "blog_indexing_failure": {
+      "issue_signature": "blog_indexing_failure",
+      "product_area": "integrations",
+      "component": "blog_crawler",
+      "description": "Tailwind cannot find or index blogs/posts from user's website",
+      "keywords": [
+        "can't find blogs",
+        "blogs not showing",
+        "not indexing",
+        "website not found",
+        "posts not appearing"
+      ],
+      "example_intents": [
+        "Why can't Tailwind find the blogs on my site?",
+        "My blog posts aren't showing up in Tailwind"
+      ],
+      "engineering_fix": "Blog crawler, RSS parsing, sitemap detection, indexing pipeline",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "engagement_decline_feedback": {
+      "issue_signature": "engagement_decline_feedback",
+      "product_area": "analytics",
+      "component": "nps_feedback",
+      "description": "User reporting that their Pinterest engagement/traffic has declined since using Tailwind - NPS feedback, not a bug",
+      "keywords": [
+        "traffic down",
+        "engagement dropped",
+        "views decreased",
+        "less engagement",
+        "worse performance",
+        "not working for me"
+      ],
+      "example_intents": [
+        "My Pinterest traffic has dropped since using Tailwind",
+        "Engagement is down 25% since I started using Tailwind"
+      ],
+      "engineering_fix": "Product education, best practices, scheduling optimization guidance - route to customer success",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
     },
     "analytics_interpretation_question": {
       "issue_signature": "analytics_interpretation_question",
@@ -529,30 +574,70 @@
       "created_at": "2026-01-06T00:00:00",
       "updated_at": "2026-01-06T00:00:00"
     },
-    "feature_access_question": {
-      "issue_signature": "feature_access_question",
+    "original_publisher_access": {
+      "issue_signature": "original_publisher_access",
       "product_area": "account",
       "component": "feature_flags",
-      "description": "Questions about accessing specific features - Original Publisher, new dashboard, beta features",
+      "description": "User requesting access to Original Publisher or new publisher features",
       "keywords": [
         "original publisher",
         "new publisher",
-        "new dashboard",
-        "beta feature",
-        "can't access",
-        "don't have access",
-        "feature missing"
+        "publisher access",
+        "enable original publisher"
       ],
       "example_intents": [
         "I need access to the Original Publisher feature",
-        "Why don't I have the new dashboard?",
-        "How do I get access to the beta features?"
+        "How do I get the new publisher?"
       ],
-      "engineering_fix": "Feature flag management, account upgrade paths, feature rollout communication",
+      "engineering_fix": "Feature flag enablement, account upgrade path, rollout communication",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-06T00:00:00",
-      "updated_at": "2026-01-06T00:00:00"
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "dashboard_version_issue": {
+      "issue_signature": "dashboard_version_issue",
+      "product_area": "account",
+      "component": "migration",
+      "description": "User stuck on old/outdated dashboard version, not migrated to new experience",
+      "keywords": [
+        "old dashboard",
+        "outdated dashboard",
+        "older version",
+        "not migrated",
+        "weird dashboard"
+      ],
+      "example_intents": [
+        "My client's account has an older dashboard",
+        "Why am I still seeing the old interface?"
+      ],
+      "engineering_fix": "Account migration scripts, version detection, migration triggers",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "multi_account_question": {
+      "issue_signature": "multi_account_question",
+      "product_area": "billing",
+      "component": "plans",
+      "description": "Questions about managing multiple accounts, different email addresses, team features",
+      "keywords": [
+        "multiple accounts",
+        "different emails",
+        "add accounts",
+        "team members",
+        "manage accounts"
+      ],
+      "example_intents": [
+        "Can I add accounts from different email addresses?",
+        "How do I manage multiple Pinterest accounts?"
+      ],
+      "engineering_fix": "Plan documentation, multi-account UI, team features education",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
     },
     "dashboard_loading_error": {
       "issue_signature": "dashboard_loading_error",

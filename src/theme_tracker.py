@@ -69,6 +69,7 @@ NON_ACTIONABLE_THEMES = {
     'unclassified_needs_review',  # Needs manual review, not auto-ticketing
     'misdirected_inquiry',  # Wrong channel, not actionable
     'professional_services_inquiry',  # Sales leads, route to sales not engineering
+    'engagement_decline_feedback',  # NPS feedback, route to customer success not engineering
 }
 
 # Patterns for media links (screenshots, screen recordings, etc.)
