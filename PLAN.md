@@ -389,7 +389,16 @@ This filter reduces LLM costs by ~50% while improving classification quality.
 - ✅ Unit tests: 17/17 passing (100%)
 - ✅ Error handling validated (graceful degradation)
 - ✅ All URL patterns tested (3 formats)
-- ⏳ Real-data validation: Pending Intercom API access
+- ✅ Testing infrastructure complete (validation script, accuracy testing script, test data template)
+- ⏳ Real-data validation: Ready to execute (requires test dataset preparation)
+- ⏳ Accuracy improvement testing: Ready to execute (requires ground truth labels)
+
+**Testing Infrastructure** (Created):
+
+- ✅ `scripts/validate_phase4_extractors.py` - Real-data extraction rate validation
+- ✅ `scripts/test_phase4_accuracy_improvement.py` - A/B accuracy testing (baseline vs enriched)
+- ✅ `scripts/test_conversations_template.json` - Test dataset format template
+- ✅ `scripts/README.md` - Complete testing guide and documentation
 
 **Success Criteria** (Unit Tests):
 
@@ -397,6 +406,8 @@ This filter reduces LLM costs by ~50% while improving classification quality.
 - ✅ Prompt enrichment: 100% when articles detected
 - ✅ Error handling: Graceful failures, no pipeline breakage
 - ⏳ Database integrity: Migration ready, not yet applied
+- ⏳ Extraction rate: Target 15-20% (awaiting measurement)
+- ⏳ Accuracy improvement: Target +10-15% (awaiting A/B testing)
 
 **GitHub Issue**: #18 (complete)
 
@@ -429,13 +440,25 @@ This filter reduces LLM costs by ~50% while improving classification quality.
 - ✅ Story ID extraction: Handles prefixed/raw formats, whitespace normalization
 - ✅ Label extraction: Supports object and string formats
 - ✅ Error handling validated (graceful degradation)
-- ⏳ Real-data validation: Pending Shortcut API access
+- ✅ Testing infrastructure complete (same tools as Phase 4a)
+- ⏳ Real-data validation: Ready to execute (requires test dataset preparation)
+- ⏳ Accuracy improvement testing: Ready to execute (requires ground truth labels)
+
+**Testing Infrastructure** (Shared with Phase 4a):
+
+- ✅ `scripts/validate_phase4_extractors.py` - Validates both article and story extraction rates
+- ✅ `scripts/test_phase4_accuracy_improvement.py` - Tests all 4 scenarios (baseline, articles, stories, combined)
+- ✅ `scripts/test_conversations_template.json` - Includes story_id_v2 in test format
+- ✅ `scripts/README.md` - Documents testing workflow for both phases
 
 **Success Criteria** (Unit Tests):
 
 - ✅ Story linkage extraction: Handles all ID formats
 - ✅ Prompt enrichment: 100% when Story ID v2 detected
 - ✅ Error handling: Graceful failures, no pipeline breakage
+- ⏳ Database integrity: Migration ready, not yet applied
+- ⏳ Extraction rate: Target 30-40% (awaiting measurement)
+- ⏳ Accuracy improvement: Target +15-20% (awaiting A/B testing)
 - ⏳ Label alignment: Will measure with ground truth validation (Phase 5)
 
 **GitHub Issue**: #23 (complete)
