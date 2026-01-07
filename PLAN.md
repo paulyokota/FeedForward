@@ -405,7 +405,7 @@ This filter reduces LLM costs by ~50% while improving classification quality.
 - ✅ Article reference extraction: Handles all URL formats
 - ✅ Prompt enrichment: 100% when articles detected
 - ✅ Error handling: Graceful failures, no pipeline breakage
-- ⏳ Database integrity: Migration ready, not yet applied
+- ✅ Database integrity: Migration 001 applied successfully (2026-01-07)
 - ⏳ Extraction rate: Target 15-20% (awaiting measurement)
 - ⏳ Accuracy improvement: Target +10-15% (awaiting A/B testing)
 
@@ -456,7 +456,7 @@ This filter reduces LLM costs by ~50% while improving classification quality.
 - ✅ Story linkage extraction: Handles all ID formats
 - ✅ Prompt enrichment: 100% when Story ID v2 detected
 - ✅ Error handling: Graceful failures, no pipeline breakage
-- ⏳ Database integrity: Migration ready, not yet applied
+- ✅ Database integrity: Migration 002 applied successfully (2026-01-07)
 - ⏳ Extraction rate: Target 30-40% (awaiting measurement)
 - ⏳ Accuracy improvement: Target +15-20% (awaiting A/B testing)
 - ⏳ Label alignment: Will measure with ground truth validation (Phase 5)
