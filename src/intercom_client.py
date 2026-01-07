@@ -22,6 +22,7 @@ class IntercomConversation(BaseModel):
     source_body: str
     source_type: Optional[str] = None
     source_subject: Optional[str] = None
+    source_url: Optional[str] = None      # URL of the page user was on when starting conversation
     contact_email: Optional[str] = None
     contact_id: Optional[str] = None      # Intercom contact ID
     user_id: Optional[str] = None         # Tailwind user ID (from external_id)
@@ -161,6 +162,7 @@ class IntercomClient:
             source_body=self.strip_html(source.get("body", "")),
             source_type=source.get("type"),
             source_subject=source.get("subject"),
+            source_url=source.get("url"),
             contact_email=author.get("email"),
             contact_id=author.get("id"),
             user_id=user_id,

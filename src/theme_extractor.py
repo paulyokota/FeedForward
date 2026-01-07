@@ -66,6 +66,8 @@ Your job is to extract a structured "theme" from a customer support conversation
 
 {product_context}
 
+{url_context_hint}
+
 ## KNOWN THEMES
 
 {known_themes}
@@ -421,10 +423,30 @@ class ThemeExtractor:
             strict_mode: If True, force LLM to pick from existing vocabulary only.
                         Use this for backfill to prevent theme fragmentation.
         """
+        # Check for URL context to boost product area matching
+        url_matched_product_area = None
+        url_context_hint = ""
+        if self.use_vocabulary and self.vocabulary and hasattr(conv, 'source_url'):
+            url_matched_product_area = self.vocabulary.match_url_to_product_area(conv.source_url)
+            if url_matched_product_area:
+                url_context_hint = f"""
+## URL Context
+
+The user was on a page related to **{url_matched_product_area}** when they started this conversation.
+**IMPORTANT**: Strongly prefer themes from the {url_matched_product_area} product area when matching.
+"""
+
         # Get known themes from vocabulary (if enabled)
         known_themes = ""
         if self.use_vocabulary and self.vocabulary:
-            known_themes = self.vocabulary.format_for_prompt(max_themes=50)
+            # If we have URL context, prioritize themes from that product area
+            if url_matched_product_area:
+                known_themes = self.vocabulary.format_for_prompt(
+                    product_area=url_matched_product_area,
+                    max_themes=50
+                )
+            else:
+                known_themes = self.vocabulary.format_for_prompt(max_themes=50)
 
         # Select prompt variations based on strict mode
         if strict_mode:
@@ -441,6 +463,7 @@ class ThemeExtractor:
         # Phase 1: Extract theme details (with vocabulary-aware prompt)
         prompt = THEME_EXTRACTION_PROMPT.format(
             product_context=self.product_context[:10000],  # Limit context size
+            url_context_hint=url_context_hint,
             known_themes=known_themes or "(No known themes yet - create new signatures as needed)",
             strict_mode_instructions=strict_mode_instructions,
             signature_instructions=signature_instructions,
