@@ -62,6 +62,16 @@ REPRO_STEP_PATTERNS = [
     r'\breproduce\b|\brepro\b',         # Explicit repro mention
 ]
 
+# Non-actionable themes to exclude from ticketing
+# These represent normal support volume or unclassified data, not actionable issues
+NON_ACTIONABLE_THEMES = {
+    'general_product_question',  # Track for product insights, but no auto-tickets
+    'unclassified_needs_review',  # Needs manual review, not auto-ticketing
+    'misdirected_inquiry',  # Wrong channel, not actionable
+    'professional_services_inquiry',  # Sales leads, route to sales not engineering
+    'engagement_decline_feedback',  # NPS feedback, route to customer success not engineering
+}
+
 # Patterns for media links (screenshots, screen recordings, etc.)
 MEDIA_LINK_PATTERNS = [
     (r'https?://(?:www\.)?loom\.com/share/[a-zA-Z0-9]+', 'Loom'),
@@ -219,6 +229,10 @@ class ThemeTracker:
                     conversation_date = conv_row[0] if conv_row else theme.extracted_at
 
                     # Insert theme (ignore if already exists for this conversation)
+                    # Default component to 'unknown' if None (LLM sometimes returns null)
+                    component = theme.component or "unknown"
+                    product_area = theme.product_area or "other"
+
                     cur.execute(
                         """
                         INSERT INTO themes (
@@ -231,8 +245,8 @@ class ThemeTracker:
                         """,
                         (
                             theme.conversation_id,
-                            theme.product_area,
-                            theme.component,
+                            product_area,
+                            component,
                             theme.issue_signature,
                             theme.user_intent,
                             json.dumps(theme.symptoms),
@@ -249,6 +263,7 @@ class ThemeTracker:
 
                     # Update or insert aggregate
                     # Uses LEAST/GREATEST to track actual first/last conversation dates
+                    # Reuse the same component/product_area defaults from above
                     cur.execute(
                         """
                         INSERT INTO theme_aggregates (
@@ -268,8 +283,8 @@ class ThemeTracker:
                         """,
                         (
                             theme.issue_signature,
-                            theme.product_area,
-                            theme.component,
+                            product_area,
+                            component,
                             conversation_date,
                             conversation_date,
                             theme.user_intent,
@@ -425,6 +440,8 @@ class ThemeTracker:
         try:
             with get_connection() as conn:
                 with conn.cursor() as cur:
+                    # Convert set to tuple for SQL IN clause
+                    excluded = tuple(NON_ACTIONABLE_THEMES)
                     cur.execute(
                         """
                         SELECT
@@ -437,9 +454,10 @@ class ThemeTracker:
                         WHERE occurrence_count >= %s
                           AND ticket_created = FALSE
                           AND last_seen_at >= NOW() - INTERVAL '%s days'
+                          AND issue_signature NOT IN %s
                         ORDER BY occurrence_count DESC
                         """,
-                        (self.ticket_threshold, recency_days)
+                        (self.ticket_threshold, recency_days, excluded)
                     )
                     rows = cur.fetchall()
 
@@ -530,7 +548,105 @@ class ThemeTracker:
         # Default to trend (support/ops pattern)
         return 'trend'
 
-    def _build_bug_description(self, agg: ThemeAggregate) -> str:
+    @staticmethod
+    def _format_title(issue_signature: str) -> str:
+        """Convert issue_signature to human-readable title."""
+        # billing_cancellation_request -> Billing Cancellation Request
+        return issue_signature.replace('_', ' ').title()
+
+    def _format_excerpts(self, issue_signature: str, max_excerpts: int = 5) -> str:
+        """
+        Get and format customer excerpts for ticket description.
+
+        Selects the most specific/useful excerpts based on scoring,
+        and includes Intercom conversation links, Jarvis links, and media links.
+        """
+        messages_with_metadata = self._get_sample_messages_with_metadata(issue_signature, limit=20)
+        if not messages_with_metadata:
+            return ""
+
+        # Score and sort by specificity
+        scored = [
+            (msg, conv_id, email, user_id, org_id, score_excerpt_specificity(msg))
+            for msg, conv_id, email, user_id, org_id in messages_with_metadata
+        ]
+        scored.sort(key=lambda x: x[5], reverse=True)
+
+        # Take top excerpts
+        best = scored[:max_excerpts]
+
+        intercom_app_id = os.getenv("INTERCOM_APP_ID", "2t3d8az2")
+        lines = ["## Customer Reports\n"]
+
+        for i, (msg, conv_id, email, user_id, org_id, score) in enumerate(best, 1):
+            # Truncate long messages
+            excerpt = msg[:500] + "..." if len(msg) > 500 else msg
+
+            # Build user info line with links (same format as update_ticket_for_theme)
+            user_info_parts = []
+
+            # Intercom conversation link with email as label
+            convo_url = f"https://app.intercom.com/a/apps/{intercom_app_id}/inbox/inbox/conversation/{conv_id}"
+            label = email if email else f"Conversation {conv_id}"
+            user_info_parts.append(f"[{label}]({convo_url})")
+
+            # Jarvis org link
+            if org_id:
+                org_url = f"https://jarvis.tailwind.ai/organizations/{org_id}"
+                user_info_parts.append(f"[Org]({org_url})")
+
+            # Jarvis user link (requires org_id)
+            if user_id and org_id:
+                user_url = f"https://jarvis.tailwind.ai/organizations/{org_id}/users/{user_id}"
+                user_info_parts.append(f"[User]({user_url})")
+
+            user_info = " | ".join(user_info_parts)
+
+            # Extract media links (Loom, Jam, screenshots, etc.)
+            media_links = extract_media_links(msg)
+            media_section = ""
+            if media_links:
+                media_items = [f"[{link_type}]({url})" for url, link_type in media_links]
+                media_section = f"\n📎 {', '.join(media_items)}"
+
+            lines.append(f"**Report {i}:** {user_info}{media_section}\n> {excerpt}\n")
+
+        return "\n".join(lines)
+
+    def _get_sample_messages_with_metadata(
+        self,
+        issue_signature: str,
+        limit: int = 5,
+    ) -> list[tuple[str, str, str, str, str]]:
+        """Get sample messages with user metadata for ticket formatting.
+
+        Returns list of (message, conversation_id, email, user_id, org_id) tuples.
+        """
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT c.source_body, c.id, c.contact_email, c.user_id, c.org_id
+                        FROM themes t
+                        JOIN conversations c ON t.conversation_id = c.id
+                        WHERE t.issue_signature = %s
+                          AND c.source_body IS NOT NULL
+                        ORDER BY t.extracted_at DESC
+                        LIMIT %s
+                        """,
+                        (issue_signature, limit)
+                    )
+                    return [
+                        (row[0], row[1], row[2], row[3], row[4])
+                        for row in cur.fetchall()
+                    ]
+
+        except Exception as e:
+            logger.error(f"Failed to get sample messages with metadata: {e}")
+            return []
+
+    def _build_bug_description(self, agg: ThemeAggregate, excerpts: str = "") -> str:
         """Build ticket description for bug/technical issues."""
         symptoms_list = "\n".join(f"{i+1}. {s}" for i, s in enumerate(agg.sample_symptoms or []))
 
@@ -554,25 +670,23 @@ Users are experiencing issues with **{agg.component}** in the **{agg.product_are
 
 **Frequency:** {agg.occurrence_count} reports between {agg.first_seen_at.strftime('%Y-%m-%d') if agg.first_seen_at else 'N/A'} and {agg.last_seen_at.strftime('%Y-%m-%d') if agg.last_seen_at else 'N/A'}
 
+{excerpts}
+
 ## Acceptance Criteria
 
 - [ ] Root cause identified and documented
 - [ ] Fix implemented that addresses the symptoms above
 - [ ] No regression in related {agg.product_area} functionality
 
-## Investigation Starting Points
-
-Look for code related to: `{agg.component}`, `{agg.product_area}`
-
 ---
 *Auto-generated by FeedForward from {agg.occurrence_count} customer reports*
 """
 
-    def _build_trend_description(self, agg: ThemeAggregate) -> str:
+    def _build_trend_description(self, agg: ThemeAggregate, excerpts: str = "") -> str:
         """Build ticket description for support/ops trends."""
         symptoms_list = "\n".join(f"- {s}" for s in (agg.sample_symptoms or []))
 
-        return f"""## Support Trend: {agg.issue_signature.replace('_', ' ').title()}
+        return f"""## Summary
 
 **Volume:** {agg.occurrence_count} conversations
 **Product Area:** {agg.product_area}
@@ -587,12 +701,13 @@ Look for code related to: `{agg.component}`, `{agg.product_area}`
 
 {symptoms_list or '- No specific patterns captured'}
 
+{excerpts}
+
 ## Suggested Actions
 
 - [ ] Review if FAQ/docs need updating for this topic
 - [ ] Consider if self-service options could reduce volume
 - [ ] Evaluate if product changes could address root cause
-- [ ] Update support macros/templates if needed
 
 ---
 *Auto-generated by FeedForward from {agg.occurrence_count} customer conversations*
@@ -629,15 +744,19 @@ Look for code related to: `{agg.component}`, `{agg.product_area}`
             # Determine theme type and build appropriate description
             theme_type = self.get_theme_type(agg.issue_signature)
 
+            # Get formatted excerpts with media links
+            excerpts = self._format_excerpts(agg.issue_signature)
+
             if theme_type == 'bug':
-                description = self._build_bug_description(agg)
+                description = self._build_bug_description(agg, excerpts=excerpts)
                 story_type = "bug"
             else:
-                description = self._build_trend_description(agg)
+                description = self._build_trend_description(agg, excerpts=excerpts)
                 story_type = "chore"  # Trends are chores, not bugs
 
-            # Create the story
-            title = f"[{agg.occurrence_count}] {agg.issue_signature}"
+            # Create the story with readable title
+            readable_title = self._format_title(agg.issue_signature)
+            title = f"[{agg.occurrence_count}] {readable_title}"
             story_id = shortcut.create_story(
                 name=title,
                 description=description,
@@ -944,6 +1063,36 @@ Look for code related to: `{agg.component}`, `{agg.product_area}`
 
         except Exception as e:
             logger.error(f"Failed to get sample messages: {e}")
+            return []
+
+    def get_sample_messages_with_ids(
+        self,
+        issue_signature: str,
+        limit: int = 5,
+    ) -> list[tuple[str, str]]:
+        """Get sample customer messages with conversation IDs for a theme.
+
+        Returns list of (message, conversation_id) tuples.
+        """
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT c.source_body, c.id
+                        FROM themes t
+                        JOIN conversations c ON t.conversation_id = c.id
+                        WHERE t.issue_signature = %s
+                          AND c.source_body IS NOT NULL
+                        ORDER BY t.extracted_at DESC
+                        LIMIT %s
+                        """,
+                        (issue_signature, limit)
+                    )
+                    return [(row[0], row[1]) for row in cur.fetchall()]
+
+        except Exception as e:
+            logger.error(f"Failed to get sample messages with IDs: {e}")
             return []
 
     def format_trending_report(self, days: int = 7) -> str:

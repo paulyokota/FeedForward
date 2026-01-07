@@ -312,3 +312,76 @@ class ShortcutClient:
             logger.info(f"Added comment to story {story_id}")
             return True
         return False
+
+    def search_stories(self, query: str) -> list[dict]:
+        """
+        Search for stories matching a query.
+
+        Args:
+            query: Search query (Shortcut search syntax)
+
+        Returns:
+            List of matching stories.
+        """
+        if self.dry_run or not self.api_token:
+            logger.info(f"[DRY RUN] Search stories: {query}")
+            return []
+
+        try:
+            response = requests.get(
+                f"{BASE_URL}/search/stories",
+                params={"query": query},
+                headers=self._headers(),
+                timeout=30,
+            )
+            response.raise_for_status()
+            return response.json().get("data", [])
+        except requests.RequestException as e:
+            logger.error(f"Shortcut search error: {e}")
+            return []
+
+    def delete_story(self, story_id: str) -> bool:
+        """
+        Delete a story.
+
+        Args:
+            story_id: ID of story to delete
+
+        Returns:
+            True if successful.
+        """
+        if self.dry_run or not self.api_token:
+            logger.info(f"[DRY RUN] Delete story: {story_id}")
+            return True
+
+        try:
+            response = requests.delete(
+                f"{BASE_URL}/stories/{story_id}",
+                headers=self._headers(),
+                timeout=30,
+            )
+            response.raise_for_status()
+            logger.info(f"Deleted Shortcut story: {story_id}")
+            return True
+        except requests.RequestException as e:
+            logger.error(f"Shortcut delete error: {e}")
+            return False
+
+    def delete_all_stories_matching(self, query: str) -> int:
+        """
+        Delete all stories matching a search query.
+
+        Args:
+            query: Search query to find stories to delete
+
+        Returns:
+            Number of stories deleted.
+        """
+        stories = self.search_stories(query)
+        deleted = 0
+        for story in stories:
+            story_id = str(story.get("id"))
+            if self.delete_story(story_id):
+                deleted += 1
+        logger.info(f"Deleted {deleted} stories matching '{query}'")
+        return deleted

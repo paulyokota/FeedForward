@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS conversations (
     source_type TEXT,                 -- 'conversation', 'email', etc.
     source_subject TEXT,              -- Email subject if applicable
     contact_email TEXT,
-    contact_id TEXT,
+    contact_id TEXT,                  -- Intercom contact ID
+    user_id TEXT,                     -- Tailwind user ID (from external_id)
+    org_id TEXT,                      -- Tailwind org ID (from custom_attributes.account_id)
 
     -- Classification output
     issue_type TEXT NOT NULL CHECK (issue_type IN (

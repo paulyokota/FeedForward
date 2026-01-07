@@ -98,9 +98,17 @@ def classify_and_store(
     extractor: ThemeExtractor,
     tracker: ThemeTracker,
     dry_run: bool = False,
+    strict_mode: bool = False,
 ) -> tuple[bool, bool]:
     """
     Classify a conversation and store it with theme extraction.
+
+    Args:
+        conv_data: Parsed conversation data
+        extractor: Theme extractor instance
+        tracker: Theme tracker instance
+        dry_run: If True, don't actually store
+        strict_mode: If True, force vocabulary-only matching
 
     Returns (stored, theme_extracted) booleans.
     """
@@ -129,8 +137,9 @@ def classify_and_store(
                 cur.execute("""
                     INSERT INTO conversations (
                         id, created_at, source_body, source_type, source_subject,
-                        contact_email, issue_type, sentiment, churn_risk, priority
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        contact_email, contact_id, user_id, org_id,
+                        issue_type, sentiment, churn_risk, priority
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (id) DO NOTHING
                     RETURNING id
                 """, (
@@ -140,6 +149,9 @@ def classify_and_store(
                     conv_data.get('source_type'),
                     conv_data.get('source_subject'),
                     conv_data.get('contact_email'),
+                    conv_data.get('contact_id'),
+                    conv_data.get('user_id'),
+                    conv_data.get('org_id'),
                     result['issue_type'],
                     result['sentiment'],
                     result['churn_risk'],
@@ -162,7 +174,7 @@ def classify_and_store(
             priority=result['priority'],
         )
 
-        theme = extractor.extract(conv, canonicalize=True)
+        theme = extractor.extract(conv, canonicalize=True, strict_mode=strict_mode)
         theme_stored = tracker.store_theme(theme)
 
         return True, theme_stored
@@ -180,6 +192,7 @@ def process_month(
     month: int,
     max_per_month: int = None,
     dry_run: bool = False,
+    strict_mode: bool = False,
 ) -> dict:
     """
     Process all conversations from a specific month.
@@ -221,6 +234,12 @@ def process_month(
 
             # Parse and process
             parsed = client.parse_conversation(raw_conv)
+
+            # Fetch org_id from contact (requires extra API call)
+            org_id = None
+            if parsed.contact_id:
+                org_id = client.fetch_contact_org_id(parsed.contact_id)
+
             conv_data = {
                 'id': parsed.id,
                 'created_at': parsed.created_at,
@@ -228,10 +247,13 @@ def process_month(
                 'source_type': parsed.source_type,
                 'source_subject': parsed.source_subject,
                 'contact_email': parsed.contact_email,
+                'contact_id': parsed.contact_id,
+                'user_id': parsed.user_id,
+                'org_id': org_id,
             }
 
             stored, theme_extracted = classify_and_store(
-                conv_data, extractor, tracker, dry_run
+                conv_data, extractor, tracker, dry_run, strict_mode
             )
 
             if stored:
@@ -282,6 +304,10 @@ def main():
         "--reset", action="store_true",
         help="Reset state and start fresh"
     )
+    parser.add_argument(
+        "--strict", action="store_true",
+        help="Use strict mode: force vocabulary-only theme matching (no new themes)"
+    )
 
     args = parser.parse_args()
 
@@ -305,6 +331,7 @@ def main():
     print(f"  Max per month: {args.max_per_month or 'unlimited'}")
     print(f"  Dry run: {args.dry_run}")
     print(f"  Resume: {args.resume}")
+    print(f"  Strict mode: {args.strict}")
     print()
 
     try:
@@ -339,6 +366,7 @@ def main():
             year, month,
             max_per_month=args.max_per_month,
             dry_run=args.dry_run,
+            strict_mode=args.strict,
         )
 
         # Update state

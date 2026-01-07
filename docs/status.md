@@ -4,9 +4,365 @@
 
 **Phase 4: Theme Extraction & Aggregation** - IN PROGRESS 🚧
 
+## Latest: Documentation Updated ✓ (2026-01-07 Session End)
+
+### Session Summary
+
+**Completed `/update-docs` command** to bring all project documentation in sync with URL context integration work.
+
+**Files Updated**:
+
+- `docs/architecture.md` - Complete rewrite with URL context system, components, data flow
+- `docs/changelog.md` - Comprehensive unreleased changes for 2026-01-07 work
+- `docs/prompts.md` - Updated from "TBD" to active theme extraction system with URL context
+- `CLAUDE.md` - Added URL context as key architectural decision
+
+**Key Documentation Additions**:
+
+- URL context boosting flow diagram
+- 5 detailed component descriptions
+- 27 URL patterns for disambiguation
+- Validation metrics (80% match rate, 100% accuracy)
+- Vocabulary progression (v2.5 → v2.9)
+- Accuracy metrics table and iteration history
+
+**Impact**: All project documentation now accurately reflects the current system architecture and capabilities. Ready for external review or onboarding.
+
+---
+
+## Previous: URL Context Validated on Live Data ✓ (2026-01-07)
+
+### Implementation Complete
+
+**Integrated URL context boosting into theme extractor** to disambiguate three scheduling systems.
+
+**Changes**:
+
+1. **Data models** - Added `source_url` field to Conversation and IntercomConversation
+2. **Intercom client** - Extract `source.url` from Intercom API responses
+3. **Vocabulary** - Load URL patterns, `match_url_to_product_area()` method
+4. **Theme extractor** - URL context boosting in prompt, prioritize themes by product area
+5. **Testing** - Unit tests (5/5 pass) + Live validation (10 conversations)
+
+**How it works**:
+
+1. Conversation arrives with `source.url` (e.g., `/dashboard/v2/scheduler`)
+2. URL matches pattern → Product area (e.g., Multi-Network)
+3. Prompt includes: "User was on **Multi-Network** page. Strongly prefer Multi-Network themes."
+4. LLM prioritizes correct scheduler for disambiguation
+
+### Live Validation Results
+
+**Dataset**: 10 conversations with URLs from last 30 days
+
+**URL Context Performance**:
+
+- **Pattern Match Rate**: 80% (8/10 conversations matched URL patterns)
+- **Product Area Accuracy**: 100% (all matched patterns routed correctly)
+- **False Positives**: 0 (no incorrect product area assignments)
+
+**Examples of working disambiguation**:
+
+- ✓ Billing URLs (`/settings/`, `/settings/billing`) → All 5 routed to `billing`
+- ✓ Legacy Publisher URL (`/publisher/queue`) → Correctly routed to `scheduling`
+- ✓ Pin Scheduler URLs (`/advanced-scheduler/pinterest`) → Routed to Next Publisher
+
+**Impact**: URL context successfully disambiguates schedulers and billing issues. Working as designed.
+
+**Details**: See `docs/session/2026-01-07-url-context-validation.md`
+
+---
+
+## Previous: Vocabulary v2.9 - Multi-Network Scheduler Support (2026-01-07)
+
+### Critical Discovery
+
+**There are THREE scheduling systems, not two**:
+
+1. **Pin Scheduler (Next Publisher)** - Pinterest-only, new → `/advanced-scheduler/pinterest`
+2. **Legacy Publisher** - Pinterest-only, old → `/publisher/queue`
+3. **Multi-Network Scheduler** - Cross-platform (Pinterest/Instagram/Facebook) → `/dashboard/v2/scheduler`
+
+Previous vocabulary only covered the two Pinterest schedulers. Multi-Network was completely missing.
+
+### Changes
+
+**Added Multi-Network product area with 3 themes**:
+
+- `crossposting_failure` - Instagram→Facebook auto-post not working
+- `multinetwork_scheduling_failure` - Posts not publishing at scheduled time
+- `multinetwork_feature_question` - How to use Instagram Stories, carousel posts, etc.
+
+**Updated URL context mappings** for all three schedulers with correct paths
+
+### Why This Matters
+
+When users report "scheduling failure", we now have THREE possibilities. Keywords alone can't distinguish them - **URL context is critical**:
+
+- User on `/dashboard/v2/scheduler`: "Instagram posts not scheduling" → Multi-Network
+- User on `/advanced-scheduler/pinterest`: "pins not scheduling" → Next Publisher
+- User on `/publisher/queue`: "pins sent back to drafts" → Legacy Publisher
+
+**Scheduler coverage now complete**: All three systems have proper themes + URL disambiguation.
+
+**Details**: See `docs/session/2026-01-07-vocabulary-v2.9-multinetwork.md`
+
+---
+
+## Previous: Vocabulary v2.8 - Coverage Gap Themes Delivered (2026-01-07)
+
+### Results
+
+**Implemented all 3 high-priority recommendations** from LLM validation analysis:
+
+| Theme Category              | Themes Added | Impact                                                           |
+| --------------------------- | ------------ | ---------------------------------------------------------------- |
+| Extension UI                | 3 themes     | Ready for real Intercom data (Shortcut titles too brief to test) |
+| Legacy/Next Publisher split | 2 variants   | Legacy Publisher: 53.6% → **64.3%** (+10.7%)                     |
+| SmartLoop                   | 2 themes     | SmartLoop: 50.0% → **100.0%** (+50.0%!)                          |
+
+**Overall accuracy**: 53.2% → 52.5% (slight dip expected - filled niche gaps, shifted some classifications)
+
+### Key Wins
+
+- **SmartLoop: Perfect score** (100%) - All 6 stories now match correctly
+- **Legacy Publisher: +10.7%** - "Fill empty time slots" now routes to Legacy, not Next
+- **More stories classified** - 51 → 49 "no match" (better coverage)
+
+### URL Context for Disambiguation
+
+**Important insight**: Shortcut validation tests story **titles only**. Real Intercom conversations include `source.url` that tells us what page the user was on.
+
+We already have `url_context_mapping` in theme_vocabulary.json:
+
+- `/v2/scheduler/` → Next Publisher
+- `/publisher/queue` → Legacy Publisher
+
+**Next step**: Integrate URL context boosting into `src/theme_extractor.py` to disambiguate ambiguous cases like "scheduling failure" using page context.
+
+**Details**: See `docs/session/2026-01-07-vocabulary-v2.8-coverage-themes.md`
+
+---
+
+## Previous: LLM Validation Reveals Theme Coverage Gap (2026-01-07)
+
+### Key Finding
+
+**LLM is more conservative, not less accurate**. When tested against keyword baseline:
+
+- **Keywords**: 52.5% accuracy (cast wide net, guessing on string matches)
+- **LLM**: 38.2% overall, BUT 74% accuracy on stories it classifies
+- **48% unclassified rate** reveals our real problem: **theme coverage gap**
+
+### What This Means
+
+The LLM correctly identified that we're missing themes for:
+
+- **Extension UI bugs** (crop icons, data extraction) - only have connection failure themes
+- **Legacy vs Next Publisher** - both use same `scheduling_failure` theme, can't distinguish
+- **SmartLoop** - 0 themes, 100% unclassified rate
+- **Email, Onboarding** - out of scope (internal/feature flags)
+
+**Bottom line**: We've been optimizing keywords when we should be expanding theme coverage.
+
+**Details**: See `docs/session/2026-01-07-llm-validation-analysis.md`
+
+---
+
+## Previous: Vocabulary v2.7 - Context Boosting + Product Dashboard (2026-01-07)
+
+### Validation Results
+
+**Overall Accuracy**: 44.1% → **53.2%** (+9.1% improvement from baseline)
+
+**Version History**:
+
+- v2.5 baseline: 44.1%
+- v2.6 customer keywords: 50.6% (+6.5%)
+- v2.7 context boosting + Product Dashboard themes: 53.2% (+9.1% total)
+
+**Major Wins**:
+
+- **Extension**: 72.7% → 90.9% (+18.2%) - Fixed regression with context boosting
+- **Product Dashboard**: 44.4% → 88.9% (+44.5%) - Added 3 new themes
+- **Legacy Publisher**: 25.0% → 53.6% (+28.6%)
+- **Create**: 50.0% → 81.2% (+31.2%)
+- **Ads**: 9.5% → 38.1% (+28.6%)
+
+**Top Performers** (>75%): Smart.bio (93.3%), Extension (90.9%), Product Dashboard (88.9%), Create (81.2%), CoPilot (76.9%), Communities (76.9%)
+
+**Details**: See `docs/session/2026-01-07-context-boost-and-product-dashboard.md`
+
+---
+
+## Previous: Vocabulary v2.6 - Enhanced with Customer Keywords (2026-01-07)
+
+Enhanced theme vocabulary with 64 customer keywords from training data extraction. Achieved 50.6% accuracy (+6.5%). See `docs/session/2026-01-07-vocabulary-enhancement.md`
+
+---
+
+## Previous: Training Data Extraction Complete (2026-01-07)
+
+### Shortcut-Intercom Training Data Extraction
+
+Completed full extraction from Shortcut Epic 57994 + linked Intercom conversations:
+
+| Data Source            | File                                | Count       | Description                                     |
+| ---------------------- | ----------------------------------- | ----------- | ----------------------------------------------- |
+| Intercom Conversations | `data/expanded_training_pairs.json` | 52 pairs    | Customer text from linked conversations         |
+| Shortcut Terminology   | `data/shortcut_terminology.json`    | 829 stories | Action verbs, problem indicators, feature names |
+| Customer Quotes        | `data/customer_quotes.json`         | 533 quotes  | Extracted from descriptions & comments          |
+| Full Enriched Stories  | `data/shortcut_full_enriched.json`  | 829 stories | Descriptions + 2502 comments                    |
+| Consolidated Summary   | `data/training_data_summary.json`   | -           | Usage notes & product area coverage             |
+
+**Extraction Tools Created**:
+
+- `tools/extract_customer_terminology.py` - Mines terminology patterns from descriptions
+- `tools/extract_comment_quotes.py` - Extracts customer language from comments
+- `tools/fetch_shortcut_stories.py` - Fetches full story details from Shortcut API
+
+**Key Customer Vocabulary Discovered**:
+
+- **Problem Indicators**: "not working", "error", "broken", "can't", "stuck", "failing"
+- **Action Verbs**: "schedule", "post", "publish", "connect", "edit", "upload"
+- **High-Value Phrases**: "pins failing to publish", "images aren't showing", "extension spinning"
+
+**Product Area Coverage** (from Intercom pairs):
+| Product Area | Intercom Pairs | Customer Quotes |
+|--------------|----------------|-----------------|
+| Smart.bio | 8 | 8 |
+| Pin Scheduler | 7 | 21 |
+| Next Publisher | 6 | 41 |
+| Legacy Publisher | 5 | 30 |
+| Analytics | 4 | 23 |
+| Extension | 3 | 19 |
+| Create | 3 | 16 |
+
+**Next Steps**:
+
+1. Expand `theme_vocabulary.json` keywords with discovered customer vocabulary
+2. Use training pairs for prompt testing
+3. Validate product area routing accuracy
+
+---
+
+## Previous: Vocabulary v2.3 + Product Terminology (2026-01-07)
+
+### Shortcut Training Data
+
+Analyzed Epic 57994 "Bug Triage" - **829 manually labeled stories**:
+
+- 417 with Product Area labels
+- 326 with Technical Area labels
+- Saved to `data/shortcut_training_data.json`
+- Analysis in `data/shortcut_analysis.md`
+
+### Product Terminology Reference
+
+Critical for accurate theme routing. See `data/shortcut_analysis.md` for full details.
+
+| Shortcut Label        | Also Known As                          | Description                            |
+| --------------------- | -------------------------------------- | -------------------------------------- |
+| **Next Publisher**    | Pin Scheduler, Post Scheduler, Queue   | New scheduling experience              |
+| **Legacy Publisher**  | Original Publisher, Original Scheduler | Old scheduling experience              |
+| **Analytics**         | Pin Inspector, Insights                | Performance data and metrics           |
+| **Product Dashboard** | -                                      | E-commerce integration (Shopify)       |
+| **Blog Dashboard**    | -                                      | WordPress integration                  |
+| **CoPilot**           | -                                      | Planning tool (post suggestions)       |
+| **GW Labs**           | Ghostwriter                            | AI text generation                     |
+| **Made For You**      | M4U                                    | AI-generated content                   |
+| **SmartPin**          | -                                      | AI-generated pins (different from M4U) |
+| **Create**            | Tailwind Create, Image Designer        | Design tool (CreateNext/CreateClassic) |
+| **Keyword Research**  | -                                      | Pinterest SEO tool (new)               |
+| **Turbo**             | -                                      | Community engagement system (new)      |
+
+### Theme → Product Area Mapping
+
+| Shortcut Product Area | Themes                                                   | Shortcut Issues |
+| --------------------- | -------------------------------------------------------- | --------------- |
+| Next Publisher        | `scheduling_*`, `pinterest_publishing_failure`, etc.     | 74              |
+| Billing & Settings    | `billing_*`, `account_*`, `pinterest_connection_failure` | 25              |
+| Analytics             | `analytics_*`, `engagement_decline_feedback`             | 16              |
+| GW Labs               | `ghostwriter_*`, `ai_language_mismatch`                  | 11              |
+| Communities           | `communities_feature_question`                           | 13              |
+| Smart.bio             | `smartbio_configuration`                                 | 15              |
+| Extension             | `integration_connection_failure`                         | 11              |
+| Legacy Publisher      | `dashboard_version_issue`                                | 28              |
+| System wide           | `csv_import_failure`, `blog_indexing_failure`, etc.      | 12              |
+
+### Coverage Gaps (No Themes Yet)
+
+| Product Area      | Shortcut Issues | Notes                       |
+| ----------------- | --------------- | --------------------------- |
+| Ads               | 42              | OAuth, onboarding, settings |
+| Made For You      | 31              | AI-generated content        |
+| Create            | 32              | Design tool bugs            |
+| Product Dashboard | 18              | Shopify integration         |
+| CoPilot           | 13              | Planning tool               |
+
+### Validation Against Shortcut Training Data
+
+**Tool**: `tools/validate_shortcut_data.py`
+
+**Keyword Baseline Results** (417 labeled stories):
+
+| Product Area       | Accuracy  | Issues | Notes                            |
+| ------------------ | --------- | ------ | -------------------------------- |
+| Smart.bio          | 93.3%     | 15     | Excellent keyword coverage       |
+| Communities        | 76.9%     | 13     | Good                             |
+| Extension          | 72.7%     | 11     | Good                             |
+| Billing & Settings | 72.0%     | 25     | Good                             |
+| CoPilot            | 61.5%     | 13     | Good despite 0 themes            |
+| Analytics          | 56.2%     | 16     | Good                             |
+| GW Labs            | 54.5%     | 11     | Improved with "ai labs" keywords |
+| Next Publisher     | 50.5%     | 107    | Generic keywords overlap         |
+| Create             | 50.0%     | 32     | Context-dependent ("in Create")  |
+| SmartLoop          | 50.0%     | 6      | Good                             |
+| Product Dashboard  | 50.0%     | 18     | Good                             |
+| Made For You       | 35.5%     | 31     | M4U/AI overlap with GW Labs      |
+| Onboarding         | 33.3%     | 9      | Generic terms                    |
+| Email              | 33.3%     | 6      | Low volume                       |
+| Legacy Publisher   | 25.0%     | 28     | Confused with Next Publisher     |
+| Jarvis             | 22.2%     | 9      | Internal tool                    |
+| Ads                | 9.5%      | 42     | Generic "ads" matches wrong      |
+| System wide        | 0.0%      | 12     | Catch-all category               |
+| **TOTAL**          | **44.1%** | 417    | Keyword baseline only            |
+
+**Key Findings**:
+
+1. **Pin Scheduler = Next Publisher**: Shortcut uses both labels for the same feature. Script normalizes synonyms.
+2. **Ads routing problem**: Generic "ads" keyword too broad - needs context (Pinterest Ads, Ads Manager)
+3. **Made For You vs GW Labs confusion**: Both are AI features, "M4U" abbreviation not in keywords
+4. **Legacy vs Next Publisher**: Many legacy issues contain "pin" or "scheduler" keywords
+
+**Usage**:
+
+```bash
+python tools/validate_shortcut_data.py              # Keyword baseline
+python tools/validate_shortcut_data.py --llm        # Include LLM validation (costs $)
+python tools/validate_shortcut_data.py --sample 5   # LLM on 5 samples per area
+```
+
+### VDD Infrastructure
+
+```bash
+# Run before/after vocabulary changes
+pytest tests/test_theme_extraction.py -v
+
+# Label conversations with Streamlit UI
+streamlit run tools/theme_labeler.py
+```
+
+- `data/theme_fixtures.json` - Human-labeled ground truth conversations
+- `tests/test_theme_extraction.py` - Validates extraction accuracy (100% required)
+- `tools/theme_labeler.py` - Streamlit UI for labeling conversations
+- `config/theme_vocabulary.json` - Theme definitions with `product_area_mapping`
+
+**Current State**: 34 themes, VDD fixtures in progress
+
 ## Phase 4: Theme Extraction 🚧
 
-**Status**: Core functionality complete, testing with real data
+**Status**: Vocabulary v2.2 complete with VDD validation
 
 **Deliverables**:
 
