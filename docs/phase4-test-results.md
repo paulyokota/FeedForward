@@ -154,22 +154,20 @@ python scripts/validate_phase4_extractors.py
 Compare Stage 2 classification with/without context:
 
 ```bash
-# Create A/B testing script
-python scripts/test_phase4_accuracy_improvement.py
+# Run A/B testing script (created ✅)
+python scripts/test_phase4_accuracy_improvement.py --test-set path/to/conversations.json --output accuracy_results.txt
 ```
 
 **Accuracy Testing Tasks**:
 
-- [ ] Select test set of 100 conversations (mix with/without articles and stories)
-- [ ] Run Stage 2 WITHOUT context enrichment (baseline)
-- [ ] Run Stage 2 WITH help article context
-- [ ] Run Stage 2 WITH Shortcut story context
-- [ ] Run Stage 2 WITH BOTH contexts
-- [ ] Compare confidence scores and accuracy
+- [x] Create A/B testing script
+- [ ] Prepare test set of 100 conversations with ground truth labels
+- [ ] Run complete test suite (baseline + article + story + combined)
 - [ ] Validate expected improvements:
   - Help articles: +10-15% improvement
   - Shortcut stories: +15-20% improvement
   - Combined: potentially +20-30% improvement
+- [ ] Document results and findings
 
 ### 3. Database Migration (Medium Priority)
 

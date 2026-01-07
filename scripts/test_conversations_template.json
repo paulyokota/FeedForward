@@ -1,0 +1,135 @@
+[
+  {
+    "id": "conversation_123456",
+    "customer_message": "I followed the instructions in https://help.tailwindapp.com/en/articles/123-instagram-scheduling but my Instagram posts aren't scheduling. They just sit in drafts.",
+    "support_messages": [
+      "Thanks for reaching out! I can see you're trying to schedule Instagram posts. Let me help troubleshoot this.",
+      "I've checked your account and I see the issue - your Instagram Business account isn't properly connected to a Facebook Page. Instagram scheduling requires this connection."
+    ],
+    "ground_truth": {
+      "primary_theme": "Instagram",
+      "issue_type": "Bug"
+    },
+    "raw_conversation": {
+      "id": "123456",
+      "source": {
+        "url": "https://app.tailwindapp.com/publisher/instagram"
+      },
+      "custom_attributes": {
+        "story_id_v2": "sc-98765"
+      },
+      "conversation_parts": {
+        "conversation_parts": [
+          {
+            "part_type": "comment",
+            "body": "I followed the instructions in https://help.tailwindapp.com/en/articles/123-instagram-scheduling but my Instagram posts aren't scheduling. They just sit in drafts.",
+            "author": {
+              "type": "user"
+            }
+          },
+          {
+            "part_type": "comment",
+            "body": "Thanks for reaching out! I can see you're trying to schedule Instagram posts. Let me help troubleshoot this.",
+            "author": {
+              "type": "admin",
+              "name": "Support Agent"
+            }
+          },
+          {
+            "part_type": "comment",
+            "body": "I've checked your account and I see the issue - your Instagram Business account isn't properly connected to a Facebook Page. Instagram scheduling requires this connection.",
+            "author": {
+              "type": "admin",
+              "name": "Support Agent"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "conversation_789012",
+    "customer_message": "How do I change my billing plan? I want to upgrade to Pro.",
+    "support_messages": [
+      "I'd be happy to help you upgrade! You can change your plan from Account Settings > Billing, or I can send you a direct link."
+    ],
+    "ground_truth": {
+      "primary_theme": "Billing",
+      "issue_type": "Question"
+    },
+    "raw_conversation": {
+      "id": "789012",
+      "source": {
+        "url": "https://app.tailwindapp.com/settings/billing"
+      },
+      "custom_attributes": {},
+      "conversation_parts": {
+        "conversation_parts": [
+          {
+            "part_type": "comment",
+            "body": "How do I change my billing plan? I want to upgrade to Pro.",
+            "author": {
+              "type": "user"
+            }
+          },
+          {
+            "part_type": "comment",
+            "body": "I'd be happy to help you upgrade! You can change your plan from Account Settings > Billing, or I can send you a direct link.",
+            "author": {
+              "type": "admin",
+              "name": "Support Agent"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "conversation_345678",
+    "customer_message": "The Pinterest scheduler is showing an error when I try to post to my boards.",
+    "support_messages": [
+      "I'm sorry you're experiencing this issue. Can you tell me what error message you're seeing?",
+      "Thanks! That error means Pinterest needs to re-authorize the connection. I'll send you steps to reconnect."
+    ],
+    "ground_truth": {
+      "primary_theme": "Pinterest",
+      "issue_type": "Bug"
+    },
+    "raw_conversation": {
+      "id": "345678",
+      "source": {
+        "url": "https://app.tailwindapp.com/publisher/pinterest"
+      },
+      "custom_attributes": {
+        "story_id_v2": "12345"
+      },
+      "conversation_parts": {
+        "conversation_parts": [
+          {
+            "part_type": "comment",
+            "body": "The Pinterest scheduler is showing an error when I try to post to my boards.",
+            "author": {
+              "type": "user"
+            }
+          },
+          {
+            "part_type": "comment",
+            "body": "I'm sorry you're experiencing this issue. Can you tell me what error message you're seeing?",
+            "author": {
+              "type": "admin",
+              "name": "Support Agent"
+            }
+          },
+          {
+            "part_type": "comment",
+            "body": "Thanks! That error means Pinterest needs to re-authorize the connection. I'll send you steps to reconnect.",
+            "author": {
+              "type": "admin",
+              "name": "Support Agent"
+            }
+          }
+        ]
+      }
+    }
+  }
+]
