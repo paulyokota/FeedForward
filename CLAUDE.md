@@ -21,15 +21,27 @@ This project follows VDD principles from `reference/UAT-Agentic-Coding-Research.
 
 ## Architecture
 
+**Current Phase**: Theme Extraction & Aggregation (Phase 4)
+
 Batch processing pattern (scheduled daily/weekly):
 
-1. Fetch conversations from Intercom API
-2. Classify via LLM (issue type, priority, sentiment, churn risk)
-3. Store insights in database
-4. Apply escalation rules
-5. Generate reports
+1. Fetch conversations from Intercom API (with quality filtering ~50% pass rate)
+2. Extract source.url for URL context boosting
+3. Theme extraction via LLM (vocabulary-guided, URL context aware)
+4. Store themes in database with aggregation
+5. Apply escalation rules (future)
+6. Generate reports (future)
 
-See `reference/intercom-llm-guide.md` for detailed implementation specs.
+**Key Architectural Decision**: URL Context System
+
+The system now uses URL context to disambiguate product areas. When a conversation includes `source.url` (e.g., `/publisher/queue`), the system:
+
+- Matches URL against 27 patterns in vocabulary
+- Maps to specific product area (e.g., Legacy Publisher)
+- Boosts LLM prompt to prefer themes from that area
+- Solves three-scheduler disambiguation problem
+
+See `docs/architecture.md` for complete system design and `reference/intercom-llm-guide.md` for implementation specs.
 
 ## Issue Tracking
 
