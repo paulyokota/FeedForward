@@ -37,6 +37,10 @@ STAGE2_PROMPT = """You are analyzing a COMPLETE customer support conversation fo
 **Support Response(s):**
 {support_messages}
 
+{help_article_context}
+
+{shortcut_story_context}
+
 {resolution_context}
 
 ---
@@ -106,7 +110,9 @@ def classify_stage2(
     support_messages: List[str],
     resolution_signal: str | None = None,
     source_url: str | None = None,
-    stage1_type: str = "unknown"
+    stage1_type: str = "unknown",
+    help_article_context: str = "",
+    shortcut_story_context: str = ""
 ) -> Dict[str, Any]:
     """
     Full-context classification with support responses.
@@ -117,6 +123,8 @@ def classify_stage2(
         resolution_signal: Detected resolution action (from resolution_analyzer)
         source_url: Optional source URL for context
         stage1_type: Type from Stage 1 classification
+        help_article_context: Formatted help article context (from HelpArticleExtractor)
+        shortcut_story_context: Formatted Shortcut story context (from ShortcutStoryExtractor)
 
     Returns:
         {
@@ -180,6 +188,8 @@ def classify_stage2(
         stage1_type=stage1_type,
         customer_message=customer_message,
         support_messages=support_text,
+        help_article_context=help_article_context or "",
+        shortcut_story_context=shortcut_story_context or "",
         resolution_context=resolution_context
     )
 

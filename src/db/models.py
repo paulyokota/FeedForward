@@ -101,6 +101,37 @@ class Conversation(BaseModel):
         from_attributes = True
 
 
+class HelpArticleReference(BaseModel):
+    """Help article referenced in a conversation (Phase 4a)."""
+
+    id: Optional[int] = None
+    conversation_id: str  # FK to conversations
+    article_id: str
+    article_url: str
+    article_title: Optional[str] = None
+    article_category: Optional[str] = None
+    referenced_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+
+class ShortcutStoryLink(BaseModel):
+    """Shortcut story linked to a conversation (Phase 4b)."""
+
+    id: Optional[int] = None
+    conversation_id: str  # FK to conversations
+    story_id: str
+    story_name: Optional[str] = None
+    story_labels: list[str] = Field(default_factory=list)  # JSON array
+    story_epic: Optional[str] = None
+    story_state: Optional[str] = None
+    linked_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+
 class PipelineRun(BaseModel):
     """A batch pipeline execution record."""
 
