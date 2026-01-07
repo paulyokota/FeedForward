@@ -66,11 +66,11 @@ Your job is to extract a structured "theme" from a customer support conversation
 
 {product_context}
 
-## KNOWN THEMES (Match First!)
-
-These are our existing theme categories. **Try to match to one of these first** before proposing a new theme:
+## KNOWN THEMES
 
 {known_themes}
+
+{strict_mode_instructions}
 
 ## Theme Structure
 
@@ -91,22 +91,21 @@ Extract these fields:
 
 2. **component**: The specific feature or sub-component (e.g., "smartschedule", "pin_spacing", "ghostwriter", "csv_import")
 
-3. **issue_signature**: IMPORTANT - Follow this decision process:
-   a) First, check if this matches any KNOWN THEME above (same root issue, even if worded differently)
-   b) If yes, use that exact signature
-   c) If no match, create a new canonical signature (lowercase, underscores, format: [feature]_[problem])
+3. **issue_signature**: {signature_instructions}
 
 4. **matched_existing**: true if you matched a known theme, false if proposing new
 
-5. **match_reasoning**: If matched_existing=false, explain why none of the known themes fit
+5. **match_reasoning**: Brief explanation of why you chose this theme{new_theme_reasoning}
 
-6. **user_intent**: What the user was trying to accomplish (in plain English)
+6. **match_confidence**: How confident are you in this match? (high, medium, low)
 
-7. **symptoms**: List of observable symptoms the user described (2-4 items)
+7. **user_intent**: What the user was trying to accomplish (in plain English)
 
-8. **affected_flow**: The user journey or flow that's broken (e.g., "Pin Scheduler → Pinterest API")
+8. **symptoms**: List of observable symptoms the user described (2-4 items)
 
-9. **root_cause_hypothesis**: Your best guess at the technical root cause based on product knowledge
+9. **affected_flow**: The user journey or flow that's broken (e.g., "Pin Scheduler → Pinterest API")
+
+10. **root_cause_hypothesis**: Your best guess at the technical root cause based on product knowledge
 
 ## Conversation
 
@@ -120,13 +119,31 @@ Message:
 
 ## Instructions
 
-1. **Match first**: Strongly prefer matching to known themes. Only create new if truly different.
+1. {match_instruction}
 2. Use your product knowledge to map user language to actual features
 3. Be specific in symptoms - these help engineers reproduce
 4. If unsure about a field, make your best inference
 
 Respond with valid JSON only:
 """
+
+# Prompt variations for strict vs flexible mode
+STRICT_MODE_INSTRUCTIONS = """## STRICT MODE: You MUST select from the known themes above.
+
+If the conversation doesn't fit any theme well, use `unclassified_needs_review`.
+Do NOT create new theme signatures. Pick the closest match or unclassified."""
+
+FLEXIBLE_MODE_INSTRUCTIONS = """## Match First!
+
+Try to match to one of these existing themes before proposing a new one.
+Only create a new theme if the issue is genuinely different from all known themes."""
+
+STRICT_SIGNATURE_INSTRUCTIONS = """You MUST use one of the known theme signatures above. Pick the closest match. If nothing fits, use `unclassified_needs_review`."""
+
+FLEXIBLE_SIGNATURE_INSTRUCTIONS = """IMPORTANT - Follow this decision process:
+   a) First, check if this matches any KNOWN THEME above (same root issue, even if worded differently)
+   b) If yes, use that exact signature
+   c) If no match, create a new canonical signature (lowercase, underscores, format: [feature]_[problem])"""
 
 
 SIGNATURE_CANONICALIZATION_PROMPT = """You are normalizing issue signatures for a support ticket system.
@@ -388,6 +405,7 @@ class ThemeExtractor:
         canonicalize: bool = True,
         use_embedding: bool = False,
         auto_add_to_vocabulary: bool = False,
+        strict_mode: bool = False,
     ) -> Theme:
         """
         Extract theme from a single conversation.
@@ -400,16 +418,34 @@ class ThemeExtractor:
             use_embedding: If True, use embedding similarity instead of LLM.
                           WARNING: Experimental - testing showed lower accuracy than LLM.
             auto_add_to_vocabulary: If True, automatically add new themes to vocabulary.
+            strict_mode: If True, force LLM to pick from existing vocabulary only.
+                        Use this for backfill to prevent theme fragmentation.
         """
         # Get known themes from vocabulary (if enabled)
         known_themes = ""
         if self.use_vocabulary and self.vocabulary:
             known_themes = self.vocabulary.format_for_prompt(max_themes=50)
 
+        # Select prompt variations based on strict mode
+        if strict_mode:
+            strict_mode_instructions = STRICT_MODE_INSTRUCTIONS
+            signature_instructions = STRICT_SIGNATURE_INSTRUCTIONS
+            match_instruction = "**STRICT MODE**: You MUST pick from the known themes. No new signatures allowed."
+            new_theme_reasoning = ""
+        else:
+            strict_mode_instructions = FLEXIBLE_MODE_INSTRUCTIONS
+            signature_instructions = FLEXIBLE_SIGNATURE_INSTRUCTIONS
+            match_instruction = "**Match first**: Strongly prefer matching to known themes. Only create new if truly different."
+            new_theme_reasoning = ". If proposing new, explain why none of the known themes fit"
+
         # Phase 1: Extract theme details (with vocabulary-aware prompt)
         prompt = THEME_EXTRACTION_PROMPT.format(
             product_context=self.product_context[:10000],  # Limit context size
             known_themes=known_themes or "(No known themes yet - create new signatures as needed)",
+            strict_mode_instructions=strict_mode_instructions,
+            signature_instructions=signature_instructions,
+            match_instruction=match_instruction,
+            new_theme_reasoning=new_theme_reasoning,
             issue_type=conv.issue_type,
             sentiment=conv.sentiment,
             priority=conv.priority,
@@ -484,12 +520,24 @@ class ThemeExtractor:
             root_cause_hypothesis=result.get("root_cause_hypothesis", ""),
         )
 
-    def extract_batch(self, conversations: list[Conversation], canonicalize: bool = True) -> list[Theme]:
-        """Extract themes from multiple conversations."""
+    def extract_batch(
+        self,
+        conversations: list[Conversation],
+        canonicalize: bool = True,
+        strict_mode: bool = False,
+    ) -> list[Theme]:
+        """
+        Extract themes from multiple conversations.
+
+        Args:
+            conversations: List of conversations to process
+            canonicalize: If True, run through canonicalization (non-vocabulary mode)
+            strict_mode: If True, force vocabulary-only matching (for backfill)
+        """
         themes = []
         for conv in conversations:
             try:
-                theme = self.extract(conv, canonicalize=canonicalize)
+                theme = self.extract(conv, canonicalize=canonicalize, strict_mode=strict_mode)
                 themes.append(theme)
                 logger.info(f"Extracted theme: {theme.issue_signature}")
             except Exception as e:

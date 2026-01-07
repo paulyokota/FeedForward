@@ -471,6 +471,21 @@
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
       "updated_at": "2025-01-06T00:00:00"
+    },
+    "unclassified_needs_review": {
+      "issue_signature": "unclassified_needs_review",
+      "product_area": "other",
+      "component": "review_queue",
+      "description": "Issue doesn't fit existing themes well - needs human review to determine if new theme is needed",
+      "keywords": ["unclear", "ambiguous", "doesn't fit", "new category"],
+      "example_intents": [
+        "[Conversation that doesn't match any known theme pattern]"
+      ],
+      "engineering_fix": "Review queue - analyze after backfill to identify new theme patterns",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     }
   }
 }
