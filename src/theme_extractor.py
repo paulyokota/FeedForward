@@ -190,8 +190,14 @@ class ThemeExtractor:
             logger.info(f"Loaded {len(self._product_context)} chars of product context")
         return self._product_context
 
-    def get_existing_signatures(self) -> list[dict]:
-        """Fetch existing signatures from database for canonicalization."""
+    def get_existing_signatures(self, product_area: str = None) -> list[dict]:
+        """
+        Fetch existing signatures from database for canonicalization.
+
+        Args:
+            product_area: If provided, only fetch signatures from this area.
+                         Falls back to all signatures for better matching.
+        """
         try:
             from .db.connection import get_connection
         except ImportError:
@@ -200,14 +206,31 @@ class ThemeExtractor:
         try:
             with get_connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("""
-                        SELECT issue_signature, product_area, component
-                        FROM theme_aggregates
-                        ORDER BY occurrence_count DESC
-                        LIMIT 50
-                    """)
+                    # Fetch all signatures - no limit to avoid fragmentation
+                    # Bug fix: LIMIT 50 caused 83% singleton rate by excluding
+                    # most signatures from canonicalization candidates
+                    if product_area:
+                        # Prioritize same product area, but include all for fallback
+                        cur.execute("""
+                            SELECT issue_signature, product_area, component, occurrence_count
+                            FROM theme_aggregates
+                            ORDER BY
+                                CASE WHEN product_area = %s THEN 0 ELSE 1 END,
+                                occurrence_count DESC
+                        """, (product_area,))
+                    else:
+                        cur.execute("""
+                            SELECT issue_signature, product_area, component, occurrence_count
+                            FROM theme_aggregates
+                            ORDER BY occurrence_count DESC
+                        """)
                     return [
-                        {"signature": row[0], "product_area": row[1], "component": row[2]}
+                        {
+                            "signature": row[0],
+                            "product_area": row[1],
+                            "component": row[2],
+                            "count": row[3]
+                        }
                         for row in cur.fetchall()
                     ]
         except Exception as e:
@@ -227,6 +250,7 @@ class ThemeExtractor:
         proposed_signature: str,
         user_intent: str,
         symptoms: list[str],
+        product_area: str = None,
         threshold: float = 0.85,
     ) -> str:
         """
@@ -235,7 +259,7 @@ class ThemeExtractor:
         Compares the semantic meaning of the new issue against existing signatures.
         If similarity > threshold, reuses existing signature.
         """
-        existing = self.get_existing_signatures()
+        existing = self.get_existing_signatures(product_area=product_area)
 
         # If no existing signatures, return normalized proposed
         if not existing:
@@ -282,7 +306,7 @@ class ThemeExtractor:
             use_llm: If True, use LLM for canonicalization (more accurate, slower).
                      If False, use embedding similarity (faster, cheaper).
         """
-        existing = self.get_existing_signatures()
+        existing = self.get_existing_signatures(product_area=product_area)
 
         # If no existing signatures, just return the proposed one (normalized)
         if not existing:
@@ -291,7 +315,7 @@ class ThemeExtractor:
         # Use embedding-based approach if requested
         if not use_llm:
             return self.canonicalize_via_embedding(
-                proposed_signature, user_intent, symptoms
+                proposed_signature, user_intent, symptoms, product_area=product_area
             )
 
         # LLM-based canonicalization (original approach)
