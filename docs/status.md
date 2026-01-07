@@ -4,36 +4,37 @@
 
 **Phase 4: Theme Extraction & Aggregation** - IN PROGRESS 🚧
 
-## Latest: Vocabulary v2.1 Expansion (2026-01-06)
+## Latest: Vocabulary v2.2 + VDD (2026-01-07)
 
-**Problem**: 37% of themed conversations were in catch-all buckets (`general_product_question`, `unclassified_needs_review`, `misdirected_inquiry`), resulting in only 12 tickets from 400+ conversations.
+**Problem**: Broad themes like `analytics_data_issue` and `feature_access_question` were grouping unrelated issues that need different fixes.
 
-**Solution**: Expanded vocabulary from 22 to 30 themes, adding:
+**Solution**: Split broad themes into specific actionable signatures:
 
-- `professional_services_inquiry` - managed services/consulting requests
-- `smartbio_configuration` - smart.bio link customization
-- `unsupported_platform_inquiry` - eBay, TikTok, etc.
-- `pin_editing_question` - editing pins, bulk operations
-- `feature_access_question` - Original Publisher, beta features
-- `dashboard_loading_error` - loading errors, blank screens
-- `communities_feature_question` - Tailwind Communities
-- `ai_language_mismatch` - wrong language generation
+- `analytics_data_issue` → `analytics_counter_bug`, `blog_indexing_failure`, `engagement_decline_feedback`
+- `feature_access_question` → `original_publisher_access`, `dashboard_version_issue`, `multi_account_question`
 
-**Results after re-extraction**:
+**VDD Infrastructure**: Added validation-driven development for vocabulary changes:
 
-| Metric             | Before      | After       | Change      |
-| ------------------ | ----------- | ----------- | ----------- |
-| Actionable themes  | 162 (63.0%) | 195 (75.9%) | +33 (+13pp) |
-| Catch-all themes   | 95 (37.0%)  | 62 (24.1%)  | -33         |
-| Themes for tickets | 12          | 20          | +8 new      |
+```bash
+# Run before/after vocabulary changes
+pytest tests/test_theme_extraction.py -v
+```
 
-**Scripts added**:
+- `data/theme_fixtures.json` - 7 human-labeled ground truth conversations
+- `tests/test_theme_extraction.py` - Validates extraction accuracy (100% required)
 
-- `scripts/reextract_catchall.py` - Re-extract themes for catch-all conversations
+**VDD Workflow**:
+
+1. Find misclassified conversation → add to fixtures with expected theme
+2. Update vocabulary to fix classification
+3. Run tests → verify fix + no regressions
+4. Commit when 100% passing
+
+**Current State**: 34 themes, 17 actionable tickets, 7/7 fixtures passing
 
 ## Phase 4: Theme Extraction 🚧
 
-**Status**: Vocabulary v2.1 complete, ready for ticket creation
+**Status**: Vocabulary v2.2 complete with VDD validation
 
 **Deliverables**:
 
