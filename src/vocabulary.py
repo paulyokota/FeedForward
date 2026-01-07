@@ -31,6 +31,7 @@ class VocabularyTheme:
     description: str  # Human-readable description
     keywords: list[str]  # Keywords/aliases that map to this theme
     example_intents: list[str]  # Example user intents for few-shot
+    engineering_fix: str = ""  # What engineering work would address this
     status: str = "active"  # active, deprecated, merged
     merged_into: Optional[str] = None  # If merged, the target signature
     created_at: datetime = None

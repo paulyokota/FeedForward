@@ -1,474 +1,476 @@
 {
-  "version": "1.0",
-  "updated_at": "2026-01-07T01:30:16.831755",
+  "version": "2.0",
+  "updated_at": "2025-01-06T00:00:00",
+  "description": "Themes organized by engineering fix bucket - issues with same root cause share a theme",
   "themes": {
-    "account_management_inquiry": {
-      "issue_signature": "account_management_inquiry",
-      "product_area": "account",
-      "component": "account_management",
-      "description": "Learn more about Pinterest account management services offered by Tailwind",
+    "pinterest_publishing_failure": {
+      "issue_signature": "pinterest_publishing_failure",
+      "product_area": "pinterest_publishing",
+      "component": "api",
+      "description": "Pins scheduled but not posting to Pinterest - API errors, auth failures, or silent failures",
       "keywords": [
-        "user expressed interest in services",
-        "no specific issues or errors reported",
-        "inquiry about service details"
+        "pins not publishing",
+        "not posting",
+        "stuck in queue",
+        "never posted",
+        "pinterest error"
       ],
       "example_intents": [
-        "Learn more about Pinterest account management services offered by Tailwind"
+        "My pins are scheduled but never post to Pinterest",
+        "Pins showing as scheduled but nothing appears on my boards"
       ],
+      "engineering_fix": "Pinterest API integration, OAuth refresh, error handling, retry logic",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831085",
-      "updated_at": "2026-01-07T01:30:16.831375"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "billing_subscription_cancellation_request": {
-      "issue_signature": "billing_subscription_cancellation_request",
-      "product_area": "billing",
-      "component": "subscription",
-      "description": "Cancel my subscription",
-      "keywords": [
-        "error message when attempting to cancel",
-        "repeated attempts to cancel",
-        "mention of bringing the issue to the bbb"
-      ],
-      "example_intents": [
-        "Cancel my subscription"
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831386",
-      "updated_at": "2026-01-07T01:30:16.831387"
-    },
-    "pins_not_publishing": {
-      "issue_signature": "pins_not_publishing",
+    "pinterest_connection_failure": {
+      "issue_signature": "pinterest_connection_failure",
       "product_area": "account",
       "component": "oauth",
-      "description": "Connect Pinterest account to Tailwind",
+      "description": "Cannot connect or reconnect Pinterest account - OAuth flow failures",
       "keywords": [
-        "error message displayed when attempting to connect",
-        "unable to access pinterest features",
-        "frustration with connection process"
+        "can't connect",
+        "connection failed",
+        "oauth error",
+        "reconnect pinterest",
+        "authorization failed"
       ],
       "example_intents": [
-        "Connect Pinterest account to Tailwind"
+        "I can't connect my Pinterest account",
+        "Getting an error when trying to authorize Pinterest"
       ],
+      "engineering_fix": "OAuth flow, token refresh, Pinterest API permissions",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831391",
-      "updated_at": "2026-01-07T01:30:16.831392"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "promotional_offer_code_usage": {
-      "issue_signature": "promotional_offer_code_usage",
-      "product_area": "other",
-      "component": "promotions",
-      "description": "Receive promotional content from Luxy Hair",
+    "ghostwriter_generation_failure": {
+      "issue_signature": "ghostwriter_generation_failure",
+      "product_area": "ai_creation",
+      "component": "ghostwriter",
+      "description": "AI generation fails with error, times out, or produces garbled/truncated output",
       "keywords": [
-        "received promotional email",
-        "email contains discount code",
-        "message appears cluttered with excessive characters"
+        "generation failed",
+        "error generating",
+        "timeout",
+        "garbled text",
+        "truncated",
+        "gibberish",
+        "credits lost"
       ],
       "example_intents": [
-        "Receive promotional content from Luxy Hair"
+        "Ghostwriter keeps failing with an error",
+        "The AI generated gibberish text",
+        "Lost credits due to errors"
       ],
+      "engineering_fix": "OpenAI API integration, error handling, retry logic, response parsing",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831395",
-      "updated_at": "2026-01-07T01:30:16.831396"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "billing_plan_cancellation_request": {
-      "issue_signature": "billing_plan_cancellation_request",
+    "ghostwriter_output_mismatch": {
+      "issue_signature": "ghostwriter_output_mismatch",
+      "product_area": "ai_creation",
+      "component": "ghostwriter",
+      "description": "AI generates coherent but wrong content - ignores input, off-topic, wrong tone/format",
+      "keywords": [
+        "wrong output",
+        "ignored my input",
+        "off-topic",
+        "wrong tone",
+        "not what I asked",
+        "completely different"
+      ],
+      "example_intents": [
+        "The AI completely ignored what I asked for",
+        "Generated content about wrong topic",
+        "Asked for kids party, got wedding description"
+      ],
+      "engineering_fix": "Prompt templates, context injection, model parameters, few-shot examples",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
+    },
+    "ghostwriter_usage_guidance": {
+      "issue_signature": "ghostwriter_usage_guidance",
+      "product_area": "ai_creation",
+      "component": "ghostwriter",
+      "description": "User needs help understanding how to use AI features effectively",
+      "keywords": [
+        "how to use",
+        "how does it work",
+        "what can it do",
+        "best practices",
+        "tips"
+      ],
+      "example_intents": [
+        "How do I use Ghostwriter?",
+        "What's the best way to write prompts?"
+      ],
+      "engineering_fix": "Documentation, UI copy, onboarding, tooltips",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
+    },
+    "billing_flow_error": {
+      "issue_signature": "billing_flow_error",
+      "product_area": "billing",
+      "component": "subscription",
+      "description": "User encounters errors or blocks when trying to cancel, upgrade, or change plan",
+      "keywords": [
+        "can't cancel",
+        "cancel button not working",
+        "error canceling",
+        "won't let me cancel",
+        "upgrade failed"
+      ],
+      "example_intents": [
+        "I keep getting an error when trying to cancel",
+        "The cancel button doesn't work"
+      ],
+      "engineering_fix": "Billing flow bugs, Stripe integration, error handling, state management",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
+    },
+    "billing_unexpected_charge": {
+      "issue_signature": "billing_unexpected_charge",
+      "product_area": "billing",
+      "component": "payments",
+      "description": "User charged when they shouldn't be - after cancellation, wrong amount, duplicate charge, failed payment still charged",
+      "keywords": [
+        "unexpected charge",
+        "charged after cancel",
+        "wrong amount",
+        "duplicate charge",
+        "unauthorized",
+        "payment failed but charged"
+      ],
+      "example_intents": [
+        "I was charged after I cancelled",
+        "I got charged twice",
+        "Payment failed but I was still charged"
+      ],
+      "engineering_fix": "Billing logic, subscription state management, Stripe webhooks, payment reconciliation",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
+    },
+    "billing_cancellation_request": {
+      "issue_signature": "billing_cancellation_request",
+      "product_area": "billing",
+      "component": "subscription",
+      "description": "User wants to cancel subscription - no error, just needs to do it or needs help finding it",
+      "keywords": [
+        "cancel subscription",
+        "cancel my account",
+        "stop billing",
+        "end subscription",
+        "how to cancel"
+      ],
+      "example_intents": [
+        "I want to cancel my subscription",
+        "How do I cancel?"
+      ],
+      "engineering_fix": "Self-service cancellation flow visibility, UI clarity, confirmation UX",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
+    },
+    "billing_plan_change_request": {
+      "issue_signature": "billing_plan_change_request",
       "product_area": "billing",
       "component": "plans",
-      "description": "The user wants to cancel their subscription plan.",
+      "description": "User wants to upgrade, downgrade, or change their plan",
       "keywords": [
-        "user expressed a desire to cancel",
-        "no specific issues mentioned",
-        "neutral sentiment in the request"
+        "downgrade",
+        "upgrade",
+        "change plan",
+        "switch plan",
+        "different plan",
+        "free plan"
       ],
       "example_intents": [
-        "The user wants to cancel their subscription plan."
+        "I want to downgrade to the free plan",
+        "How do I upgrade?",
+        "Can I switch plans?"
       ],
+      "engineering_fix": "Plan change flow, proration logic, UI for plan comparison",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831399",
-      "updated_at": "2026-01-07T01:30:16.831399"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "billing_plan_question": {
-      "issue_signature": "billing_plan_question",
+    "billing_refund_request": {
+      "issue_signature": "billing_refund_request",
       "product_area": "billing",
-      "component": "plans",
-      "description": "Inquire about reducing the cost of the annual plan",
-      "keywords": [
-        "user feels the tool is becoming expensive",
-        "user is considering canceling their subscription",
-        "user is seeking options for pricing adjustments"
-      ],
-      "example_intents": [
-        "Inquire about reducing the cost of the annual plan"
-      ],
+      "component": "payments",
+      "description": "User requesting refund for any reason",
+      "keywords": ["refund", "money back", "get refund", "want refund"],
+      "example_intents": ["I want a refund", "Can I get my money back?"],
+      "engineering_fix": "Refund policy clarity, self-service refund flow, support process automation",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831402",
-      "updated_at": "2026-01-07T01:30:16.831402"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "account_management_disconnect_social_account": {
-      "issue_signature": "account_management_disconnect_social_account",
+    "billing_settings_guidance": {
+      "issue_signature": "billing_settings_guidance",
+      "product_area": "billing",
+      "component": "settings",
+      "description": "User needs help with billing settings - update card, change address, view invoices, renewal date",
+      "keywords": [
+        "update card",
+        "billing address",
+        "invoice",
+        "receipt",
+        "payment method",
+        "renewal date",
+        "when renew"
+      ],
+      "example_intents": [
+        "How do I update my credit card?",
+        "Where can I see my invoices?",
+        "When does my subscription renew?"
+      ],
+      "engineering_fix": "Billing settings UI discoverability, self-service options, clearer navigation",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
+    },
+    "account_settings_guidance": {
+      "issue_signature": "account_settings_guidance",
       "product_area": "account",
-      "component": "connections",
-      "description": "The user wants to disconnect or remove a connected account from their Tailwind profile.",
+      "component": "settings",
+      "description": "User needs help with account settings - disconnect accounts, delete account, change email, manage connections",
       "keywords": [
-        "user is unsure how to disconnect an account",
-        "user is looking for instructions on account management",
-        "user has multiple accounts connected"
+        "disconnect",
+        "delete account",
+        "change email",
+        "account settings",
+        "remove account",
+        "unlink"
       ],
       "example_intents": [
-        "The user wants to disconnect or remove a connected account from their Tailwind profile."
+        "How do I disconnect my Pinterest account?",
+        "I want to delete my account",
+        "How do I remove a connected account?"
       ],
+      "engineering_fix": "Account settings UI, self-service flows, clearer navigation",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831406",
-      "updated_at": "2026-01-07T01:30:16.831406"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "billing_subscription_cancellation_refund_request": {
-      "issue_signature": "billing_subscription_cancellation_refund_request",
-      "product_area": "billing",
-      "component": "subscriptions",
-      "description": "Get a refund for an unexpected subscription charge after canceling the account",
-      "keywords": [
-        "charged for another year after cancellation",
-        "account was previously canceled",
-        "received a year subscription from pinterest creators fund"
-      ],
-      "example_intents": [
-        "Get a refund for an unexpected subscription charge after canceling the account"
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831409",
-      "updated_at": "2026-01-07T01:30:16.831410"
-    },
-    "billing_address_update_request": {
-      "issue_signature": "billing_address_update_request",
-      "product_area": "billing",
-      "component": "billing",
-      "description": "The user wants to update their billing address.",
-      "keywords": [
-        "user is unsure how to add a billing address",
-        "user is looking for guidance on billing address changes",
-        "user may be experiencing issues with incorrect billing information"
-      ],
-      "example_intents": [
-        "The user wants to update their billing address."
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831412",
-      "updated_at": "2026-01-07T01:30:16.831413"
-    },
-    "billing_subscription_renewal_issue": {
-      "issue_signature": "billing_subscription_renewal_issue",
-      "product_area": "billing",
-      "component": "subscriptions",
-      "description": "To find out the renewal date of their subscription",
-      "keywords": [
-        "user asked about subscription renewal date",
-        "no issues with payment or access mentioned"
-      ],
-      "example_intents": [
-        "To find out the renewal date of their subscription"
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831416",
-      "updated_at": "2026-01-07T01:30:16.831416"
-    },
-    "promotional_offer_notification": {
-      "issue_signature": "promotional_offer_notification",
-      "product_area": "other",
-      "component": "promotional_offer",
-      "description": "User is interested in a sale on yarn products.",
-      "keywords": [
-        "received promotional email about yarn sale",
-        "sale details included discounts and expiration date",
-        "mention of limited editions and product categories"
-      ],
-      "example_intents": [
-        "User is interested in a sale on yarn products."
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831419",
-      "updated_at": "2026-01-07T01:30:16.831419"
-    },
-    "customer_support_information_request": {
-      "issue_signature": "customer_support_information_request",
-      "product_area": "other",
-      "component": "customer_support",
-      "description": "The user wants to reach out for assistance.",
-      "keywords": [
-        "user expressed a desire to contact support",
-        "no specific issue described",
-        "neutral sentiment in the message"
-      ],
-      "example_intents": [
-        "The user wants to reach out for assistance."
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831423",
-      "updated_at": "2026-01-07T01:30:16.831423"
-    },
-    "csv_column_mapping_failure": {
-      "issue_signature": "csv_column_mapping_failure",
+    "csv_import_failure": {
+      "issue_signature": "csv_import_failure",
       "product_area": "integrations",
       "component": "csv_import",
-      "description": "Upload and schedule pins using CSV files without issues.",
+      "description": "CSV upload fails - parsing errors, column mapping issues, validation failures",
       "keywords": [
-        "fields couldn't be mapped for some csv files",
-        "upload fails when specific pin descriptions are included",
-        "deleting the problematic descriptions allows the upload to succeed"
+        "csv error",
+        "import failed",
+        "column mapping",
+        "upload failed",
+        "csv not working",
+        "can't upload"
       ],
       "example_intents": [
-        "Upload and schedule pins using CSV files without issues."
+        "My CSV won't upload",
+        "Getting errors when importing CSV",
+        "Column mapping failed"
       ],
+      "engineering_fix": "CSV parser robustness, validation error messages, column mapping UI",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831426",
-      "updated_at": "2026-01-07T01:30:16.831427"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "billing_plan_downgrade_request": {
-      "issue_signature": "billing_plan_downgrade_request",
-      "product_area": "billing",
-      "component": "plan_management",
-      "description": "Downgrade to the free account option",
+    "scheduling_failure": {
+      "issue_signature": "scheduling_failure",
+      "product_area": "scheduling",
+      "component": "scheduler",
+      "description": "Scheduled content doesn't post at the right time or at all (general, not Pinterest-specific)",
       "keywords": [
-        "received a message thanking for upgrading instead of downgrading",
-        "confusion about the message content",
-        "redirected to an ai bot for more information",
-        "interest in learning more about the new pinterest account management service"
+        "didn't post",
+        "wrong time",
+        "missed schedule",
+        "not scheduled",
+        "schedule failed"
       ],
       "example_intents": [
-        "Downgrade to the free account option"
+        "My post didn't go out at the scheduled time",
+        "Schedule isn't working"
       ],
+      "engineering_fix": "Scheduler service reliability, queue processing, timezone handling",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831430",
-      "updated_at": "2026-01-07T01:30:16.831430"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "analytics_pinterest_traffic_drop": {
-      "issue_signature": "analytics_pinterest_traffic_drop",
+    "scheduling_feature_question": {
+      "issue_signature": "scheduling_feature_question",
+      "product_area": "scheduling",
+      "component": "scheduler",
+      "description": "User needs help understanding scheduling features - SmartSchedule, spacing, rescheduling",
+      "keywords": [
+        "how to schedule",
+        "smartschedule",
+        "spacing",
+        "reschedule",
+        "schedule for tomorrow",
+        "turbo"
+      ],
+      "example_intents": [
+        "How do I schedule a post for tomorrow?",
+        "What is SmartSchedule?",
+        "How does pin spacing work?"
+      ],
+      "engineering_fix": "Documentation, UI tooltips, onboarding, feature discoverability",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
+    },
+    "analytics_data_issue": {
+      "issue_signature": "analytics_data_issue",
       "product_area": "analytics",
-      "component": "performance_tracking",
-      "description": "Understand if running ads is worthwhile given no visits",
+      "component": "reporting",
+      "description": "Analytics data missing, incorrect, or not updating",
       "keywords": [
-        "no visits on webshop",
-        "no activity on pinterest",
-        "questioning the effectiveness of ads"
+        "data missing",
+        "wrong numbers",
+        "not updating",
+        "analytics broken",
+        "no data"
       ],
       "example_intents": [
-        "Understand if running ads is worthwhile given no visits"
+        "My analytics aren't showing any data",
+        "The numbers look wrong"
       ],
+      "engineering_fix": "Data pipeline reliability, API sync, caching invalidation, data accuracy",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831433",
-      "updated_at": "2026-01-07T01:30:16.831433"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "account_management_delete_old_account": {
-      "issue_signature": "account_management_delete_old_account",
-      "product_area": "account",
-      "component": "profile_management",
-      "description": "The user wants to delete or disconnect their Pinterest account from Tailwind.",
+    "analytics_interpretation_question": {
+      "issue_signature": "analytics_interpretation_question",
+      "product_area": "analytics",
+      "component": "reporting",
+      "description": "User needs help understanding what analytics mean or how to use them",
       "keywords": [
-        "user requested to remove their pinterest account",
-        "no additional context provided",
-        "neutral sentiment in the request"
+        "what does this mean",
+        "how to read",
+        "interpret",
+        "understand analytics",
+        "is this good"
       ],
       "example_intents": [
-        "The user wants to delete or disconnect their Pinterest account from Tailwind."
+        "What do these numbers mean?",
+        "Is my performance good?",
+        "No visits - is this working?"
       ],
+      "engineering_fix": "In-app explanations, tooltips, help docs, benchmarks, contextual guidance",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831439",
-      "updated_at": "2026-01-07T01:30:16.831439"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "bulk_creation_question": {
-      "issue_signature": "bulk_creation_question",
-      "product_area": "ai_creation",
-      "component": "canva_integration",
-      "description": "User wants to integrate Tailwind with Canva for easier content creation.",
+    "integration_connection_failure": {
+      "issue_signature": "integration_connection_failure",
+      "product_area": "integrations",
+      "component": "third_party",
+      "description": "Cannot connect third-party integration - Canva, browser extension, e-commerce platforms",
       "keywords": [
-        "user expressed interest in canva integration",
-        "no existing integration mentioned",
-        "user is looking for a more streamlined design process"
+        "can't connect canva",
+        "extension not working",
+        "integration failed",
+        "shopify connection"
       ],
       "example_intents": [
-        "User wants to integrate Tailwind with Canva for easier content creation."
+        "I can't connect my Canva account",
+        "The browser extension isn't working"
       ],
+      "engineering_fix": "Third-party OAuth flows, API integrations, extension compatibility",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831442",
-      "updated_at": "2026-01-07T01:30:16.831443"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "custom_content_creation_feedback_request": {
-      "issue_signature": "custom_content_creation_feedback_request",
-      "product_area": "ai_creation",
-      "component": "ghostwriter",
-      "description": "The user wanted to generate a description for a kids party using the AI feature.",
+    "integration_feature_question": {
+      "issue_signature": "integration_feature_question",
+      "product_area": "integrations",
+      "component": "third_party",
+      "description": "User asking about integration capabilities or how to use them",
       "keywords": [
-        "lost 50 credits due to errors",
-        "ai changed the description to a burgundy dark themed wedding",
-        "website showed error messages",
-        "website was unreachable at times"
+        "canva integration",
+        "does tailwind work with",
+        "connect to",
+        "integrate with"
       ],
       "example_intents": [
-        "The user wanted to generate a description for a kids party using the AI feature."
+        "Does Tailwind integrate with Canva?",
+        "How do I use the browser extension?"
       ],
+      "engineering_fix": "Integration documentation, feature education, marketing clarity",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831445",
-      "updated_at": "2026-01-07T01:30:16.831446"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "unexpected_charge_on_failed_payment": {
-      "issue_signature": "unexpected_charge_on_failed_payment",
-      "product_area": "billing",
-      "component": "plans",
-      "description": "Request a refund for an unauthorized charge",
-      "keywords": [
-        "received emails indicating payment was unsuccessful",
-        "charged $506.02 despite payment failure notifications",
-        "user is closing all companies and no longer needs the service",
-        "frustration expressed regarding the billing process"
-      ],
-      "example_intents": [
-        "Request a refund for an unauthorized charge"
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831448",
-      "updated_at": "2026-01-07T01:30:16.831449"
-    },
-    "billing_account_cancellation_refund_request": {
-      "issue_signature": "billing_account_cancellation_refund_request",
-      "product_area": "billing",
-      "component": "account",
-      "description": "Request a refund and cancel the account",
-      "keywords": [
-        "charged on october 4",
-        "not using the app anymore",
-        "request for account cancellation"
-      ],
-      "example_intents": [
-        "Request a refund and cancel the account"
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831452",
-      "updated_at": "2026-01-07T01:30:16.831452"
-    },
-    "custom_content_creation": {
-      "issue_signature": "custom_content_creation",
-      "product_area": "ai_creation",
-      "component": "ghostwriter",
-      "description": "Change the image on an existing ad without recreating it.",
-      "keywords": [
-        "user wants to update an ad image",
-        "user has a new cover for a resource",
-        "user is looking for a way to modify the ad"
-      ],
-      "example_intents": [
-        "Change the image on an existing ad without recreating it."
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831455",
-      "updated_at": "2026-01-07T01:30:16.831455"
-    },
-    "billing_account_cancellation_request": {
-      "issue_signature": "billing_account_cancellation_request",
-      "product_area": "billing",
-      "component": "account management",
-      "description": "User wants to cancel their Tailwind account",
-      "keywords": [
-        "user inquires about account cancellation process",
-        "user expresses intent to discontinue service"
-      ],
-      "example_intents": [
-        "User wants to cancel their Tailwind account"
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831458",
-      "updated_at": "2026-01-07T01:30:16.831459"
-    },
-    "account_management_plan_reactivation_failure": {
-      "issue_signature": "account_management_plan_reactivation_failure",
-      "product_area": "billing",
-      "component": "account_management",
-      "description": "Change the linked social account and adjust the current plan to only one account.",
-      "keywords": [
-        "user wants to change the linked social account",
-        "user wants to modify their current plan",
-        "user specifies they only want one account"
-      ],
-      "example_intents": [
-        "Change the linked social account and adjust the current plan to only one account."
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831463",
-      "updated_at": "2026-01-07T01:30:16.831463"
-    },
-    "google_verification_code": {
-      "issue_signature": "google_verification_code",
+    "general_product_question": {
+      "issue_signature": "general_product_question",
       "product_area": "other",
-      "component": "google_verification",
-      "description": "Verify email address for a visitor session",
+      "component": "general",
+      "description": "General questions about product capabilities, pricing, or getting started",
       "keywords": [
-        "received a google verification code",
-        "email address was recently used to start a visitor session",
-        "code provided in the email"
+        "how does it work",
+        "what can tailwind do",
+        "getting started",
+        "features",
+        "pricing"
       ],
-      "example_intents": [
-        "Verify email address for a visitor session"
-      ],
+      "example_intents": ["What can Tailwind do?", "How do I get started?"],
+      "engineering_fix": "Onboarding improvement, marketing site clarity, help center, feature education",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831468",
-      "updated_at": "2026-01-07T01:30:16.831468"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     },
-    "pins_rescheduling_guidance": {
-      "issue_signature": "pins_rescheduling_guidance",
-      "product_area": "scheduling",
-      "component": "pin_scheduler",
-      "description": "User wants to schedule a post for tomorrow.",
+    "misdirected_inquiry": {
+      "issue_signature": "misdirected_inquiry",
+      "product_area": "other",
+      "component": "support",
+      "description": "Message not about Tailwind - spam, wrong company, promotional responses, verification codes",
       "keywords": [
-        "user is asking how to schedule a post",
-        "user specifies a time frame of tomorrow"
+        "wrong company",
+        "spam",
+        "not tailwind",
+        "promotional",
+        "verification code",
+        "google code"
       ],
       "example_intents": [
-        "User wants to schedule a post for tomorrow."
+        "[Message about unrelated product]",
+        "[Response to marketing email from different company]",
+        "[Google verification code]"
       ],
+      "engineering_fix": "Not applicable - filter/auto-close in pipeline",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831471",
-      "updated_at": "2026-01-07T01:30:16.831471"
-    },
-    "pins_disable_spacing": {
-      "issue_signature": "pins_disable_spacing",
-      "product_area": "scheduling",
-      "component": "pin_spacing",
-      "description": "Understand if deleting a pin allows for another pin to be scheduled in its place.",
-      "keywords": [
-        "user asked about deleting a pin",
-        "user inquired about scheduling another pin",
-        "user referenced 'turbo' feature"
-      ],
-      "example_intents": [
-        "Understand if deleting a pin allows for another pin to be scheduled in its place."
-      ],
-      "status": "active",
-      "merged_into": null,
-      "created_at": "2026-01-07T01:30:16.831474",
-      "updated_at": "2026-01-07T01:30:16.831474"
+      "created_at": "2025-01-06T00:00:00",
+      "updated_at": "2025-01-06T00:00:00"
     }
   }
 }
