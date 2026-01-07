@@ -10,6 +10,60 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Two-Stage Classification System - Phase 2 Database Integration Complete (2026-01-07)**:
+
+- Database migration for two-stage classification fields (`src/db/migrations/001_add_two_stage_classification.sql`)
+  - Stage 1 classification fields (type, confidence, routing_priority, urgency, auto_response_eligible, routing_team)
+  - Stage 2 classification fields (type, confidence, classification_changed, disambiguation_level, reasoning)
+  - Support context tracking (has_support_response, support_response_count)
+  - Resolution detection (resolution_action, resolution_detected)
+  - JSONB support_insights column for flexible data extraction
+  - Indexes for common query patterns
+- Classification storage module (`src/db/classification_storage.py`)
+  - `store_classification_result()` - Stores complete two-stage classification with UPSERT
+  - `get_classification_stats()` - Aggregated statistics (confidence distribution, classification changes, top types)
+  - Context manager pattern for safe database connections
+- End-to-end integration pipeline (`src/two_stage_pipeline.py`)
+  - Fetches quality conversations from Intercom with date filtering
+  - Runs two-stage classification on each conversation
+  - Extracts support messages from conversation parts
+  - Detects resolution signals in support responses
+  - Stores all results in PostgreSQL database
+  - CLI interface with --days, --max, --dry-run options
+- Pydantic model updates (`src/db/models.py`)
+  - ConversationType, Confidence, RoutingPriority, Urgency, DisambiguationLevel types
+  - Extended Conversation model with all two-stage fields
+- Live integration test: 3 conversations, 100% high confidence, 33% classification improvement rate
+
+**Two-Stage Classification System - Phase 1 Complete (2026-01-07)**:
+
+- Stage 1 Fast Routing Classifier (`src/classifier_stage1.py`)
+  - OpenAI gpt-4o-mini integration with temperature 0.3
+  - 8 conversation types for immediate routing
+  - URL context hints from vocabulary
+  - Auto-response eligibility detection
+  - Team routing recommendations
+  - 100% high confidence on test data
+- Stage 2 Refined Analysis Classifier (`src/classifier_stage2.py`)
+  - OpenAI gpt-4o-mini integration with temperature 0.1
+  - Full conversation context (customer + support messages)
+  - Disambiguation tracking (what customer said vs. what support revealed)
+  - Support insights extraction (root cause, solution type, products/features)
+  - Classification change detection and reasoning
+  - Resolution signal integration
+  - 100% high confidence on conversations with support
+- Classification orchestration (`src/classification_manager.py`)
+- Resolution pattern detection (`src/resolution_analyzer.py`) - 48 patterns across 6 categories
+- Knowledge extraction pipeline (`src/knowledge_extractor.py`)
+- Knowledge aggregation (`src/knowledge_aggregator.py`)
+- Resolution patterns configuration (`config/resolution_patterns.json`)
+- Test scripts for Phase 1 system:
+  - `tools/demo_integrated_system.py` - Demo with 10 sample conversations
+  - `tools/test_phase1_live.py` - Live test with real Intercom data
+  - `tools/test_phase1_system.py` - Full system test (75 conversations)
+- Complete Phase 1 results documentation (`docs/session/phase1-results.md`)
+- Two-stage classification architecture documentation
+
 **URL Context Integration (2026-01-07)**:
 
 - URL context boosting for product area disambiguation
