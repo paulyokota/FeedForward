@@ -42,12 +42,29 @@ class ShortcutClient:
         self,
         api_token: Optional[str] = None,
         dry_run: bool = False,
+        backlog_state_id: Optional[int] = None,
+        done_state_id: Optional[int] = None,
     ):
         self.api_token = api_token or os.getenv("SHORTCUT_API_TOKEN")
         self.dry_run = dry_run
 
+        # Workflow state IDs from env or params
+        self.backlog_state_id = backlog_state_id or self._get_env_int("SHORTCUT_BACKLOG_STATE_ID")
+        self.done_state_id = done_state_id or self._get_env_int("SHORTCUT_DONE_STATE_ID")
+
         if not self.api_token and not self.dry_run:
             logger.warning("SHORTCUT_API_TOKEN not set - operations will be logged only")
+
+    @staticmethod
+    def _get_env_int(key: str) -> Optional[int]:
+        """Get an integer from environment variable."""
+        val = os.getenv(key)
+        if val:
+            try:
+                return int(val)
+            except ValueError:
+                logger.warning(f"Invalid integer for {key}: {val}")
+        return None
 
     def _headers(self) -> dict:
         return {
@@ -117,6 +134,7 @@ class ShortcutClient:
         description: str,
         story_type: str = "bug",
         project_id: Optional[int] = None,
+        workflow_state_id: Optional[int] = None,
     ) -> Optional[str]:
         """
         Create a new story in Shortcut.
@@ -126,6 +144,7 @@ class ShortcutClient:
             description: Story description with excerpts
             story_type: "bug", "feature", or "chore"
             project_id: Optional project to add story to
+            workflow_state_id: Workflow state (required if no project_id)
 
         Returns:
             Story ID if successful, None otherwise.
@@ -137,6 +156,8 @@ class ShortcutClient:
         }
         if project_id:
             data["project_id"] = project_id
+        if workflow_state_id:
+            data["workflow_state_id"] = workflow_state_id
 
         result = self._post("/stories", data)
         if result:
