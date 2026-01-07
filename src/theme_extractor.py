@@ -72,6 +72,8 @@ Your job is to extract a structured "theme" from a customer support conversation
 
 {known_themes}
 
+{signature_quality_examples}
+
 {strict_mode_instructions}
 
 ## Theme Structure
@@ -142,10 +144,27 @@ Only create a new theme if the issue is genuinely different from all known theme
 
 STRICT_SIGNATURE_INSTRUCTIONS = """You MUST use one of the known theme signatures above. Pick the closest match. If nothing fits, use `unclassified_needs_review`."""
 
-FLEXIBLE_SIGNATURE_INSTRUCTIONS = """IMPORTANT - Follow this decision process:
+FLEXIBLE_SIGNATURE_INSTRUCTIONS = """IMPORTANT - Create SPECIFIC, ACTIONABLE signatures:
+
+**Decision Process**:
    a) First, check if this matches any KNOWN THEME above (same root issue, even if worded differently)
    b) If yes, use that exact signature
-   c) If no match, create a new canonical signature (lowercase, underscores, format: [feature]_[problem])"""
+   c) If no match, create a new canonical signature following these rules:
+
+**Signature Quality Rules**:
+   ✅ DO: Be specific about the PROBLEM
+      - "csv_import_encoding_error" (specific error type)
+      - "ghostwriter_timeout_error" (specific failure mode)
+      - "pinterest_board_permission_denied" (specific error and action)
+
+   ❌ DON'T: Use generic terms
+      - NOT "account_settings_guidance" → "account_email_change_failure"
+      - NOT "scheduling_feature_question" → "pin_spacing_interval_unclear"
+      - NOT "general_product_question" → identify specific product first
+
+   **Format**: [feature]_[specific_problem] (lowercase, underscores)
+   **Avoid**: "question", "inquiry", "guidance", "general", "issue"
+   **Include**: Actual error, symptom, or specific failure mode"""
 
 
 SIGNATURE_CANONICALIZATION_PROMPT = """You are normalizing issue signatures for a support ticket system.
@@ -438,6 +457,7 @@ The user was on a page related to **{url_matched_product_area}** when they start
 
         # Get known themes from vocabulary (if enabled)
         known_themes = ""
+        signature_quality_examples = ""
         if self.use_vocabulary and self.vocabulary:
             # If we have URL context, prioritize themes from that product area
             if url_matched_product_area:
@@ -447,6 +467,9 @@ The user was on a page related to **{url_matched_product_area}** when they start
                 )
             else:
                 known_themes = self.vocabulary.format_for_prompt(max_themes=50)
+
+            # Include signature quality examples
+            signature_quality_examples = self.vocabulary.format_signature_examples()
 
         # Select prompt variations based on strict mode
         if strict_mode:
@@ -465,6 +488,7 @@ The user was on a page related to **{url_matched_product_area}** when they start
             product_context=self.product_context[:10000],  # Limit context size
             url_context_hint=url_context_hint,
             known_themes=known_themes or "(No known themes yet - create new signatures as needed)",
+            signature_quality_examples=signature_quality_examples,
             strict_mode_instructions=strict_mode_instructions,
             signature_instructions=signature_instructions,
             match_instruction=match_instruction,

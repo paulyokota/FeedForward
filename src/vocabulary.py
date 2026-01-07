@@ -34,6 +34,8 @@ class VocabularyTheme:
     engineering_fix: str = ""  # What engineering work would address this
     status: str = "active"  # active, deprecated, merged
     merged_into: Optional[str] = None  # If merged, the target signature
+    support_solution: Optional[str] = None  # How support resolved this (for documentation)
+    root_cause: Optional[str] = None  # Identified root cause (for engineering)
     created_at: datetime = None
     updated_at: datetime = None
 
@@ -71,6 +73,7 @@ class ThemeVocabulary:
         self._themes: dict[str, VocabularyTheme] = {}
         self._url_context_mapping: dict[str, str] = {}
         self._product_area_mapping: dict[str, list[str]] = {}
+        self._signature_quality_guidelines: dict = {}
         self._load()
 
     def _load(self) -> None:
@@ -91,6 +94,8 @@ class ThemeVocabulary:
                 }
                 # Load product area mapping
                 self._product_area_mapping = data.get("product_area_mapping", {})
+                # Load signature quality guidelines
+                self._signature_quality_guidelines = data.get("signature_quality_guidelines", {})
                 logger.info(f"Loaded {len(self._themes)} themes and {len(self._url_context_mapping)} URL patterns from vocabulary")
             except Exception as e:
                 logger.error(f"Failed to load vocabulary: {e}")
@@ -293,6 +298,36 @@ class ThemeVocabulary:
             lines.append(
                 f"- **{theme.issue_signature}** [{theme.product_area}/{theme.component}]: {theme.description[:100]}{keywords_str}"
             )
+
+        return "\n".join(lines)
+
+    def format_signature_examples(self) -> str:
+        """
+        Format signature quality guidelines for inclusion in extraction prompt.
+
+        Returns examples of good vs bad signatures to guide the LLM.
+        """
+        if not self._signature_quality_guidelines:
+            return ""
+
+        lines = []
+
+        # Good examples
+        good_examples = self._signature_quality_guidelines.get("good_examples", [])
+        if good_examples:
+            lines.append("**Good Signature Examples** (Be specific like these):")
+            for ex in good_examples:
+                lines.append(f"   ✅ {ex['signature']} - {ex['why']}")
+            lines.append("")
+
+        # Bad examples
+        bad_examples = self._signature_quality_guidelines.get("bad_examples", [])
+        if bad_examples:
+            lines.append("**Bad Signature Examples** (Avoid generic terms):")
+            for ex in bad_examples:
+                lines.append(f"   ❌ {ex['signature']} - {ex['why_bad']}")
+                lines.append(f"      → Better: {ex['better']}")
+            lines.append("")
 
         return "\n".join(lines)
 
