@@ -2,9 +2,9 @@
 
 > **Document Purpose**: This is the authoritative project spec for FeedForward. It captures business context, technical decisions, methodology, and phased implementation plan. New sessions should read this first to understand the project's goals and approach.
 
-**Last Updated**: 2026-01-06
+**Last Updated**: 2026-01-08
 **Status**: Approved
-**Branch**: `claude/add-reference-folder-8y8BT`
+**Branch**: `development`
 
 ---
 
@@ -187,13 +187,16 @@ This pattern applies to:
 
 ### Phase Overview
 
-| Phase | Name                     | Focus                   | Success Criteria                         |
-| ----- | ------------------------ | ----------------------- | ---------------------------------------- |
-| 1     | Prototype                | Classification accuracy | ≥80% agreement with human baseline       |
-| 2     | Batch Pipeline MVP       | End-to-end pipeline     | Runs daily, stores to DB, zero data loss |
-| 3     | Product Tool Integration | Shortcut tickets        | Escalation rules route to correct queues |
-| 4     | Real-Time Workflows      | Webhooks                | <5 min latency for critical issues       |
-| 5     | Optimization             | Cost & quality          | <$50/month, maintain accuracy            |
+| Phase | Name                     | Focus                   | Success Criteria                         | Status      |
+| ----- | ------------------------ | ----------------------- | ---------------------------------------- | ----------- |
+| 1     | Prototype                | Classification accuracy | ≥80% agreement with human baseline       | ✅ Complete |
+| 2     | Batch Pipeline MVP       | End-to-end pipeline     | Runs daily, stores to DB, zero data loss | ✅ Complete |
+| 3     | Product Tool Integration | Shortcut tickets        | Escalation rules route to correct queues | ✅ Complete |
+| 4     | Context Enhancements     | Help articles, Shortcut | +10-20% accuracy improvement             | ✅ Complete |
+| 5     | Ground Truth Validation  | Accuracy metrics        | Vocabulary aligned with reality          | Future      |
+| 6+    | Theme-Based Suggestions  | Vector similarity       | Auto-suggest Shortcut links              | Future      |
+| 7     | Real-Time Workflows      | Webhooks                | <5 min latency for critical issues       | Future      |
+| 8     | Optimization             | Cost & quality          | <$50/month, maintain accuracy            | Ongoing     |
 
 ---
 
@@ -521,6 +524,57 @@ This filter reduces LLM costs by ~50% while improving classification quality.
 
 **See**: `docs/context-enhancements.md` for complete design of all 6 enhancements (Phases 4a, 4b, 4c, 5, 6+)
 
+#### Two-Stage Classification System ✅
+
+**Status**: Complete (2026-01-07)
+**Impact**: Enables both fast routing AND high-quality analytics
+
+**Architecture**:
+
+```
+Customer Message → Stage 1 (Fast Routing) → Support Team
+                         ↓
+              Support Responses Added
+                         ↓
+                   Stage 2 (Refined Analysis) → Knowledge Base
+```
+
+**Results**:
+
+- Stage 1: 100% high confidence on test data (5/5 conversations)
+- Stage 2: 100% high confidence with support context (3/3 conversations)
+- Classification improvement rate: 33% refined from Stage 1
+- Key insight: Instagram "account_issue" correctly refined to "configuration_help"
+
+**Files**: `src/classifier_stage1.py`, `src/classifier_stage2.py`, `src/classification_manager.py`
+
+#### Equivalence Class System for Grouping ✅
+
+**Status**: Complete (2026-01-08)
+**Impact**: 100% conversation grouping accuracy (from 41.7% baseline)
+
+**Problem Solved**: Human groupings showed `bug_report` and `product_question` are often the same underlying issue. Rather than losing category granularity, we introduced equivalence classes at the evaluation layer.
+
+**Approach**:
+
+```
+bug_report       → technical (equivalence class)
+product_question → technical (equivalence class)
+plan_question + bug indicators → technical (context-aware)
+all other categories → themselves
+```
+
+**Results**:
+
+- Baseline accuracy: 41.7%
+- Iteration 1 (base equivalence): 83.3%
+- Iteration 2 (context-aware): 91.7%
+- After data cleanup: 100%
+
+**Key Insight**: Preserves all 9 original categories for routing value while enabling accurate grouping for analytics and deduplication.
+
+**Files**: `src/equivalence.py`, `prompts/classification_improvement_report_2026-01-08.md`
+
 ---
 
 ### Phase 5: Ground Truth Validation & Vocabulary Feedback (Future)
@@ -712,9 +766,10 @@ FeedForward/
 
 ## 10. Revision History
 
-| Date       | Author        | Change        |
-| ---------- | ------------- | ------------- |
-| 2026-01-06 | Claude + User | Initial draft |
+| Date       | Author        | Change                                                       |
+| ---------- | ------------- | ------------------------------------------------------------ |
+| 2026-01-06 | Claude + User | Initial draft                                                |
+| 2026-01-08 | Claude + User | Add two-stage classification & equivalence class system docs |
 
 ---
 
