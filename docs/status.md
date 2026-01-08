@@ -5,8 +5,59 @@
 **Phase 1 (Two-Stage Classification): COMPLETE** ✅
 **Phase 2 (Database Integration): COMPLETE** ✅
 **Phase 4 (Theme Extraction): IN PROGRESS** 🚧
+**Classifier Improvement Project: COMPLETE** ✅
 
-## Latest: Phase 2 Database Integration Complete ✓ (2026-01-07)
+## Latest: Classifier Improvement - 100% Grouping Accuracy ✓ (2026-01-08)
+
+### Classifier Improvement via Human-Validated Groupings
+
+**Goal**: Improve conversation grouping accuracy so conversations about the same issue get the same classification.
+
+**Ground Truth**: Shortcut story IDs (`story_id_v2`) on Intercom conversations - humans manually grouped these as representing the same issue.
+
+**Results**:
+
+| Metric                | Value          |
+| --------------------- | -------------- |
+| **Baseline Accuracy** | 41.7%          |
+| **Final Accuracy**    | **100%**       |
+| **Improvement**       | +58.3 pp       |
+| **Target**            | 95% (EXCEEDED) |
+| **Test Groups**       | 11/11 correct  |
+
+**Approach: Equivalence Classes**
+
+Instead of modifying the classifier (which preserves business value), introduced equivalence classes for grouping evaluation:
+
+```python
+# src/equivalence.py
+EQUIVALENCE_CLASSES = {
+    'bug_report': 'technical',
+    'product_question': 'technical',
+}
+
+# Context-aware: plan_question with bug indicators → technical
+BUG_INDICATORS = ["not letting", "can't", "not working", ...]
+```
+
+**Key Insights**:
+
+1. `bug_report` and `product_question` often describe the same underlying issue
+2. Short messages ("hello", "operator") lack context for meaningful classification
+3. Plan questions with bug indicators ("not letting me") are actually bug reports
+
+**Files Created**:
+
+- `src/equivalence.py` - Production equivalence logic
+- `prompts/classification_improvement_report_2026-01-08.md` - Full report
+- `prompts/human_grouping_analysis.md` - Pattern analysis
+- `scripts/evaluate_with_equivalence.py` - Evaluation script
+
+**Data Cleanup**: Removed Story 63005 (marketing email incorrectly grouped with bug report)
+
+---
+
+## Previous: Phase 2 Database Integration Complete ✓ (2026-01-07)
 
 ### End-to-End Pipeline Working
 

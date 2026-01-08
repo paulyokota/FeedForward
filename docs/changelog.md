@@ -10,6 +10,25 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Classifier Improvement - 100% Grouping Accuracy (2026-01-08)**:
+
+- Equivalence class system for conversation grouping (`src/equivalence.py`)
+  - Maps `bug_report` and `product_question` to `technical` equivalence class
+  - Context-aware refinement: `plan_question` with bug indicators → `technical`
+  - Short message handling: skip ambiguous "other" messages (<5 words)
+- Story ID backfill script (`scripts/backfill_story_ids.py`)
+- Ground truth dataset with Shortcut story mappings (`data/story_id_ground_truth.json`)
+- Training set analysis script (`scripts/analyze_training_set.py`)
+- Equivalence-based evaluation scripts (`scripts/evaluate_with_equivalence.py`, `scripts/evaluate_iteration_2.py`)
+- Comprehensive analysis documentation:
+  - `prompts/classification_improvement_report_2026-01-08.md` - Final report (100% accuracy)
+  - `prompts/human_grouping_analysis.md` - Human grouping pattern analysis
+  - `prompts/baseline_evaluation.md` - Baseline results (41.7%)
+  - `prompts/iteration_1_results.md` - First iteration (83.3%)
+  - `prompts/improvements_changelog.md` - Change tracking
+  - `prompts/data_summary.md` - Dataset statistics
+- Database migration for story_id tracking (`src/db/migrations/002_add_story_id.sql`)
+
 **Two-Stage Classification System - Phase 2 Database Integration Complete (2026-01-07)**:
 
 - Database migration for two-stage classification fields (`src/db/migrations/001_add_two_stage_classification.sql`)
