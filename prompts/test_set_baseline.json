@@ -1,0 +1,54 @@
+[
+  {
+    "signature": "billing_unexpected_charge",
+    "num_conversations": 12,
+    "issue_types": {
+      "bug_report": 2,
+      "billing": 10
+    },
+    "is_consistent": false,
+    "majority_type": "billing"
+  },
+  {
+    "signature": "csv_import_failure",
+    "num_conversations": 8,
+    "issue_types": {
+      "feature_request": 1,
+      "product_question": 1,
+      "bug_report": 6
+    },
+    "is_consistent": false,
+    "majority_type": "bug_report"
+  },
+  {
+    "signature": "account_settings_guidance",
+    "num_conversations": 16,
+    "issue_types": {
+      "account_access": 2,
+      "plan_question": 12,
+      "product_question": 2
+    },
+    "is_consistent": false,
+    "majority_type": "plan_question"
+  },
+  {
+    "signature": "billing_flow_error",
+    "num_conversations": 3,
+    "issue_types": {
+      "billing": 2,
+      "bug_report": 1
+    },
+    "is_consistent": false,
+    "majority_type": "billing"
+  },
+  {
+    "signature": "pinterest_publishing_failure",
+    "num_conversations": 13,
+    "issue_types": {
+      "bug_report": 11,
+      "product_question": 2
+    },
+    "is_consistent": false,
+    "majority_type": "bug_report"
+  }
+]

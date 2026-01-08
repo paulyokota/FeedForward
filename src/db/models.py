@@ -6,7 +6,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
-# Classification output (matches classifier.py)
+# Classification output (matches classifier.py - legacy)
 IssueType = Literal[
     "bug_report", "feature_request", "product_question",
     "plan_question", "marketing_question", "billing",
@@ -16,6 +16,21 @@ IssueType = Literal[
 Sentiment = Literal["frustrated", "neutral", "satisfied"]
 
 Priority = Literal["urgent", "high", "normal", "low"]
+
+# Two-Stage Classification System (Phase 1)
+ConversationType = Literal[
+    "product_issue", "how_to_question", "feature_request",
+    "account_issue", "billing_question", "configuration_help",
+    "general_inquiry", "spam"
+]
+
+Confidence = Literal["high", "medium", "low"]
+
+RoutingPriority = Literal["urgent", "high", "normal", "low"]
+
+Urgency = Literal["critical", "high", "normal", "low"]
+
+DisambiguationLevel = Literal["high", "medium", "low", "none"]
 
 
 class ClassificationResult(BaseModel):
@@ -41,18 +56,77 @@ class Conversation(BaseModel):
     source_body: Optional[str] = None
     source_type: Optional[str] = None
     source_subject: Optional[str] = None
+    source_url: Optional[str] = None
     contact_email: Optional[str] = None
     contact_id: Optional[str] = None
 
-    # Classification output
+    # Legacy classification output (Phase 1 original)
     issue_type: IssueType
     sentiment: Sentiment
     churn_risk: bool
     priority: Priority
 
+    # Two-Stage Classification System (Phase 1 new)
+    # Stage 1: Fast Routing
+    stage1_type: Optional[ConversationType] = None
+    stage1_confidence: Optional[Confidence] = None
+    stage1_routing_priority: Optional[RoutingPriority] = None
+    stage1_urgency: Optional[Urgency] = None
+    stage1_auto_response_eligible: bool = False
+    stage1_routing_team: Optional[str] = None
+
+    # Stage 2: Refined Analysis
+    stage2_type: Optional[ConversationType] = None
+    stage2_confidence: Optional[Confidence] = None
+    classification_changed: bool = False
+    disambiguation_level: Optional[DisambiguationLevel] = None
+    stage2_reasoning: Optional[str] = None
+
+    # Support context
+    has_support_response: bool = False
+    support_response_count: int = 0
+
+    # Resolution analysis
+    resolution_action: Optional[str] = None
+    resolution_detected: bool = False
+
+    # Support insights (JSON structure)
+    support_insights: Optional[dict] = None
+
     # Metadata
     classifier_version: str = "v1"
     raw_response: Optional[dict] = None
+
+    class Config:
+        from_attributes = True
+
+
+class HelpArticleReference(BaseModel):
+    """Help article referenced in a conversation (Phase 4a)."""
+
+    id: Optional[int] = None
+    conversation_id: str  # FK to conversations
+    article_id: str
+    article_url: str
+    article_title: Optional[str] = None
+    article_category: Optional[str] = None
+    referenced_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+
+class ShortcutStoryLink(BaseModel):
+    """Shortcut story linked to a conversation (Phase 4b)."""
+
+    id: Optional[int] = None
+    conversation_id: str  # FK to conversations
+    story_id: str
+    story_name: Optional[str] = None
+    story_labels: list[str] = Field(default_factory=list)  # JSON array
+    story_epic: Optional[str] = None
+    story_state: Optional[str] = None
+    linked_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
         from_attributes = True

@@ -1,7 +1,7 @@
 {
-  "version": "2.13",
-  "updated_at": "2026-01-07T14:09:48.674928",
-  "description": "v2.13: Added 6 support-derived themes (signup downtime, account deletion, multi-account, Instagram OAuth, Pinterest org conflict, session clearing) + enhanced keywords from support terminology",
+  "version": "2.14",
+  "updated_at": "2026-01-07T19:30:00.000000",
+  "description": "v2.14: Added Professional Services product area (consulting, done-for-you, training) + improved signature quality guidelines to reduce generic signatures",
   "url_context_mapping": {
     "_comment": "Maps Intercom source.url patterns to Product Areas for disambiguating vague messages. Three schedulers: Pin Scheduler (Next Publisher, Pinterest-only new), Legacy Publisher (Pinterest-only old), Multi-Network (cross-platform).",
     "/insights/pinterest/": "Analytics",
@@ -37,7 +37,66 @@
     "/settings/upgrade": "Billing & Settings",
     "/settings/connections": "Billing & Settings",
     "/extension": "Extension",
-    "/browser-extension": "Extension"
+    "/browser-extension": "Extension",
+    "/services": "Professional Services",
+    "/professional-services": "Professional Services",
+    "/consulting": "Professional Services"
+  },
+  "signature_quality_guidelines": {
+    "_comment": "Examples of good vs bad signatures to guide LLM theme extraction",
+    "good_examples": [
+      {
+        "signature": "billing_cancellation_request",
+        "why": "Specific action (cancellation) within billing"
+      },
+      {
+        "signature": "csv_import_encoding_error",
+        "why": "Specific error type (encoding) within CSV import"
+      },
+      {
+        "signature": "pinterest_board_permission_denied",
+        "why": "Specific error (permission denied) for specific action (board access)"
+      },
+      {
+        "signature": "ghostwriter_timeout_error",
+        "why": "Specific failure mode (timeout) for feature"
+      },
+      {
+        "signature": "pinterest_publishing_failure",
+        "why": "Clear failure in specific publishing flow"
+      },
+      {
+        "signature": "multinetwork_scheduling_failure",
+        "why": "Specific scheduler (multi-network) with clear failure mode"
+      }
+    ],
+    "bad_examples": [
+      {
+        "signature": "account_settings_guidance",
+        "why_bad": "Too generic - what specific setting? What problem?",
+        "better": "account_email_change_failure"
+      },
+      {
+        "signature": "scheduling_feature_question",
+        "why_bad": "Generic 'question' - what specific aspect of scheduling?",
+        "better": "pin_spacing_interval_unclear"
+      },
+      {
+        "signature": "general_product_question",
+        "why_bad": "Completely generic - no product area or problem specified",
+        "better": "identify_specific_product_first"
+      },
+      {
+        "signature": "professional_services_inquiry",
+        "why_bad": "Just restates category - not specific about what user needs",
+        "better": "done_for_you_services_inquiry or consulting_inquiry"
+      },
+      {
+        "signature": "integration_feature_question",
+        "why_bad": "Generic 'question' - which integration? What about it?",
+        "better": "canva_integration_oauth_failure"
+      }
+    ]
   },
   "product_area_mapping": {
     "_comment": "Terminology: THREE SCHEDULERS - Next Publisher = Pin Scheduler (Pinterest-only, new), Legacy Publisher = Original Publisher (Pinterest-only, old), Multi-Network = cross-platform scheduler (Pinterest/Instagram/Facebook). Product Dashboard = e-commerce integration (Shopify). CoPilot = Planning tool. GW Labs = Ghostwriter. Made For You vs SmartPin = both AI content, different features. Create = Tailwind Create design tool.",
@@ -83,18 +142,13 @@
       "legacy_pin_editing_blocked",
       "scheduling_failure_legacy"
     ],
-    "SmartLoop": [
-      "smartloop_pin_loading_failure",
-      "smartloop_ui_bug"
-    ],
+    "SmartLoop": ["smartloop_pin_loading_failure", "smartloop_ui_bug"],
     "Multi-Network": [
       "crossposting_failure",
       "multinetwork_scheduling_failure",
       "multinetwork_feature_question"
     ],
-    "Communities": [
-      "communities_feature_question"
-    ],
+    "Communities": ["communities_feature_question"],
     "CoPilot": [
       "copilot_plan_reset_request",
       "copilot_personalization_issue",
@@ -127,22 +181,25 @@
       "product_dashboard_integration_loop",
       "product_dashboard_feature_question"
     ],
-    "Smart.bio": [
-      "smartbio_configuration",
-      "smartbio_display_issue"
-    ],
+    "Smart.bio": ["smartbio_configuration", "smartbio_display_issue"],
     "Extension": [
       "integration_connection_failure",
       "extension_ui_bug",
       "extension_data_extraction_issue",
       "extension_publisher_interaction_failure"
     ],
+    "Professional Services": [
+      "consulting_inquiry",
+      "done_for_you_services_inquiry",
+      "training_request",
+      "custom_development_inquiry",
+      "professional_services_pricing"
+    ],
     "System wide": [
       "csv_import_failure",
       "blog_indexing_failure",
       "integration_feature_question",
       "unsupported_platform_inquiry",
-      "professional_services_inquiry",
       "general_product_question",
       "misdirected_inquiry",
       "unclassified_needs_review"
@@ -367,16 +424,8 @@
       "product_area": "billing",
       "component": "payments",
       "description": "User requesting refund for any reason",
-      "keywords": [
-        "get refund",
-        "money back",
-        "refund",
-        "want refund"
-      ],
-      "example_intents": [
-        "I want a refund",
-        "Can I get my money back?"
-      ],
+      "keywords": ["get refund", "money back", "refund", "want refund"],
+      "example_intents": ["I want a refund", "Can I get my money back?"],
       "engineering_fix": "Refund policy clarity, self-service refund flow, support process automation",
       "status": "active",
       "merged_into": null,
@@ -936,30 +985,127 @@
       "created_at": "2026-01-07T00:00:00",
       "updated_at": "2026-01-07T00:00:00"
     },
-    "professional_services_inquiry": {
-      "issue_signature": "professional_services_inquiry",
-      "product_area": "other",
-      "component": "sales",
-      "description": "User asking about managed services, account management, hiring help to set up campaigns",
+    "consulting_inquiry": {
+      "issue_signature": "consulting_inquiry",
+      "product_area": "Professional Services",
+      "component": "consulting",
+      "description": "User asking about consulting services, strategic guidance, or expert advice",
+      "keywords": [
+        "consulting",
+        "consultant",
+        "strategic advice",
+        "expert help",
+        "professional guidance",
+        "marketing strategy"
+      ],
+      "example_intents": [
+        "Do you offer consulting services?",
+        "I need help with my Pinterest strategy",
+        "Can I hire a consultant?"
+      ],
+      "engineering_fix": "Marketing/sales referral - route to professional services team",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "done_for_you_services_inquiry": {
+      "issue_signature": "done_for_you_services_inquiry",
+      "product_area": "Professional Services",
+      "component": "managed_services",
+      "description": "User asking about managed services, account management, or done-for-you campaign setup",
       "keywords": [
         "account management",
-        "consulting",
-        "hire someone",
         "managed services",
         "pinterest management",
-        "professional help",
-        "set up campaign"
+        "done for you",
+        "manage my account",
+        "set up campaign",
+        "run my account"
       ],
       "example_intents": [
         "I'm interested in Pinterest account management services",
-        "Do you know where I can hire someone to set up my campaign?",
-        "Can Tailwind manage my account for me?"
+        "Can Tailwind manage my account for me?",
+        "Do you offer done-for-you services?"
       ],
-      "engineering_fix": "Marketing/sales referral - not a product issue",
+      "engineering_fix": "Marketing/sales referral - route to professional services team",
       "status": "active",
       "merged_into": null,
-      "created_at": "2026-01-06T00:00:00",
-      "updated_at": "2026-01-06T00:00:00"
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "training_request": {
+      "issue_signature": "training_request",
+      "product_area": "Professional Services",
+      "component": "training",
+      "description": "User asking about training sessions, workshops, or educational services",
+      "keywords": [
+        "training",
+        "workshop",
+        "teach me",
+        "training session",
+        "learn how to use",
+        "onboarding help",
+        "tutorial session"
+      ],
+      "example_intents": [
+        "Do you offer training sessions?",
+        "I need help learning the platform",
+        "Can I book a workshop?"
+      ],
+      "engineering_fix": "Marketing/sales referral - route to professional services team",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "custom_development_inquiry": {
+      "issue_signature": "custom_development_inquiry",
+      "product_area": "Professional Services",
+      "component": "custom_development",
+      "description": "User asking about custom development, integrations, or technical services",
+      "keywords": [
+        "custom development",
+        "custom integration",
+        "build for me",
+        "custom feature",
+        "api integration",
+        "technical services"
+      ],
+      "example_intents": [
+        "Can you build a custom integration for us?",
+        "Do you offer custom development?",
+        "I need a custom feature built"
+      ],
+      "engineering_fix": "Marketing/sales referral - route to professional services team",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
+    },
+    "professional_services_pricing": {
+      "issue_signature": "professional_services_pricing",
+      "product_area": "Professional Services",
+      "component": "pricing",
+      "description": "User asking about pricing for professional services, consulting rates, or service packages",
+      "keywords": [
+        "professional services pricing",
+        "consulting rates",
+        "service pricing",
+        "how much for services",
+        "cost of consulting",
+        "package pricing"
+      ],
+      "example_intents": [
+        "How much do your professional services cost?",
+        "What are your consulting rates?",
+        "Do you have service packages?"
+      ],
+      "engineering_fix": "Marketing/sales referral - route to professional services team",
+      "status": "active",
+      "merged_into": null,
+      "created_at": "2026-01-07T00:00:00",
+      "updated_at": "2026-01-07T00:00:00"
     },
     "smartbio_display_issue": {
       "issue_signature": "smartbio_display_issue",
@@ -1261,10 +1407,7 @@
         "pricing",
         "what can tailwind do"
       ],
-      "example_intents": [
-        "What can Tailwind do?",
-        "How do I get started?"
-      ],
+      "example_intents": ["What can Tailwind do?", "How do I get started?"],
       "engineering_fix": "Onboarding improvement, marketing site clarity, help center, feature education",
       "status": "active",
       "merged_into": null,
@@ -1300,12 +1443,7 @@
       "product_area": "other",
       "component": "review_queue",
       "description": "Issue doesn't fit existing themes well - needs human review to determine if new theme is needed",
-      "keywords": [
-        "ambiguous",
-        "doesn't fit",
-        "new category",
-        "unclear"
-      ],
+      "keywords": ["ambiguous", "doesn't fit", "new category", "unclear"],
       "example_intents": [
         "[Conversation that doesn't match any known theme pattern]"
       ],

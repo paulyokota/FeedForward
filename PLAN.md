@@ -350,7 +350,233 @@ This filter reduces LLM costs by ~50% while improving classification quality.
 
 ---
 
-### Phase 4: Real-Time Workflows (Future)
+### Phase 4: Context Enhancements (In Progress)
+
+**Goal**: Leverage help articles and Shortcut story data to improve classification quality and enable downstream analytics.
+
+**New Data Sources**:
+
+- Intercom Help Center articles (static knowledge base)
+- Shortcut ↔ Intercom conversation linking (bidirectional via Story ID v2 and URL patterns)
+
+**Key Insight**: These create a relationship graph (articles ↔ conversations ↔ stories) that provides ground truth labels and semantic context.
+
+#### Phase 4a: Help Article Context Injection ⭐
+
+**Status**: ✅ Complete - Unit tests passing (17/17), ready for real-data validation
+**Timeline**: 1-2 days (actual)
+**Complexity**: Low
+**Impact**: High (+10-15% accuracy on conversations with article references)
+
+**Approach**:
+
+1. Extract help article URLs from conversation messages/metadata
+2. Fetch article metadata via Intercom API (title, category, summary)
+3. Inject article context into Stage 2 LLM prompt (similar to URL context boosting)
+4. Store article references in database for analytics
+
+**Deliverables**: ✅ Complete
+
+- ✅ `src/help_article_extractor.py` - Article URL extraction and metadata fetching (197 lines)
+- ✅ `migrations/001_add_help_article_references.sql` - Database schema with analytics views
+- ✅ `src/db/models.py` - HelpArticleReference Pydantic model
+- ✅ `src/classifier_stage2.py` - Prompt enrichment with `help_article_context` parameter
+- ✅ `tests/test_help_article_extraction.py` - Comprehensive test suite (17/17 passing)
+- ✅ `docs/phase4a-implementation.md` - Complete implementation documentation
+
+**Testing Results**:
+
+- ✅ Unit tests: 17/17 passing (100%)
+- ✅ Error handling validated (graceful degradation)
+- ✅ All URL patterns tested (3 formats)
+- ✅ Testing infrastructure complete (validation script, accuracy testing script, test data template)
+- ⏳ Real-data validation: Ready to execute (requires test dataset preparation)
+- ⏳ Accuracy improvement testing: Ready to execute (requires ground truth labels)
+
+**Testing Infrastructure** (Created):
+
+- ✅ `scripts/validate_phase4_extractors.py` - Real-data extraction rate validation
+- ✅ `scripts/test_phase4_accuracy_improvement.py` - A/B accuracy testing (baseline vs enriched)
+- ✅ `scripts/test_conversations_template.json` - Test dataset format template
+- ✅ `scripts/README.md` - Complete testing guide and documentation
+
+**Success Criteria** (Unit Tests):
+
+- ✅ Article reference extraction: Handles all URL formats
+- ✅ Prompt enrichment: 100% when articles detected
+- ✅ Error handling: Graceful failures, no pipeline breakage
+- ✅ Database integrity: Migration 001 applied successfully (2026-01-07)
+- ⏳ Extraction rate: Target 15-20% (awaiting measurement)
+- ⏳ Accuracy improvement: Target +10-15% (awaiting A/B testing)
+
+**GitHub Issue**: #18 (complete)
+
+#### Phase 4b: Shortcut Story Context Injection ⭐
+
+**Status**: ✅ Complete - Unit tests passing (20/20), ready for real-data validation
+**Timeline**: 1-2 days (actual)
+**Complexity**: Low
+**Impact**: High (+15-20% accuracy on conversations with Story ID v2)
+
+**Approach**:
+
+1. Check for `Story ID v2` in conversation custom attributes
+2. Fetch Shortcut story metadata via Shortcut API (labels, epic, name, description, state)
+3. Inject story context into Stage 2 LLM prompt (human-validated product area context)
+4. Store story linkage in database for analytics
+
+**Deliverables**: ✅ Complete
+
+- ✅ `src/shortcut_story_extractor.py` - Story ID extraction and metadata fetching (240 lines)
+- ✅ `migrations/002_add_shortcut_story_links.sql` - Database schema with analytics views
+- ✅ `src/db/models.py` - ShortcutStoryLink Pydantic model
+- ✅ `src/classifier_stage2.py` - Prompt enrichment with `shortcut_story_context` parameter
+- ✅ `tests/test_shortcut_story_extraction.py` - Comprehensive test suite (20/20 passing)
+- ✅ `docs/phase4b-implementation.md` - Complete implementation documentation
+
+**Testing Results**:
+
+- ✅ Unit tests: 20/20 passing (100%)
+- ✅ Story ID extraction: Handles prefixed/raw formats, whitespace normalization
+- ✅ Label extraction: Supports object and string formats
+- ✅ Error handling validated (graceful degradation)
+- ✅ Testing infrastructure complete (same tools as Phase 4a)
+- ⏳ Real-data validation: Ready to execute (requires test dataset preparation)
+- ⏳ Accuracy improvement testing: Ready to execute (requires ground truth labels)
+
+**Testing Infrastructure** (Shared with Phase 4a):
+
+- ✅ `scripts/validate_phase4_extractors.py` - Validates both article and story extraction rates
+- ✅ `scripts/test_phase4_accuracy_improvement.py` - Tests all 4 scenarios (baseline, articles, stories, combined)
+- ✅ `scripts/test_conversations_template.json` - Includes story_id_v2 in test format
+- ✅ `scripts/README.md` - Documents testing workflow for both phases
+
+**Success Criteria** (Unit Tests):
+
+- ✅ Story linkage extraction: Handles all ID formats
+- ✅ Prompt enrichment: 100% when Story ID v2 detected
+- ✅ Error handling: Graceful failures, no pipeline breakage
+- ✅ Database integrity: Migration 002 applied successfully (2026-01-07)
+- ⏳ Extraction rate: Target 30-40% (awaiting measurement)
+- ⏳ Accuracy improvement: Target +15-20% (awaiting A/B testing)
+- ⏳ Label alignment: Will measure with ground truth validation (Phase 5)
+
+**GitHub Issue**: #23 (complete)
+
+#### Phase 4c: Documentation Coverage Gap Analysis ⭐
+
+**Status**: ✅ Complete - Ready for deployment
+**Timeline**: 1 day (actual)
+**Complexity**: Low
+**Impact**: High (actionable support insights)
+
+**Approach**:
+
+1. Identify themes that frequently appear WITHOUT help article references
+2. Identify articles that users reference but still have problems
+3. Generate weekly reports:
+   - "Top 10 Undocumented Themes"
+   - "Top 10 Confusing Articles"
+   - "Documentation Gaps by Product Area"
+
+**Deliverables**: ✅ Complete
+
+- ✅ `src/analytics/doc_coverage.py` (529 lines) - Gap analysis module with 3 core methods
+- ✅ `src/analytics/__init__.py` - Module exports
+- ✅ `scripts/generate_doc_coverage_report.py` (414 lines) - Weekly automation with text/JSON/Slack output
+- ✅ `results/doc_coverage_sample.txt` - Sample report with real data
+- ✅ `docs/phase4c-implementation.md` - Complete implementation documentation
+
+**Implementation Highlights**:
+
+- **3 Analysis Methods**:
+  - `find_undocumented_themes()`: High-frequency issues without help articles
+  - `find_confusing_articles()`: Articles referenced but didn't resolve issues
+  - `analyze_product_area_coverage()`: Coverage rates by product area
+
+- **Multiple Output Formats**:
+  - Human-readable text reports
+  - JSON for programmatic consumption
+  - Slack webhook notifications
+
+- **Configurable Parameters**:
+  - Time windows (default 7 days for weekly)
+  - Frequency thresholds (themes, articles)
+  - Confusion rate thresholds
+
+**Test Results**:
+
+- ✅ All SQL queries tested against production schema
+- ✅ Sample report generated with 257 conversations
+- ✅ Identified 12 undocumented themes (top: billing_cancellation_request, 22 conversations)
+- ✅ Report formatting validated (text and JSON)
+
+**Success Criteria**:
+
+- ✅ Weekly report generation: 100% automated
+- ✅ Gap identification: Working (found 12 themes in test data)
+- ⏳ Measurable impact: Awaiting production deployment and documentation updates
+
+**GitHub Issue**: #19 (complete)
+
+**See**: `docs/context-enhancements.md` for complete design of all 6 enhancements (Phases 4a, 4b, 4c, 5, 6+)
+
+---
+
+### Phase 5: Ground Truth Validation & Vocabulary Feedback (Future)
+
+**Goal**: Use Shortcut story data as ground truth to validate accuracy and keep vocabulary aligned with reality.
+
+#### Enhancement 3: Shortcut Story Ground Truth Validation
+
+**Timeline**: 3-5 days
+**Complexity**: Medium
+**Impact**: Medium (objective quality metrics)
+
+**Approach**:
+
+- Fetch conversations with `Story ID v2` metadata
+- Run theme extraction, compare to Shortcut story labels
+- Generate accuracy reports with matches/mismatches
+- Identify vocabulary gaps
+
+**GitHub Issue**: #20
+
+#### Enhancement 4: Vocabulary Feedback Loop from Shortcut Labels
+
+**Timeline**: 4-6 days
+**Complexity**: Medium
+**Impact**: High (keeps vocabulary aligned)
+
+**Approach**:
+
+- Periodically fetch Shortcut stories from Intercom conversations
+- Aggregate story labels and epics
+- Identify new labels not in current vocabulary (>10 occurrences = high priority)
+- Human review + approval → vocabulary expansion
+
+**GitHub Issue**: #21
+
+---
+
+### Phase 6+: Theme-Based Story Suggestions (Future)
+
+**Goal**: Auto-suggest Shortcut story links using vector similarity search.
+
+**Timeline**: 10-15 days
+**Complexity**: High (requires ML infrastructure)
+**Impact**: High (faster escalation, better tracking)
+
+**Infrastructure Requirements**:
+
+- PostgreSQL pgvector extension
+- OpenAI embeddings API (~$0.06/month for 3000 conversations)
+
+**GitHub Issue**: #22
+
+---
+
+### Phase 7: Real-Time Workflows (Future)
 
 **Goal**: Webhook-driven processing for time-sensitive issues.
 
@@ -360,7 +586,7 @@ This filter reduces LLM costs by ~50% while improving classification quality.
 
 ---
 
-### Phase 5: Optimization (Ongoing)
+### Phase 8: Optimization (Ongoing)
 
 **Goal**: Cost efficiency and quality maintenance.
 

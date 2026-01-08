@@ -34,6 +34,8 @@ class VocabularyTheme:
     engineering_fix: str = ""  # What engineering work would address this
     status: str = "active"  # active, deprecated, merged
     merged_into: Optional[str] = None  # If merged, the target signature
+    support_solution: Optional[str] = None  # How support resolved this (for documentation)
+    root_cause: Optional[str] = None  # Identified root cause (for engineering)
     created_at: datetime = None
     updated_at: datetime = None
 
@@ -69,6 +71,9 @@ class ThemeVocabulary:
     def __init__(self, vocab_path: Optional[Path] = None):
         self.vocab_path = vocab_path or Path(__file__).parent.parent / "config" / "theme_vocabulary.json"
         self._themes: dict[str, VocabularyTheme] = {}
+        self._url_context_mapping: dict[str, str] = {}
+        self._product_area_mapping: dict[str, list[str]] = {}
+        self._signature_quality_guidelines: dict = {}
         self._load()
 
     def _load(self) -> None:
@@ -80,13 +85,28 @@ class ThemeVocabulary:
                     sig: VocabularyTheme.from_dict(theme)
                     for sig, theme in data.get("themes", {}).items()
                 }
-                logger.info(f"Loaded {len(self._themes)} themes from vocabulary")
+                # Load URL context mapping for product area disambiguation
+                self._url_context_mapping = data.get("url_context_mapping", {})
+                # Remove comment entries
+                self._url_context_mapping = {
+                    k: v for k, v in self._url_context_mapping.items()
+                    if not k.startswith("_")
+                }
+                # Load product area mapping
+                self._product_area_mapping = data.get("product_area_mapping", {})
+                # Load signature quality guidelines
+                self._signature_quality_guidelines = data.get("signature_quality_guidelines", {})
+                logger.info(f"Loaded {len(self._themes)} themes and {len(self._url_context_mapping)} URL patterns from vocabulary")
             except Exception as e:
                 logger.error(f"Failed to load vocabulary: {e}")
                 self._themes = {}
+                self._url_context_mapping = {}
+                self._product_area_mapping = {}
         else:
             logger.info("No vocabulary file found, starting fresh")
             self._themes = {}
+            self._url_context_mapping = {}
+            self._product_area_mapping = {}
 
     def _save(self) -> None:
         """Save vocabulary to file."""
@@ -281,6 +301,53 @@ class ThemeVocabulary:
 
         return "\n".join(lines)
 
+    def format_signature_examples(self) -> str:
+        """
+        Format signature quality guidelines for inclusion in extraction prompt.
+
+        Returns examples of good vs bad signatures to guide the LLM.
+        """
+        if not self._signature_quality_guidelines:
+            return ""
+
+        lines = []
+
+        # Good examples
+        good_examples = self._signature_quality_guidelines.get("good_examples", [])
+        if good_examples:
+            lines.append("**Good Signature Examples** (Be specific like these):")
+            for ex in good_examples:
+                lines.append(f"   ✅ {ex['signature']} - {ex['why']}")
+            lines.append("")
+
+        # Bad examples
+        bad_examples = self._signature_quality_guidelines.get("bad_examples", [])
+        if bad_examples:
+            lines.append("**Bad Signature Examples** (Avoid generic terms):")
+            for ex in bad_examples:
+                lines.append(f"   ❌ {ex['signature']} - {ex['why_bad']}")
+                lines.append(f"      → Better: {ex['better']}")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def match_url_to_product_area(self, url: Optional[str]) -> Optional[str]:
+        """
+        Match a URL to a product area using url_context_mapping.
+
+        Returns the product area if a pattern matches, None otherwise.
+        """
+        if not url or not self._url_context_mapping:
+            return None
+
+        # Check each pattern against the URL
+        for pattern, product_area in self._url_context_mapping.items():
+            if pattern in url:
+                logger.info(f"URL context match: {pattern} -> {product_area}")
+                return product_area
+
+        return None
+
     def get_stats(self) -> dict:
         """Get vocabulary statistics."""
         active = [t for t in self._themes.values() if t.status == "active"]
@@ -294,6 +361,7 @@ class ThemeVocabulary:
             "deprecated": len([t for t in self._themes.values() if t.status == "deprecated"]),
             "merged": len([t for t in self._themes.values() if t.status == "merged"]),
             "by_product_area": by_area,
+            "url_patterns": len(self._url_context_mapping),
         }
 
 

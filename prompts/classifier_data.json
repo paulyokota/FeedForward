@@ -1,0 +1,1825 @@
+{
+  "all_groups": {
+    "account_settings_guidance": [
+      {
+        "conversation_id": "215472480165181",
+        "source_body": "I need to disconnect my pinterest from this tailwind",
+        "issue_type": "account_access",
+        "product_area": "account",
+        "component": "OAuth"
+      },
+      {
+        "conversation_id": "215472503388895",
+        "source_body": "jag vill ta bort en av mina pinterestkonton som jag har kopplade",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "account_settings"
+      },
+      {
+        "conversation_id": "215472510847205",
+        "source_body": "How can I disconnect a pinterest account and add a new one?",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "account_settings"
+      },
+      {
+        "conversation_id": "215472517091491",
+        "source_body": "remove Pinterest account connection",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "account_settings"
+      },
+      {
+        "conversation_id": "215472518580147",
+        "source_body": "I'd like to delete one of my accounts on my profile.",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "profile management"
+      },
+      {
+        "conversation_id": "215472524946736",
+        "source_body": "I would like to remove one of the pinterest account but i dont see the option there",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "account_settings"
+      },
+      {
+        "conversation_id": "215472526894543",
+        "source_body": "Hello Tailwind Support Team, I hope you\u2019re doing well. I\u2019m writing to request the removal of the Pinterest profile \u201ctheglamourlady\u201d from my Tailwind account. I no longer own or manage this Pinterest profile, as it has been transferred to a new owner. The new owner would like to purchase and use their own Tailwind subscription and connect the theglamourlady Pinterest account independently. To avoid any conflicts or access issues, I kindly ask that you remove this Pinterest profile from my Tailwin",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "profile management"
+      },
+      {
+        "conversation_id": "215472545982534",
+        "source_body": "How do I get a Pinterest account that is no longer active off my account?",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "account_settings"
+      },
+      {
+        "conversation_id": "215472548255959",
+        "source_body": "I need to remove a client from my account",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "account management"
+      },
+      {
+        "conversation_id": "215472549604909",
+        "source_body": "Hi I need to separate my two Pinterest accounts into 2 separate Tailwind accounts",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "multi-profile_dashboard"
+      },
+      {
+        "conversation_id": "215472549984286",
+        "source_body": "I need to change my Pinterest username",
+        "issue_type": "product_question",
+        "product_area": "account",
+        "component": "profile management"
+      },
+      {
+        "conversation_id": "215472553317176",
+        "source_body": "My pinterest user name has changed since I changed my business. how do I update it in the account details? It should be pinterest.com/thekbeautyleap/",
+        "issue_type": "product_question",
+        "product_area": "account",
+        "component": "profile management"
+      },
+      {
+        "conversation_id": "215472554698797",
+        "source_body": "I need to disconnect all of my accounts and start over.",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "account_settings"
+      },
+      {
+        "conversation_id": "215472562933942",
+        "source_body": "Please delete my Plantsy Vegan Eats profile from Instagram.",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "profile management"
+      },
+      {
+        "conversation_id": "215472568259727",
+        "source_body": "how do I delete a old account to add a new one",
+        "issue_type": "account_access",
+        "product_area": "account",
+        "component": "account_settings"
+      },
+      {
+        "conversation_id": "215472570766884",
+        "source_body": "Hello, I would like my instagram account changed to @freedomsupplysociety",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "profile management"
+      }
+    ],
+    "analytics_interpretation_question": [
+      {
+        "conversation_id": "215472527878227",
+        "source_body": "how can I exported by pinterest analytics info",
+        "issue_type": "product_question",
+        "product_area": "analytics",
+        "component": "performance_tracking"
+      },
+      {
+        "conversation_id": "215472530359998",
+        "source_body": "Hello I am not sure what monthly posts means, last month is said I only used two even though I was scheduling posts, can you please help clarify this",
+        "issue_type": "product_question",
+        "product_area": "analytics",
+        "component": "performance tracking"
+      },
+      {
+        "conversation_id": "215472549108421",
+        "source_body": "I was checking status on my pins and if I need to make any changes.",
+        "issue_type": "product_question",
+        "product_area": "analytics",
+        "component": "performance tracking"
+      }
+    ],
+    "billing_cancellation_request": [
+      {
+        "conversation_id": "215472472925671",
+        "source_body": "can i cancel the recurring billing but still be active for the year?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472506881283",
+        "source_body": "Hi, I need to cancel my plan.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472507850471",
+        "source_body": "Need to cancel subscription.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472508910701",
+        "source_body": "How to unsubscribe \u200b",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472509045645",
+        "source_body": "I need to cancel my plan. Please stop trying to charge my credit card. I have tried to cancel this last time you tried a month ago.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472509264818",
+        "source_body": "I have not used tailwind in months. i want to cancel my subscription and obtain a refund please",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472509306459",
+        "source_body": "I want to cancel my plan",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472509868731",
+        "source_body": "How do I delete my account",
+        "issue_type": "account_access",
+        "product_area": "billing",
+        "component": "account management"
+      },
+      {
+        "conversation_id": "215472514741025",
+        "source_body": "aboneli\u011fimi iptal etmek istiyorum",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472516665159",
+        "source_body": "Hello, I thought my virtual assistant who was using this account on my behalf had canceled this account on my behalf once we stopped our work together. Unfortunately, she did not terminate my subscription and I have not been using the service since then. Would it be possible to cancel my account and refund the renewal that was charged on September 5, 2025?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472516977799",
+        "source_body": "Hello, I am not currently using tailwind and would like to cancel and receive refund please. It is not in my budget at this time to continue service. Thank you. Christy Tanner www.everlyafter.co (541)420-0865",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472517108202",
+        "source_body": "wie kann ich k\u00fcndigen",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472518970262",
+        "source_body": "how do I cancel my membership",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472527685173",
+        "source_body": "How do I cancel my account?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "account management"
+      },
+      {
+        "conversation_id": "215472528513686",
+        "source_body": "i want to canceled plan",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472528752897",
+        "source_body": "Hello Carrissa, I don't use Tailwind since 4 years ago. I closed my account some years ago, but still get payments to do. Can you close my account once and forever? Thank you Sent with Mailbird for Windows Il 03/01/2026 19:28:47, Carrissa at Tailwind < help@tailwindapp.com > ha scritto: Hey Davide, Carrissa Myers from Tailwind here. It looks like your subscription payment of $179.88 didn't go through. Please update your information here and we'll give it another try. Let us know if you have any ",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "account"
+      },
+      {
+        "conversation_id": "215472532626101",
+        "source_body": "Why won't you let me close my account?",
+        "issue_type": "account_access",
+        "product_area": "billing",
+        "component": "account"
+      },
+      {
+        "conversation_id": "215472549508516",
+        "source_body": "cancel my subscription",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472549733971",
+        "source_body": "how to cancel subscription",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472552797064",
+        "source_body": "Need to cancel subscription and request refund",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472553056173",
+        "source_body": "Hi, I'd like to cancel my plan",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472554302881",
+        "source_body": "How do I cancel my plan renewal and why is that so hard to find? Thanks.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472561053335",
+        "source_body": "Hello, We subscribed to Tailwind for one year only, and we do not wish to continue or renew the subscription. The subscription period is over, and we would like to stop the service completely. Could you please confirm that the subscription is cancelled and that no further charges will be applied? We would also like the account to be closed. Thank you for your assistance. Kind regards, \u200b",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472565092796",
+        "source_body": "Can you confirm that my subscription is cancelled and no more payments will be taken",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472565212873",
+        "source_body": "how do i cancel my subscription?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472567192897",
+        "source_body": "I would like to cancel my plan as I haven;t used it for several years",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472568043412",
+        "source_body": "Hello, I will cancel my plan. How i can do that?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472571604583",
+        "source_body": "how do I cancel may account?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "account management"
+      },
+      {
+        "conversation_id": "215472571765089",
+        "source_body": "I no longer want an account. Thank You!",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "account"
+      }
+    ],
+    "billing_flow_error": [
+      {
+        "conversation_id": "215472507966761",
+        "source_body": "saying something went wrong but not telling me what when i use my card to purchase montly",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "payments"
+      },
+      {
+        "conversation_id": "215472528855231",
+        "source_body": "Hello, I needed to cancel the card on file and missed your email. I was able to successfully update the card to the one that was mailed to me. However, there isn't an option to rebill for the 12/2 statement or make any changes - it says 503 error. Are you able to charge the past due amount to make my account current. Right now, it seems that I've been switched to a free plan, but I want the plan I had. Unfortunately, though, with the holidays and having to go through the process of cancelling my",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "billing_settings"
+      },
+      {
+        "conversation_id": "215472568721132",
+        "source_body": "Hello, For some reason, my Tailwind account status has been cancelled and has moved to the Free version and it\u2019s giving me an error message when I attempt to reactivate my previous plan. I assume that this is a glitch that you guys are experiencing, but I\u2019m curious if you know when you expect to have it resolved? Thank you, Jenny (my company is SuzyQuilts Limited)",
+        "issue_type": "bug_report",
+        "product_area": "billing",
+        "component": "plans"
+      }
+    ],
+    "billing_plan_change_request": [
+      {
+        "conversation_id": "215472503018121",
+        "source_body": "Hi Tailwind Last year I purchased a single user account, and later in the year I upgraded it to have 2 sets of accounts linked. Unfortunately, one of those business ventures has not worked out. I will need to downgrade my account, but I was wondering if it was possible to have my account downgraded to a single user, and the subscription for the second set of users credited to my account? The second accounts are disconnected. Thank you Alivia",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472503885680",
+        "source_body": "I would like to down grade to the $29,99 how do i do that",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "billing_plan_change_request"
+      },
+      {
+        "conversation_id": "215472508661238",
+        "source_body": "i want to downgrade to a free plan / quit tailwind. because I am not using it",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472512454049",
+        "source_body": "I would like the enclosed discount plan please?",
+        "issue_type": "feature_request",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472516747729",
+        "source_body": "Is it too late to use a code to get more credits on my free plan? I am learning from Rochelle Be and she has a code, but I didn't realize it til just now and I signed up (after watching another one of her videos) the other day. Right now I only have the 5 credits. Can you help me?",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "credits"
+      },
+      {
+        "conversation_id": "215472518686654",
+        "source_body": "Why is my \"monthly posts\" and tailwind credits\" max out. I been away for a few months.",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472522184311",
+        "source_body": "I dont have the option to get the annual for Advance I do not want Max",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472536568479",
+        "source_body": "do you have a monthly option? Im not ready to sign up for a year",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472536732384",
+        "source_body": "Can I reactivate my plan and use a coupon code?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472538216503",
+        "source_body": "I would like a free months trial",
+        "issue_type": "feature_request",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472544615374",
+        "source_body": "Hey Mike, I have a client who has been with TW for a very long time. He's been on a free plan for a bit, and was getting 20 pins a month. We noticed this has dropped to 5 with the recent price changes. Is there a way to have the old free plan? We were using it to contribute to tribes/communities fairly, but now it's not really possible. The account uses this Pinterest account @sugarlesscrystal Leah Content Strategist | Grow With Leah growwithleah.com | hello@growwithleah",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472548306355",
+        "source_body": "do you have a monthly payment plan?",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472550703337",
+        "source_body": "what does it mean if I'll reach my publishing limit on feb 4th?",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "billing_plan_change_request"
+      },
+      {
+        "conversation_id": "215472566384886",
+        "source_body": "I am currently on the Pro Plan. Does this plan allow me to connect one account per platform (one Pinterest, one Facebook, and one Instagram account simultaneously) for a total of three profiles? Or am I restricted to using only one social media channel in total for the entire plan?",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472568202549",
+        "source_body": "can i pay for one month of tailwind?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      }
+    ],
+    "billing_refund_request": [
+      {
+        "conversation_id": "215472502376347",
+        "source_body": "Hello - I am writing because I contacted the \"help\" section of the site, but I never received a response. I had joined tailwind as it was part of the Pinterest Inclusion Fund in nov 2024. It was my understanding that we would only have it for that year and we would NOT be signed for a SUBSCRIPTION. As such, I was unaware that I had been charged for another year of the program of which I did not desire. I am requesting a refund and I have already gone ahead and downgraded my account. Thank you. -",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "refund_request"
+      },
+      {
+        "conversation_id": "215472507720638",
+        "source_body": "please refund the full amount that you just pulled from our account. we have not use this platform all year and see no need to continue at this time. I did not realize you would auto pull our money. Please refund immediately and close our account for now. Thank you. Tammy Becker/You Ministries",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscriptions"
+      },
+      {
+        "conversation_id": "215472507735654",
+        "source_body": "Hi I meant to cancel my subscription that billed today. Is it possible to cancel and get a refund?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472510755666",
+        "source_body": "Hello, My account was just charged for a yearly renewal that I did not intend to continue. I do not use the service and canceled auto-renew immediately after seeing the charge. Since there has been no active usage, I\u2019m asking for a refund of the annual renewal charge and written confirmation that the subscription is canceled. Thank you for assisting with this.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472529720508",
+        "source_body": "Hello, I am inquiring to receive a refund on my recent credit card. I haven't used tailwind in over two years. I downgraded my plan last year after being charged $179, but it clearly didn't go through. If this is for the 2026 year, I went ahead and canceled the subscription with no plans of using tailwind. Please refund my card. You will notice my pinterest queue hasn't been active in years on Tailwind Please advise. Samantha",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "refund"
+      },
+      {
+        "conversation_id": "215472548883703",
+        "source_body": "hi! i was wondering if i could receive a partial refund for the charge i received on 1/2/26. I would like to cancel the plus plan for @bbooks3",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472557643586",
+        "source_body": "I accidentally got charged twice trying to upgrade my account. Can you please send me a refund for one as soon as possible?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472567808249",
+        "source_body": "Subject: Accidental Plan Upgrade - Request Immediate Refund/Downgrade Hi Tailwind Team, I accidentally upgraded to the Max annual plan today. I immediately tried to downgrade to Pro, but the system says the downgrade will only take effect in 364 days. I only need the Pro plan for my single Pinterest account. Could you please: 1. Cancel the Max plan 2. Process a refund for the difference 3. Switch me to Pro plan immediately Thank you for your help. Aleks Account email: orchakov@gmail.com",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472569169889",
+        "source_body": "Hello, I have just logged in to my company credit card to see that Tailwind charged my account and renewed it for another year. I am writing this on the thread showing that Tailwind said the payment was unsuccessful for the third time \u2014 this was for a reason: I am going non-resident and am closing all my companies. I would like a refund of the charge of $506.02 charged on December 26th and posted on Dec. 29th. I do not appreciate receiving emails indicating payment not going through only to get ",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "billing"
+      },
+      {
+        "conversation_id": "test_billing_001",
+        "source_body": "I was charged $506 after Tailwind said payment failed 3 times. I'm closing my business and want a refund. I don't appreciate being charged when I didn't want to renew.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "payments"
+      }
+    ],
+    "billing_settings_guidance": [
+      {
+        "conversation_id": "215472550394838",
+        "source_body": "I need to see old billing statements",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "billing_settings"
+      },
+      {
+        "conversation_id": "215472564669023",
+        "source_body": "I have to update the billing address and get a new invoice",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "billing_settings"
+      },
+      {
+        "conversation_id": "215472568423280",
+        "source_body": "I just upgraded again, I think my card changed so it didn't renew. I've been asked to contact right away to make sure everything is ok.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "billing_settings_guidance"
+      },
+      {
+        "conversation_id": "215472569243952",
+        "source_body": "I updated the payment info",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "billing_settings_guidance"
+      },
+      {
+        "conversation_id": "760511900082",
+        "source_body": "Hi I\u2019m unable to download my Invoice for my yearly subscription. I\u2019ve gone to the Billing section but all I can download is the invoice for the ads I\u2019m running. Please send me my Invoice for my yearly subscription paid dec 2024.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "billing_settings_guidance"
+      }
+    ],
+    "billing_unexpected_charge": [
+      {
+        "conversation_id": "215470815588480",
+        "source_body": "This just popped up for me (new account created Sept 14 2025). The offer says it expired months ago on July 25th",
+        "issue_type": "bug_report",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472487658293",
+        "source_body": "Hi there, My creditcard information is correct, and I don't have another credit card. Tailwind is the only one that seems to have trouble charging my credit card, I don't have this issue with anything else I pay for. The verification charge went through fine last week (and was cancelled automatically). I thought maybe if I clicked the update button on the payment information, it would try charging again, and I could see if there's anything I need to approve, but I just immediately get the messag",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "payment"
+      },
+      {
+        "conversation_id": "215472502717974",
+        "source_body": "Hello. I have not been using this tool for several months because I am busy with other work. However, I wanted to say that I shall not continue the tool until I find another time to work. today I saw from my credit card message that the tool is auto-updated and the subscription fee taken from my card. Will I set uption for auto update? please check it and close auto update, if there, immediately.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472506183832",
+        "source_body": "Why my monthly posts are still limited when they should have renewed today?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472510891833",
+        "source_body": "I just signed up for a paid plan but it still says im in free.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472516428549",
+        "source_body": "Why does it show that I have a balance due of $449.03? I know my credit card was declined and I'm working on getting that corrected but I'm unsure about the amount",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "billing_settings"
+      },
+      {
+        "conversation_id": "215472516946717",
+        "source_body": "It looks like my credits didn't update. I have zero pins planned, and it won't let me schedule any.",
+        "issue_type": "bug_report",
+        "product_area": "billing",
+        "component": "credits"
+      },
+      {
+        "conversation_id": "215472517321098",
+        "source_body": "Yes I\u2019m trying to cancel and getting charge something I didn\u2019t approve of. It took all my money I need to get back and cancel what\u2019s trying to come up next",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "215472546791985",
+        "source_body": "Hello. I saw that you charged me for using your services on the website. But I haven't been using them since 2024. Why are you charging me for 2025 and 2026? I deleted my card number in 2024, but now I see it in my data and I can't delete it. Please refund the payment for 2025 and 2026. I haven't had Pinterest since 2024.",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "billing_settings"
+      },
+      {
+        "conversation_id": "215472550214997",
+        "source_body": "I cancelled this account last year why was I billed 300",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscriptions"
+      },
+      {
+        "conversation_id": "215472553990462",
+        "source_body": "i have a free account, but was charged by tailwind",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "subscription"
+      },
+      {
+        "conversation_id": "760511899683",
+        "source_body": "I purchased the yearly membership but I'm still showing on 10 credit?",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      }
+    ],
+    "csv_import_failure": [
+      {
+        "conversation_id": "215472348791138",
+        "source_body": "Hi, I've managed to create a CSV file that even correctly imports the scheduled date and time. I'd like to add a \"Lock pin to exclude when shuffling\" setting for some pins. How can I add this to the CSV file so I don't have to lock each pin individually?",
+        "issue_type": "feature_request",
+        "product_area": "integrations",
+        "component": "csv_import"
+      },
+      {
+        "conversation_id": "215472509754184",
+        "source_body": "I want to use the CSV upload but I am not sure where I would save my pins in order to get a Media URL",
+        "issue_type": "product_question",
+        "product_area": "integrations",
+        "component": "csv_import"
+      },
+      {
+        "conversation_id": "215472569113229",
+        "source_body": "Hi, I connected long time ago my blog to Blogs dashboard, but it always has an error: We couldn't find any blogs on your site Try again using the refresh button above. If this alert persists, contact support. How can it be fixed?",
+        "issue_type": "bug_report",
+        "product_area": "integrations",
+        "component": "csv_import"
+      },
+      {
+        "conversation_id": "215472570192717",
+        "source_body": "I uploaded and scheduled my pins for next month using CSV files. However, with some of these files, the fields suddenly couldn't be mapped. After some testing, I discovered that the problem lies with the pin descriptions of three specific pins. As soon as I delete these descriptions from the CSV file, the upload works. Unfortunately, I can't figure out why these three descriptions are preventing the upload from working correctly.",
+        "issue_type": "bug_report",
+        "product_area": "integrations",
+        "component": "csv_import"
+      },
+      {
+        "conversation_id": "215472570866679",
+        "source_body": "my bulk uploader is not coming up",
+        "issue_type": "bug_report",
+        "product_area": "integrations",
+        "component": "csv_import"
+      },
+      {
+        "conversation_id": "test_csv_001",
+        "source_body": "I uploaded and scheduled my pins for next month using CSV files. However, with some of these files, the fields suddenly couldn't be mapped. After some testing, I discovered that the problem lies with the pin descriptions.",
+        "issue_type": "bug_report",
+        "product_area": "integrations",
+        "component": "csv_import"
+      },
+      {
+        "conversation_id": "test_csv_002",
+        "source_body": "When I try to upload my CSV file for bulk scheduling, the column mapping fails. It worked fine last week but now won't recognize my fields. Very frustrating!",
+        "issue_type": "bug_report",
+        "product_area": "integrations",
+        "component": "csv_import"
+      },
+      {
+        "conversation_id": "test_csv_canonicalize_001",
+        "source_body": "I'm trying to bulk upload pins via CSV but the field mapping keeps failing. My description column isn't being recognized even though I used the exact same format as before.",
+        "issue_type": "bug_report",
+        "product_area": "integrations",
+        "component": "csv_import"
+      }
+    ],
+    "dashboard_loading_error": [
+      {
+        "conversation_id": "215472521685253",
+        "source_body": "I am trying to preview individual Tailwind communities, but it just spins and spins. After 5 minutes I gave up. That has happened on every one I have tried to view. Are they down for now? Does it just take 10+ minutes? What do I need to do?",
+        "issue_type": "bug_report",
+        "product_area": "communities",
+        "component": "tailwind_communities"
+      },
+      {
+        "conversation_id": "215472523620861",
+        "source_body": "my dashboard keeps saying that an error occurred while loading your account",
+        "issue_type": "bug_report",
+        "product_area": "account",
+        "component": "dashboard"
+      }
+    ],
+    "engagement_decline_feedback": [
+      {
+        "conversation_id": "760512152899",
+        "source_body": "NPS Score: 0 Comment: My Pinterest views are down 75% since starting TW. Not cool.",
+        "issue_type": "marketing_question",
+        "product_area": "analytics",
+        "component": "performance tracking"
+      },
+      {
+        "conversation_id": "760512153628",
+        "source_body": "NPS Score: 0 Comment: Since starting to use tailwind my Pinterest traffic has significantly dropped. Engagements are down almost 25% in the last 30 days and almost down 30% in the past 7 days, and the only thing i have done differently is using tailwind!! I am so disappointed, i pay to use tailwind and really thought it would help increase my website traffic but it has completely DESTROYD my Pinterest marketing! Since Pinterest marketing is a long game and it has taken me years to get the kind o",
+        "issue_type": "feedback",
+        "product_area": "analytics",
+        "component": "performance tracking"
+      }
+    ],
+    "general_product_question": [
+      {
+        "conversation_id": "215469179793652",
+        "source_body": "Hi Kevin, \ufeffI\u2019m interested. How does this work? Thank you. -Trent Lanz thefresh20.com",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "general_product_question"
+      },
+      {
+        "conversation_id": "215472509629235",
+        "source_body": "can i use a discount code",
+        "issue_type": "other",
+        "product_area": "billing",
+        "component": "discount_code"
+      },
+      {
+        "conversation_id": "215472516180204",
+        "source_body": "where can i learn how to use tailwind effectively and efficiently to maximize clicks and conversions?",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "general_product_question"
+      },
+      {
+        "conversation_id": "215472518239997",
+        "source_body": "how do i get rid of the little tailwind schedule icon that appears when i hover over every image",
+        "issue_type": "product_question",
+        "product_area": "other",
+        "component": "browser_extension"
+      },
+      {
+        "conversation_id": "215472519802122",
+        "source_body": "Sorry about that Is this an annual fee? Thanks, Keith",
+        "issue_type": "billing",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472519826777",
+        "source_body": "what can i do with the pro pplan?",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472521407447",
+        "source_body": "Pinterest account manager information",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "account"
+      },
+      {
+        "conversation_id": "215472523591599",
+        "source_body": "how do i create a carousel pin?",
+        "issue_type": "product_question",
+        "product_area": "ai_creation",
+        "component": "Tailwind Create"
+      },
+      {
+        "conversation_id": "215472524131206",
+        "source_body": "For what do I Need credits ?",
+        "issue_type": "product_question",
+        "product_area": "billing",
+        "component": "credits"
+      },
+      {
+        "conversation_id": "215472527441546",
+        "source_body": "Where can I find an explanation of image refresh?",
+        "issue_type": "product_question",
+        "product_area": "other",
+        "component": "general_product_question"
+      },
+      {
+        "conversation_id": "215472528911520",
+        "source_body": "where can I find Globa Pin Setting in the original publisher",
+        "issue_type": "product_question",
+        "product_area": "other",
+        "component": "general_product_question"
+      },
+      {
+        "conversation_id": "215472536045453",
+        "source_body": "Can i export top pin data?",
+        "issue_type": "product_question",
+        "product_area": "analytics",
+        "component": "performance tracking"
+      },
+      {
+        "conversation_id": "215472536958581",
+        "source_body": "when is says two accounts per network, is that like two separate Pinterest accounts?",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472538912058",
+        "source_body": "military or student discount",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215472547614460",
+        "source_body": "what plan am i currently on",
+        "issue_type": "plan_question",
+        "product_area": "billing",
+        "component": "plans"
+      },
+      {
+        "conversation_id": "215472549647180",
+        "source_body": "how to change instagram handle",
+        "issue_type": "product_question",
+        "product_area": "account",
+        "component": "profile management"
+      },
+      {
+        "conversation_id": "215472550964944",
+        "source_body": "how do i set up a meeting to learn more about how to use tailwind?",
+        "issue_type": "product_question",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215472552215753",
+        "source_body": "how do i apply my discount code?",
+        "issue_type": "product_question",
+        "product_area": "billing",
+        "component": "billing_settings_guidance"
+      },
+      {
+        "conversation_id": "215472564352747",
+        "source_body": "What does Pin locking do?",
+        "issue_type": "product_question",
+        "product_area": "other",
+        "component": "pin_locking"
+      },
+      {
+        "conversation_id": "215472567351905",
+        "source_body": "does Tailwind pin to other social medie besides Pinterest?",
+        "issue_type": "product_question",
+        "product_area": "other",
+        "component": "general_product_question"
+      },
+      {
+        "conversation_id": "215472569486114",
+        "source_body": "can I upload statistic?",
+        "issue_type": "product_question",
+        "product_area": "other",
+        "component": "general_product_question"
+      },
+      {
+        "conversation_id": "215472572512946",
+        "source_body": "is there a limit daily posts",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "multi-network scheduling"
+      },
+      {
+        "conversation_id": "760511921444",
+        "source_body": "Hi Susan I lost my way last year I seem to think I should tape myself talking about my experience then write about it exactly the way it happened I don't think someone else could do it the way I want it done if you can convince me 100% it has to be done my way only and if I don't like it you have to do it again thank you",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general_product_question"
+      }
+    ],
+    "ghostwriter_generation_failure": [
+      {
+        "conversation_id": "215472509799235",
+        "source_body": "ghostwritter is stuck on one pin, reloading. nothing is happenign If I refresh my page I will lose all I wrote already",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      },
+      {
+        "conversation_id": "215472526465334",
+        "source_body": "ghostwritter is stuck he generated description for my listing s oand one is stuck",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      },
+      {
+        "conversation_id": "215472529835557",
+        "source_body": "Hi, I was Absolutely loving the pin scheduler and today it took all my credits and wont generate different pin titles and descriptions. Did it change?",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      },
+      {
+        "conversation_id": "215472536232975",
+        "source_body": "hello, the bukd ghostwriter is not working",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      },
+      {
+        "conversation_id": "215472539152371",
+        "source_body": "Why aren't my images uploading? I've tried drag and drop as well as the browse option. They are jpg images.",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      }
+    ],
+    "ghostwriter_output_mismatch": [
+      {
+        "conversation_id": "215472551787815",
+        "source_body": "I'm grabbing links from my Amazon affiliate account for products and using the create tool and pasting the links into the HTTPS area and no pictures are showing up and I don't know why.",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "tailwind_create"
+      },
+      {
+        "conversation_id": "215472572765436",
+        "source_body": "I've used ghostwriter on multiple pins, saved selections, go to the pin scheduler and the titles and descriptions are not loaded there. Credits were used already to write it.",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      }
+    ],
+    "ghostwriter_usage_guidance": [
+      {
+        "conversation_id": "215472527895470",
+        "source_body": "I have a draft pin. How can I change the text that appears on it in the text box?",
+        "issue_type": "product_question",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      },
+      {
+        "conversation_id": "215472545333091",
+        "source_body": "Hi there! I\u2019m in Tailwind this morning doing my monthly scheduling, and none of the photos on any of the URLs I\u2019m trying to create pins for are auto populating in the design gallery. I just see the grey and white mountain \u201cadd photo\u201d icon. I\u2019ve never had this issue before \u2014 any guidance I can give to my tech guy? It seems to be an issue with the photos on my site, as I can get other sites to work, but have never run into this. Thank you, Amy Amy Bauer Instagram | TikTok www.frontyardveggies.com",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "tailwind_create"
+      },
+      {
+        "conversation_id": "215472552853918",
+        "source_body": "I'm having issues with Ghostwriter",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      }
+    ],
+    "integration_connection_failure": [
+      {
+        "conversation_id": "215472505855290",
+        "source_body": "can I connect my instagram account to tailwind without connecting my facebook account?",
+        "issue_type": "plan_question",
+        "product_area": "account",
+        "component": "instagram_publishing"
+      },
+      {
+        "conversation_id": "215472526039775",
+        "source_body": "I am trying to confirm my Etsy store is attached to my Pinterest account but everyhting is telling me this cannot be done anymore?",
+        "issue_type": "product_question",
+        "product_area": "integrations",
+        "component": "e-commerce"
+      },
+      {
+        "conversation_id": "215472529837532",
+        "source_body": "Hi, I'm trying to add a specific pin to the Turbo feature. There's a field in the Turbo window that says \"Paste Pinterest URL\", but it doesn't accept any of the URLs I add. Is there a specific format needed? For example, I tried: https://www.pinterest.com/pin/1049690625662978545 https://pinterest.com/pin/1049690625662978545 /pin/1049690625662978545 1049690625662978545 https://uk.pinterest.com/pin/1049690625662978545/ None of them show any pin.",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "Turbo feature"
+      }
+    ],
+    "integration_feature_question": [
+      {
+        "conversation_id": "215472505058866",
+        "source_body": "how do I add my pins to the community",
+        "issue_type": "product_question",
+        "product_area": "communities",
+        "component": "Tailwind Communities"
+      },
+      {
+        "conversation_id": "215472521819723",
+        "source_body": "Why do you keep posting the same pics from my shopify store? There is nothing new. Would you scan my shopify store again?",
+        "issue_type": "feature_request",
+        "product_area": "integrations",
+        "component": "e-commerce"
+      },
+      {
+        "conversation_id": "215472525002797",
+        "source_body": "Wenn ich bilder in meinen Smart Pin hochlade, werden sie dann nur f\u00fcr meien Pins verwendet oder stehen sie dann auch anderen Creatorn zur Verf\u00fcgung in der Ai?",
+        "issue_type": "product_question",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      },
+      {
+        "conversation_id": "215472529948112",
+        "source_body": "how to sync posts from instagram",
+        "issue_type": "product_question",
+        "product_area": "instagram_publishing",
+        "component": "cross-posting"
+      },
+      {
+        "conversation_id": "215472538047310",
+        "source_body": "can I do shop the pin on tailwind",
+        "issue_type": "product_question",
+        "product_area": "integrations",
+        "component": "e-commerce"
+      },
+      {
+        "conversation_id": "215472551131274",
+        "source_body": "I'm trying to set up a Facebook page so I can connect it to my personal Instagram account, which has the separate account I want to attach it to.",
+        "issue_type": "product_question",
+        "product_area": "account",
+        "component": "facebook_publishing"
+      }
+    ],
+    "misdirected_inquiry": [
+      {
+        "conversation_id": "215469108062819",
+        "source_body": "10% Off + 5% Donated \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "n/a"
+      },
+      {
+        "conversation_id": "215469108551701",
+        "source_body": "10% Off + 5% Donated \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "promotions"
+      },
+      {
+        "conversation_id": "215469132398836",
+        "source_body": "Shop the sale and help us give back!\ud83c\udf3f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215469133307248",
+        "source_body": "Shop the sale and help us give back!\ud83c\udf3f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215469155835455",
+        "source_body": "Last Chance to Save & Honor Our Heroes \ud83d\udc9a \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215469157772641",
+        "source_body": "Last Chance to Save & Honor Our Heroes \ud83d\udc9a \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215469157777411",
+        "source_body": "Last Chance to Save & Honor Our Heroes \ud83d\udc9a \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215469206387431",
+        "source_body": "Hello, I'm a former Tailwind employee who needs information to roll over my 401 (k). Can someone tell me which company Tailwind uses for the 401 (k) and provide any contact information, if available? Thank you, -- Aisha Leach aisha.leach@gmail.com",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "n/a"
+      },
+      {
+        "conversation_id": "215472355773245",
+        "source_body": "Can I speak to an agent please",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "support"
+      },
+      {
+        "conversation_id": "215472506304130",
+        "source_body": "Put yourself first this year\u2192 \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215472506358354",
+        "source_body": "Put yourself first this year\u2192 \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215472508384882",
+        "source_body": "How do I get a human agent at Tailwind to respond to me? Are any human agents available today on New Year's?",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "support"
+      },
+      {
+        "conversation_id": "215472508680432",
+        "source_body": "Start your 2025 off right - with some new furniture of course! \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215472517170322",
+        "source_body": "MONTHLY BOXES GIFT A BOX Shop Friday Favorites! Hello Dog Mom Happy Friday! Your New Friday Favorites are here \u200b. Get ready to explore this week's favorites filled with heartfelt gifts, great for your fellow pup or a dog mom friend to bring them a little joy. Current Subscriber? Simply reply to this email with your item # choice and we will take care of the rest Valentines Limited Edition Sweatshirt (Pre-Order) $39.99 Shop now Hello Glow Face Mask $14.99 Shop now Dogs Welcome, People Tolerated\u201d ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "n/a"
+      },
+      {
+        "conversation_id": "215472526890131",
+        "source_body": "Not a new you \u2013 a more supported one. \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215472526891600",
+        "source_body": "Not a new you \u2013 a more supported one. \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215472529370444",
+        "source_body": "And for that - we're here to help. \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "email_notifications"
+      },
+      {
+        "conversation_id": "215472535116929",
+        "source_body": "It\u2019s your year of ME (& savings!) \u2192 \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "email_preferences"
+      },
+      {
+        "conversation_id": "215472535119293",
+        "source_body": "It\u2019s your year of ME (& savings!) \u2192 \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "email_notifications"
+      },
+      {
+        "conversation_id": "215472547679714",
+        "source_body": "customer service number",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "customer_service"
+      },
+      {
+        "conversation_id": "215472552047027",
+        "source_body": "Introducing: Our Accent Chairs. \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "email_notifications"
+      },
+      {
+        "conversation_id": "215472564812628",
+        "source_body": "Only a few spots left....don't miss it! \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "215472570561859",
+        "source_body": "May I talk to the team?",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "support"
+      },
+      {
+        "conversation_id": "760511925123",
+        "source_body": "Sure, I appreciate the email, I am confused I have been a member of tailwind for years. I don't know if you thought I was a potential new customer or a long-time user.",
+        "issue_type": "feedback",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "760511928476",
+        "source_body": "This offer is good for 48 hours only so don't wait! \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "760511931555",
+        "source_body": "This is our biggest discount yet \u2013 make sure to take advantage before it\u2019s too late! \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "760511939778",
+        "source_body": "Here\u2019s how to spot the scams. \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "760512105684",
+        "source_body": "Thank you for your email. Could you please send me some information please? Thank you Roz",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general_product_question"
+      },
+      {
+        "conversation_id": "760512116899",
+        "source_body": "Save more when you spend more \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "n/a"
+      },
+      {
+        "conversation_id": "760512117654",
+        "source_body": "Learn how dehumidifiers and portable clotheslines can work perfectly together to make laundry days even better! \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad ",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general_product_question"
+      },
+      {
+        "conversation_id": "760512132258",
+        "source_body": "Up to $35 off ends soon... \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad \u00ad",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "general"
+      },
+      {
+        "conversation_id": "760512150943",
+        "source_body": "https://colonoscopyassist.com/scheduling-request/?fid=360&service=price_double_procedure_c",
+        "issue_type": "other",
+        "product_area": "other",
+        "component": "N/A"
+      }
+    ],
+    "pin_editing_question": [
+      {
+        "conversation_id": "215472562379050",
+        "source_body": "I've made a spelling mistake on lots of my pins, I've scheduled some of them already",
+        "issue_type": "other",
+        "product_area": "scheduling",
+        "component": "pin_editor"
+      },
+      {
+        "conversation_id": "215472569568794",
+        "source_body": "Is there a way to delete all of my draft pins? I changed the web link for many of these and it would be much easier to make 20 new pins per day than fix links.",
+        "issue_type": "feature_request",
+        "product_area": "scheduling",
+        "component": "pin_editor"
+      }
+    ],
+    "pinterest_connection_failure": [
+      {
+        "conversation_id": "215472502425063",
+        "source_body": "Can my google account think I\u2019m being hacked when I connect to the tailwind app?",
+        "issue_type": "product_question",
+        "product_area": "account",
+        "component": "oauth"
+      },
+      {
+        "conversation_id": "215472518881106",
+        "source_body": "I keep getting a message that my Instagram account isn't a business account but that is incorrect.",
+        "issue_type": "bug_report",
+        "product_area": "account",
+        "component": "instagram_publishing"
+      },
+      {
+        "conversation_id": "215472538058756",
+        "source_body": "having trouble connecting my pinterest account",
+        "issue_type": "account_access",
+        "product_area": "account",
+        "component": "oauth"
+      },
+      {
+        "conversation_id": "215472565312725",
+        "source_body": "Hello guys! Still getting the same ERROR message from Tailwind, even after your action, even in InPrivate mode: \u201cYou previously logged in to Tailwind with Facebook. Would you like to continue?\u201d Same error message too: \u201cThere was an error authenticating with Facebook. Error: An unknown error occurred. Please try again. Please try again. If the problem continues, please contact support.\u201d Also, I went through all the steps of your Troubleshoting suggestions, but didn\u2019t work either. Can you please h",
+        "issue_type": "bug_report",
+        "product_area": "account",
+        "component": "facebook_publishing"
+      },
+      {
+        "conversation_id": "215472569105032",
+        "source_body": "i trying to schedule pins but it's telling me to connect my pinterest account..my pinterest account all ready connected",
+        "issue_type": "bug_report",
+        "product_area": "account",
+        "component": "pinterest_connection"
+      },
+      {
+        "conversation_id": "760511923248",
+        "source_body": "---------- Forwarded message ---------",
+        "issue_type": "account_access",
+        "product_area": "account",
+        "component": "OAuth"
+      }
+    ],
+    "pinterest_publishing_failure": [
+      {
+        "conversation_id": "215472406229172",
+        "source_body": "My pins are not being posted in the communities. Even after they are published on Pinterest.",
+        "issue_type": "bug_report",
+        "product_area": "communities",
+        "component": "Tailwind Communities"
+      },
+      {
+        "conversation_id": "215472483653407",
+        "source_body": "Hi - my scheduled pins aren't actually being posted",
+        "issue_type": "bug_report",
+        "product_area": "pinterest_publishing",
+        "component": "pins"
+      },
+      {
+        "conversation_id": "215472505593351",
+        "source_body": "hey, is there any way to schedule a pin without putting a website url? i heard i shouldnt consistently link to my website otherwise it could get flagged as spam, so i tried linking to my pinterest pofile and it isnt letting me do so",
+        "issue_type": "product_question",
+        "product_area": "pinterest_publishing",
+        "component": "pin_scheduler"
+      },
+      {
+        "conversation_id": "215472509744183",
+        "source_body": "I've scheduled a post that will go live on January 14, I schedulled a pin put the url from my wordpress url, but it doesn't regonize the url. What am i doing wrong",
+        "issue_type": "bug_report",
+        "product_area": "pinterest_publishing",
+        "component": "pins"
+      },
+      {
+        "conversation_id": "215472515646170",
+        "source_body": "why are photos not being added to pins?",
+        "issue_type": "bug_report",
+        "product_area": "pinterest_publishing",
+        "component": "pins"
+      },
+      {
+        "conversation_id": "215472521752480",
+        "source_body": "i had 25 pins on the scheduler again for 3 days everything was fine then today at th time they were supposed to start posting all the photos when blank and stupid error message said we failed to post you pins. i am really tried of this all my work gone, gone ' mad don't describe what i am right now",
+        "issue_type": "bug_report",
+        "product_area": "scheduling",
+        "component": "pin_scheduler"
+      },
+      {
+        "conversation_id": "215472528992676",
+        "source_body": "Hi What happned to all of our turbo pins. We had 4 live and getting impressions with 15 days of distribution left for each",
+        "issue_type": "bug_report",
+        "product_area": "pinterest_publishing",
+        "component": "pins"
+      },
+      {
+        "conversation_id": "215472534883267",
+        "source_body": "why am I dark? I cannot schedule pins.",
+        "issue_type": "bug_report",
+        "product_area": "pinterest_publishing",
+        "component": "pin_scheduler"
+      },
+      {
+        "conversation_id": "215472541020321",
+        "source_body": "I do not see a few of the pins I scheduled on my scheduler. Is there a certain tab or page they could be see or know why they aren't showing up on the scheduler dashboard?",
+        "issue_type": "product_question",
+        "product_area": "pinterest_publishing",
+        "component": "pins"
+      },
+      {
+        "conversation_id": "215472546187247",
+        "source_body": "i don't see my pin on my board",
+        "issue_type": "bug_report",
+        "product_area": "pinterest_publishing",
+        "component": "pins"
+      },
+      {
+        "conversation_id": "215472555592147",
+        "source_body": "i m trying to schedule some pins (10) on my second account but nothing happens , even if i refreshed my page and logout /login. if i do a generate pin from my site it works ????",
+        "issue_type": "bug_report",
+        "product_area": "pinterest_publishing",
+        "component": "pin_scheduler"
+      },
+      {
+        "conversation_id": "215472562025320",
+        "source_body": "I am having trouble scheduling my pins. I get this error",
+        "issue_type": "bug_report",
+        "product_area": "pinterest_publishing",
+        "component": "pin_scheduler"
+      },
+      {
+        "conversation_id": "test_integration_001",
+        "source_body": "My pins are showing as scheduled but they never actually post to Pinterest. I've been waiting for 3 days and nothing has shown up on my boards.",
+        "issue_type": "bug_report",
+        "product_area": "pinterest_publishing",
+        "component": "pins"
+      }
+    ],
+    "professional_services_inquiry": [
+      {
+        "conversation_id": "215469092920490",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215469115865622",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215469155788518",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215469169083494",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215469182478477",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215469189765962",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215469192321598",
+        "source_body": "Do you know where I can find someone to hire who can set up my campaign?",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215469192642806",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215469212418706",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215470889876512",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215472517132890",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215472523615352",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      },
+      {
+        "conversation_id": "215472538180042",
+        "source_body": "I'm interested in learning more about Pinterest account management services from Tailwind.",
+        "issue_type": "marketing_question",
+        "product_area": "other",
+        "component": "professional_services_inquiry"
+      }
+    ],
+    "scheduling_failure": [
+      {
+        "conversation_id": "215472507982649",
+        "source_body": "I'm scheduling my pins to multiple boards. When I go into \"scheduled\" to edit the descriptions so they aren't all the same, they stay scheduled properly after I save each of them but once I leave the \"scheduled\" section, they get rescheduled all to the same day. This is extremely frustrating and creating double work on my end.",
+        "issue_type": "bug_report",
+        "product_area": "scheduling",
+        "component": "multi-network scheduling"
+      },
+      {
+        "conversation_id": "215472525239300",
+        "source_body": "Cannot see my latest pots",
+        "issue_type": "bug_report",
+        "product_area": "instagram_publishing",
+        "component": "posts"
+      },
+      {
+        "conversation_id": "215472537261974",
+        "source_body": "Hi Bot... why does nobody respond to my emails anymore? They asked for screenshots of the empty pin schedule and I sent them, but I don't get answers about why all my scheduled pins have vanished or what they are going to do to compensate. I had them scheduled for months ahead, but now there's nothing there! At this point it would be easier to create and schedule new pins on my own, because Tailwind isn't even generating enough pins to fill each day. If this is not resolved ASAP I'm going to hav",
+        "issue_type": "bug_report",
+        "product_area": "scheduling",
+        "component": "pin_scheduler"
+      },
+      {
+        "conversation_id": "215472552958833",
+        "source_body": "Just checking to see if the current posts I have scheduled will post.",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "scheduling"
+      },
+      {
+        "conversation_id": "215472562755485",
+        "source_body": "why cant i schedule repins for video pins?",
+        "issue_type": "bug_report",
+        "product_area": "scheduling",
+        "component": "pin_scheduler"
+      },
+      {
+        "conversation_id": "215472564074262",
+        "source_body": "is there a problem with turbo? my turbo slots are not autofilling and if i try and do this manually the upload fails",
+        "issue_type": "bug_report",
+        "product_area": "scheduling",
+        "component": "smart_schedule"
+      },
+      {
+        "conversation_id": "215472567677421",
+        "source_body": "I reverted back to the old dashboard and my smartloops is not populated in my original publisher",
+        "issue_type": "bug_report",
+        "product_area": "scheduling",
+        "component": "smartloops"
+      },
+      {
+        "conversation_id": "215472572192550",
+        "source_body": "i scheduled around 40 pins, by clicking the button schedule, and they all disappear and not show up in the scheduled posts view panel",
+        "issue_type": "bug_report",
+        "product_area": "scheduling",
+        "component": "pin_scheduler"
+      }
+    ],
+    "scheduling_feature_question": [
+      {
+        "conversation_id": "215470818966450",
+        "source_body": "If I delete a pin in Turbo can I put another pin the slot",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "pin_spacing"
+      },
+      {
+        "conversation_id": "215472506810482",
+        "source_body": "In the \"Your Schedule\" I would like to remove some of the timelsots - specifically the ones that are in the middle of the night - like 2:55am, or 2:19am. How do I do that?",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "smartschedule"
+      },
+      {
+        "conversation_id": "215472507704294",
+        "source_body": "how can I use again reuse or repost a IG post",
+        "issue_type": "product_question",
+        "product_area": "instagram_publishing",
+        "component": "reposting"
+      },
+      {
+        "conversation_id": "215472514073451",
+        "source_body": "i have scheduled all my pins. so how do i just..send them",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "pin_scheduler"
+      },
+      {
+        "conversation_id": "215472519111483",
+        "source_body": "When I post on instagram I am asked to write a description of the post but not for pinterest?",
+        "issue_type": "product_question",
+        "product_area": "instagram_publishing",
+        "component": "posts"
+      },
+      {
+        "conversation_id": "215472524957804",
+        "source_body": "Was genau ist Pin Spacing?",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "pin_spacing"
+      },
+      {
+        "conversation_id": "215472525182116",
+        "source_body": "Ich m\u00f6chte mit Board listen arbeiten beim Planen der Pins. Wieviele Boards pro Liste emfpiehlst du maximal? und wie viele tage INtervall sollte ich einstellen, damit die Pins ideal verteil werden?",
+        "issue_type": "marketing_question",
+        "product_area": "scheduling",
+        "component": "pin_spacing"
+      },
+      {
+        "conversation_id": "215472527087962",
+        "source_body": "Is it possible to re-order my draft pins?",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "pin_spacing"
+      },
+      {
+        "conversation_id": "215472531274752",
+        "source_body": "how do i add pins to smartloops?",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "smartloops"
+      },
+      {
+        "conversation_id": "215472536489183",
+        "source_body": "How do I stop a smartpin from creating the weekly pin",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "smartschedule"
+      },
+      {
+        "conversation_id": "215472539930689",
+        "source_body": "how can i set it so i only post my pins in this month",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "pin_scheduler"
+      },
+      {
+        "conversation_id": "215472551407031",
+        "source_body": "First, I would love to say I absolutely love TAILWIND! I would like to propose a feature request. When you go to the \u201cSmart Schedule\u201d It would be super helpful and cool if it already gave the number next to the link so that a user can know how many pins they have linking back to a specific URL. I understand that you can put the link in, and it will tell you how many times it is linked or scheduled already. I am not sure if this is possible; it\u2019s just a friendly suggestion from a happy user. Chee",
+        "issue_type": "feature_request",
+        "product_area": "scheduling",
+        "component": "smartschedule"
+      },
+      {
+        "conversation_id": "215472553862398",
+        "source_body": "how can i schedule a pin in the pin scheduler to multi network",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "multi-network scheduling"
+      },
+      {
+        "conversation_id": "215472555570616",
+        "source_body": "is tailwind auto publishing pins that I haven't created?",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "smartschedule"
+      },
+      {
+        "conversation_id": "215472559137732",
+        "source_body": "Hi! Is there a way to delete multiple scheduled pins at once?",
+        "issue_type": "feature_request",
+        "product_area": "scheduling",
+        "component": "pin_scheduler"
+      },
+      {
+        "conversation_id": "215472564872295",
+        "source_body": "how do i disable pin spacing for all pins",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "pin_spacing"
+      },
+      {
+        "conversation_id": "215472567529203",
+        "source_body": "why should i reschedule a pin",
+        "issue_type": "marketing_question",
+        "product_area": "scheduling",
+        "component": "smartschedule"
+      },
+      {
+        "conversation_id": "215472567569832",
+        "source_body": "Where can I find my smartloops?",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "smartloops"
+      },
+      {
+        "conversation_id": "215472570917179",
+        "source_body": "why are the pins all scheduled on the same day",
+        "issue_type": "product_question",
+        "product_area": "scheduling",
+        "component": "smartschedule"
+      },
+      {
+        "conversation_id": "760512123377",
+        "source_body": "Hi I want help setting up my Tailwind to work with Pintereest. Do you have someone that does that or can you recommend someone? Specifically, I want help with Board names and board lists; tailwind smart loops and a pinning schedule.",
+        "issue_type": "marketing_question",
+        "product_area": "scheduling",
+        "component": "smart_schedule"
+      }
+    ],
+    "unclassified_needs_review": [
+      {
+        "conversation_id": "215472527650959",
+        "source_body": "logging out and back in replaced the text with the new url text.",
+        "issue_type": "bug_report",
+        "product_area": "account",
+        "component": "login"
+      },
+      {
+        "conversation_id": "215472549629685",
+        "source_body": "repurpose IG posts as pins",
+        "issue_type": "feature_request",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      },
+      {
+        "conversation_id": "215472550660852",
+        "source_body": "resize colored text box on default pin layout",
+        "issue_type": "feature_request",
+        "product_area": "ai_creation",
+        "component": "tailwind_create"
+      },
+      {
+        "conversation_id": "215472556825018",
+        "source_body": "communties page is frozen",
+        "issue_type": "bug_report",
+        "product_area": "communities",
+        "component": "Tailwind Communities"
+      },
+      {
+        "conversation_id": "215472563192851",
+        "source_body": "Why is my campaign unable to save",
+        "issue_type": "bug_report",
+        "product_area": "other",
+        "component": "campaign management"
+      },
+      {
+        "conversation_id": "215472563197446",
+        "source_body": "The toggle buttons are not showing up for the new Image Refresh feature",
+        "issue_type": "bug_report",
+        "product_area": "ai_creation",
+        "component": "ghostwriter"
+      },
+      {
+        "conversation_id": "215472563783909",
+        "source_body": "Can I save multiple color palettes",
+        "issue_type": "feature_request",
+        "product_area": "ai_creation",
+        "component": "Tailwind Create"
+      }
+    ]
+  },
+  "train_signatures": [
+    "integration_feature_question",
+    "ghostwriter_generation_failure",
+    "dashboard_loading_error",
+    "pinterest_connection_failure",
+    "pin_editing_question",
+    "billing_settings_guidance",
+    "billing_refund_request",
+    "engagement_decline_feedback",
+    "integration_connection_failure",
+    "professional_services_inquiry",
+    "general_product_question",
+    "misdirected_inquiry",
+    "analytics_interpretation_question",
+    "ghostwriter_usage_guidance",
+    "scheduling_failure",
+    "ghostwriter_output_mismatch",
+    "billing_cancellation_request",
+    "scheduling_feature_question",
+    "billing_plan_change_request",
+    "unclassified_needs_review"
+  ],
+  "test_signatures": [
+    "billing_unexpected_charge",
+    "csv_import_failure",
+    "account_settings_guidance",
+    "billing_flow_error",
+    "pinterest_publishing_failure"
+  ],
+  "metadata": {
+    "total_signatures": 25,
+    "total_conversations": 248,
+    "train_size": 20,
+    "test_size": 5
+  }
+}

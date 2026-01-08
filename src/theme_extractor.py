@@ -66,9 +66,13 @@ Your job is to extract a structured "theme" from a customer support conversation
 
 {product_context}
 
+{url_context_hint}
+
 ## KNOWN THEMES
 
 {known_themes}
+
+{signature_quality_examples}
 
 {strict_mode_instructions}
 
@@ -140,10 +144,27 @@ Only create a new theme if the issue is genuinely different from all known theme
 
 STRICT_SIGNATURE_INSTRUCTIONS = """You MUST use one of the known theme signatures above. Pick the closest match. If nothing fits, use `unclassified_needs_review`."""
 
-FLEXIBLE_SIGNATURE_INSTRUCTIONS = """IMPORTANT - Follow this decision process:
+FLEXIBLE_SIGNATURE_INSTRUCTIONS = """IMPORTANT - Create SPECIFIC, ACTIONABLE signatures:
+
+**Decision Process**:
    a) First, check if this matches any KNOWN THEME above (same root issue, even if worded differently)
    b) If yes, use that exact signature
-   c) If no match, create a new canonical signature (lowercase, underscores, format: [feature]_[problem])"""
+   c) If no match, create a new canonical signature following these rules:
+
+**Signature Quality Rules**:
+   ✅ DO: Be specific about the PROBLEM
+      - "csv_import_encoding_error" (specific error type)
+      - "ghostwriter_timeout_error" (specific failure mode)
+      - "pinterest_board_permission_denied" (specific error and action)
+
+   ❌ DON'T: Use generic terms
+      - NOT "account_settings_guidance" → "account_email_change_failure"
+      - NOT "scheduling_feature_question" → "pin_spacing_interval_unclear"
+      - NOT "general_product_question" → identify specific product first
+
+   **Format**: [feature]_[specific_problem] (lowercase, underscores)
+   **Avoid**: "question", "inquiry", "guidance", "general", "issue"
+   **Include**: Actual error, symptom, or specific failure mode"""
 
 
 SIGNATURE_CANONICALIZATION_PROMPT = """You are normalizing issue signatures for a support ticket system.
@@ -421,10 +442,34 @@ class ThemeExtractor:
             strict_mode: If True, force LLM to pick from existing vocabulary only.
                         Use this for backfill to prevent theme fragmentation.
         """
+        # Check for URL context to boost product area matching
+        url_matched_product_area = None
+        url_context_hint = ""
+        if self.use_vocabulary and self.vocabulary and hasattr(conv, 'source_url'):
+            url_matched_product_area = self.vocabulary.match_url_to_product_area(conv.source_url)
+            if url_matched_product_area:
+                url_context_hint = f"""
+## URL Context
+
+The user was on a page related to **{url_matched_product_area}** when they started this conversation.
+**IMPORTANT**: Strongly prefer themes from the {url_matched_product_area} product area when matching.
+"""
+
         # Get known themes from vocabulary (if enabled)
         known_themes = ""
+        signature_quality_examples = ""
         if self.use_vocabulary and self.vocabulary:
-            known_themes = self.vocabulary.format_for_prompt(max_themes=50)
+            # If we have URL context, prioritize themes from that product area
+            if url_matched_product_area:
+                known_themes = self.vocabulary.format_for_prompt(
+                    product_area=url_matched_product_area,
+                    max_themes=50
+                )
+            else:
+                known_themes = self.vocabulary.format_for_prompt(max_themes=50)
+
+            # Include signature quality examples
+            signature_quality_examples = self.vocabulary.format_signature_examples()
 
         # Select prompt variations based on strict mode
         if strict_mode:
@@ -441,7 +486,9 @@ class ThemeExtractor:
         # Phase 1: Extract theme details (with vocabulary-aware prompt)
         prompt = THEME_EXTRACTION_PROMPT.format(
             product_context=self.product_context[:10000],  # Limit context size
+            url_context_hint=url_context_hint,
             known_themes=known_themes or "(No known themes yet - create new signatures as needed)",
+            signature_quality_examples=signature_quality_examples,
             strict_mode_instructions=strict_mode_instructions,
             signature_instructions=signature_instructions,
             match_instruction=match_instruction,
@@ -473,10 +520,16 @@ class ThemeExtractor:
         matched_existing = result.get("matched_existing", False)
         match_reasoning = result.get("match_reasoning", "")
 
-        # Log vocabulary match status
+        # Log vocabulary match status and lookup vocabulary metadata
         if self.use_vocabulary:
             if matched_existing:
                 logger.info(f"Matched vocabulary theme: {proposed_signature}")
+                # When matched, use vocabulary product_area and component instead of LLM response
+                vocab_theme = self.vocabulary._themes.get(proposed_signature)
+                if vocab_theme:
+                    product_area = vocab_theme.product_area
+                    component = vocab_theme.component
+                    logger.info(f"Using vocabulary metadata: product_area={product_area}, component={component}")
             else:
                 logger.info(f"New theme proposed: {proposed_signature} - {match_reasoning}")
 

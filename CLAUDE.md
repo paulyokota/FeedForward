@@ -32,14 +32,20 @@ Batch processing pattern (scheduled daily/weekly):
 5. Apply escalation rules (future)
 6. Generate reports (future)
 
-**Key Architectural Decision**: URL Context System
+**Key Architectural Decisions**:
 
-The system now uses URL context to disambiguate product areas. When a conversation includes `source.url` (e.g., `/publisher/queue`), the system:
+1. **Two-Stage Classification System** (Phase 1 ✅)
+   - **Stage 1**: Fast routing (<1s) with customer message only
+   - **Stage 2**: Accurate analysis with full conversation context
+   - Enables both real-time routing AND high-quality analytics
+   - 100% high confidence on test data
+   - See `docs/session/phase1-results.md` for complete results
 
-- Matches URL against 27 patterns in vocabulary
-- Maps to specific product area (e.g., Legacy Publisher)
-- Boosts LLM prompt to prefer themes from that area
-- Solves three-scheduler disambiguation problem
+2. **URL Context System**
+   - Uses `source.url` to disambiguate product areas
+   - Matches URL against 27 patterns in vocabulary
+   - Boosts LLM prompt to prefer themes from that area
+   - Solves three-scheduler disambiguation problem
 
 See `docs/architecture.md` for complete system design and `reference/intercom-llm-guide.md` for implementation specs.
 

@@ -1,0 +1,191 @@
+================================================================================
+Documentation Coverage Gap Analysis Report
+================================================================================
+
+Generated: 2026-01-07 17:10:05
+Date Range: 2025-12-31 to 2026-01-07
+
+--------------------------------------------------------------------------------
+SUMMARY
+--------------------------------------------------------------------------------
+Total Conversations: 257
+Conversations with Articles: 0
+Overall Coverage Rate: 0.0%
+Undocumented Themes Identified: 12
+Confusing Articles Identified: 0
+Product Areas Analyzed: 10
+
+--------------------------------------------------------------------------------
+TOP 10 UNDOCUMENTED THEMES
+--------------------------------------------------------------------------------
+
+These are high-frequency issues that users encounter without help article
+references. Creating documentation for these could reduce support volume.
+
+
+1. billing > subscription > billing_cancellation_request
+   Conversations: 22
+   Article Coverage: 0.0%
+   Avg Support Responses: 0.0
+   Sample Conversations: 215472472925671, 215472506881283, 215472507850471
+
+
+2. other > general > misdirected_inquiry
+   Conversations: 16
+   Article Coverage: 0.0%
+   Avg Support Responses: 0.0
+   Sample Conversations: 215469132398836, 215469133307248, 215469155835455
+
+
+3. other > professional_services_inquiry > professional_services_inquiry
+   Conversations: 13
+   Article Coverage: 0.0%
+   Avg Support Responses: 0.0
+   Sample Conversations: 215469092920490, 215469115865622, 215469155788518
+
+
+4. billing > plans > billing_plan_change_request
+   Conversations: 11
+   Article Coverage: 0.0%
+   Avg Support Responses: 0.0
+   Sample Conversations: 215472503018121, 215472508661238, 215472512454049
+
+
+5. integrations > csv_import > csv_import_failure
+   Conversations: 8
+   Article Coverage: 0.0%
+   Avg Support Responses: 0.0
+   Sample Conversations: 215472348791138, 215472509754184, 215472569113229
+
+
+6. account > account_settings > account_settings_guidance
+   Conversations: 7
+   Article Coverage: 0.0%
+   Avg Support Responses: 0.0
+   Sample Conversations: 215472503388895, 215472510847205, 215472517091491
+
+
+7. other > general_product_question > general_product_question
+   Conversations: 7
+   Article Coverage: 0.0%
+   Avg Support Responses: 0.0
+   Sample Conversations: 215469179793652, 215472516180204, 215472527441546
+
+
+8. pinterest_publishing > pins > pinterest_publishing_failure
+   Conversations: 7
+   Article Coverage: 0.0%
+   Avg Support Responses: 0.0
+   Sample Conversations: 215472483653407, 215472509744183, 215472515646170
+
+
+9. account > profile management > account_settings_guidance
+   Conversations: 6
+   Article Coverage: 0.0%
+   Avg Support Responses: 0.0
+   Sample Conversations: 215472518580147, 215472526894543, 215472549984286
+
+
+10. scheduling > smartschedule > scheduling_feature_question
+   Conversations: 6
+   Article Coverage: 0.0%
+   Avg Support Responses: 0.0
+   Sample Conversations: 215472506810482, 215472536489183, 215472551407031
+
+--------------------------------------------------------------------------------
+TOP 10 CONFUSING ARTICLES
+--------------------------------------------------------------------------------
+
+These articles are referenced by users but don't resolve their issues.
+Consider updating these articles for clarity or completeness.
+
+No confusing articles found (all referenced articles are effective!)
+--------------------------------------------------------------------------------
+DOCUMENTATION COVERAGE BY PRODUCT AREA
+--------------------------------------------------------------------------------
+
+Shows documentation coverage rates and top gaps for each product area.
+
+
+billing
+   Total Conversations: 82
+   With Articles: 0 (0.0%)
+   Top Undocumented Themes:
+      1. subscription > billing_cancellation_request (22 conversations)
+      2. plans > billing_plan_change_request (11 conversations)
+
+
+other
+   Total Conversations: 58
+   With Articles: 0 (0.0%)
+   Top Undocumented Themes:
+      1. general > misdirected_inquiry (16 conversations)
+      2. professional_services_inquiry > professional_services_inquiry (13 conversations)
+      3. general_product_question > general_product_question (7 conversations)
+
+
+account
+   Total Conversations: 29
+   With Articles: 0 (0.0%)
+   Top Undocumented Themes:
+      1. account_settings > account_settings_guidance (7 conversations)
+      2. profile management > account_settings_guidance (6 conversations)
+
+
+scheduling
+   Total Conversations: 29
+   With Articles: 0 (0.0%)
+   Top Undocumented Themes:
+      1. smartschedule > scheduling_feature_question (6 conversations)
+      2. pin_spacing > scheduling_feature_question (5 conversations)
+
+
+ai_creation
+   Total Conversations: 18
+   With Articles: 0 (0.0%)
+   Top Undocumented Themes:
+      1. ghostwriter > ghostwriter_generation_failure (5 conversations)
+
+
+integrations
+   Total Conversations: 14
+   With Articles: 0 (0.0%)
+   Top Undocumented Themes:
+      1. csv_import > csv_import_failure (8 conversations)
+
+
+pinterest_publishing
+   Total Conversations: 11
+   With Articles: 0 (0.0%)
+   Top Undocumented Themes:
+      1. pins > pinterest_publishing_failure (7 conversations)
+
+
+analytics
+   Total Conversations: 7
+   With Articles: 0 (0.0%)
+
+
+communities
+   Total Conversations: 5
+   With Articles: 0 (0.0%)
+
+
+instagram_publishing
+   Total Conversations: 4
+   With Articles: 0 (0.0%)
+
+--------------------------------------------------------------------------------
+RECOMMENDED ACTIONS
+--------------------------------------------------------------------------------
+
+1. Review undocumented themes and create new help articles for high-frequency issues
+2. Update confusing articles with clearer instructions or additional context
+3. Focus documentation efforts on product areas with lowest coverage rates
+4. Track conversation volume reduction after adding/updating documentation
+
+For conversation details, use: https://app.intercom.com/a/inbox/_/inbox/conversation/<id>
+
+================================================================================
+Report generated by FeedForward Documentation Coverage Analyzer
+================================================================================
