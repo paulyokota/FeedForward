@@ -28,8 +28,10 @@ WHERE story_id IS NOT NULL;
 ```
 
 **Type**: `TEXT` (nullable)
-**Example**: `"sc-12345"`, `"story-67890"`
-**Source**: Intercom API → `linked_objects.data.id` (Shortcut integration)
+**Example**: `"61406"`, `"72891"`
+**Source**: Intercom API → `custom_attributes["Story ID v2"]` (Shortcut integration)
+
+**CRITICAL**: Story ID is stored in `custom_attributes`, NOT `linked_objects`!
 
 ### conversation_clusters View
 
@@ -261,13 +263,13 @@ print(f"Target: <1.5 (most stories have 1-2 signatures max)")
 
 ### Option 1: Via Intercom API (Recommended)
 
-**IMPORTANT**: In Intercom, Shortcut story IDs are stored in the `v2` field (not `id`).
+**CRITICAL**: In Intercom, Shortcut story IDs are stored in `custom_attributes["Story ID v2"]`, NOT in `linked_objects`!
 
 ```python
 # When fetching conversation from Intercom
 import requests
 
-conversation_id = "215472586213019"
+conversation_id = "760512028212"
 response = requests.get(
     f"https://api.intercom.io/conversations/{conversation_id}",
     headers={"Authorization": f"Bearer {INTERCOM_ACCESS_TOKEN}"}
@@ -275,21 +277,20 @@ response = requests.get(
 
 data = response.json()
 
-# Extract linked Shortcut story
-# NOTE: Intercom uses "v2" field for Shortcut story IDs
-story_id = None
-if "linked_objects" in data and "data" in data["linked_objects"]:
-    for linked_obj in data["linked_objects"]["data"]:
-        if linked_obj.get("type") == "ticket":  # Shortcut ticket
-            # IMPORTANT: Use "v2" field, not "id"
-            story_id = linked_obj.get("v2")
-            break
+# Extract Shortcut story ID from custom attributes
+# CRITICAL: Use custom_attributes["Story ID v2"], NOT linked_objects!
+custom_attrs = data.get("custom_attributes", {})
+story_id = custom_attrs.get("Story ID v2")
+
+# Convert to string if it's a number
+if story_id:
+    story_id = str(story_id)
 
 # Store with story_id
 store_classification_result(
     conversation_id=conversation_id,
     # ... other fields ...
-    story_id=story_id  # Will be Shortcut story ID (e.g., "sc-12345")
+    story_id=story_id  # Will be Shortcut story ID (e.g., "61406")
 )
 ```
 
@@ -298,74 +299,40 @@ store_classification_result(
 ```json
 {
   "type": "conversation",
-  "id": "215472586213019",
+  "id": "760512028212",
+  "custom_attributes": {
+    "Copilot used": false,
+    "Language": "English",
+    "Story ID v2": "61406", // ← This is the Shortcut story ID we want
+    "Has attachments": true
+  },
   "linked_objects": {
     "type": "list",
-    "data": [
-      {
-        "type": "ticket",
-        "id": "intercom_ticket_id_123",
-        "v2": "sc-12345" // ← This is the Shortcut story ID we want
-      }
-    ]
+    "data": [], // ← Story ID is NOT here!
+    "total_count": 0
   }
 }
 ```
 
 ### Option 2: Backfill Existing Conversations
 
-```python
-#!/usr/bin/env python3
-"""
-Backfill story_id for existing 535 conversations.
-Fetches linked ticket data from Intercom API.
-"""
+Use the provided backfill script:
 
-from db.connection import get_connection
-import requests
-import time
+```bash
+# Dry run first (recommended)
+python scripts/backfill_story_ids.py --dry-run
 
-with get_connection() as conn:
-    with conn.cursor() as cursor:
-        # Get all conversation IDs
-        cursor.execute("SELECT id FROM conversations WHERE story_id IS NULL")
-        conversation_ids = [row[0] for row in cursor.fetchall()]
+# Test on small sample
+python scripts/backfill_story_ids.py --dry-run --limit 10
 
-        print(f"Backfilling {len(conversation_ids)} conversations...")
+# Run actual backfill
+python scripts/backfill_story_ids.py
 
-        for i, conv_id in enumerate(conversation_ids, 1):
-            try:
-                # Fetch from Intercom
-                response = requests.get(
-                    f"https://api.intercom.io/conversations/{conv_id}",
-                    headers={"Authorization": f"Bearer {INTERCOM_ACCESS_TOKEN}"}
-                )
-                data = response.json()
-
-                # Extract story_id
-                story_id = None
-                if "linked_objects" in data:
-                    for obj in data["linked_objects"].get("data", []):
-                        if obj.get("type") == "ticket":
-                            story_id = obj.get("id")
-                            break
-
-                # Update database
-                if story_id:
-                    cursor.execute(
-                        "UPDATE conversations SET story_id = %s WHERE id = %s",
-                        (story_id, conv_id)
-                    )
-                    conn.commit()
-                    print(f"[{i}/{len(conversation_ids)}] Updated {conv_id}: story_id={story_id}")
-
-                time.sleep(0.5)  # Rate limiting
-
-            except Exception as e:
-                print(f"[{i}/{len(conversation_ids)}] Error for {conv_id}: {e}")
-
-        print(f"\n✅ Backfill complete!")
+# With limit for incremental backfill
+python scripts/backfill_story_ids.py --limit 100
 ```
+
+The script (`scripts/backfill_story_ids.py`) correctly extracts story IDs from `custom_attributes["Story ID v2"]`.
 
 ## Success Metrics
 

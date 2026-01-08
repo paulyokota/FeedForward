@@ -39,27 +39,22 @@ def extract_story_id_from_conversation(conversation_data: dict) -> Optional[str]
     """
     Extract Shortcut story ID from Intercom conversation data.
 
-    IMPORTANT: Uses the 'v2' field from linked_objects, not 'id'.
+    IMPORTANT: Story ID is stored in custom_attributes["Story ID v2"],
+    NOT in linked_objects!
 
     Args:
         conversation_data: Intercom API conversation response
 
     Returns:
-        Shortcut story ID (e.g., "sc-12345") or None if not linked
+        Shortcut story ID (e.g., "61406") or None if not present
     """
-    if "linked_objects" not in conversation_data:
-        return None
+    # CRITICAL: Story ID is in custom_attributes, not linked_objects
+    custom_attrs = conversation_data.get("custom_attributes", {})
+    story_id = custom_attrs.get("Story ID v2")
 
-    linked_objects = conversation_data["linked_objects"]
-    if "data" not in linked_objects:
-        return None
-
-    for linked_obj in linked_objects["data"]:
-        if linked_obj.get("type") == "ticket":
-            # CRITICAL: Use v2 field, not id field
-            story_id = linked_obj.get("v2")
-            if story_id:
-                return story_id
+    if story_id:
+        # Convert to string if it's a number
+        return str(story_id)
 
     return None
 
