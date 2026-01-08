@@ -261,6 +261,8 @@ print(f"Target: <1.5 (most stories have 1-2 signatures max)")
 
 ### Option 1: Via Intercom API (Recommended)
 
+**IMPORTANT**: In Intercom, Shortcut story IDs are stored in the `v2` field (not `id`).
+
 ```python
 # When fetching conversation from Intercom
 import requests
@@ -274,19 +276,40 @@ response = requests.get(
 data = response.json()
 
 # Extract linked Shortcut story
+# NOTE: Intercom uses "v2" field for Shortcut story IDs
 story_id = None
 if "linked_objects" in data and "data" in data["linked_objects"]:
     for linked_obj in data["linked_objects"]["data"]:
         if linked_obj.get("type") == "ticket":  # Shortcut ticket
-            story_id = linked_obj.get("id")
+            # IMPORTANT: Use "v2" field, not "id"
+            story_id = linked_obj.get("v2")
             break
 
 # Store with story_id
 store_classification_result(
     conversation_id=conversation_id,
     # ... other fields ...
-    story_id=story_id
+    story_id=story_id  # Will be Shortcut story ID (e.g., "sc-12345")
 )
+```
+
+**Example Intercom Response**:
+
+```json
+{
+  "type": "conversation",
+  "id": "215472586213019",
+  "linked_objects": {
+    "type": "list",
+    "data": [
+      {
+        "type": "ticket",
+        "id": "intercom_ticket_id_123",
+        "v2": "sc-12345" // ← This is the Shortcut story ID we want
+      }
+    ]
+  }
+}
 ```
 
 ### Option 2: Backfill Existing Conversations
