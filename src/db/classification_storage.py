@@ -30,7 +30,8 @@ def store_classification_result(
     stage1_result: Dict[str, Any],
     stage2_result: Optional[Dict[str, Any]] = None,
     support_messages: Optional[list] = None,
-    resolution_signal: Optional[Dict[str, Any]] = None
+    resolution_signal: Optional[Dict[str, Any]] = None,
+    story_id: Optional[str] = None
 ) -> None:
     """
     Store complete two-stage classification result in database.
@@ -47,6 +48,7 @@ def store_classification_result(
         stage2_result: Stage 2 classification output (if available)
         support_messages: List of support responses
         resolution_signal: Resolution pattern detection result
+        story_id: Shortcut story/ticket ID (for ground truth clustering analysis)
     """
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -109,6 +111,7 @@ def store_classification_result(
                 has_support_response, support_response_count,
                 resolution_action, resolution_detected,
                 support_insights,
+                story_id,
                 classifier_version
             ) VALUES (
                 %s, %s, %s,
@@ -121,6 +124,7 @@ def store_classification_result(
                 %s, %s,
                 %s, %s,
                 %s, %s,
+                %s,
                 %s,
                 %s
             )
@@ -141,7 +145,8 @@ def store_classification_result(
                 support_response_count = EXCLUDED.support_response_count,
                 resolution_action = EXCLUDED.resolution_action,
                 resolution_detected = EXCLUDED.resolution_detected,
-                support_insights = EXCLUDED.support_insights
+                support_insights = EXCLUDED.support_insights,
+                story_id = EXCLUDED.story_id
             """, (
                 conversation_id, created_at, datetime.utcnow(),
                 source_body, source_type, source_url,
@@ -154,6 +159,7 @@ def store_classification_result(
                 has_support_response, support_response_count,
                 resolution_action, resolution_detected,
                 support_insights_json,
+                story_id,
                 "v2.0-two-stage"
                 ))
 
