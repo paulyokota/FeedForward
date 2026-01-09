@@ -26,6 +26,7 @@ import requests
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from story_formatter import format_excerpt
+from evidence_validator import validate_samples, EvidenceQuality
 
 PM_REVIEW_FILE = Path(__file__).parent.parent / "data" / "pm_review_results.json"
 
@@ -421,8 +422,25 @@ def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, 
         backlog_state_id = get_backlog_state_id(headers)
 
     stories_created = []
+    stories_with_poor_evidence = []
 
     for signature, data, status in sorted_themes:
+        # EVIDENCE VALIDATION: Ensure samples have required fields
+        evidence_quality = validate_samples(data.get("samples", []))
+
+        if not evidence_quality.is_valid:
+            print(f"⚠️  SKIPPING {signature}: Invalid evidence")
+            for err in evidence_quality.errors:
+                print(f"     ✗ {err}")
+            stories_with_poor_evidence.append((signature, evidence_quality))
+            continue
+
+        if evidence_quality.warnings:
+            print(f"⚠️  WARNING for {signature}: Poor evidence quality")
+            for warn in evidence_quality.warnings:
+                print(f"     ⚠ {warn}")
+            stories_with_poor_evidence.append((signature, evidence_quality))
+
         first = data["samples"][0] if data["samples"] else {}
         product_area = first.get("product_area", "unknown")
         story_type = determine_story_type(signature, product_area)
@@ -435,6 +453,10 @@ def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, 
             print(f"{status_icon} Would create: {story_name}")
             print(f"  Type: {story_type}, Area: {product_area}, Status: {status}")
             print(f"  Samples: {len(data['samples'])}")
+            # Show evidence quality in dry run
+            email_cov = evidence_quality.coverage.get("email", 0)
+            url_cov = evidence_quality.coverage.get("intercom_url", 0)
+            print(f"  Evidence: email={email_cov:.0f}%, intercom_url={url_cov:.0f}%")
             print()
         else:
             description = build_theme_story_description(signature, data, total)
@@ -468,6 +490,16 @@ def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, 
         print(f"Dry run complete. Would create {len(sorted_themes)} stories.")
     else:
         print(f"Created {len(stories_created)} Shortcut stories for review")
+
+    # Report evidence quality issues
+    if stories_with_poor_evidence:
+        skipped = sum(1 for _, q in stories_with_poor_evidence if not q.is_valid)
+        warned = len(stories_with_poor_evidence) - skipped
+        print(f"\n⚠️  EVIDENCE QUALITY ISSUES:")
+        print(f"   Skipped (invalid): {skipped}")
+        print(f"   Created with warnings: {warned}")
+        print(f"\n   To fix, ensure extraction captures: email, intercom_url, excerpt")
+        print(f"   See: src/evidence_validator.py for required fields")
     print("="*60)
 
 
