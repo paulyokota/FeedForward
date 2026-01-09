@@ -343,7 +343,164 @@ python -m src.vocabulary_feedback --days 30 --output reports/vocab_feedback.md
 - `src/vocabulary_feedback.py` - Feedback loop script
 - `prompts/phase5_final_report_2026-01-08.md` - Validation report
 
-### 9. Story Grouping Pipeline (NEW - 2026-01-08)
+### 9. Signature Tracking System (NEW - 2026-01-09)
+
+**Purpose**: Prevent signature mismatches between theme extraction and story creation
+
+**Problem Solved**: During historical backfill, we discovered that 88% of conversation counts were orphaned because:
+
+1. Theme extractor produces signature: `billing_cancellation_request`
+2. PM review modifies it to: `billing_cancellation_requests`
+3. Stories created with PM's signature
+4. Backfill counts using extractor's signature
+5. Phase 3 can't match counts to stories (different keys)
+
+**Architecture**:
+
+```
+Theme Extraction          PM Review           Story Creation
+─────────────────────    ──────────────      ────────────────
+billing_cancellation_    suggests:           story created as:
+request                  billing_cancella-   billing_cancella-
+                         tion_requests       tion_requests
+        │                       │                   │
+        │   ┌───────────────────┼───────────────────┘
+        │   │ SignatureRegistry │
+        │   │ ─────────────────│────────────────────
+        └──►│ equivalences:    │
+            │   original → PM  │
+            │                  ▼
+            │ reconcile_counts() merges both
+            └─────────────────────────────────────
+```
+
+**Components**:
+
+1. **SignatureRegistry** (`src/signature_utils.py`)
+   - `normalize()` - Standardizes signatures (lowercase, underscores)
+   - `register_equivalence()` - Tracks original → PM signature mapping
+   - `get_canonical()` - Returns PM-approved form
+   - `reconcile_counts()` - Merges counts using equivalences
+
+2. **Equivalence File** (`data/signature_equivalences.json`)
+   - Persists mappings between pipeline runs
+   - Format: `{"equivalences": {"original": "canonical"}}`
+
+**Usage in Pipeline**:
+
+```python
+# Phase 1: When PM review changes signature
+registry = get_registry()
+if sg_sig != original_sig:
+    registry.register_equivalence(original_sig, sg_sig)
+registry.save()  # Persist for Phase 3
+
+# Phase 3: Reconcile counts
+reconciled, orphans = registry.reconcile_counts(counts, story_mapping)
+# reconciled now has all counts merged by canonical signature
+```
+
+**Validation**:
+
+- Run `python -c "from src.signature_utils import SignatureRegistry; r = SignatureRegistry(); print(f'{len(r._equivalences)} equivalences')"` to check mappings
+- After Phase 3, orphan percentage should be <5% (vs 88% without this system)
+
+**Files**:
+
+- `src/signature_utils.py` - Registry implementation
+- `data/signature_equivalences.json` - Persisted mappings
+- `scripts/run_historical_pipeline.py` - Updated to use registry
+
+### 10. Evidence Validation System (NEW - 2026-01-09)
+
+**Purpose**: Ensure Shortcut stories have actionable evidence, not placeholder text
+
+**Problem Solved**: Stories created during historical backfill had placeholder text:
+
+```
+Note: This theme was identified during historical backfill.
+Sample conversations were not captured during batch processing.
+
+To gather evidence:
+- Search Intercom for recent conversations matching this theme
+- Add representative samples to this ticket
+```
+
+This defeats the purpose of automated story creation.
+
+**Architecture**:
+
+```
+Theme Extraction          Evidence Validator         Story Creation
+─────────────────        ──────────────────        ────────────────
+Extract themes &  ──────►  validate_samples()  ────► If valid:
+capture metadata          - Check required fields     create story
+                          - Check for placeholders
+                          - Calculate coverage      If invalid:
+                                                     SKIP + warn
+```
+
+**Required vs Recommended Fields**:
+
+| Field          | Type        | Purpose                | Validation                                  |
+| -------------- | ----------- | ---------------------- | ------------------------------------------- |
+| `id`           | REQUIRED    | Conversation reference | Must be present                             |
+| `excerpt`      | REQUIRED    | Context for story      | Must be present, >20 chars, no placeholders |
+| `email`        | RECOMMENDED | Display in story       | Warn if <80% coverage                       |
+| `intercom_url` | RECOMMENDED | Link to conversation   | Warn if <80% coverage                       |
+| `org_id`       | OPTIONAL    | Jarvis org link        | No validation                               |
+| `user_id`      | OPTIONAL    | Jarvis user link       | No validation                               |
+| `contact_id`   | OPTIONAL    | Lookup reference       | No validation                               |
+
+**Validation Behavior**:
+
+1. **Invalid samples (missing required fields)**: Story creation SKIPPED with error message
+2. **Poor evidence (missing recommended fields)**: Story created with WARNING
+3. **Placeholder excerpts detected**: Story creation SKIPPED (catches the historical backfill bug)
+
+**Components**:
+
+1. **EvidenceValidator** (`src/evidence_validator.py`)
+   - `validate_samples()` - Main validation function
+   - `validate_sample()` - Single sample validation
+   - `build_evidence_report()` - Human-readable report
+   - `EvidenceQuality` dataclass with is_valid, errors, warnings, coverage
+
+2. **Integration Points**:
+   - `scripts/create_theme_stories.py` - Validates before creating each story
+   - `scripts/run_historical_pipeline.py` - Validates in Phase 1 and orphan promotion
+
+**Usage**:
+
+```python
+from evidence_validator import validate_samples
+
+evidence = validate_samples(data["samples"])
+if not evidence.is_valid:
+    print(f"SKIPPING: {evidence.errors}")
+    continue
+if evidence.warnings:
+    print(f"Warning: {evidence.warnings}")
+
+# Safe to create story
+create_story(data)
+```
+
+**Validation**:
+
+- Run `python -m pytest tests/test_evidence_validator.py -v` (20 tests)
+- Includes real-world scenario test for placeholder detection
+
+**Files**:
+
+- `src/evidence_validator.py` - Validation implementation
+- `tests/test_evidence_validator.py` - Test suite
+- `scripts/create_theme_stories.py` - Uses validation
+- `scripts/run_historical_pipeline.py` - Uses validation
+
+---
+
+### 11. Story Grouping Pipeline (2026-01-08)
 
 **Purpose**: Create implementation-ready story groupings from classified conversations
 

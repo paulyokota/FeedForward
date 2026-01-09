@@ -10,6 +10,66 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Signature Tracking System (2026-01-09)**:
+
+- Signature utilities module (`src/signature_utils.py`)
+  - `SignatureRegistry` class for tracking PM signature changes
+  - `normalize()` - Standardizes signatures (lowercase, underscores, no special chars)
+  - `register_equivalence()` - Tracks original → canonical mappings
+  - `get_canonical()` - Follows equivalence chains to find PM-approved form
+  - `reconcile_counts()` - Merges historical counts using equivalences
+  - `build_signature_from_components()` - Consistent signature construction
+  - Persistence to `data/signature_equivalences.json`
+- Comprehensive test suite (`tests/test_signature_utils.py`)
+  - 23 tests covering normalization, equivalences, reconciliation, persistence
+  - Real-world scenario test validating 0% orphan rate (was 88%)
+- Pipeline hardening (`scripts/run_historical_pipeline.py`)
+  - Automatic equivalence tracking when PM review changes signatures
+  - Phase 3 uses `reconcile_counts()` for matching
+- Architecture documentation (`docs/architecture.md` Section 9)
+  - Documents problem, solution, and usage patterns
+
+**Historical Backfill Evidence Capture (2026-01-09)**:
+
+- Enhanced metadata extraction (`scripts/run_historical_pipeline.py`)
+  - `extract_conversation_metadata()` - Extracts email, contact_id, user_id from conversations
+  - `enrich_with_org_ids()` - Batch fetches org_id from Intercom contacts (async, ~20 concurrent)
+  - Intercom URL construction for direct conversation links
+- Evidence now includes in Shortcut stories:
+  - Email linked to Intercom conversation
+  - Org linked to Jarvis organization page
+  - User linked to Jarvis user page
+  - Full conversation excerpt
+- Applied to both Phase 1 (seed) and Phase 2 (backfill) processing
+- Enables actionable evidence in promoted orphan stories
+
+**Evidence Validation System (2026-01-09)**:
+
+- Evidence validator module (`src/evidence_validator.py`)
+  - `validate_samples()` - Main validation with required/recommended field checks
+  - `validate_sample()` - Single sample validation
+  - `build_evidence_report()` - Human-readable diagnostic report
+  - `EvidenceQuality` dataclass with is_valid, errors, warnings, coverage
+  - Placeholder detection to catch historical backfill bug
+- Comprehensive test suite (`tests/test_evidence_validator.py`)
+  - 20 tests covering validation, coverage calculation, placeholder detection
+  - Real-world scenario tests for the exact bug this prevents
+- Pipeline integration:
+  - `scripts/create_theme_stories.py` - Validates before creating each story
+  - `scripts/run_historical_pipeline.py` - Validates in Phase 1 and orphan promotion
+  - Stories with invalid evidence are SKIPPED with error messages
+  - Stories with poor evidence are created with WARNINGS
+- Architecture documentation (`docs/architecture.md` Section 10)
+  - Documents required vs recommended fields
+  - Validation behavior and usage examples
+
+**Story Formatting Updates (2026-01-09)**:
+
+- Updated 53 orphan stories in Shortcut with proper formatting
+  - Verb-first titles (Fix, Investigate, Process, Improve, Review)
+  - Structured descriptions with Problem Statement, Investigation Paths, Symptoms, Evidence, Acceptance Criteria
+  - Consistent formatting matching existing story patterns
+
 **Pipeline Performance Optimizations (2026-01-08)**:
 
 - Async classification pipeline (`src/two_stage_pipeline.py`)

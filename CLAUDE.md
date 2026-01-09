@@ -21,16 +21,16 @@ This project follows VDD principles from `reference/UAT-Agentic-Coding-Research.
 
 ## Architecture
 
-**Current Phase**: Theme Extraction & Aggregation (Phase 4)
+**Current Phase**: Story Grouping Architecture (baseline established)
 
 Batch processing pattern (scheduled daily/weekly):
 
 1. Fetch conversations from Intercom API (with quality filtering ~50% pass rate)
 2. Extract source.url for URL context boosting
 3. Theme extraction via LLM (vocabulary-guided, URL context aware)
-4. Store themes in database with aggregation
-5. Apply escalation rules (future)
-6. Generate reports (future)
+4. Story grouping with PM review layer
+5. Store themes in database with aggregation
+6. Apply escalation rules (future)
 
 **Key Architectural Decisions**:
 
@@ -46,6 +46,13 @@ Batch processing pattern (scheduled daily/weekly):
    - Matches URL against 27 patterns in vocabulary
    - Boosts LLM prompt to prefer themes from that area
    - Solves three-scheduler disambiguation problem
+
+3. **Story Grouping Pipeline** (baseline ✅)
+   - PM review layer validates: "Same implementation ticket?"
+   - INVEST criteria for implementation-ready groupings
+   - Confidence scoring for prioritization (not auto-approval)
+   - 45% group purity baseline, targeting 70%+
+   - See `docs/story-grouping-architecture.md` for full design
 
 See `docs/architecture.md` for complete system design and `reference/intercom-llm-guide.md` for implementation specs.
 
@@ -108,6 +115,8 @@ Use these for general development tasks. Our custom subagents above are FeedForw
 - `docs/changelog.md` - What's shipped
 - `docs/prompts.md` - Classification prompts and accuracy metrics
 - `docs/escalation-rules.md` - Routing rules and thresholds
+- `docs/story-grouping-architecture.md` - Story grouping pipeline design
+- `docs/story-granularity-standard.md` - INVEST-based grouping criteria
 
 ## Reference Docs
 
