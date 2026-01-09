@@ -1,51 +1,35 @@
 # Last Session Summary
 
-**Date**: 2026-01-09 15:30
-**Branch**: development
+**Date**: 2026-01-09
+**Branch**: feature/story-tracking-webapp
 
 ## Goal
 
-Multi-source theme architecture planning - integrate Coda research data with Intercom support pipeline.
+Fix FeedForward logo for both light and dark themes in Story Tracking Web App.
 
 ## Progress
 
-- Completed: 4 tasks
-- Pending: 0 tasks
+- Completed: Logo trimming, transparency, dark mode version, theme-aware component
+- Pending: None
 
-## Key Accomplishments
+## What Was Done
 
-1. **Explored Coda research repository** - Documented 100 pages, 100 tables with rich research data
-2. **Developed core insight** - Research and support are complementary, not substitutes
-3. **Created multi-source architecture plan** - 7-phase implementation spec
-4. **Made design decisions** - Resolved conflicts between approaches (adapters vs sources, split vs consolidated imports)
+1. **Logo Trimming**: Trimmed logo from 1408x768 to 1397x262 (removed excess whitespace)
+2. **Transparent Background**: Made logo background transparent using PIL
+3. **Dark Mode Version**: Created feedforward-logo-dark.png with lightened "Feed" text
+4. **Theme-Aware Component**: Updated FeedForwardLogo.tsx to switch logos based on theme
+5. **Next.js Image Fix**: Switched from Next.js Image to native img tag to avoid optimization issues
 
-## Design Decisions
+## Files Changed
 
-| Decision            | Choice                   | Rationale                          |
-| ------------------- | ------------------------ | ---------------------------------- |
-| Directory structure | `src/adapters/`          | Adapter pattern is precise         |
-| Import scripts      | Split                    | Granular control, easier debugging |
-| Analytics location  | `src/analytics/`         | Separation of concerns             |
-| Story updates       | `src/story_formatter.py` | Formatting belongs with formatter  |
-
-## Files Created/Modified
-
-- `docs/multi-source/multi-source-architecture-ralph.md` - Detailed implementation spec
-- `docs/multi-source/multi-source-phases-overview.md` - Quick reference
-- `docs/coda-research-repo.md` - Repository analysis
-- `docs/status.md` - Session notes added
-- `docs/changelog.md` - Coda integration entry
-
-## Next Steps
-
-1. Implement Phase 0: Bulk Coda data import
-2. Create `src/coda_client.py`
-3. Build source adapters (`src/adapters/`)
-4. Run database migration for `data_source` field
+- `webapp/public/feedforward-logo.png` - Trimmed + transparent
+- `webapp/public/feedforward-logo-dark.png` - Dark mode version (new)
+- `webapp/src/components/FeedForwardLogo.tsx` - Theme-aware logo switching
+- `webapp/src/app/globals.css` - Light theme fixes (neutral backgrounds)
 
 ## Session Notes
 
-Session ended normally. Multi-source architecture plan ready for implementation.
+Logo now displays correctly in both light and dark modes. The "Feed" text was too dark to see on dark backgrounds, so a separate dark mode version was created with lightened text colors.
 
 ---
 

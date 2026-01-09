@@ -15,7 +15,7 @@ API Documentation available at:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.routers import analytics, health, pipeline, themes
+from src.api.routers import analytics, health, pipeline, stories, themes
 
 # Create FastAPI application
 app = FastAPI(
@@ -41,12 +41,16 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Configure CORS for Streamlit frontend
+# Configure CORS for frontend applications
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8501",  # Streamlit default
         "http://127.0.0.1:8501",
+        "http://localhost:3000",  # Next.js default
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",  # Next.js alternate port
+        "http://127.0.0.1:3001",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -58,6 +62,7 @@ app.include_router(health.router)
 app.include_router(analytics.router)
 app.include_router(pipeline.router)
 app.include_router(themes.router)
+app.include_router(stories.router)
 
 
 @app.get("/")

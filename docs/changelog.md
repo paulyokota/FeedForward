@@ -10,6 +10,45 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Story Tracking Web App Scaffolding (2026-01-09)**:
+
+- Database schema for system of record (`src/db/migrations/004_story_tracking_schema.sql`)
+  - `stories` - Canonical work items with Shortcut-compatible fields
+  - `story_comments` - Comments with source tracking (internal/shortcut)
+  - `story_evidence` - Evidence bundles (conversations, themes, excerpts, source_stats)
+  - `story_sync_metadata` - Bidirectional Shortcut sync state
+  - `label_registry` - Shortcut taxonomy + internal extensions
+- Pydantic models (`src/story_tracking/models/`)
+  - Story, StoryCreate, StoryUpdate, StoryWithEvidence
+  - StoryEvidence, EvidenceExcerpt, StoryComment
+  - SyncMetadata, LabelRegistryEntry
+- Service layer stubs (`src/story_tracking/services/`)
+  - StoryService - CRUD, listing, search (stubs with TODOs)
+  - EvidenceService - Evidence management (stubs with TODOs)
+- Session kickoff doc (`docs/session/story-tracking-webapp-kickoff.md`)
+- Feature branch: `feature/story-tracking-webapp`
+- `frontend-design` plugin installed for UI development
+
+**Multi-Source Architecture Complete (2026-01-09)**:
+
+- Coda bulk import: 14,769 themes from 356 tables (9,675 rows)
+- Source adapters (`src/adapters/`)
+  - `coda_adapter.py` - Normalizes Coda table rows to common format
+  - `intercom_adapter.py` - Normalizes Intercom conversations
+- Cross-source analytics (`src/analytics/cross_source.py`)
+  - `get_cross_source_themes()` - Themes ranked by source presence
+  - `get_high_confidence_themes()` - Themes in BOTH sources
+  - `get_source_comparison_report()` - Summary statistics
+- Priority categorization: high_confidence, strategic, tactical
+- Pipeline updates (`src/two_stage_pipeline.py`)
+  - Added `--source` parameter (intercom/coda)
+- Theme tracker updates (`src/theme_tracker.py`)
+  - `source_counts` JSONB field for per-source tracking
+- Story formatter updates (`src/story_formatter.py`)
+  - `format_multi_source_evidence()` - Evidence from both sources
+  - `build_multi_source_description()` - Full story with source breakdown
+- Import reports (`reports/coda_import_2026-01-09.md`)
+
 **Coda Research Repository Integration (2026-01-09)**:
 
 - Coda API credentials configured (`.env`)

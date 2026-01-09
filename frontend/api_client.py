@@ -139,3 +139,56 @@ class FeedForwardAPI:
     def get_theme_detail(self, signature: str) -> Dict[str, Any]:
         """Get detailed theme information."""
         return self._get(f"/api/themes/{signature}")
+
+    # Story endpoints
+    def list_stories(
+        self,
+        status: Optional[str] = None,
+        product_area: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List stories with optional filtering."""
+        params = {"limit": limit, "offset": offset}
+        if status:
+            params["status"] = status
+        if product_area:
+            params["product_area"] = product_area
+        return self._get("/api/stories", params)
+
+    def get_story(self, story_id: str) -> Dict[str, Any]:
+        """Get story by ID with full details."""
+        return self._get(f"/api/stories/{story_id}")
+
+    def get_board_view(self) -> Dict[str, Any]:
+        """Get stories grouped by status for kanban board."""
+        return self._get("/api/stories/board")
+
+    def search_stories(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Search stories by title/description."""
+        return self._get("/api/stories/search", {"q": query, "limit": limit})
+
+    def get_candidates(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get candidate stories awaiting triage."""
+        return self._get("/api/stories/candidates", {"limit": limit})
+
+    def get_stories_by_status(self, status: str) -> List[Dict[str, Any]]:
+        """Get all stories with a specific status."""
+        return self._get(f"/api/stories/status/{status}")
+
+    def create_story(self, story_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new story."""
+        return self._post("/api/stories", story_data)
+
+    def update_story(self, story_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Update story fields."""
+        url = f"{self.base_url}/api/stories/{story_id}"
+        response = requests.patch(url, json=updates, timeout=self.timeout)
+        response.raise_for_status()
+        return response.json()
+
+    def delete_story(self, story_id: str) -> None:
+        """Delete a story."""
+        url = f"{self.base_url}/api/stories/{story_id}"
+        response = requests.delete(url, timeout=self.timeout)
+        response.raise_for_status()

@@ -9,8 +9,111 @@
 **Phase 5 (Ground Truth Validation): COMPLETE** ✅
 **Story Grouping Architecture: IN PROGRESS** 🚧
 **Frontend Dashboard: COMPLETE** ✅
+**Multi-Source Architecture: COMPLETE** ✅
+**Story Tracking Web App: PHASE 1 COMPLETE** ✅
 
-## Latest: Multi-Source Architecture Planning (2026-01-09)
+## Latest: Story Tracking Web App - Logo & Theming Fix (2026-01-09)
+
+### Session Summary
+
+Fixed FeedForward logo display for both light and dark themes in the Story Tracking Web App.
+
+### What Was Done
+
+1. **Logo Trimming**: Trimmed logo from 1408×768 to 1397×262, removing excess whitespace
+2. **Transparent Background**: Made logo background transparent for clean display on any theme
+3. **Dark Mode Version**: Created `feedforward-logo-dark.png` with lightened "Feed" text (was too dark to see)
+4. **Theme-Aware Component**: Updated `FeedForwardLogo.tsx` to automatically switch logos based on theme
+5. **Next.js Image Fix**: Switched from Next.js `Image` to native `img` to avoid optimization issues with transparency
+
+### Files Modified/Created
+
+- `webapp/public/feedforward-logo.png` - Trimmed + transparent background
+- `webapp/public/feedforward-logo-dark.png` - Dark mode version with light text
+- `webapp/src/components/FeedForwardLogo.tsx` - Theme-aware logo switching
+- `webapp/src/app/globals.css` - Light theme fixes (neutral backgrounds, removed teal tints)
+
+---
+
+## Previous: Story Tracking Web App Phase 1 Complete (2026-01-09)
+
+### Session Summary
+
+Implemented Phase 1 of the Story Tracking Web App - read-only UI with story and evidence views.
+
+### What Was Built
+
+**Database** (migration applied):
+
+- `stories` - Canonical work items (system of record)
+- `story_comments` - Comments with source tracking
+- `story_evidence` - Evidence bundles (conversations, themes, excerpts)
+- `story_sync_metadata` - Bidirectional Shortcut sync state
+- `label_registry` - Shortcut taxonomy + internal labels
+
+**Services** (`src/story_tracking/services/`):
+
+- `StoryService` - Full CRUD, list, search, board view, status filtering
+- `EvidenceService` - Evidence management, conversation/theme linking
+
+**API Routes** (`src/api/routers/stories.py`):
+
+- `GET /api/stories` - List with filters
+- `GET /api/stories/board` - Kanban grouped by status
+- `GET /api/stories/search` - Search by title/description
+- `GET /api/stories/{id}` - Detail with evidence
+- `POST /api/stories` - Create story
+- `PATCH /api/stories/{id}` - Update story
+- `DELETE /api/stories/{id}` - Delete story
+- Evidence endpoints for linking conversations/themes
+
+**UI Pages** (`frontend/pages/4_Stories.py`):
+
+- Board view (kanban by status)
+- List view (sortable table with filters)
+- Detail view (story + evidence tabs)
+- Search functionality
+- Quick status/priority updates
+
+**Tests** (`tests/test_story_tracking.py`):
+
+- 20 tests covering services and models
+- All passing with no warnings
+
+### Running the Story Tracking UI
+
+```bash
+# Terminal 1: Start API
+uvicorn src.api.main:app --reload --port 8000
+
+# Terminal 2: Start frontend
+streamlit run frontend/app.py
+
+# Open http://localhost:8501 → Stories page
+```
+
+### Phase 1 Rollout Status
+
+| Task                      | Status                   |
+| ------------------------- | ------------------------ |
+| Apply migration           | ✅ Complete              |
+| Implement StoryService    | ✅ Complete              |
+| Implement EvidenceService | ✅ Complete              |
+| Add API routes            | ✅ Complete              |
+| Build read-only UI        | ✅ Complete              |
+| Add tests                 | ✅ Complete (20 passing) |
+
+### Next Steps (Phase 2)
+
+1. Editable story fields in UI (full form)
+2. Comment creation
+3. Pipeline integration (auto-create candidate stories)
+
+See `docs/story-tracking-web-app-architecture.md` for full architecture.
+
+---
+
+## Previous: Multi-Source Architecture Planning (2026-01-09)
 
 ### Session Summary
 
