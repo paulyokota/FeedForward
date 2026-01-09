@@ -22,6 +22,7 @@ Product teams are drowning in support conversations. Valuable signals—feature 
 
 - **Primary consumers**: Product and Engineering teams at the organization
 - **Output format**: Actionable tickets in Shortcut (the organization's issue tracker)
+- **System-of-record roadmap**: Architecture for a dedicated story-tracking web app with bidirectional Shortcut sync is captured in `docs/story-tracking-web-app-architecture.md`.
 - **Scale**: ~50-150 Intercom conversations per week
 
 ---
