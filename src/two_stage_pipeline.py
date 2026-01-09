@@ -3,14 +3,18 @@
 Two-Stage Classification Pipeline Integration.
 
 Orchestrates:
-1. Fetching conversations from Intercom
+1. Fetching conversations from multiple sources (Intercom, Coda)
 2. Running Stage 1 classification (fast routing)
 3. Running Stage 2 classification (refined analysis with support context)
-4. Storing results in database
+4. Storing results in database with source tracking
 
 Supports both sync (simple) and async (fast) modes:
 - Sync: Sequential processing, good for debugging
 - Async: Parallel classification with semaphore, ~10-20x faster
+
+Multi-source support:
+- --source intercom: Process Intercom support conversations (default)
+- --source coda: Process Coda research data
 """
 import asyncio
 import os
@@ -33,6 +37,7 @@ from db.classification_storage import (
     store_classification_result,
     store_classification_results_batch
 )
+from adapters import CodaAdapter, IntercomAdapter, NormalizedConversation
 
 # Async OpenAI client for parallel processing
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -325,6 +330,7 @@ async def run_pipeline_async(
     dry_run: bool = False,
     concurrency: int = 20,
     batch_size: int = 50,
+    data_source: str = "intercom",
 ) -> Dict[str, int]:
     """
     Run the two-stage classification pipeline with async parallelization.
@@ -337,6 +343,7 @@ async def run_pipeline_async(
         dry_run: If True, don't store to database
         concurrency: Number of parallel API calls (default 20)
         batch_size: DB batch insert size (default 50)
+        data_source: Source to process ("intercom" or "coda")
 
     Returns:
         Statistics dictionary
@@ -344,6 +351,7 @@ async def run_pipeline_async(
     print(f"\n{'='*60}")
     print(f"Two-Stage Classification Pipeline (ASYNC)")
     print(f"{'='*60}")
+    print(f"Data source: {data_source.upper()}")
     print(f"Fetching conversations from last {days} days...")
     print(f"Concurrency: {concurrency} parallel requests")
     print(f"Batch size: {batch_size} for DB inserts")
@@ -351,10 +359,22 @@ async def run_pipeline_async(
         print("DRY RUN - Will not store to database")
     print()
 
-    # Initialize client and semaphore
+    # Initialize semaphore
+    semaphore = asyncio.Semaphore(concurrency)
+
+    # Use appropriate adapter based on data source
+    if data_source == "coda":
+        return await _run_coda_pipeline_async(
+            max_conversations=max_conversations,
+            dry_run=dry_run,
+            concurrency=concurrency,
+            batch_size=batch_size,
+            semaphore=semaphore,
+        )
+
+    # Default: Intercom pipeline
     client = IntercomClient()
     since = datetime.utcnow() - timedelta(days=days)
-    semaphore = asyncio.Semaphore(concurrency)
 
     # Phase 1: Fetch all conversations (must be sync due to Intercom client)
     print("Phase 1: Fetching conversations from Intercom...")
@@ -420,10 +440,142 @@ async def run_pipeline_async(
     return stats
 
 
+async def _run_coda_pipeline_async(
+    max_conversations: Optional[int] = None,
+    dry_run: bool = False,
+    concurrency: int = 20,
+    batch_size: int = 50,
+    semaphore: asyncio.Semaphore = None,
+) -> Dict[str, int]:
+    """
+    Run classification pipeline for Coda research data.
+
+    Coda data is evergreen (not time-bounded like Intercom),
+    so we process all available research content.
+    """
+    from adapters import CodaAdapter
+
+    adapter = CodaAdapter()
+
+    # Fetch Coda data
+    print("Phase 1: Fetching research data from Coda...")
+    raw_items = adapter.fetch(max_items=max_conversations, include_tables=True, include_pages=True)
+    print(f"  Total fetched: {len(raw_items)} items")
+
+    # Normalize to common format
+    print("\nPhase 2: Normalizing Coda data...")
+    normalized = []
+    for item in raw_items:
+        try:
+            conv = adapter.normalize(item)
+            if conv.text and len(conv.text) > 50:  # Skip empty content
+                normalized.append(conv)
+        except Exception as e:
+            print(f"  Warning: Failed to normalize item: {e}")
+
+    print(f"  Normalized: {len(normalized)} items with content")
+
+    # Classify in parallel (Stage 1 only for research data)
+    print(f"\nPhase 3: Classifying {len(normalized)} items...")
+    start_time = datetime.now()
+
+    async def classify_coda_item(conv: NormalizedConversation) -> Dict[str, Any]:
+        """Classify a single Coda item."""
+        async with semaphore:
+            import json as json_module
+
+            # Use simplified prompt for research content
+            prompt = f"""Analyze this research content and extract themes.
+
+Content:
+{conv.text[:3000]}
+
+Return JSON with:
+- conversation_type: "research_insight" | "user_feedback" | "feature_request" | "pain_point"
+- themes: list of 1-3 theme strings
+- confidence: "high" | "medium" | "low"
+- key_quote: most insightful quote from the content (if any)
+"""
+            try:
+                response = await async_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "You are a research analyst extracting themes from user research. Respond with valid JSON only."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=500,
+                    response_format={"type": "json_object"}
+                )
+                result = json_module.loads(response.choices[0].message.content)
+            except Exception as e:
+                result = {
+                    "conversation_type": "research_insight",
+                    "themes": [],
+                    "confidence": "low",
+                    "error": str(e)
+                }
+
+            return {
+                "conversation_id": conv.id,
+                "created_at": conv.created_at,
+                "source_body": conv.text,
+                "source_type": "coda",
+                "source_url": conv.url,
+                "contact_email": conv.source_metadata.get("participant"),
+                "contact_id": None,
+                "data_source": "coda",
+                "source_metadata": conv.source_metadata,
+                "stage1_result": result,
+                "stage2_result": None,  # Research doesn't need Stage 2
+                "support_messages": [],
+                "resolution_signal": None,
+            }
+
+    tasks = [classify_coda_item(conv) for conv in normalized]
+    results = await asyncio.gather(*tasks)
+
+    elapsed = (datetime.now() - start_time).total_seconds()
+    print(f"  Classification complete in {elapsed:.1f}s")
+
+    # Stats
+    stats = {
+        "fetched": len(raw_items),
+        "classified": len(results),
+        "stored": 0,
+        "stage2_run": 0,
+        "classification_changed": 0,
+        "data_source": "coda",
+    }
+
+    # Store to database
+    if not dry_run:
+        print(f"\nPhase 4: Storing {len(results)} results...")
+        for i in range(0, len(results), batch_size):
+            batch = results[i:i + batch_size]
+            stored = store_classification_results_batch(batch)
+            stats["stored"] += stored
+            print(f"  Stored batch {i//batch_size + 1}: {stored} rows")
+
+    # Print summary
+    print(f"\n{'='*60}")
+    print(f"Coda Pipeline Complete")
+    print(f"{'='*60}")
+    print(f"Items fetched:     {stats['fetched']}")
+    print(f"Items classified:  {stats['classified']}")
+    if not dry_run:
+        print(f"Stored to database: {stats['stored']}")
+    print(f"Total time:        {elapsed:.1f}s")
+    print()
+
+    return stats
+
+
 def run_pipeline(
     days: int = 7,
     max_conversations: Optional[int] = None,
     dry_run: bool = False,
+    data_source: str = "intercom",
 ) -> Dict[str, int]:
     """
     Run the full two-stage classification pipeline (sync version).
@@ -541,6 +693,9 @@ def main():
                         help="Parallel API calls (async mode only)")
     parser.add_argument("--batch-size", type=int, default=50,
                         help="DB batch insert size")
+    parser.add_argument("--source", type=str, default="intercom",
+                        choices=["intercom", "coda"],
+                        help="Data source to process (default: intercom)")
 
     args = parser.parse_args()
 
@@ -551,12 +706,14 @@ def main():
             dry_run=args.dry_run,
             concurrency=args.concurrency,
             batch_size=args.batch_size,
+            data_source=args.source,
         ))
     else:
         run_pipeline(
             days=args.days,
             max_conversations=args.max,
             dry_run=args.dry_run,
+            data_source=args.source,
         )
 
 

@@ -181,6 +181,7 @@ class ThemeAggregate:
     ticket_id: Optional[str] = None
     ticket_excerpts: list[str] = None  # Excerpts already in ticket
     affected_conversations: list[str] = None
+    source_counts: dict = None  # {"intercom": N, "coda": M}
 
     def to_theme(self) -> Theme:
         """Convert aggregate to Theme for formatting."""
@@ -209,13 +210,17 @@ class ThemeTracker:
         """
         self.ticket_threshold = ticket_threshold
 
-    def store_theme(self, theme: Theme) -> bool:
+    def store_theme(self, theme: Theme, data_source: str = "intercom") -> bool:
         """
         Store a theme and update aggregates.
 
         Returns True if this is a new occurrence, False if duplicate.
         Uses the conversation's created_at date for first_seen_at/last_seen_at
         to track actual occurrence times, not processing times.
+
+        Args:
+            theme: The Theme to store
+            data_source: Source of the theme ("intercom" or "coda")
         """
         try:
             with get_connection() as conn:
@@ -238,8 +243,8 @@ class ThemeTracker:
                         INSERT INTO themes (
                             conversation_id, product_area, component, issue_signature,
                             user_intent, symptoms, affected_flow, root_cause_hypothesis,
-                            extracted_at
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            extracted_at, data_source
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (conversation_id) DO NOTHING
                         RETURNING id
                         """,
@@ -253,6 +258,7 @@ class ThemeTracker:
                             theme.affected_flow,
                             theme.root_cause_hypothesis,
                             theme.extracted_at,
+                            data_source,
                         )
                     )
                     result = cur.fetchone()
@@ -261,7 +267,7 @@ class ThemeTracker:
                         # Already exists
                         return False
 
-                    # Update or insert aggregate
+                    # Update or insert aggregate with source_counts tracking
                     # Uses LEAST/GREATEST to track actual first/last conversation dates
                     # Reuse the same component/product_area defaults from above
                     cur.execute(
@@ -270,8 +276,9 @@ class ThemeTracker:
                             issue_signature, product_area, component,
                             occurrence_count, first_seen_at, last_seen_at,
                             sample_user_intent, sample_symptoms,
-                            sample_affected_flow, sample_root_cause_hypothesis
-                        ) VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s)
+                            sample_affected_flow, sample_root_cause_hypothesis,
+                            source_counts
+                        ) VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s::jsonb)
                         ON CONFLICT (issue_signature) DO UPDATE SET
                             occurrence_count = theme_aggregates.occurrence_count + 1,
                             first_seen_at = LEAST(theme_aggregates.first_seen_at, EXCLUDED.first_seen_at),
@@ -279,7 +286,11 @@ class ThemeTracker:
                             sample_user_intent = EXCLUDED.sample_user_intent,
                             sample_symptoms = EXCLUDED.sample_symptoms,
                             sample_affected_flow = EXCLUDED.sample_affected_flow,
-                            sample_root_cause_hypothesis = EXCLUDED.sample_root_cause_hypothesis
+                            sample_root_cause_hypothesis = EXCLUDED.sample_root_cause_hypothesis,
+                            source_counts = COALESCE(theme_aggregates.source_counts, '{}'::jsonb)
+                                || jsonb_build_object(%s,
+                                    COALESCE((theme_aggregates.source_counts->>%s)::int, 0) + 1
+                                )
                         """,
                         (
                             theme.issue_signature,
@@ -291,21 +302,24 @@ class ThemeTracker:
                             json.dumps(theme.symptoms),
                             theme.affected_flow,
                             theme.root_cause_hypothesis,
+                            json.dumps({data_source: 1}),
+                            data_source,
+                            data_source,
                         )
                     )
 
-                    logger.info(f"Stored theme: {theme.issue_signature}")
+                    logger.info(f"Stored theme: {theme.issue_signature} (source: {data_source})")
                     return True
 
         except Exception as e:
             logger.error(f"Failed to store theme: {e}")
             raise
 
-    def store_batch(self, themes: list[Theme]) -> int:
+    def store_batch(self, themes: list[Theme], data_source: str = "intercom") -> int:
         """Store multiple themes. Returns count of new themes stored."""
         count = 0
         for theme in themes:
-            if self.store_theme(theme):
+            if self.store_theme(theme, data_source=data_source):
                 count += 1
         return count
 
@@ -321,7 +335,7 @@ class ThemeTracker:
                             occurrence_count, first_seen_at, last_seen_at,
                             sample_user_intent, sample_symptoms,
                             sample_affected_flow, sample_root_cause_hypothesis,
-                            ticket_created, ticket_id, ticket_excerpts
+                            ticket_created, ticket_id, ticket_excerpts, source_counts
                         FROM theme_aggregates
                         WHERE issue_signature = %s
                         """,
@@ -351,6 +365,10 @@ class ThemeTracker:
                     if isinstance(excerpts, str):
                         excerpts = json.loads(excerpts)
 
+                    source_counts = row[13]
+                    if isinstance(source_counts, str):
+                        source_counts = json.loads(source_counts)
+
                     return ThemeAggregate(
                         issue_signature=row[0],
                         product_area=row[1],
@@ -366,6 +384,7 @@ class ThemeTracker:
                         ticket_id=row[11],
                         ticket_excerpts=excerpts,
                         affected_conversations=conv_ids,
+                        source_counts=source_counts or {},
                     )
 
         except Exception as e:

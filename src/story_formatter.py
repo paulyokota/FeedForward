@@ -177,3 +177,184 @@ def build_story_name(category: str, count: int, suffix: str = "Review") -> str:
     """
     title = category.replace("_", " ").title()
     return f"[{count}] {title} - {suffix}"
+
+
+def format_multi_source_evidence(
+    intercom_samples: list[dict],
+    coda_samples: list[dict],
+    source_counts: dict,
+) -> str:
+    """
+    Format evidence from multiple sources for story description.
+
+    Creates a structured evidence section with quotes from both
+    Intercom support conversations and Coda research.
+
+    Args:
+        intercom_samples: List of Intercom conversation samples
+            - id: conversation ID
+            - email: customer email
+            - excerpt: conversation text
+            - created_at: timestamp
+        coda_samples: List of Coda research samples
+            - page_name: source page name
+            - participant: participant email
+            - excerpt: research quote
+            - theme_type: pain_point, feature_request, etc.
+        source_counts: Dict of counts per source {"intercom": N, "coda": M}
+
+    Returns:
+        Formatted markdown evidence section
+    """
+    lines = ["## Evidence\n"]
+
+    # Intercom section
+    intercom_count = source_counts.get("intercom", 0)
+    if intercom_count > 0 and intercom_samples:
+        lines.append(f"### From Support (Intercom) - {intercom_count} conversations\n")
+        for sample in intercom_samples[:5]:
+            email = sample.get("email", "Customer")
+            excerpt = sample.get("excerpt", "")[:200]
+            conv_id = sample.get("id", "")
+            intercom_url = f"https://app.intercom.com/a/apps/{INTERCOM_APP_ID}/inbox/inbox/conversation/{conv_id}"
+            lines.append(f"- [{email}]({intercom_url}): \"{excerpt}...\"")
+        lines.append("")
+
+    # Coda section
+    coda_count = source_counts.get("coda", 0)
+    if coda_count > 0 and coda_samples:
+        lines.append(f"### From Research (Coda) - {coda_count} interviews\n")
+        for sample in coda_samples[:5]:
+            participant = sample.get("participant", "Research participant")
+            excerpt = sample.get("excerpt", "")[:200]
+            theme_type = sample.get("theme_type", "insight")
+            page_name = sample.get("page_name", "")
+
+            # Format theme type as label
+            type_label = theme_type.replace("_", " ").title()
+            lines.append(f"- **{type_label}**: \"{excerpt}...\"")
+            if participant:
+                lines.append(f"  - From: {participant}")
+        lines.append("")
+
+    # Priority signal
+    if intercom_count > 0 and coda_count > 0:
+        lines.append("### Priority Signal\n")
+        lines.append("✅ **High Confidence** - Theme confirmed in both research interviews and support volume\n")
+    elif coda_count > 0:
+        lines.append("### Priority Signal\n")
+        lines.append("📊 **Strategic** - Theme from research interviews (proactive insight)\n")
+    elif intercom_count > 0:
+        lines.append("### Priority Signal\n")
+        lines.append("🎯 **Tactical** - Theme from support volume (reactive signal)\n")
+
+    return "\n".join(lines)
+
+
+def build_multi_source_description(
+    issue_signature: str,
+    product_area: str,
+    component: str,
+    total_count: int,
+    source_counts: dict,
+    intercom_samples: list[dict] = None,
+    coda_samples: list[dict] = None,
+    root_cause_hypothesis: str = None,
+    pipeline_name: str = "FeedForward Multi-Source Pipeline",
+) -> str:
+    """
+    Build story description with multi-source evidence.
+
+    Args:
+        issue_signature: Theme signature
+        product_area: Product area affected
+        component: Component affected
+        total_count: Total occurrences across all sources
+        source_counts: Dict of counts per source
+        intercom_samples: Intercom conversation samples
+        coda_samples: Coda research samples
+        root_cause_hypothesis: Analysis of root cause
+        pipeline_name: Name of generating pipeline
+
+    Returns:
+        Formatted markdown description
+    """
+    intercom_count = source_counts.get("intercom", 0)
+    coda_count = source_counts.get("coda", 0)
+
+    # Determine confidence level
+    if intercom_count > 0 and coda_count > 0:
+        confidence = "✅ High Confidence (Both Sources)"
+    elif coda_count > 0:
+        confidence = "📊 Strategic (Research Only)"
+    else:
+        confidence = "🎯 Tactical (Support Only)"
+
+    description = f"""## Theme Summary
+
+**Issue**: {issue_signature.replace('_', ' ').title()}
+**Product Area**: {product_area}
+**Component**: {component}
+**Total Reports**: {total_count}
+**Confidence**: {confidence}
+
+### Source Breakdown
+- Intercom (Support): {intercom_count} conversations
+- Coda (Research): {coda_count} interviews
+
+---
+
+"""
+
+    # Add multi-source evidence
+    evidence = format_multi_source_evidence(
+        intercom_samples=intercom_samples or [],
+        coda_samples=coda_samples or [],
+        source_counts=source_counts,
+    )
+    description += evidence
+
+    # Add root cause if available
+    if root_cause_hypothesis:
+        description += f"""
+---
+
+## Technical Context
+
+**Root Cause Hypothesis**: {root_cause_hypothesis}
+"""
+
+    description += f"""
+---
+
+## Acceptance Criteria
+
+- [ ] Root cause confirmed or updated
+- [ ] Fix addresses both support and research feedback
+- [ ] Regression testing on {product_area} functionality
+
+---
+*Generated by {pipeline_name}*
+"""
+    return description
+
+
+def get_priority_label(source_counts: dict) -> str:
+    """
+    Get priority label based on source presence.
+
+    Args:
+        source_counts: Dict of counts per source
+
+    Returns:
+        Priority label string
+    """
+    has_coda = source_counts.get("coda", 0) > 0
+    has_intercom = source_counts.get("intercom", 0) > 0
+
+    if has_coda and has_intercom:
+        return "high_confidence"
+    elif has_coda:
+        return "strategic"
+    else:
+        return "tactical"
