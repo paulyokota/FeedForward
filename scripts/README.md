@@ -4,7 +4,26 @@ This directory contains scripts for classification, validation, and testing.
 
 ---
 
-## Classification Pipeline
+## Pipeline Philosophy
+
+**Categories are routing tools, NOT the deliverable.**
+
+The classification pipeline (broad categories like `billing_question`, `product_issue`) exists only to help route conversations. The **real deliverable** is **themes** - specific, actionable issue signatures that map to implementation tickets.
+
+**Correct Pipeline Flow**:
+
+```
+Theme Extraction → Confidence Scoring → PM Review → Shortcut Stories
+      ↓                   ↓                ↓              ↓
+  (78 themes)       (quality gate)   (validation)   (deliverable)
+```
+
+Use `extract_themes_to_file.py` + `create_theme_stories.py` for production workflows.
+Use `classify_to_file.py` + `create_shortcut_stories.py` only for quick routing analysis.
+
+---
+
+## Classification Pipeline (Routing Only)
 
 ### Quick Start
 
@@ -81,7 +100,7 @@ Each sample excerpt in Shortcut stories follows this format (matching `theme_tra
 
 ---
 
-## Theme Extraction Pipeline (Recommended)
+## Theme Extraction Pipeline (PRIMARY - Use This)
 
 The theme extraction pipeline extracts **specific issue signatures** from conversations using our 78-theme vocabulary, NOT broad categories.
 

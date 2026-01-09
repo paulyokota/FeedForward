@@ -4,11 +4,23 @@
 
 FeedForward is an LLM-powered pipeline for analyzing Intercom conversations and extracting product insights.
 
+**Goal**: Create implementation-ready Shortcut stories from support conversations.
+
+**Key Insight**: Categories (billing_question, product_issue, etc.) are **routing tools only** - they help direct conversations but are NOT the end deliverable. The real output is **themes** - specific, actionable issue signatures that map to implementation tickets.
+
+**Pipeline Flow**:
+
+```
+Conversations → Classification (routing) → Theme Extraction → Confidence Scoring → PM Review → Shortcut Stories
+                     ↑                            ↓                    ↓              ↓
+               (routing tool)            (specific issues)    (quality gate)   (deliverable)
+```
+
 **Current Phase**:
 
-- Phase 1 (Two-Stage Classification): ✅ Complete
-- Phase 4 (Theme Extraction & Aggregation): ✅ Complete
-- Story Grouping Architecture: 🚧 In Progress (baseline established)
+- Phase 1 (Two-Stage Classification): ✅ Complete - routing categories
+- Phase 4 (Theme Extraction & Aggregation): ✅ Complete - specific themes
+- Story Grouping Architecture: 🚧 In Progress - PM review + story creation
 
 ## System Design
 
@@ -22,31 +34,49 @@ FeedForward is an LLM-powered pipeline for analyzing Intercom conversations and 
 │       Intercom API               │
 │  - Fetch conversations           │
 │  - Quality filtering (~50% pass) │
-│  - Extract source.url            │ ← NEW: URL context
+│  - Extract source.url            │
 └──────┬───────────────────────────┘
        │
        ▼
 ┌──────────────────────────────────┐
-│   Theme Extraction (LLM)         │
-│  - Vocabulary-guided matching    │
-│  - URL context boosting          │ ← NEW: Product area disambiguation
-│  - Signature canonicalization    │
+│   Classification (Routing Only)  │  ← Categories for routing, NOT deliverable
+│  - 8 broad categories            │
+│  - Fast routing decisions        │
+│  - Spam filtering                │
 └──────┬───────────────────────────┘
        │
        ▼
 ┌──────────────────────────────────┐
-│      Database (PostgreSQL)       │
-│  - Conversations                 │
-│  - Themes (aggregated)           │
-│  - Theme embeddings              │
+│   Theme Extraction (LLM)         │  ← THE DELIVERABLE: Specific themes
+│  - 78-theme vocabulary           │
+│  - URL context boosting          │
+│  - Specific issue signatures     │
+│  - e.g., pinterest_pin_failure   │
 └──────┬───────────────────────────┘
        │
        ▼
 ┌──────────────────────────────────┐
-│  Escalation & Routing (Future)   │
-│  - Auto-ticket creation          │
-│  - Team assignments              │
-│  - Slack alerts                  │
+│   Confidence Scoring             │  ← Quality gate for groupings
+│  - Semantic similarity (30%)     │
+│  - Intent homogeneity (15%)      │
+│  - Symptom overlap (10%)         │
+│  - Product/component match       │
+└──────┬───────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────┐
+│   PM Review Layer                │  ← Human-in-the-loop validation
+│  - "Same implementation ticket?" │
+│  - Sub-group creation            │
+│  - INVEST criteria enforcement   │
+└──────┬───────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────┐
+│   Shortcut Story Creation        │  ← FINAL OUTPUT
+│  - Implementation-ready stories  │
+│  - Linked sample conversations   │
+│  - PM reasoning included         │
 └──────────────────────────────────┘
 ```
 
