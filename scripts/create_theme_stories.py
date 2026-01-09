@@ -67,7 +67,16 @@ def load_env():
 
 
 def build_theme_story_description(signature: str, data: dict, total: int) -> str:
-    """Build Shortcut story description for a specific theme."""
+    """Build Shortcut story description optimized for issue resolution.
+
+    Structure follows bug report best practices:
+    1. Problem Statement (5-second understand)
+    2. Impact (why prioritize)
+    3. Trigger Context (when does this happen)
+    4. Investigation Paths (where to start)
+    5. Evidence (samples)
+    6. Acceptance Criteria (definition of done)
+    """
     pct = data["count"] / total * 100 if total > 0 else 0
 
     # Get product area and component from first sample
@@ -75,48 +84,104 @@ def build_theme_story_description(signature: str, data: dict, total: int) -> str
     product_area = first.get("product_area", "unknown")
     component = first.get("component", "unknown")
 
-    # Aggregate symptoms and user intents
+    # Aggregate data from all samples
     all_symptoms = []
     user_intents = set()
     root_causes = set()
+    affected_flows = set()
+    technical_indicators = []  # Error codes, API names, etc.
+
+    # Weak indicators to filter out
+    weak_indicators = ["not specified", "no error", "unknown", "not provided", "n/a"]
 
     for sample in data["samples"]:
         for s in sample.get("symptoms", []):
             if s and s not in all_symptoms:
                 all_symptoms.append(s)
+                # Extract technical indicators from symptoms (filter weak ones)
+                is_technical = any(kw in s.lower() for kw in ["error", "fail", "timeout", "401", "403", "404", "500", "api", "oauth"])
+                is_weak = any(w in s.lower() for w in weak_indicators)
+                if is_technical and not is_weak:
+                    technical_indicators.append(s)
         if sample.get("user_intent"):
             user_intents.add(sample["user_intent"])
         if sample.get("root_cause_hypothesis"):
             root_causes.add(sample["root_cause_hypothesis"])
+        if sample.get("affected_flow"):
+            affected_flows.add(sample["affected_flow"])
 
-    symptoms_md = "\n".join(f"- {s}" for s in all_symptoms[:10]) or "- No symptoms captured"
-    intents_md = "\n".join(f"- {i}" for i in list(user_intents)[:5]) or "- Not captured"
-    causes_md = "\n".join(f"- {c}" for c in list(root_causes)[:3]) or "- Needs investigation"
+    # Build problem statement from most common intent + top symptom
+    primary_intent = list(user_intents)[0] if user_intents else "use the feature"
+    # Clean up intent - remove verbose prefixes
+    primary_intent = primary_intent.replace("The user was trying to ", "").replace("The user is trying to ", "")
+    primary_intent = primary_intent.replace("The user wanted to ", "").replace("User wants to ", "")
+    primary_intent = primary_intent.lower().strip().rstrip(".")
+    primary_symptom = all_symptoms[0] if all_symptoms else "encountering issues"
+    problem_statement = f"Users trying to **{primary_intent}** are {primary_symptom.lower().rstrip('.')}."
 
-    description = f"""## Theme: {signature.replace('_', ' ').title()}
+    # Build trigger context from affected flows
+    flows_list = list(affected_flows)[:3]
+    trigger_context = ", ".join(flows_list) if flows_list else "Various user workflows"
 
-**Issue Signature**: `{signature}`
-**Product Area**: {product_area}
-**Component**: {component}
-**Occurrences**: {data['count']} ({pct:.1f}% of analyzed conversations)
+    # Build investigation paths from root causes
+    investigation_paths = []
+    for cause in list(root_causes)[:3]:
+        investigation_paths.append(f"- [ ] Check: {cause}")
+    if technical_indicators:
+        investigation_paths.append(f"- [ ] Review logs for: {', '.join(technical_indicators[:3])}")
+    if component != "unknown":
+        investigation_paths.append(f"- [ ] Inspect `{component}` component")
+    investigation_md = "\n".join(investigation_paths) if investigation_paths else "- [ ] Needs initial investigation"
+
+    # Build symptoms as user-reported vs technical
+    user_symptoms = [s for s in all_symptoms if not any(kw in s.lower() for kw in ["error", "fail", "api", "timeout"])]
+    tech_symptoms = [s for s in all_symptoms if any(kw in s.lower() for kw in ["error", "fail", "api", "timeout"])]
+
+    user_symptoms_md = "\n".join(f"- {s}" for s in user_symptoms[:5]) or "- No user symptoms captured"
+    tech_symptoms_md = "\n".join(f"- {s}" for s in tech_symptoms[:5]) if tech_symptoms else "- No technical errors reported"
+
+    # Build acceptance criteria
+    acceptance_criteria = []
+    if "failure" in signature or "error" in signature:
+        acceptance_criteria.append("- [ ] Error no longer occurs for reported scenarios")
+    if "request" in signature:
+        acceptance_criteria.append("- [ ] Feature/change is implemented and deployed")
+    acceptance_criteria.append("- [ ] Verified with at least one affected user/account")
+    acceptance_criteria.append("- [ ] No regression in related functionality")
+    acceptance_md = "\n".join(acceptance_criteria)
+
+    description = f"""## Problem Statement
+
+{problem_statement}
+
+| Metric | Value |
+|--------|-------|
+| **Occurrences** | {data['count']} reports ({pct:.1f}% of analyzed) |
+| **Product Area** | {product_area} |
+| **Component** | {component} |
+| **Trigger Context** | {trigger_context} |
 
 ---
 
-## User Intents
+## Investigation Paths
 
-{intents_md}
+Start here to diagnose:
 
-## Reported Symptoms
-
-{symptoms_md}
-
-## Root Cause Hypotheses
-
-{causes_md}
+{investigation_md}
 
 ---
 
-## Sample Customer Reports
+## Symptoms
+
+**What users report:**
+{user_symptoms_md}
+
+**Technical indicators:**
+{tech_symptoms_md}
+
+---
+
+## Evidence ({len(data['samples'])} samples)
 
 """
     for i, sample in enumerate(data["samples"][:5], 1):
@@ -131,18 +196,25 @@ def build_theme_story_description(signature: str, data: dict, total: int) -> str
             jarvis_user_url=sample.get("jarvis_user_url"),
         )
         affected_flow = sample.get("affected_flow", "Not specified")
-        description += f"### Report {i}\n{formatted}\n\n**Affected Flow**: {affected_flow}\n\n"
+        description += f"### Report {i}\n{formatted}\n\n**Flow**: {affected_flow}\n\n"
 
-    description += """---
+    description += f"""---
 
-## Review Checklist
-- [ ] Theme grouping is correct (similar root issues)
-- [ ] Symptoms accurately describe the problem
-- [ ] Root cause hypothesis is reasonable
-- [ ] Priority should be: ___
+## Acceptance Criteria
+
+This issue is resolved when:
+
+{acceptance_md}
 
 ---
-*Generated by FeedForward Theme Extraction Pipeline*
+
+<details>
+<summary>Metadata</summary>
+
+- **Issue Signature**: `{signature}`
+- **Generated by**: FeedForward Theme Extraction Pipeline
+
+</details>
 """
     return description
 
