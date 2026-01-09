@@ -7,7 +7,8 @@ FeedForward is an LLM-powered pipeline for analyzing Intercom conversations and 
 **Current Phase**:
 
 - Phase 1 (Two-Stage Classification): ✅ Complete
-- Phase 4 (Theme Extraction & Aggregation): 🚧 In Progress
+- Phase 4 (Theme Extraction & Aggregation): ✅ Complete
+- Story Grouping Architecture: 🚧 In Progress (baseline established)
 
 ## System Design
 
@@ -270,7 +271,115 @@ all other categories ──────────→ themselves
 - `scripts/evaluate_with_equivalence.py` - Evaluation script
 - `data/story_id_ground_truth.json` - Ground truth dataset
 
-### 8. Conversation Type Classification (Legacy)
+### 8. Vocabulary Feedback Loop (NEW - 2026-01-08)
+
+**Purpose**: Continuous monitoring for vocabulary drift and gap detection
+
+**Problem Solved**: As the product evolves, new features and product areas may emerge that aren't covered by the existing vocabulary. This system detects gaps before they become significant.
+
+**How It Works**:
+
+```
+Shortcut API (recent stories)
+        ↓
+Extract product areas & labels
+        ↓
+Compare against COVERED_PRODUCT_AREAS
+        ↓
+Generate gap report with priorities
+```
+
+**Usage**:
+
+```bash
+# Monthly check (recommended)
+python -m src.vocabulary_feedback --days 30
+
+# Quarterly check
+python -m src.vocabulary_feedback --days 90
+
+# Save to file
+python -m src.vocabulary_feedback --days 30 --output reports/vocab_feedback.md
+```
+
+**Coverage Status** (as of 2026-01-08):
+
+- 17 Shortcut product areas covered
+- 0 vocabulary gaps found
+- 100% coverage of ground truth dataset
+
+**Files**:
+
+- `src/vocabulary_feedback.py` - Feedback loop script
+- `prompts/phase5_final_report_2026-01-08.md` - Validation report
+
+### 9. Story Grouping Pipeline (NEW - 2026-01-08)
+
+**Purpose**: Create implementation-ready story groupings from classified conversations
+
+**Problem Solved**: Theme extraction groups conversations by `issue_signature`, but these aren't implementation-ready. Example: `instagram_oauth_multi_account` contained Pinterest, Instagram, AND Facebook issues - never in the same sprint ticket.
+
+**Architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 1: Theme Extraction (per-conversation)               │
+│  - Extract theme, symptoms, intent                          │
+│  - Initial signature assignment from vocabulary             │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 2: Initial Grouping + Confidence Scoring             │
+│  - Group by signature                                       │
+│  - Score each group (semantic similarity, overlap)          │
+│  - Sort by confidence DESC                                  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 3: PM/Tech Lead Review (iterative)                   │
+│  - "Same implementation ticket? If not, split how?"         │
+│  - Creates validated sub-groups                             │
+│  - Orphans (<3 convos) accumulate over time                 │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 4: Story Creation                                    │
+│  - Only from validated groups (≥3 conversations)            │
+│  - Include PM reasoning in description                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Confidence Scoring Signals** (calibrated):
+
+| Signal              | Weight | Description                    |
+| ------------------- | ------ | ------------------------------ |
+| Semantic similarity | 30%    | Embedding cosine similarity    |
+| Intent similarity   | 20%    | User intent embeddings         |
+| Intent homogeneity  | 15%    | Penalizes high variance        |
+| Symptom overlap     | 10%    | Jaccard similarity             |
+| Product area match  | 10%    | Boolean                        |
+| Component match     | 10%    | Boolean                        |
+| Platform uniformity | 5%     | Detects Pinterest/IG/FB mixing |
+
+**Validation Results** (ground truth comparison):
+
+| Metric             | Value      |
+| ------------------ | ---------- |
+| Pairwise Precision | 35.6%      |
+| Pairwise Recall    | 10.6%      |
+| Pure Groups        | 9/20 (45%) |
+
+**Key Finding**: Low recall is correct - humans group broadly for triage, we group narrowly for implementation per INVEST criteria.
+
+**Files**:
+
+- `src/confidence_scorer.py` - Confidence scoring
+- `scripts/run_pm_review_all.py` - PM review batch runner
+- `scripts/validate_grouping_accuracy.py` - Validation pipeline
+- `docs/story-grouping-architecture.md` - Full architecture doc
+- `docs/story-granularity-standard.md` - INVEST-based criteria
+
+### 10. Conversation Type Classification (Legacy)
 
 **Strategic Decision**: All-Support Strategy (2026-01-07)
 
@@ -359,6 +468,78 @@ Result: scheduling_failure_legacy (Legacy Publisher) ✓
 Without URL context → Could match any of 3 schedulers (ambiguous)
 ```
 
+## Performance Patterns
+
+### Async Classification Pipeline
+
+**File**: `src/two_stage_pipeline.py`
+
+The pipeline supports both sync and async modes:
+
+```bash
+# Sync mode (debugging, small batches)
+python -m src.two_stage_pipeline --days 7 --max 10
+
+# Async mode (production, ~10-20x faster)
+python -m src.two_stage_pipeline --async --days 30 --concurrency 20
+```
+
+**How It Works**:
+
+1. Fetch all conversations (sync - Intercom client limitation)
+2. Classify in parallel using `asyncio.gather()` with semaphore
+3. Batch insert results to database
+
+**Speedup**: ~10-20x for classification phase
+
+### Batch Database Operations
+
+**File**: `src/db/classification_storage.py`
+
+**Batch Inserts**: `store_classification_results_batch()`
+
+- Uses `psycopg2.extras.execute_values()` for bulk upserts
+- Single query for N rows instead of N queries
+- ~50x faster for batches of 50+
+
+**Consolidated Stats**: `get_classification_stats()`
+
+- Single CTE query instead of 8 separate queries
+- ~8x faster stats retrieval
+
+### Parallel Contact Fetching
+
+**File**: `src/intercom_client.py`
+
+```python
+# Old way (N+1 pattern - slow)
+for conv in conversations:
+    org_id = client.fetch_contact_org_id(conv.contact_id)  # 1 API call each
+
+# New way (batch - fast)
+contact_ids = [c.contact_id for c in conversations]
+org_id_map = client.fetch_contact_org_ids_batch_sync(contact_ids)  # Parallel
+for conv in conversations:
+    org_id = org_id_map.get(conv.contact_id)  # Dict lookup
+```
+
+**How It Works**:
+
+- `aiohttp` for async HTTP requests
+- Semaphore limits concurrency (default 20)
+- Deduplicates contact_ids automatically
+
+**Speedup**: ~50x for contact enrichment
+
+### Performance Summary
+
+| Operation                   | Before      | After     | Speedup |
+| --------------------------- | ----------- | --------- | ------- |
+| Classification (100 convos) | ~200s       | ~10-15s   | 10-20x  |
+| DB inserts (100 rows)       | 100 queries | 2 queries | 50x     |
+| Stats query                 | 8 queries   | 1 query   | 8x      |
+| Contact fetch (100)         | ~100s       | ~2-5s     | 20-50x  |
+
 ## Dependencies
 
 ### External Services
@@ -442,15 +623,20 @@ Optional:
 ✅ Conversation type classification schema (all-support strategy)
 ✅ Two-stage classification system (Phase 1)
 ✅ Equivalence class system for grouping (100% accuracy)
+✅ Phase 5 Ground Truth Validation (64.5% family accuracy)
+✅ Vocabulary feedback loop for drift monitoring
+✅ Story Grouping baseline (45% purity, validation pipeline)
 
 **In Progress**:
-🚧 Expanding theme vocabulary
+🚧 Story Grouping Pipeline
 
-- ⏳ Billing themes (7% of conversations - critical gap)
-- ⏳ Account/auth themes (20% of conversations)
-- ⏳ Onboarding/setup themes
-  🚧 Production deployment
-  🚧 Monitoring and metrics
+- ⏳ Improve scheduler symptom extraction (precision from 35.6% → 50%+)
+- ⏳ Add error code extraction for disambiguation
+- ⏳ Target 70%+ group purity
+- ⏳ Implement orphan persistence (accumulate over time)
+
+🚧 Production deployment
+🚧 Monitoring and metrics
 
 **Future**:
 ⏳ Escalation rules engine

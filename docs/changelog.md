@@ -10,6 +10,74 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Pipeline Performance Optimizations (2026-01-08)**:
+
+- Async classification pipeline (`src/two_stage_pipeline.py`)
+  - `run_pipeline_async()` with configurable concurrency (default 20 parallel)
+  - `--async` flag for production use, ~10-20x faster than sequential
+  - Semaphore-controlled API calls to prevent rate limiting
+- Batch database inserts (`src/db/classification_storage.py`)
+  - `store_classification_results_batch()` using `execute_values` for bulk upserts
+  - ~50x faster than individual inserts for large batches
+- Consolidated stats query (`src/db/classification_storage.py`)
+  - `get_classification_stats()` rewritten as single CTE query
+  - 8 queries → 1 query, ~8x faster
+- Parallel contact fetching (`src/intercom_client.py`)
+  - `fetch_contact_org_ids_batch()` async method with aiohttp
+  - `fetch_contact_org_ids_batch_sync()` wrapper for sync code
+  - ~50x faster than sequential `fetch_contact_org_id()` calls
+- Updated `scripts/classify_to_file.py` to use batch contact fetching
+
+**Story Grouping Architecture - Ground Truth Validation Complete (2026-01-08)**:
+
+- Story grouping validation pipeline (`scripts/validate_grouping_accuracy.py`)
+  - Compares pipeline groupings against human-labeled story_id ground truth
+  - Pairwise precision/recall metrics for grouping evaluation
+  - Group purity analysis (% from single human story)
+  - Baseline: 35.6% precision, 10.6% recall, 45% pure groups
+- Story granularity standard (`docs/story-granularity-standard.md`)
+  - INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable)
+  - "Same Story = Same Fix" rule for implementation-ready groupings
+  - Bug grouping criteria (duplicates vs related vs unrelated)
+  - Decision flowchart for group splitting
+- Confidence scoring system (`src/confidence_scorer.py`)
+  - Embedding similarity (30%), Intent similarity (20%), Intent homogeneity (15%)
+  - Symptom overlap (10%), Product/Component match (10% each), Platform uniformity (5%)
+  - Calibrated weights based on PM review correlation
+- PM review batch runner (`scripts/run_pm_review_all.py`)
+  - LLM validates: "Same implementation ticket? If not, split how?"
+  - Creates sub-groups with suggested signatures
+  - Orphan handling: sub-groups <3 accumulate over time
+- Story grouping architecture documentation (`docs/story-grouping-architecture.md`)
+  - 4-phase pipeline design (extraction → scoring → PM review → story creation)
+  - Validation results with quantitative metrics
+  - Target metrics: 70%+ purity, 50%+ precision
+
+**Phase 5 Ground Truth Validation - Vocabulary Feedback Loop (2026-01-08)**:
+
+- Vocabulary feedback loop script (`src/vocabulary_feedback.py`)
+  - Monitors Shortcut stories for new product areas not in vocabulary
+  - CLI: `python -m src.vocabulary_feedback --days 30`
+  - Generates gap reports with priority levels (high/medium/low)
+  - Zero vocabulary gaps found (100% coverage)
+- Ground truth validation pipeline (`scripts/phase5_*.py`)
+  - `phase5_load_ground_truth.py` - Load 195 conversations with story_id_v2
+  - `phase5_run_extraction.py` - Hybrid keyword + LLM extraction
+  - `phase5_compare_accuracy.py` - Calculate precision/recall metrics
+  - `phase5_vocabulary_gaps.py` - Identify missing themes
+  - `phase5_extraction_v2.py` - Iteration 2: Shortcut product names
+  - `phase5_extraction_v3.py` - Iteration 3: Context-aware extraction
+  - `phase5_accuracy_v2.py` - Family-based semantic matching
+- Comprehensive validation documentation:
+  - `prompts/phase5_ground_truth_validation.md` - Master specification
+  - `prompts/phase5_final_report_2026-01-08.md` - Final report
+  - `prompts/phase5_accuracy_report.md` - Accuracy breakdown
+  - `prompts/phase5_vocabulary_gaps.md` - Gap analysis
+  - `prompts/phase5_data_summary.md` - Dataset statistics
+- Family-based semantic matching for product area accuracy
+  - Groups similar products (scheduling family, ai_creation family)
+  - 64.5% accuracy (up from 44.8% exact match)
+
 **Classifier Improvement - 100% Grouping Accuracy (2026-01-08)**:
 
 - Equivalence class system for conversation grouping (`src/equivalence.py`)
