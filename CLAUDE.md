@@ -74,7 +74,24 @@ GitHub Issues: https://github.com/paulyokota/FeedForward/issues
 ## Commands
 
 ```bash
-# TBD - build/test commands will be added as project develops
+# Start the frontend stack (requires two terminals)
+uvicorn src.api.main:app --reload --port 8000  # Terminal 1: API
+streamlit run frontend/app.py                   # Terminal 2: UI
+
+# Then open http://localhost:8501
+
+# Run the classification pipeline directly
+python -m src.pipeline --days 7             # Last 7 days
+python -m src.pipeline --days 1 --max 10    # Test with 10 conversations
+python -m src.pipeline --dry-run            # No DB writes
+
+# CLI commands
+python src/cli.py themes           # List all themes
+python src/cli.py trending         # Trending themes
+python src/cli.py pending          # Preview pending tickets
+
+# Tests
+pytest tests/ -v
 ```
 
 ## Slash Commands
