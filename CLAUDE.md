@@ -125,6 +125,14 @@ Claudebase Developer Kit (`developer-kit@claudebase`) provides general-purpose d
 
 Use these for general development tasks. Our custom subagents above are FeedForward-specific.
 
+## Frontend Design Plugin
+
+`frontend-design` plugin from `@anthropics/claude-code-plugins` for UI development:
+
+- Use for Story Tracking Web App UI (board views, detail pages, forms)
+- Provides design system guidance and component patterns
+- Installed via: `npx claude-plugins install @anthropics/claude-code-plugins/frontend-design`
+
 ## Project Docs
 
 - `docs/architecture.md` - System design and components
