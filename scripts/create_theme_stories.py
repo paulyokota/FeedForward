@@ -220,9 +220,17 @@ def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, 
 
     total = sum(d["count"] for d in aggregated.values())
 
+    # Build conversation lookup by ID for sub-group handling
+    conv_by_id = {}
+    with open(input_file) as f:
+        for line in f:
+            r = json.loads(line)
+            conv_by_id[r["id"]] = r
+
     # Apply PM review decisions
     stories_to_create = []
     skipped_splits = []
+    orphan_conversations = []  # Sub-groups too small to create stories
 
     for sig, data in aggregated.items():
         if sig in ["spam", "error", "unknown"]:
@@ -231,10 +239,40 @@ def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, 
         review = pm_reviews.get(sig) if pm_reviews else None
 
         if review and review.get("decision") == "split":
-            # PM said split - skip creating story for original group
-            skipped_splits.append((sig, data["count"], review.get("reasoning", "")[:50]))
-            # TODO: In future, create stories for sub-groups with ≥min_count
-            continue
+            # PM said split - create stories for sub-groups instead
+            sub_groups = review.get("sub_groups", [])
+            original_count = data["count"]
+            sub_group_stories = 0
+
+            for sg in sub_groups:
+                sg_sig = sg.get("suggested_signature", "unknown")
+                sg_ids = sg.get("conversation_ids", [])
+                sg_rationale = sg.get("rationale", "")
+
+                # Get conversation data for this sub-group
+                sg_convs = [conv_by_id[cid] for cid in sg_ids if cid in conv_by_id]
+
+                if len(sg_convs) >= min_count:
+                    # Create story for this sub-group
+                    sg_data = {
+                        "count": len(sg_convs),
+                        "samples": sg_convs[:5],
+                        "rationale": sg_rationale,
+                        "parent_signature": sig,
+                    }
+                    stories_to_create.append((sg_sig, sg_data, "PM_SPLIT"))
+                    sub_group_stories += 1
+                else:
+                    # Too small - becomes orphan
+                    for conv in sg_convs:
+                        orphan_conversations.append({
+                            "conv": conv,
+                            "suggested_signature": sg_sig,
+                            "parent_signature": sig,
+                        })
+
+            skipped_splits.append((sig, original_count, f"Split into {len(sub_groups)} sub-groups, {sub_group_stories} stories"))
+
         elif review and review.get("decision") == "keep_together":
             # PM validated - create story
             if data["count"] >= min_count:
@@ -252,15 +290,24 @@ def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, 
     print(f"Input: {input_file}")
     print(f"Total conversations: {total}")
     print(f"Unique themes: {len(aggregated)}")
-    print(f"PM-validated stories to create: {len(sorted_themes)}")
-    print(f"Groups skipped (PM said SPLIT): {len(skipped_splits)}")
+    # Count by status
+    pm_validated = sum(1 for _, _, s in sorted_themes if s == "PM_VALIDATED")
+    pm_split = sum(1 for _, _, s in sorted_themes if s == "PM_SPLIT")
+    no_review = sum(1 for _, _, s in sorted_themes if s == "NO_REVIEW")
+
+    print(f"Stories to create: {len(sorted_themes)}")
+    print(f"  - PM_VALIDATED (kept together): {pm_validated}")
+    print(f"  - PM_SPLIT (sub-groups): {pm_split}")
+    print(f"  - NO_REVIEW (small/error): {no_review}")
+    print(f"Original groups split: {len(skipped_splits)}")
+    print(f"Orphan conversations (<{min_count} in sub-group): {len(orphan_conversations)}")
     print(f"Dry run: {dry_run}")
     print()
 
     if skipped_splits:
-        print("Skipped groups (need sub-group stories):")
+        print("Split groups → sub-group stories:")
         for sig, count, reason in sorted(skipped_splits, key=lambda x: -x[1])[:10]:
-            print(f"  [{count}] {sig}: {reason}...")
+            print(f"  [{count}] {sig}: {reason}")
         print()
 
     if not dry_run:
@@ -278,7 +325,7 @@ def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, 
         story_name = f"[{data['count']}] {title_sig}"
 
         if dry_run:
-            status_icon = "✓" if status == "PM_VALIDATED" else "○"
+            status_icon = {"PM_VALIDATED": "✓", "PM_SPLIT": "◆", "NO_REVIEW": "○"}.get(status, "?")
             print(f"{status_icon} Would create: {story_name}")
             print(f"  Type: {story_type}, Area: {product_area}, Status: {status}")
             print(f"  Samples: {len(data['samples'])}")
