@@ -184,6 +184,41 @@ def determine_story_type(signature: str, product_area: str) -> str:
     return "bug"
 
 
+def build_story_name(signature: str, count: int, story_type: str) -> str:
+    """Build verb-first story title following best practices.
+
+    Best practice: Titles should start with a verb (imperative command)
+    and be descriptive enough to understand without opening the ticket.
+    Test: "To complete this ticket, I need to $TICKET_TITLE"
+    """
+    title_sig = signature.replace("_", " ").title()
+
+    # Choose verb based on story type and signature content
+    if story_type == "bug":
+        if "failure" in signature or "error" in signature:
+            verb = "Fix"
+        elif "timeout" in signature or "crash" in signature:
+            verb = "Resolve"
+        else:
+            verb = "Investigate"
+    elif story_type == "feature":
+        if "request" in signature:
+            verb = "Implement"
+        elif "missing" in signature:
+            verb = "Add"
+        else:
+            verb = "Build"
+    else:  # chore
+        if "question" in signature or "guidance" in signature:
+            verb = "Document"
+        elif "deletion" in signature or "cancellation" in signature:
+            verb = "Process"
+        else:
+            verb = "Address"
+
+    return f"[{count}] {verb} {title_sig}"
+
+
 def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, skip_pm_review: bool = False):
     """Create Shortcut stories from PM-reviewed theme groups."""
     load_env()
@@ -320,9 +355,8 @@ def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, 
         product_area = first.get("product_area", "unknown")
         story_type = determine_story_type(signature, product_area)
 
-        # Create readable title
-        title_sig = signature.replace("_", " ").title()
-        story_name = f"[{data['count']}] {title_sig}"
+        # Create verb-first title following best practices
+        story_name = build_story_name(signature, data["count"], story_type)
 
         if dry_run:
             status_icon = {"PM_VALIDATED": "✓", "PM_SPLIT": "◆", "NO_REVIEW": "○"}.get(status, "?")
