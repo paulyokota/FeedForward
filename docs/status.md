@@ -10,28 +10,40 @@
 **Story Grouping Architecture: IN PROGRESS** 🚧
 **Frontend Dashboard: COMPLETE** ✅
 **Multi-Source Architecture: COMPLETE** ✅
-**Story Tracking Web App: SCAFFOLDING READY** 🚧
+**Story Tracking Web App: PHASE 1 COMPLETE** ✅
 
-## Latest: Story Tracking Web App Scaffolding (2026-01-09)
+## Latest: Story Tracking Web App - Logo & Theming Fix (2026-01-09)
 
 ### Session Summary
 
-Completed multi-source architecture implementation and scaffolded the Story Tracking Web App (system of record).
+Fixed FeedForward logo display for both light and dark themes in the Story Tracking Web App.
 
-### Multi-Source Architecture Results
+### What Was Done
 
-- **14,769 themes extracted** from Coda research repository
-- **9,675 synthesis rows** from 356 tables
-- Cross-source analytics with priority categorization:
-  - `high_confidence`: Theme in BOTH research AND support
-  - `strategic`: Research only (proactive insight)
-  - `tactical`: Support only (reactive signal)
+1. **Logo Trimming**: Trimmed logo from 1408×768 to 1397×262, removing excess whitespace
+2. **Transparent Background**: Made logo background transparent for clean display on any theme
+3. **Dark Mode Version**: Created `feedforward-logo-dark.png` with lightened "Feed" text (was too dark to see)
+4. **Theme-Aware Component**: Updated `FeedForwardLogo.tsx` to automatically switch logos based on theme
+5. **Next.js Image Fix**: Switched from Next.js `Image` to native `img` to avoid optimization issues with transparency
 
-### Story Tracking Web App Scaffolding
+### Files Modified/Created
 
-Branch: `feature/story-tracking-webapp`
+- `webapp/public/feedforward-logo.png` - Trimmed + transparent background
+- `webapp/public/feedforward-logo-dark.png` - Dark mode version with light text
+- `webapp/src/components/FeedForwardLogo.tsx` - Theme-aware logo switching
+- `webapp/src/app/globals.css` - Light theme fixes (neutral backgrounds, removed teal tints)
 
-**Database Schema** (`src/db/migrations/004_story_tracking_schema.sql`):
+---
+
+## Previous: Story Tracking Web App Phase 1 Complete (2026-01-09)
+
+### Session Summary
+
+Implemented Phase 1 of the Story Tracking Web App - read-only UI with story and evidence views.
+
+### What Was Built
+
+**Database** (migration applied):
 
 - `stories` - Canonical work items (system of record)
 - `story_comments` - Comments with source tracking
@@ -39,24 +51,65 @@ Branch: `feature/story-tracking-webapp`
 - `story_sync_metadata` - Bidirectional Shortcut sync state
 - `label_registry` - Shortcut taxonomy + internal labels
 
-**Service Layer** (`src/story_tracking/`):
+**Services** (`src/story_tracking/services/`):
 
-- Pydantic models for all entities
-- StoryService and EvidenceService stubs
-- Ready for Phase 1 implementation (read-only UI)
+- `StoryService` - Full CRUD, list, search, board view, status filtering
+- `EvidenceService` - Evidence management, conversation/theme linking
 
-**Plugin Installed**:
+**API Routes** (`src/api/routers/stories.py`):
 
-- `frontend-design` from `@anthropics/claude-code-plugins` for UI development
+- `GET /api/stories` - List with filters
+- `GET /api/stories/board` - Kanban grouped by status
+- `GET /api/stories/search` - Search by title/description
+- `GET /api/stories/{id}` - Detail with evidence
+- `POST /api/stories` - Create story
+- `PATCH /api/stories/{id}` - Update story
+- `DELETE /api/stories/{id}` - Delete story
+- Evidence endpoints for linking conversations/themes
 
-### Next Steps
+**UI Pages** (`frontend/pages/4_Stories.py`):
 
-1. Apply migration 004
-2. Implement StoryService.list() and .get()
-3. Add API routes for stories
-4. Build read-only UI (board view, detail view)
+- Board view (kanban by status)
+- List view (sortable table with filters)
+- Detail view (story + evidence tabs)
+- Search functionality
+- Quick status/priority updates
 
-See `docs/session/story-tracking-webapp-kickoff.md` for full implementation guide.
+**Tests** (`tests/test_story_tracking.py`):
+
+- 20 tests covering services and models
+- All passing with no warnings
+
+### Running the Story Tracking UI
+
+```bash
+# Terminal 1: Start API
+uvicorn src.api.main:app --reload --port 8000
+
+# Terminal 2: Start frontend
+streamlit run frontend/app.py
+
+# Open http://localhost:8501 → Stories page
+```
+
+### Phase 1 Rollout Status
+
+| Task                      | Status                   |
+| ------------------------- | ------------------------ |
+| Apply migration           | ✅ Complete              |
+| Implement StoryService    | ✅ Complete              |
+| Implement EvidenceService | ✅ Complete              |
+| Add API routes            | ✅ Complete              |
+| Build read-only UI        | ✅ Complete              |
+| Add tests                 | ✅ Complete (20 passing) |
+
+### Next Steps (Phase 2)
+
+1. Editable story fields in UI (full form)
+2. Comment creation
+3. Pipeline integration (auto-create candidate stories)
+
+See `docs/story-tracking-web-app-architecture.md` for full architecture.
 
 ---
 

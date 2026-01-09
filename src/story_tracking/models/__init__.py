@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StoryBase(BaseModel):
@@ -48,6 +48,8 @@ class StoryUpdate(BaseModel):
 class Story(StoryBase):
     """Full story response with all fields."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     confidence_score: Optional[float] = None
     evidence_count: int = 0
@@ -55,12 +57,11 @@ class Story(StoryBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class StoryComment(BaseModel):
     """Comment on a story."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     story_id: UUID
@@ -69,9 +70,6 @@ class StoryComment(BaseModel):
     body: str
     author: Optional[str] = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class CommentCreate(BaseModel):
@@ -92,6 +90,8 @@ class EvidenceExcerpt(BaseModel):
 class StoryEvidence(BaseModel):
     """Evidence bundle for a story."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     story_id: UUID
     conversation_ids: List[str] = Field(default_factory=list)
@@ -100,9 +100,6 @@ class StoryEvidence(BaseModel):
     excerpts: List[EvidenceExcerpt] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class EvidenceUpdate(BaseModel):
@@ -117,6 +114,8 @@ class EvidenceUpdate(BaseModel):
 class SyncMetadata(BaseModel):
     """Sync state with Shortcut."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     story_id: UUID
     shortcut_story_id: Optional[str] = None
     last_internal_update_at: Optional[datetime] = None
@@ -126,21 +125,17 @@ class SyncMetadata(BaseModel):
     last_sync_error: Optional[str] = None
     last_sync_direction: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
 
 class LabelRegistryEntry(BaseModel):
     """Label in the registry."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     label_name: str
     source: str  # 'shortcut' or 'internal'
     category: Optional[str] = None
     created_at: datetime
     last_seen_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # Response models for API

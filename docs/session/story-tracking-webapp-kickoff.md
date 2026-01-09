@@ -2,7 +2,7 @@
 
 **Branch**: `feature/story-tracking-webapp`
 **Architecture**: `docs/story-tracking-web-app-architecture.md`
-**Status**: Scaffolding complete, ready for implementation
+**Status**: Phase 1 COMPLETE (read-only UI with story + evidence views)
 
 ---
 
@@ -49,12 +49,12 @@ All methods raise `NotImplementedError` with clear TODOs.
 
 ## Rollout Plan (from architecture doc)
 
-| Phase | Description                              | Status   |
-| ----- | ---------------------------------------- | -------- |
-| 1     | Read-only UI with story + evidence views | **Next** |
-| 2     | Editable story fields in UI              | Future   |
-| 3     | Bidirectional Shortcut sync              | Future   |
-| 4     | Analytics enhancements                   | Future   |
+| Phase | Description                              | Status       |
+| ----- | ---------------------------------------- | ------------ |
+| 1     | Read-only UI with story + evidence views | **COMPLETE** |
+| 2     | Editable story fields in UI              | **Next**     |
+| 3     | Bidirectional Shortcut sync              | Future       |
+| 4     | Analytics enhancements                   | Future       |
 
 ---
 

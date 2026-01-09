@@ -4,13 +4,13 @@ Evidence Service
 Evidence bundles, conversation links, and source statistics.
 """
 
+import json
 import logging
 from typing import List, Optional
 from uuid import UUID
 
 from ..models import (
     StoryEvidence,
-    EvidenceUpdate,
     EvidenceExcerpt,
 )
 
@@ -31,12 +31,23 @@ class EvidenceService:
     def __init__(self, db_connection):
         self.db = db_connection
 
-    async def get_for_story(self, story_id: UUID) -> Optional[StoryEvidence]:
+    def get_for_story(self, story_id: UUID) -> Optional[StoryEvidence]:
         """Get evidence bundle for a story."""
-        # TODO: Implement
-        raise NotImplementedError("Next session: implement get_for_story")
+        with self.db.cursor() as cur:
+            cur.execute("""
+                SELECT id, story_id, conversation_ids, theme_signatures,
+                       source_stats, excerpts, created_at, updated_at
+                FROM story_evidence
+                WHERE story_id = %s
+            """, (str(story_id),))
+            row = cur.fetchone()
 
-    async def create_or_update(
+            if not row:
+                return None
+
+            return self._row_to_evidence(row)
+
+    def create_or_update(
         self,
         story_id: UUID,
         conversation_ids: List[str],
@@ -45,10 +56,67 @@ class EvidenceService:
         excerpts: List[EvidenceExcerpt],
     ) -> StoryEvidence:
         """Create or update evidence bundle for a story."""
-        # TODO: Implement
-        raise NotImplementedError("Next session: implement create_or_update")
+        excerpts_json = json.dumps([
+            {
+                "text": e.text,
+                "source": e.source,
+                "conversation_id": e.conversation_id,
+            }
+            for e in excerpts
+        ])
 
-    async def add_conversation(
+        with self.db.cursor() as cur:
+            # Check if evidence exists
+            cur.execute(
+                "SELECT id FROM story_evidence WHERE story_id = %s",
+                (str(story_id),)
+            )
+            existing = cur.fetchone()
+
+            if existing:
+                # Update existing
+                cur.execute("""
+                    UPDATE story_evidence
+                    SET conversation_ids = %s,
+                        theme_signatures = %s,
+                        source_stats = %s,
+                        excerpts = %s,
+                        updated_at = NOW()
+                    WHERE story_id = %s
+                    RETURNING id, story_id, conversation_ids, theme_signatures,
+                              source_stats, excerpts, created_at, updated_at
+                """, (
+                    conversation_ids,
+                    theme_signatures,
+                    json.dumps(source_stats),
+                    excerpts_json,
+                    str(story_id),
+                ))
+            else:
+                # Create new
+                cur.execute("""
+                    INSERT INTO story_evidence (
+                        story_id, conversation_ids, theme_signatures,
+                        source_stats, excerpts
+                    ) VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id, story_id, conversation_ids, theme_signatures,
+                              source_stats, excerpts, created_at, updated_at
+                """, (
+                    str(story_id),
+                    conversation_ids,
+                    theme_signatures,
+                    json.dumps(source_stats),
+                    excerpts_json,
+                ))
+
+            row = cur.fetchone()
+
+            # Update story counts
+            self._update_story_counts(cur, story_id)
+
+            return self._row_to_evidence(row)
+
+    def add_conversation(
         self,
         story_id: UUID,
         conversation_id: str,
@@ -56,27 +124,211 @@ class EvidenceService:
         excerpt: Optional[str] = None,
     ) -> StoryEvidence:
         """Add a single conversation to a story's evidence."""
-        # TODO: Implement
-        raise NotImplementedError("Next session: implement add_conversation")
+        with self.db.cursor() as cur:
+            # Get current evidence
+            cur.execute("""
+                SELECT id, conversation_ids, source_stats, excerpts
+                FROM story_evidence
+                WHERE story_id = %s
+            """, (str(story_id),))
+            row = cur.fetchone()
 
-    async def add_theme(self, story_id: UUID, theme_signature: str) -> StoryEvidence:
+            if row:
+                # Update existing evidence
+                conversation_ids = list(row["conversation_ids"] or [])
+                if conversation_id not in conversation_ids:
+                    conversation_ids.append(conversation_id)
+
+                source_stats = row["source_stats"] or {}
+                if isinstance(source_stats, str):
+                    source_stats = json.loads(source_stats)
+                source_stats[source] = source_stats.get(source, 0) + 1
+
+                excerpts_data = row["excerpts"] or []
+                if isinstance(excerpts_data, str):
+                    excerpts_data = json.loads(excerpts_data)
+
+                if excerpt:
+                    excerpts_data.append({
+                        "text": excerpt,
+                        "source": source,
+                        "conversation_id": conversation_id,
+                    })
+
+                cur.execute("""
+                    UPDATE story_evidence
+                    SET conversation_ids = %s,
+                        source_stats = %s,
+                        excerpts = %s,
+                        updated_at = NOW()
+                    WHERE story_id = %s
+                    RETURNING id, story_id, conversation_ids, theme_signatures,
+                              source_stats, excerpts, created_at, updated_at
+                """, (
+                    conversation_ids,
+                    json.dumps(source_stats),
+                    json.dumps(excerpts_data),
+                    str(story_id),
+                ))
+            else:
+                # Create new evidence
+                source_stats = {source: 1}
+                excerpts_data = []
+                if excerpt:
+                    excerpts_data.append({
+                        "text": excerpt,
+                        "source": source,
+                        "conversation_id": conversation_id,
+                    })
+
+                cur.execute("""
+                    INSERT INTO story_evidence (
+                        story_id, conversation_ids, theme_signatures,
+                        source_stats, excerpts
+                    ) VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id, story_id, conversation_ids, theme_signatures,
+                              source_stats, excerpts, created_at, updated_at
+                """, (
+                    str(story_id),
+                    [conversation_id],
+                    [],
+                    json.dumps(source_stats),
+                    json.dumps(excerpts_data),
+                ))
+
+            row = cur.fetchone()
+            self._update_story_counts(cur, story_id)
+            return self._row_to_evidence(row)
+
+    def add_theme(self, story_id: UUID, theme_signature: str) -> StoryEvidence:
         """Add a theme signature to a story's evidence."""
-        # TODO: Implement
-        raise NotImplementedError("Next session: implement add_theme")
+        with self.db.cursor() as cur:
+            cur.execute("""
+                SELECT id, theme_signatures
+                FROM story_evidence
+                WHERE story_id = %s
+            """, (str(story_id),))
+            row = cur.fetchone()
 
-    async def update_source_stats(
+            if row:
+                themes = list(row["theme_signatures"] or [])
+                if theme_signature not in themes:
+                    themes.append(theme_signature)
+
+                cur.execute("""
+                    UPDATE story_evidence
+                    SET theme_signatures = %s, updated_at = NOW()
+                    WHERE story_id = %s
+                    RETURNING id, story_id, conversation_ids, theme_signatures,
+                              source_stats, excerpts, created_at, updated_at
+                """, (themes, str(story_id)))
+            else:
+                cur.execute("""
+                    INSERT INTO story_evidence (
+                        story_id, conversation_ids, theme_signatures,
+                        source_stats, excerpts
+                    ) VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id, story_id, conversation_ids, theme_signatures,
+                              source_stats, excerpts, created_at, updated_at
+                """, (
+                    str(story_id),
+                    [],
+                    [theme_signature],
+                    json.dumps({}),
+                    json.dumps([]),
+                ))
+
+            row = cur.fetchone()
+            self._update_story_counts(cur, story_id)
+            return self._row_to_evidence(row)
+
+    def update_source_stats(
         self, story_id: UUID, source_stats: dict
-    ) -> StoryEvidence:
+    ) -> Optional[StoryEvidence]:
         """Update source statistics for a story."""
-        # TODO: Implement
-        raise NotImplementedError("Next session: implement update_source_stats")
+        with self.db.cursor() as cur:
+            cur.execute("""
+                UPDATE story_evidence
+                SET source_stats = %s, updated_at = NOW()
+                WHERE story_id = %s
+                RETURNING id, story_id, conversation_ids, theme_signatures,
+                          source_stats, excerpts, created_at, updated_at
+            """, (json.dumps(source_stats), str(story_id)))
+            row = cur.fetchone()
 
-    async def get_by_conversation(self, conversation_id: str) -> List[StoryEvidence]:
+            if not row:
+                return None
+
+            return self._row_to_evidence(row)
+
+    def get_by_conversation(self, conversation_id: str) -> List[StoryEvidence]:
         """Find all evidence bundles containing a conversation."""
-        # TODO: Implement
-        raise NotImplementedError("Next session: implement get_by_conversation")
+        with self.db.cursor() as cur:
+            cur.execute("""
+                SELECT id, story_id, conversation_ids, theme_signatures,
+                       source_stats, excerpts, created_at, updated_at
+                FROM story_evidence
+                WHERE %s = ANY(conversation_ids)
+            """, (conversation_id,))
+            rows = cur.fetchall()
+            return [self._row_to_evidence(row) for row in rows]
 
-    async def get_by_theme(self, theme_signature: str) -> List[StoryEvidence]:
+    def get_by_theme(self, theme_signature: str) -> List[StoryEvidence]:
         """Find all evidence bundles containing a theme."""
-        # TODO: Implement
-        raise NotImplementedError("Next session: implement get_by_theme")
+        with self.db.cursor() as cur:
+            cur.execute("""
+                SELECT id, story_id, conversation_ids, theme_signatures,
+                       source_stats, excerpts, created_at, updated_at
+                FROM story_evidence
+                WHERE %s = ANY(theme_signatures)
+            """, (theme_signature,))
+            rows = cur.fetchall()
+            return [self._row_to_evidence(row) for row in rows]
+
+    def _update_story_counts(self, cur, story_id: UUID) -> None:
+        """Update story counts from evidence."""
+        cur.execute("""
+            UPDATE stories s
+            SET
+                evidence_count = COALESCE((
+                    SELECT array_length(theme_signatures, 1)
+                    FROM story_evidence se
+                    WHERE se.story_id = s.id
+                ), 0),
+                conversation_count = COALESCE((
+                    SELECT array_length(conversation_ids, 1)
+                    FROM story_evidence se
+                    WHERE se.story_id = s.id
+                ), 0)
+            WHERE s.id = %s
+        """, (str(story_id),))
+
+    def _row_to_evidence(self, row: dict) -> StoryEvidence:
+        """Convert database row to StoryEvidence model."""
+        excerpts_data = row["excerpts"] or []
+        if isinstance(excerpts_data, str):
+            excerpts_data = json.loads(excerpts_data)
+
+        excerpts = [
+            EvidenceExcerpt(
+                text=e.get("text", ""),
+                source=e.get("source", "unknown"),
+                conversation_id=e.get("conversation_id"),
+            )
+            for e in excerpts_data
+        ]
+
+        source_stats = row["source_stats"] or {}
+        if isinstance(source_stats, str):
+            source_stats = json.loads(source_stats)
+
+        return StoryEvidence(
+            id=row["id"],
+            story_id=row["story_id"],
+            conversation_ids=row["conversation_ids"] or [],
+            theme_signatures=row["theme_signatures"] or [],
+            source_stats=source_stats,
+            excerpts=excerpts,
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )

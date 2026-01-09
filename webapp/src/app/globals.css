@@ -1,0 +1,418 @@
+@import "tailwindcss";
+
+/* ============================================
+   THEME SYSTEM - FeedForward Branding
+   - Dark theme (Teal Forward Dark) is default
+   - Light theme (Teal Forward Light) for light mode
+   - System option respects OS preference
+
+   Brand Colors:
+   - Primary Teal: #00B4D8 (logo "Forward" text)
+   - Teal Gradient: #0891b2 -> #22d3ee
+   - Slate Blue: #1E3A5F (logo "Feed" text)
+   ============================================ */
+
+:root {
+  /* Default to dark theme */
+  --bg-void: #020617;
+  --bg-primary: #0a1628;
+  --bg-surface: #132237;
+  --bg-elevated: #1c3049;
+  --bg-hover: #264060;
+  --bg-active: #2f4d73;
+
+  --border-subtle: rgba(34, 211, 238, 0.12);
+  --border-default: rgba(34, 211, 238, 0.2);
+  --border-strong: rgba(34, 211, 238, 0.35);
+
+  --text-primary: #f0f9ff;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-muted: #475569;
+
+  /* FeedForward Teal palette */
+  --accent-teal: #22d3ee;
+  --accent-teal-bright: #67e8f9;
+  --accent-teal-dim: rgba(34, 211, 238, 0.18);
+  --accent-slate: #1e3a5f;
+
+  /* Keep accent-blue as alias for compatibility */
+  --accent-blue: #22d3ee;
+  --accent-blue-dim: rgba(34, 211, 238, 0.18);
+
+  --accent-green: #34d399;
+  --accent-green-dim: rgba(52, 211, 153, 0.18);
+  --accent-amber: #fbbf24;
+  --accent-amber-dim: rgba(251, 191, 36, 0.18);
+  --accent-red: #f87171;
+  --accent-red-dim: rgba(248, 113, 113, 0.18);
+  --accent-purple: #a78bfa;
+  --accent-purple-dim: rgba(167, 139, 250, 0.18);
+
+  --priority-urgent: #f87171;
+  --priority-high: #fb923c;
+  --priority-medium: #fbbf24;
+  --priority-low: #64748b;
+
+  --status-candidate: #a78bfa;
+  --status-triaged: #22d3ee;
+  --status-in-progress: #fbbf24;
+  --status-done: #34d399;
+  --status-dismissed: #64748b;
+
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), "SF Mono", Monaco, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 24px rgba(34, 211, 238, 0.2);
+
+  /* Theme indicator for JS */
+  --theme-mode: dark;
+}
+
+/* ============================================
+   DARK THEME (Teal Forward Dark)
+   Deep slate with teal accents
+   ============================================ */
+[data-theme="dark"] {
+  --bg-void: #020617;
+  --bg-primary: #0a1628;
+  --bg-surface: #132237;
+  --bg-elevated: #1c3049;
+  --bg-hover: #264060;
+  --bg-active: #2f4d73;
+
+  --border-subtle: rgba(34, 211, 238, 0.12);
+  --border-default: rgba(34, 211, 238, 0.2);
+  --border-strong: rgba(34, 211, 238, 0.35);
+
+  --text-primary: #f0f9ff;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-muted: #475569;
+
+  --accent-teal: #22d3ee;
+  --accent-teal-bright: #67e8f9;
+  --accent-teal-dim: rgba(34, 211, 238, 0.18);
+  --accent-slate: #1e3a5f;
+
+  --accent-blue: #22d3ee;
+  --accent-blue-dim: rgba(34, 211, 238, 0.18);
+  --accent-green: #34d399;
+  --accent-green-dim: rgba(52, 211, 153, 0.18);
+  --accent-amber: #fbbf24;
+  --accent-amber-dim: rgba(251, 191, 36, 0.18);
+  --accent-red: #f87171;
+  --accent-red-dim: rgba(248, 113, 113, 0.18);
+  --accent-purple: #a78bfa;
+  --accent-purple-dim: rgba(167, 139, 250, 0.18);
+
+  --priority-urgent: #f87171;
+  --priority-high: #fb923c;
+  --priority-medium: #fbbf24;
+  --priority-low: #64748b;
+
+  --status-candidate: #a78bfa;
+  --status-triaged: #22d3ee;
+  --status-in-progress: #fbbf24;
+  --status-done: #34d399;
+  --status-dismissed: #64748b;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 24px rgba(34, 211, 238, 0.2);
+
+  --theme-mode: dark;
+}
+
+/* ============================================
+   LIGHT THEME (Teal Forward Light)
+   Clean neutral with teal accents, slate text
+   ============================================ */
+[data-theme="light"] {
+  --bg-void: #f8fafc;
+  --bg-primary: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f1f5f9;
+  --bg-hover: #e2e8f0;
+  --bg-active: #cbd5e1;
+
+  --border-subtle: rgba(100, 116, 139, 0.12);
+  --border-default: rgba(100, 116, 139, 0.2);
+  --border-strong: rgba(100, 116, 139, 0.35);
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #64748b;
+  --text-muted: #94a3b8;
+
+  --accent-teal: #0891b2;
+  --accent-teal-bright: #06b6d4;
+  --accent-teal-dim: rgba(8, 145, 178, 0.12);
+  --accent-slate: #1e3a5f;
+
+  --accent-blue: #0891b2;
+  --accent-blue-dim: rgba(8, 145, 178, 0.12);
+  --accent-green: #059669;
+  --accent-green-dim: rgba(5, 150, 105, 0.12);
+  --accent-amber: #d97706;
+  --accent-amber-dim: rgba(217, 119, 6, 0.12);
+  --accent-red: #dc2626;
+  --accent-red-dim: rgba(220, 38, 38, 0.12);
+  --accent-purple: #7c3aed;
+  --accent-purple-dim: rgba(124, 58, 237, 0.12);
+
+  --priority-urgent: #dc2626;
+  --priority-high: #ea580c;
+  --priority-medium: #d97706;
+  --priority-low: #64748b;
+
+  --status-candidate: #7c3aed;
+  --status-triaged: #0891b2;
+  --status-in-progress: #d97706;
+  --status-done: #059669;
+  --status-dismissed: #64748b;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-glow: none;
+
+  --theme-mode: light;
+}
+
+@theme inline {
+  --color-background: var(--bg-void);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+  /* Smooth theme transitions */
+  color-scheme: dark light;
+}
+
+body {
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* Dark theme noise texture */
+[data-theme="dark"] body {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-blend-mode: overlay;
+  background-size: 200px;
+}
+
+/* Light theme subtle pattern */
+[data-theme="light"] body {
+  background-image: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-elevated);
+  border-radius: 5px;
+  border: 2px solid var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-hover);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-blue);
+  color: var(--bg-void);
+}
+
+[data-theme="light"] ::selection {
+  color: white;
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+/* Card surface */
+.story-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.story-card:hover {
+  transform: translateY(-2px);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+}
+
+/* Light theme card adjustments */
+[data-theme="light"] .story-card {
+  border: 1px solid var(--border-default);
+}
+
+[data-theme="light"] .story-card:hover {
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
+}
+
+/* Kanban columns */
+.kanban-column {
+  min-width: 300px;
+  max-width: 340px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+[data-theme="light"] .kanban-column {
+  background: #ffffff;
+  border: 1px solid var(--border-default);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Tab active state */
+.tab-active {
+  position: relative;
+  color: var(--text-primary) !important;
+}
+
+.tab-active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-blue);
+  border-radius: 2px 2px 0 0;
+}
+
+/* Subtle fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+/* Staggered children */
+.stagger-children > * {
+  opacity: 0;
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 160ms;
+}
+.stagger-children > *:nth-child(6) {
+  animation-delay: 200ms;
+}
+.stagger-children > *:nth-child(7) {
+  animation-delay: 240ms;
+}
+.stagger-children > *:nth-child(8) {
+  animation-delay: 280ms;
+}
+
+/* Badge styling */
+.priority-badge,
+.status-badge {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Interactive elements */
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Links */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-blue);
+}
+
+/* Theme toggle animation */
+@keyframes rotateIn {
+  from {
+    transform: rotate(-90deg);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.theme-icon {
+  animation: rotateIn 0.3s ease-out;
+}
