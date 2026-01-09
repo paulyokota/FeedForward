@@ -10,6 +10,44 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Coda Research Repository Integration (2026-01-09)**:
+
+- Coda API credentials configured (`.env`)
+  - `CODA_API_KEY` - API authentication
+  - `CODA_DOC_ID` - Tailwind Research Ops document (`c4RRJ_VLtW`)
+- Comprehensive repository analysis (`docs/coda-research-repo.md`)
+  - 100 pages explored (hierarchical canvas content)
+  - 100 tables with structured research data (synthesis, call trackers, surveys)
+  - AI Summary pages (27) with synthesized user research insights
+  - Discovery Learnings page with JTBD framework
+  - Bank of Research Questions with product priorities
+- Content extraction via `/pages/{id}/content` API endpoint
+  - Structured markdown parsing (headings, bullets, paragraphs)
+  - User quotes, proto-personas, pain points, feature requests
+- Theme extraction strategy documented
+  - Maps to existing FeedForward theme types
+  - Integrates with Intercom-sourced themes
+
+**FastAPI + Streamlit Frontend (2026-01-09)**:
+
+- FastAPI backend (`src/api/`)
+  - `main.py` - App entrypoint with CORS, 19 routes
+  - `deps.py` - Database dependency injection with RealDictCursor
+  - `routers/health.py` - Health checks (`/health`, `/health/db`, `/health/full`)
+  - `routers/analytics.py` - Dashboard metrics (`/api/analytics/dashboard`, `/stats`)
+  - `routers/pipeline.py` - Pipeline control (`/api/pipeline/run`, `/status/{id}`, `/history`, `/active`)
+  - `routers/themes.py` - Theme browsing (`/api/themes/trending`, `/orphans`, `/singletons`, `/all`, `/{signature}`)
+  - `schemas/` - Pydantic models for all endpoints
+- Streamlit frontend (`frontend/`)
+  - `app.py` - Main entry with API health check
+  - `api_client.py` - FeedForwardAPI wrapper class
+  - `pages/1_Dashboard.py` - Metrics overview, classification charts, recent runs
+  - `pages/2_Pipeline.py` - Run configuration form, status polling, history table
+  - `pages/3_Themes.py` - Trending/orphan/singleton tabs, filtering, detail view
+  - `README.md` - Frontend documentation
+- Updated `requirements.txt` with FastAPI and uvicorn dependencies
+- Architecture documentation (`docs/architecture.md` Section 12)
+
 **Signature Tracking System (2026-01-09)**:
 
 - Signature utilities module (`src/signature_utils.py`)

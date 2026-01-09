@@ -8,6 +8,180 @@
 **Classifier Improvement Project: COMPLETE** ✅
 **Phase 5 (Ground Truth Validation): COMPLETE** ✅
 **Story Grouping Architecture: IN PROGRESS** 🚧
+**Frontend Dashboard: COMPLETE** ✅
+
+## Latest: Multi-Source Architecture Planning (2026-01-09)
+
+### Session Summary
+
+Developed comprehensive multi-source theme architecture plan integrating Coda research data with existing Intercom support pipeline.
+
+### Core Insight
+
+**Research and support are complementary, not substitutes:**
+
+| Source   | Sample | Depth   | Signal                  |
+| -------- | ------ | ------- | ----------------------- |
+| Research | Small  | Deep    | "What should we build?" |
+| Support  | Large  | Shallow | "What's broken now?"    |
+
+### Design Decisions Made
+
+| Decision            | Choice                    | Rationale                                |
+| ------------------- | ------------------------- | ---------------------------------------- |
+| Directory structure | `src/adapters/`           | Adapter pattern is precise               |
+| Import scripts      | Split (ai_summaries, etc) | Granular control, easier debugging       |
+| Analytics location  | `src/analytics/`          | Separation of concerns                   |
+| Story updates       | `src/story_formatter.py`  | Formatting belongs with formatter module |
+
+### Documentation Created/Updated
+
+- `docs/multi-source/multi-source-architecture-ralph.md` - Detailed 7-phase implementation spec
+- `docs/multi-source/multi-source-phases-overview.md` - Quick reference guide
+- Plan file with strategic context and value propositions
+
+### Next Steps
+
+See `docs/multi-source/` for full implementation plan (Phases 0-7).
+
+---
+
+## Previous: Coda Research Repository Exploration (2026-01-09)
+
+### Objective
+
+Explore Coda research repository as a future data source for multi-source theme extraction.
+
+### Findings
+
+**Repository**: Tailwind Research Ops (`c4RRJ_VLtW`)
+
+**Structure**:
+
+- 100 pages (hierarchical canvas pages with rich text)
+- 100 tables with structured research data
+- Content accessible via Coda API (`/pages/{id}/content`, `/tables/{id}/rows`)
+
+**High-Value Content Sources**:
+
+| Source                       | Count | Value  | Ready |
+| ---------------------------- | ----- | ------ | ----- |
+| AI Summary pages (populated) | 5-10  | HIGH   | Yes   |
+| Research Synthesis tables    | 4+    | HIGH   | Yes   |
+| Discovery Learnings page     | 1     | HIGH   | Yes   |
+| Call Tracker tables          | 2+    | HIGH   | Yes   |
+| Research Questions page      | 1     | MEDIUM | Yes   |
+
+**Sample Content Quality** (from jfahey interview AI Summary):
+
+- User quotes with specific pain points
+- Proto-personas with characteristics
+- Feature requests framed as problems
+- Workflow friction analysis
+
+**Extractable Theme Types**:
+
+- Pain points (user quotes)
+- Feature requests (framed as problems)
+- Workflow friction (detailed analysis)
+- User needs/jobs-to-be-done
+- Usability issues
+
+### Documentation Created
+
+- `docs/coda-research-repo.md` - Comprehensive analysis of repository structure, content types, and extraction strategy
+
+### Next Steps for Coda Integration
+
+1. **Build Coda client** (`src/coda_client.py`)
+   - Fetch pages by type (AI Summary, Learnings)
+   - Parse structured content
+   - Extract quotes and insights
+
+2. **Create theme extractor** for Coda content
+   - Map Coda sections to theme types
+   - Extract user quotes as evidence
+   - Classify by product area
+
+3. **Integrate with pipeline**
+   - Add Coda as data source
+   - Merge with Intercom themes
+   - Track source attribution
+
+---
+
+## Previous: FastAPI + Streamlit Frontend (2026-01-09)
+
+### What Was Built
+
+**Operational dashboard** for pipeline visibility:
+
+- **FastAPI backend** with 19 REST endpoints
+- **Streamlit frontend** with 3 pages (Dashboard, Pipeline, Themes)
+
+### Running the Stack
+
+```bash
+# Terminal 1: Start API
+uvicorn src.api.main:app --reload --port 8000
+
+# Terminal 2: Start frontend
+streamlit run frontend/app.py
+```
+
+Then open http://localhost:8501
+
+### API Endpoints
+
+| Category  | Endpoints                                                                 |
+| --------- | ------------------------------------------------------------------------- |
+| Health    | `/health`, `/health/db`, `/health/full`                                   |
+| Analytics | `/api/analytics/dashboard`, `/api/analytics/stats`                        |
+| Pipeline  | `/api/pipeline/run`, `/status/{id}`, `/history`, `/active`                |
+| Themes    | `/api/themes/trending`, `/orphans`, `/singletons`, `/all`, `/{signature}` |
+
+API docs at http://localhost:8000/docs
+
+### Frontend Pages
+
+| Page      | Features                                                   |
+| --------- | ---------------------------------------------------------- |
+| Dashboard | Metrics overview, classification distribution, recent runs |
+| Pipeline  | Run configuration form, status polling, history table      |
+| Themes    | Trending/orphan/singleton tabs, filtering, detail view     |
+
+### Architecture Decision
+
+Chose **FastAPI + Streamlit** over Streamlit-only because:
+
+- API layer survives frontend changes
+- Enables future CLI/mobile clients
+- Clean separation of concerns
+- Supports future multi-source ingestion (research repos)
+
+### Files Created
+
+```
+src/api/                    # FastAPI backend
+├── main.py                 # App entrypoint (19 routes)
+├── deps.py                 # DB dependencies
+├── routers/
+│   ├── health.py           # Health checks
+│   ├── analytics.py        # Dashboard metrics
+│   ├── pipeline.py         # Run/status/history
+│   └── themes.py           # Trending/orphans
+└── schemas/                # Pydantic models
+
+frontend/                   # Streamlit frontend
+├── app.py                  # Main entry
+├── api_client.py           # API wrapper
+└── pages/
+    ├── 1_Dashboard.py
+    ├── 2_Pipeline.py
+    └── 3_Themes.py
+```
+
+---
 
 ## Latest: Signature Tracking System Complete (2026-01-09)
 

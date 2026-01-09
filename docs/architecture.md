@@ -798,6 +798,165 @@ Optional:
 - `tools/test_url_context_live.py` - Live data validation
 - `tools/theme_labeler.py` - Streamlit UI for manual labeling
 
+### 12. API and Frontend Layer (NEW - 2026-01-09)
+
+**Purpose**: Operational visibility into the pipeline - kick off runs, check status, browse themes.
+
+**Architecture Decision**: FastAPI backend + Streamlit frontend because:
+
+- API layer survives frontend changes
+- Enables future CLI/mobile clients
+- Supports future multi-source ingestion (research repos beyond Intercom)
+
+**System Design**:
+
+```
+┌─────────────────────┐     ┌─────────────────────┐
+│  Streamlit Frontend │────►│   FastAPI Backend   │
+│  (localhost:8501)   │     │   (localhost:8000)  │
+│                     │     │                     │
+│  - Dashboard        │     │  - /api/analytics   │
+│  - Pipeline         │     │  - /api/pipeline    │
+│  - Themes           │     │  - /api/themes      │
+└─────────────────────┘     └──────────┬──────────┘
+                                       │
+                                       ▼
+                            ┌─────────────────────┐
+                            │     PostgreSQL      │
+                            │  conversations      │
+                            │  themes             │
+                            │  pipeline_runs      │
+                            └─────────────────────┘
+```
+
+**API Endpoints (19 total)**:
+
+| Category  | Endpoints                                                                 |
+| --------- | ------------------------------------------------------------------------- |
+| Health    | `/health`, `/health/db`, `/health/full`                                   |
+| Analytics | `/api/analytics/dashboard`, `/api/analytics/stats`                        |
+| Pipeline  | `/api/pipeline/run`, `/status/{id}`, `/history`, `/active`                |
+| Themes    | `/api/themes/trending`, `/orphans`, `/singletons`, `/all`, `/{signature}` |
+
+**Frontend Pages**:
+
+| Page      | Purpose                                             |
+| --------- | --------------------------------------------------- |
+| Dashboard | Metrics overview, classification distribution, runs |
+| Pipeline  | Run configuration, status polling, history          |
+| Themes    | Trending/orphan/singleton tabs, filtering           |
+
+**Files**:
+
+```
+src/api/
+├── main.py           # FastAPI app (19 routes)
+├── deps.py           # DB dependency injection
+├── routers/
+│   ├── health.py     # Health checks
+│   ├── analytics.py  # Dashboard metrics
+│   ├── pipeline.py   # Run/status/history
+│   └── themes.py     # Trending/orphans
+└── schemas/          # Pydantic models
+
+frontend/
+├── app.py            # Streamlit entry
+├── api_client.py     # API wrapper
+└── pages/
+    ├── 1_Dashboard.py
+    ├── 2_Pipeline.py
+    └── 3_Themes.py
+```
+
+**Running**:
+
+```bash
+# Terminal 1
+uvicorn src.api.main:app --reload --port 8000
+
+# Terminal 2
+streamlit run frontend/app.py
+
+# Then open http://localhost:8501
+```
+
+API docs at http://localhost:8000/docs
+
+---
+
+### 13. Multi-Source Data Integration: Coda (NEW - 2026-01-09)
+
+**Purpose**: Extend theme extraction beyond Intercom to include UX research data from Coda.
+
+**Data Source**: Tailwind Research Ops (`c4RRJ_VLtW`)
+
+**Content Types**:
+
+| Type                | Count               | Content                                          | Value  |
+| ------------------- | ------------------- | ------------------------------------------------ | ------ |
+| AI Summary          | 27 (5-10 populated) | Synthesized interview insights, quotes, personas | HIGH   |
+| Discovery Learnings | 1                   | JTBD framework, MVP priorities                   | HIGH   |
+| Research Questions  | 1                   | Product research priorities                      | MEDIUM |
+| Debrief/Notes       | 16                  | Templates (mostly unfilled)                      | LOW    |
+
+**Architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Coda Research Repository                                   │
+│  - AI Summaries (user interviews)                          │
+│  - Discovery Learnings (synthesized insights)              │
+│  - Research Questions (product priorities)                  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Coda Client (src/coda_client.py - planned)                │
+│  - Fetch pages by type                                     │
+│  - Parse structured content                                │
+│  - Extract quotes and insights                             │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Theme Extraction                                          │
+│  - Map Coda sections to theme types                        │
+│  - Extract user quotes as evidence                         │
+│  - Classify by product area                                │
+│  - Merge with Intercom-sourced themes                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Extractable Theme Types**:
+
+| Theme Type        | Coda Source                  | Example                                                  |
+| ----------------- | ---------------------------- | -------------------------------------------------------- |
+| Pain Point        | AI Summary quotes            | "I have to pick the board manually for every single pin" |
+| Feature Request   | AI Summary feature sections  | "Help me generate descriptions in-app"                   |
+| Workflow Friction | AI Summary workflow sections | "20 tab switches per minute"                             |
+| User Need/Job     | Discovery Learnings          | "Knowing how much work I have done/left to do"           |
+
+**API Access**:
+
+```python
+# Get page content
+GET /docs/{doc_id}/pages/{page_id}/content
+
+# Returns structured content with:
+# - style: h1, h2, h3, paragraph, bulletedListItem
+# - content: Plain text
+# - lineLevel: Indentation
+```
+
+**Configuration** (`.env`):
+
+```
+CODA_API_KEY=<api_key>
+CODA_DOC_ID=c4RRJ_VLtW
+```
+
+**Documentation**: `docs/coda-research-repo.md`
+
+---
+
 ## Current Status
 
 **Implemented**:
@@ -813,6 +972,8 @@ Optional:
 ✅ Phase 5 Ground Truth Validation (64.5% family accuracy)
 ✅ Vocabulary feedback loop for drift monitoring
 ✅ Story Grouping baseline (45% purity, validation pipeline)
+✅ FastAPI + Streamlit frontend (19 API endpoints, 3 UI pages)
+✅ Coda research repository exploration (API access verified, content analyzed)
 
 **In Progress**:
 🚧 Story Grouping Pipeline
@@ -826,6 +987,8 @@ Optional:
 🚧 Monitoring and metrics
 
 **Future**:
+⏳ Coda client implementation (`src/coda_client.py`)
+⏳ Multi-source theme extraction (Intercom + Coda)
 ⏳ Escalation rules engine
 ⏳ Auto-ticket creation (Shortcut integration)
 ⏳ Slack alerts
