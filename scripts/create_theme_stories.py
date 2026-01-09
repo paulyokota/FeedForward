@@ -220,27 +220,55 @@ def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, 
 
     total = sum(d["count"] for d in aggregated.values())
 
-    # Filter by min_count and sort
-    filtered = [(sig, data) for sig, data in aggregated.items()
-                if data["count"] >= min_count and sig not in ["spam", "error", "unknown"]]
-    sorted_themes = sorted(filtered, key=lambda x: x[1]["count"], reverse=True)
+    # Apply PM review decisions
+    stories_to_create = []
+    skipped_splits = []
+
+    for sig, data in aggregated.items():
+        if sig in ["spam", "error", "unknown"]:
+            continue
+
+        review = pm_reviews.get(sig) if pm_reviews else None
+
+        if review and review.get("decision") == "split":
+            # PM said split - skip creating story for original group
+            skipped_splits.append((sig, data["count"], review.get("reasoning", "")[:50]))
+            # TODO: In future, create stories for sub-groups with ≥min_count
+            continue
+        elif review and review.get("decision") == "keep_together":
+            # PM validated - create story
+            if data["count"] >= min_count:
+                stories_to_create.append((sig, data, "PM_VALIDATED"))
+        else:
+            # No PM review for this group (smaller groups) - create if meets threshold
+            if data["count"] >= min_count:
+                stories_to_create.append((sig, data, "NO_REVIEW"))
+
+    sorted_themes = sorted(stories_to_create, key=lambda x: x[1]["count"], reverse=True)
 
     print(f"\n{'='*60}")
-    print("Creating Shortcut Stories from Theme Extractions")
+    print("Creating Shortcut Stories from PM-Reviewed Themes")
     print(f"{'='*60}")
     print(f"Input: {input_file}")
     print(f"Total conversations: {total}")
     print(f"Unique themes: {len(aggregated)}")
-    print(f"Themes with >= {min_count} occurrences: {len(sorted_themes)}")
+    print(f"PM-validated stories to create: {len(sorted_themes)}")
+    print(f"Groups skipped (PM said SPLIT): {len(skipped_splits)}")
     print(f"Dry run: {dry_run}")
     print()
+
+    if skipped_splits:
+        print("Skipped groups (need sub-group stories):")
+        for sig, count, reason in sorted(skipped_splits, key=lambda x: -x[1])[:10]:
+            print(f"  [{count}] {sig}: {reason}...")
+        print()
 
     if not dry_run:
         backlog_state_id = get_backlog_state_id(headers)
 
     stories_created = []
 
-    for signature, data in sorted_themes:
+    for signature, data, status in sorted_themes:
         first = data["samples"][0] if data["samples"] else {}
         product_area = first.get("product_area", "unknown")
         story_type = determine_story_type(signature, product_area)
@@ -250,8 +278,9 @@ def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, 
         story_name = f"[{data['count']}] {title_sig}"
 
         if dry_run:
-            print(f"Would create: {story_name}")
-            print(f"  Type: {story_type}, Area: {product_area}")
+            status_icon = "✓" if status == "PM_VALIDATED" else "○"
+            print(f"{status_icon} Would create: {story_name}")
+            print(f"  Type: {story_type}, Area: {product_area}, Status: {status}")
             print(f"  Samples: {len(data['samples'])}")
             print()
         else:
