@@ -28,6 +28,18 @@ Format: [ISO Date] - Summary of changes
   - ~50x faster than sequential `fetch_contact_org_id()` calls
 - Updated `scripts/classify_to_file.py` to use batch contact fetching
 
+**Story Formatter Consolidation (2026-01-08)**:
+
+- Single source of truth for Shortcut story formatting (`src/story_formatter.py`)
+  - `format_excerpt()` - Standardized excerpt with linked metadata
+  - `build_story_description()` - Complete story description builder
+  - `build_story_name()` - Consistent story naming: `[count] Category - suffix`
+  - `get_story_type()` - Category to type mapping (bug/feature/chore)
+- Updated `scripts/create_shortcut_stories.py` to import from shared module
+- Updated `scripts/create_theme_stories.py` to import from shared module
+- Updated `scripts/README.md` with source of truth reference
+- Prevents format drift across story creation scripts
+
 **Story Grouping Architecture - Ground Truth Validation Complete (2026-01-08)**:
 
 - Story grouping validation pipeline (`scripts/validate_grouping_accuracy.py`)
