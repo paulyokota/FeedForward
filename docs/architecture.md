@@ -4,10 +4,23 @@
 
 FeedForward is an LLM-powered pipeline for analyzing Intercom conversations and extracting product insights.
 
+**Goal**: Create implementation-ready Shortcut stories from support conversations.
+
+**Key Insight**: Categories (billing_question, product_issue, etc.) are **routing tools only** - they help direct conversations but are NOT the end deliverable. The real output is **themes** - specific, actionable issue signatures that map to implementation tickets.
+
+**Pipeline Flow**:
+
+```
+Conversations → Classification (routing) → Theme Extraction → Confidence Scoring → PM Review → Shortcut Stories
+                     ↑                            ↓                    ↓              ↓
+               (routing tool)            (specific issues)    (quality gate)   (deliverable)
+```
+
 **Current Phase**:
 
-- Phase 1 (Two-Stage Classification): ✅ Complete
-- Phase 4 (Theme Extraction & Aggregation): 🚧 In Progress
+- Phase 1 (Two-Stage Classification): ✅ Complete - routing categories
+- Phase 4 (Theme Extraction & Aggregation): ✅ Complete - specific themes
+- Story Grouping Architecture: 🚧 In Progress - PM review + story creation
 
 ## System Design
 
@@ -21,31 +34,49 @@ FeedForward is an LLM-powered pipeline for analyzing Intercom conversations and 
 │       Intercom API               │
 │  - Fetch conversations           │
 │  - Quality filtering (~50% pass) │
-│  - Extract source.url            │ ← NEW: URL context
+│  - Extract source.url            │
 └──────┬───────────────────────────┘
        │
        ▼
 ┌──────────────────────────────────┐
-│   Theme Extraction (LLM)         │
-│  - Vocabulary-guided matching    │
-│  - URL context boosting          │ ← NEW: Product area disambiguation
-│  - Signature canonicalization    │
+│   Classification (Routing Only)  │  ← Categories for routing, NOT deliverable
+│  - 8 broad categories            │
+│  - Fast routing decisions        │
+│  - Spam filtering                │
 └──────┬───────────────────────────┘
        │
        ▼
 ┌──────────────────────────────────┐
-│      Database (PostgreSQL)       │
-│  - Conversations                 │
-│  - Themes (aggregated)           │
-│  - Theme embeddings              │
+│   Theme Extraction (LLM)         │  ← THE DELIVERABLE: Specific themes
+│  - 78-theme vocabulary           │
+│  - URL context boosting          │
+│  - Specific issue signatures     │
+│  - e.g., pinterest_pin_failure   │
 └──────┬───────────────────────────┘
        │
        ▼
 ┌──────────────────────────────────┐
-│  Escalation & Routing (Future)   │
-│  - Auto-ticket creation          │
-│  - Team assignments              │
-│  - Slack alerts                  │
+│   Confidence Scoring             │  ← Quality gate for groupings
+│  - Semantic similarity (30%)     │
+│  - Intent homogeneity (15%)      │
+│  - Symptom overlap (10%)         │
+│  - Product/component match       │
+└──────┬───────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────┐
+│   PM Review Layer                │  ← Human-in-the-loop validation
+│  - "Same implementation ticket?" │
+│  - Sub-group creation            │
+│  - INVEST criteria enforcement   │
+└──────┬───────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────┐
+│   Shortcut Story Creation        │  ← FINAL OUTPUT
+│  - Implementation-ready stories  │
+│  - Linked sample conversations   │
+│  - PM reasoning included         │
 └──────────────────────────────────┘
 ```
 
@@ -270,7 +301,272 @@ all other categories ──────────→ themselves
 - `scripts/evaluate_with_equivalence.py` - Evaluation script
 - `data/story_id_ground_truth.json` - Ground truth dataset
 
-### 8. Conversation Type Classification (Legacy)
+### 8. Vocabulary Feedback Loop (NEW - 2026-01-08)
+
+**Purpose**: Continuous monitoring for vocabulary drift and gap detection
+
+**Problem Solved**: As the product evolves, new features and product areas may emerge that aren't covered by the existing vocabulary. This system detects gaps before they become significant.
+
+**How It Works**:
+
+```
+Shortcut API (recent stories)
+        ↓
+Extract product areas & labels
+        ↓
+Compare against COVERED_PRODUCT_AREAS
+        ↓
+Generate gap report with priorities
+```
+
+**Usage**:
+
+```bash
+# Monthly check (recommended)
+python -m src.vocabulary_feedback --days 30
+
+# Quarterly check
+python -m src.vocabulary_feedback --days 90
+
+# Save to file
+python -m src.vocabulary_feedback --days 30 --output reports/vocab_feedback.md
+```
+
+**Coverage Status** (as of 2026-01-08):
+
+- 17 Shortcut product areas covered
+- 0 vocabulary gaps found
+- 100% coverage of ground truth dataset
+
+**Files**:
+
+- `src/vocabulary_feedback.py` - Feedback loop script
+- `prompts/phase5_final_report_2026-01-08.md` - Validation report
+
+### 9. Signature Tracking System (NEW - 2026-01-09)
+
+**Purpose**: Prevent signature mismatches between theme extraction and story creation
+
+**Problem Solved**: During historical backfill, we discovered that 88% of conversation counts were orphaned because:
+
+1. Theme extractor produces signature: `billing_cancellation_request`
+2. PM review modifies it to: `billing_cancellation_requests`
+3. Stories created with PM's signature
+4. Backfill counts using extractor's signature
+5. Phase 3 can't match counts to stories (different keys)
+
+**Architecture**:
+
+```
+Theme Extraction          PM Review           Story Creation
+─────────────────────    ──────────────      ────────────────
+billing_cancellation_    suggests:           story created as:
+request                  billing_cancella-   billing_cancella-
+                         tion_requests       tion_requests
+        │                       │                   │
+        │   ┌───────────────────┼───────────────────┘
+        │   │ SignatureRegistry │
+        │   │ ─────────────────│────────────────────
+        └──►│ equivalences:    │
+            │   original → PM  │
+            │                  ▼
+            │ reconcile_counts() merges both
+            └─────────────────────────────────────
+```
+
+**Components**:
+
+1. **SignatureRegistry** (`src/signature_utils.py`)
+   - `normalize()` - Standardizes signatures (lowercase, underscores)
+   - `register_equivalence()` - Tracks original → PM signature mapping
+   - `get_canonical()` - Returns PM-approved form
+   - `reconcile_counts()` - Merges counts using equivalences
+
+2. **Equivalence File** (`data/signature_equivalences.json`)
+   - Persists mappings between pipeline runs
+   - Format: `{"equivalences": {"original": "canonical"}}`
+
+**Usage in Pipeline**:
+
+```python
+# Phase 1: When PM review changes signature
+registry = get_registry()
+if sg_sig != original_sig:
+    registry.register_equivalence(original_sig, sg_sig)
+registry.save()  # Persist for Phase 3
+
+# Phase 3: Reconcile counts
+reconciled, orphans = registry.reconcile_counts(counts, story_mapping)
+# reconciled now has all counts merged by canonical signature
+```
+
+**Validation**:
+
+- Run `python -c "from src.signature_utils import SignatureRegistry; r = SignatureRegistry(); print(f'{len(r._equivalences)} equivalences')"` to check mappings
+- After Phase 3, orphan percentage should be <5% (vs 88% without this system)
+
+**Files**:
+
+- `src/signature_utils.py` - Registry implementation
+- `data/signature_equivalences.json` - Persisted mappings
+- `scripts/run_historical_pipeline.py` - Updated to use registry
+
+### 10. Evidence Validation System (NEW - 2026-01-09)
+
+**Purpose**: Ensure Shortcut stories have actionable evidence, not placeholder text
+
+**Problem Solved**: Stories created during historical backfill had placeholder text:
+
+```
+Note: This theme was identified during historical backfill.
+Sample conversations were not captured during batch processing.
+
+To gather evidence:
+- Search Intercom for recent conversations matching this theme
+- Add representative samples to this ticket
+```
+
+This defeats the purpose of automated story creation.
+
+**Architecture**:
+
+```
+Theme Extraction          Evidence Validator         Story Creation
+─────────────────        ──────────────────        ────────────────
+Extract themes &  ──────►  validate_samples()  ────► If valid:
+capture metadata          - Check required fields     create story
+                          - Check for placeholders
+                          - Calculate coverage      If invalid:
+                                                     SKIP + warn
+```
+
+**Required vs Recommended Fields**:
+
+| Field          | Type        | Purpose                | Validation                                  |
+| -------------- | ----------- | ---------------------- | ------------------------------------------- |
+| `id`           | REQUIRED    | Conversation reference | Must be present                             |
+| `excerpt`      | REQUIRED    | Context for story      | Must be present, >20 chars, no placeholders |
+| `email`        | RECOMMENDED | Display in story       | Warn if <80% coverage                       |
+| `intercom_url` | RECOMMENDED | Link to conversation   | Warn if <80% coverage                       |
+| `org_id`       | OPTIONAL    | Jarvis org link        | No validation                               |
+| `user_id`      | OPTIONAL    | Jarvis user link       | No validation                               |
+| `contact_id`   | OPTIONAL    | Lookup reference       | No validation                               |
+
+**Validation Behavior**:
+
+1. **Invalid samples (missing required fields)**: Story creation SKIPPED with error message
+2. **Poor evidence (missing recommended fields)**: Story created with WARNING
+3. **Placeholder excerpts detected**: Story creation SKIPPED (catches the historical backfill bug)
+
+**Components**:
+
+1. **EvidenceValidator** (`src/evidence_validator.py`)
+   - `validate_samples()` - Main validation function
+   - `validate_sample()` - Single sample validation
+   - `build_evidence_report()` - Human-readable report
+   - `EvidenceQuality` dataclass with is_valid, errors, warnings, coverage
+
+2. **Integration Points**:
+   - `scripts/create_theme_stories.py` - Validates before creating each story
+   - `scripts/run_historical_pipeline.py` - Validates in Phase 1 and orphan promotion
+
+**Usage**:
+
+```python
+from evidence_validator import validate_samples
+
+evidence = validate_samples(data["samples"])
+if not evidence.is_valid:
+    print(f"SKIPPING: {evidence.errors}")
+    continue
+if evidence.warnings:
+    print(f"Warning: {evidence.warnings}")
+
+# Safe to create story
+create_story(data)
+```
+
+**Validation**:
+
+- Run `python -m pytest tests/test_evidence_validator.py -v` (20 tests)
+- Includes real-world scenario test for placeholder detection
+
+**Files**:
+
+- `src/evidence_validator.py` - Validation implementation
+- `tests/test_evidence_validator.py` - Test suite
+- `scripts/create_theme_stories.py` - Uses validation
+- `scripts/run_historical_pipeline.py` - Uses validation
+
+---
+
+### 11. Story Grouping Pipeline (2026-01-08)
+
+**Purpose**: Create implementation-ready story groupings from classified conversations
+
+**Problem Solved**: Theme extraction groups conversations by `issue_signature`, but these aren't implementation-ready. Example: `instagram_oauth_multi_account` contained Pinterest, Instagram, AND Facebook issues - never in the same sprint ticket.
+
+**Architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 1: Theme Extraction (per-conversation)               │
+│  - Extract theme, symptoms, intent                          │
+│  - Initial signature assignment from vocabulary             │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 2: Initial Grouping + Confidence Scoring             │
+│  - Group by signature                                       │
+│  - Score each group (semantic similarity, overlap)          │
+│  - Sort by confidence DESC                                  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 3: PM/Tech Lead Review (iterative)                   │
+│  - "Same implementation ticket? If not, split how?"         │
+│  - Creates validated sub-groups                             │
+│  - Orphans (<3 convos) accumulate over time                 │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Phase 4: Story Creation                                    │
+│  - Only from validated groups (≥3 conversations)            │
+│  - Include PM reasoning in description                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Confidence Scoring Signals** (calibrated):
+
+| Signal              | Weight | Description                    |
+| ------------------- | ------ | ------------------------------ |
+| Semantic similarity | 30%    | Embedding cosine similarity    |
+| Intent similarity   | 20%    | User intent embeddings         |
+| Intent homogeneity  | 15%    | Penalizes high variance        |
+| Symptom overlap     | 10%    | Jaccard similarity             |
+| Product area match  | 10%    | Boolean                        |
+| Component match     | 10%    | Boolean                        |
+| Platform uniformity | 5%     | Detects Pinterest/IG/FB mixing |
+
+**Validation Results** (ground truth comparison):
+
+| Metric             | Value      |
+| ------------------ | ---------- |
+| Pairwise Precision | 35.6%      |
+| Pairwise Recall    | 10.6%      |
+| Pure Groups        | 9/20 (45%) |
+
+**Key Finding**: Low recall is correct - humans group broadly for triage, we group narrowly for implementation per INVEST criteria.
+
+**Files**:
+
+- `src/confidence_scorer.py` - Confidence scoring
+- `scripts/run_pm_review_all.py` - PM review batch runner
+- `scripts/validate_grouping_accuracy.py` - Validation pipeline
+- `docs/story-grouping-architecture.md` - Full architecture doc
+- `docs/story-granularity-standard.md` - INVEST-based criteria
+
+### 10. Conversation Type Classification (Legacy)
 
 **Strategic Decision**: All-Support Strategy (2026-01-07)
 
@@ -359,6 +655,78 @@ Result: scheduling_failure_legacy (Legacy Publisher) ✓
 Without URL context → Could match any of 3 schedulers (ambiguous)
 ```
 
+## Performance Patterns
+
+### Async Classification Pipeline
+
+**File**: `src/two_stage_pipeline.py`
+
+The pipeline supports both sync and async modes:
+
+```bash
+# Sync mode (debugging, small batches)
+python -m src.two_stage_pipeline --days 7 --max 10
+
+# Async mode (production, ~10-20x faster)
+python -m src.two_stage_pipeline --async --days 30 --concurrency 20
+```
+
+**How It Works**:
+
+1. Fetch all conversations (sync - Intercom client limitation)
+2. Classify in parallel using `asyncio.gather()` with semaphore
+3. Batch insert results to database
+
+**Speedup**: ~10-20x for classification phase
+
+### Batch Database Operations
+
+**File**: `src/db/classification_storage.py`
+
+**Batch Inserts**: `store_classification_results_batch()`
+
+- Uses `psycopg2.extras.execute_values()` for bulk upserts
+- Single query for N rows instead of N queries
+- ~50x faster for batches of 50+
+
+**Consolidated Stats**: `get_classification_stats()`
+
+- Single CTE query instead of 8 separate queries
+- ~8x faster stats retrieval
+
+### Parallel Contact Fetching
+
+**File**: `src/intercom_client.py`
+
+```python
+# Old way (N+1 pattern - slow)
+for conv in conversations:
+    org_id = client.fetch_contact_org_id(conv.contact_id)  # 1 API call each
+
+# New way (batch - fast)
+contact_ids = [c.contact_id for c in conversations]
+org_id_map = client.fetch_contact_org_ids_batch_sync(contact_ids)  # Parallel
+for conv in conversations:
+    org_id = org_id_map.get(conv.contact_id)  # Dict lookup
+```
+
+**How It Works**:
+
+- `aiohttp` for async HTTP requests
+- Semaphore limits concurrency (default 20)
+- Deduplicates contact_ids automatically
+
+**Speedup**: ~50x for contact enrichment
+
+### Performance Summary
+
+| Operation                   | Before      | After     | Speedup |
+| --------------------------- | ----------- | --------- | ------- |
+| Classification (100 convos) | ~200s       | ~10-15s   | 10-20x  |
+| DB inserts (100 rows)       | 100 queries | 2 queries | 50x     |
+| Stats query                 | 8 queries   | 1 query   | 8x      |
+| Contact fetch (100)         | ~100s       | ~2-5s     | 20-50x  |
+
 ## Dependencies
 
 ### External Services
@@ -430,6 +798,165 @@ Optional:
 - `tools/test_url_context_live.py` - Live data validation
 - `tools/theme_labeler.py` - Streamlit UI for manual labeling
 
+### 12. API and Frontend Layer (NEW - 2026-01-09)
+
+**Purpose**: Operational visibility into the pipeline - kick off runs, check status, browse themes.
+
+**Architecture Decision**: FastAPI backend + Streamlit frontend because:
+
+- API layer survives frontend changes
+- Enables future CLI/mobile clients
+- Supports future multi-source ingestion (research repos beyond Intercom)
+
+**System Design**:
+
+```
+┌─────────────────────┐     ┌─────────────────────┐
+│  Streamlit Frontend │────►│   FastAPI Backend   │
+│  (localhost:8501)   │     │   (localhost:8000)  │
+│                     │     │                     │
+│  - Dashboard        │     │  - /api/analytics   │
+│  - Pipeline         │     │  - /api/pipeline    │
+│  - Themes           │     │  - /api/themes      │
+└─────────────────────┘     └──────────┬──────────┘
+                                       │
+                                       ▼
+                            ┌─────────────────────┐
+                            │     PostgreSQL      │
+                            │  conversations      │
+                            │  themes             │
+                            │  pipeline_runs      │
+                            └─────────────────────┘
+```
+
+**API Endpoints (19 total)**:
+
+| Category  | Endpoints                                                                 |
+| --------- | ------------------------------------------------------------------------- |
+| Health    | `/health`, `/health/db`, `/health/full`                                   |
+| Analytics | `/api/analytics/dashboard`, `/api/analytics/stats`                        |
+| Pipeline  | `/api/pipeline/run`, `/status/{id}`, `/history`, `/active`                |
+| Themes    | `/api/themes/trending`, `/orphans`, `/singletons`, `/all`, `/{signature}` |
+
+**Frontend Pages**:
+
+| Page      | Purpose                                             |
+| --------- | --------------------------------------------------- |
+| Dashboard | Metrics overview, classification distribution, runs |
+| Pipeline  | Run configuration, status polling, history          |
+| Themes    | Trending/orphan/singleton tabs, filtering           |
+
+**Files**:
+
+```
+src/api/
+├── main.py           # FastAPI app (19 routes)
+├── deps.py           # DB dependency injection
+├── routers/
+│   ├── health.py     # Health checks
+│   ├── analytics.py  # Dashboard metrics
+│   ├── pipeline.py   # Run/status/history
+│   └── themes.py     # Trending/orphans
+└── schemas/          # Pydantic models
+
+frontend/
+├── app.py            # Streamlit entry
+├── api_client.py     # API wrapper
+└── pages/
+    ├── 1_Dashboard.py
+    ├── 2_Pipeline.py
+    └── 3_Themes.py
+```
+
+**Running**:
+
+```bash
+# Terminal 1
+uvicorn src.api.main:app --reload --port 8000
+
+# Terminal 2
+streamlit run frontend/app.py
+
+# Then open http://localhost:8501
+```
+
+API docs at http://localhost:8000/docs
+
+---
+
+### 13. Multi-Source Data Integration: Coda (NEW - 2026-01-09)
+
+**Purpose**: Extend theme extraction beyond Intercom to include UX research data from Coda.
+
+**Data Source**: Tailwind Research Ops (`c4RRJ_VLtW`)
+
+**Content Types**:
+
+| Type                | Count               | Content                                          | Value  |
+| ------------------- | ------------------- | ------------------------------------------------ | ------ |
+| AI Summary          | 27 (5-10 populated) | Synthesized interview insights, quotes, personas | HIGH   |
+| Discovery Learnings | 1                   | JTBD framework, MVP priorities                   | HIGH   |
+| Research Questions  | 1                   | Product research priorities                      | MEDIUM |
+| Debrief/Notes       | 16                  | Templates (mostly unfilled)                      | LOW    |
+
+**Architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Coda Research Repository                                   │
+│  - AI Summaries (user interviews)                          │
+│  - Discovery Learnings (synthesized insights)              │
+│  - Research Questions (product priorities)                  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Coda Client (src/coda_client.py - planned)                │
+│  - Fetch pages by type                                     │
+│  - Parse structured content                                │
+│  - Extract quotes and insights                             │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Theme Extraction                                          │
+│  - Map Coda sections to theme types                        │
+│  - Extract user quotes as evidence                         │
+│  - Classify by product area                                │
+│  - Merge with Intercom-sourced themes                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Extractable Theme Types**:
+
+| Theme Type        | Coda Source                  | Example                                                  |
+| ----------------- | ---------------------------- | -------------------------------------------------------- |
+| Pain Point        | AI Summary quotes            | "I have to pick the board manually for every single pin" |
+| Feature Request   | AI Summary feature sections  | "Help me generate descriptions in-app"                   |
+| Workflow Friction | AI Summary workflow sections | "20 tab switches per minute"                             |
+| User Need/Job     | Discovery Learnings          | "Knowing how much work I have done/left to do"           |
+
+**API Access**:
+
+```python
+# Get page content
+GET /docs/{doc_id}/pages/{page_id}/content
+
+# Returns structured content with:
+# - style: h1, h2, h3, paragraph, bulletedListItem
+# - content: Plain text
+# - lineLevel: Indentation
+```
+
+**Configuration** (`.env`):
+
+```
+CODA_API_KEY=<api_key>
+CODA_DOC_ID=c4RRJ_VLtW
+```
+
+**Documentation**: `docs/coda-research-repo.md`
+
+---
+
 ## Current Status
 
 **Implemented**:
@@ -442,17 +969,26 @@ Optional:
 ✅ Conversation type classification schema (all-support strategy)
 ✅ Two-stage classification system (Phase 1)
 ✅ Equivalence class system for grouping (100% accuracy)
+✅ Phase 5 Ground Truth Validation (64.5% family accuracy)
+✅ Vocabulary feedback loop for drift monitoring
+✅ Story Grouping baseline (45% purity, validation pipeline)
+✅ FastAPI + Streamlit frontend (19 API endpoints, 3 UI pages)
+✅ Coda research repository exploration (API access verified, content analyzed)
 
 **In Progress**:
-🚧 Expanding theme vocabulary
+🚧 Story Grouping Pipeline
 
-- ⏳ Billing themes (7% of conversations - critical gap)
-- ⏳ Account/auth themes (20% of conversations)
-- ⏳ Onboarding/setup themes
-  🚧 Production deployment
-  🚧 Monitoring and metrics
+- ⏳ Improve scheduler symptom extraction (precision from 35.6% → 50%+)
+- ⏳ Add error code extraction for disambiguation
+- ⏳ Target 70%+ group purity
+- ⏳ Implement orphan persistence (accumulate over time)
+
+🚧 Production deployment
+🚧 Monitoring and metrics
 
 **Future**:
+⏳ Coda client implementation (`src/coda_client.py`)
+⏳ Multi-source theme extraction (Intercom + Coda)
 ⏳ Escalation rules engine
 ⏳ Auto-ticket creation (Shortcut integration)
 ⏳ Slack alerts

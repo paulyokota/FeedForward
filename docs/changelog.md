@@ -10,6 +10,184 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Coda Research Repository Integration (2026-01-09)**:
+
+- Coda API credentials configured (`.env`)
+  - `CODA_API_KEY` - API authentication
+  - `CODA_DOC_ID` - Tailwind Research Ops document (`c4RRJ_VLtW`)
+- Comprehensive repository analysis (`docs/coda-research-repo.md`)
+  - 100 pages explored (hierarchical canvas content)
+  - 100 tables with structured research data (synthesis, call trackers, surveys)
+  - AI Summary pages (27) with synthesized user research insights
+  - Discovery Learnings page with JTBD framework
+  - Bank of Research Questions with product priorities
+- Content extraction via `/pages/{id}/content` API endpoint
+  - Structured markdown parsing (headings, bullets, paragraphs)
+  - User quotes, proto-personas, pain points, feature requests
+- Theme extraction strategy documented
+  - Maps to existing FeedForward theme types
+  - Integrates with Intercom-sourced themes
+
+**FastAPI + Streamlit Frontend (2026-01-09)**:
+
+- FastAPI backend (`src/api/`)
+  - `main.py` - App entrypoint with CORS, 19 routes
+  - `deps.py` - Database dependency injection with RealDictCursor
+  - `routers/health.py` - Health checks (`/health`, `/health/db`, `/health/full`)
+  - `routers/analytics.py` - Dashboard metrics (`/api/analytics/dashboard`, `/stats`)
+  - `routers/pipeline.py` - Pipeline control (`/api/pipeline/run`, `/status/{id}`, `/history`, `/active`)
+  - `routers/themes.py` - Theme browsing (`/api/themes/trending`, `/orphans`, `/singletons`, `/all`, `/{signature}`)
+  - `schemas/` - Pydantic models for all endpoints
+- Streamlit frontend (`frontend/`)
+  - `app.py` - Main entry with API health check
+  - `api_client.py` - FeedForwardAPI wrapper class
+  - `pages/1_Dashboard.py` - Metrics overview, classification charts, recent runs
+  - `pages/2_Pipeline.py` - Run configuration form, status polling, history table
+  - `pages/3_Themes.py` - Trending/orphan/singleton tabs, filtering, detail view
+  - `README.md` - Frontend documentation
+- Updated `requirements.txt` with FastAPI and uvicorn dependencies
+- Architecture documentation (`docs/architecture.md` Section 12)
+
+**Signature Tracking System (2026-01-09)**:
+
+- Signature utilities module (`src/signature_utils.py`)
+  - `SignatureRegistry` class for tracking PM signature changes
+  - `normalize()` - Standardizes signatures (lowercase, underscores, no special chars)
+  - `register_equivalence()` - Tracks original → canonical mappings
+  - `get_canonical()` - Follows equivalence chains to find PM-approved form
+  - `reconcile_counts()` - Merges historical counts using equivalences
+  - `build_signature_from_components()` - Consistent signature construction
+  - Persistence to `data/signature_equivalences.json`
+- Comprehensive test suite (`tests/test_signature_utils.py`)
+  - 23 tests covering normalization, equivalences, reconciliation, persistence
+  - Real-world scenario test validating 0% orphan rate (was 88%)
+- Pipeline hardening (`scripts/run_historical_pipeline.py`)
+  - Automatic equivalence tracking when PM review changes signatures
+  - Phase 3 uses `reconcile_counts()` for matching
+- Architecture documentation (`docs/architecture.md` Section 9)
+  - Documents problem, solution, and usage patterns
+
+**Historical Backfill Evidence Capture (2026-01-09)**:
+
+- Enhanced metadata extraction (`scripts/run_historical_pipeline.py`)
+  - `extract_conversation_metadata()` - Extracts email, contact_id, user_id from conversations
+  - `enrich_with_org_ids()` - Batch fetches org_id from Intercom contacts (async, ~20 concurrent)
+  - Intercom URL construction for direct conversation links
+- Evidence now includes in Shortcut stories:
+  - Email linked to Intercom conversation
+  - Org linked to Jarvis organization page
+  - User linked to Jarvis user page
+  - Full conversation excerpt
+- Applied to both Phase 1 (seed) and Phase 2 (backfill) processing
+- Enables actionable evidence in promoted orphan stories
+
+**Evidence Validation System (2026-01-09)**:
+
+- Evidence validator module (`src/evidence_validator.py`)
+  - `validate_samples()` - Main validation with required/recommended field checks
+  - `validate_sample()` - Single sample validation
+  - `build_evidence_report()` - Human-readable diagnostic report
+  - `EvidenceQuality` dataclass with is_valid, errors, warnings, coverage
+  - Placeholder detection to catch historical backfill bug
+- Comprehensive test suite (`tests/test_evidence_validator.py`)
+  - 20 tests covering validation, coverage calculation, placeholder detection
+  - Real-world scenario tests for the exact bug this prevents
+- Pipeline integration:
+  - `scripts/create_theme_stories.py` - Validates before creating each story
+  - `scripts/run_historical_pipeline.py` - Validates in Phase 1 and orphan promotion
+  - Stories with invalid evidence are SKIPPED with error messages
+  - Stories with poor evidence are created with WARNINGS
+- Architecture documentation (`docs/architecture.md` Section 10)
+  - Documents required vs recommended fields
+  - Validation behavior and usage examples
+
+**Story Formatting Updates (2026-01-09)**:
+
+- Updated 53 orphan stories in Shortcut with proper formatting
+  - Verb-first titles (Fix, Investigate, Process, Improve, Review)
+  - Structured descriptions with Problem Statement, Investigation Paths, Symptoms, Evidence, Acceptance Criteria
+  - Consistent formatting matching existing story patterns
+
+**Pipeline Performance Optimizations (2026-01-08)**:
+
+- Async classification pipeline (`src/two_stage_pipeline.py`)
+  - `run_pipeline_async()` with configurable concurrency (default 20 parallel)
+  - `--async` flag for production use, ~10-20x faster than sequential
+  - Semaphore-controlled API calls to prevent rate limiting
+- Batch database inserts (`src/db/classification_storage.py`)
+  - `store_classification_results_batch()` using `execute_values` for bulk upserts
+  - ~50x faster than individual inserts for large batches
+- Consolidated stats query (`src/db/classification_storage.py`)
+  - `get_classification_stats()` rewritten as single CTE query
+  - 8 queries → 1 query, ~8x faster
+- Parallel contact fetching (`src/intercom_client.py`)
+  - `fetch_contact_org_ids_batch()` async method with aiohttp
+  - `fetch_contact_org_ids_batch_sync()` wrapper for sync code
+  - ~50x faster than sequential `fetch_contact_org_id()` calls
+- Updated `scripts/classify_to_file.py` to use batch contact fetching
+
+**Story Formatter Consolidation (2026-01-08)**:
+
+- Single source of truth for Shortcut story formatting (`src/story_formatter.py`)
+  - `format_excerpt()` - Standardized excerpt with linked metadata
+  - `build_story_description()` - Complete story description builder
+  - `build_story_name()` - Consistent story naming: `[count] Category - suffix`
+  - `get_story_type()` - Category to type mapping (bug/feature/chore)
+- Updated `scripts/create_shortcut_stories.py` to import from shared module
+- Updated `scripts/create_theme_stories.py` to import from shared module
+- Updated `scripts/README.md` with source of truth reference
+- Prevents format drift across story creation scripts
+
+**Story Grouping Architecture - Ground Truth Validation Complete (2026-01-08)**:
+
+- Story grouping validation pipeline (`scripts/validate_grouping_accuracy.py`)
+  - Compares pipeline groupings against human-labeled story_id ground truth
+  - Pairwise precision/recall metrics for grouping evaluation
+  - Group purity analysis (% from single human story)
+  - Baseline: 35.6% precision, 10.6% recall, 45% pure groups
+- Story granularity standard (`docs/story-granularity-standard.md`)
+  - INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable)
+  - "Same Story = Same Fix" rule for implementation-ready groupings
+  - Bug grouping criteria (duplicates vs related vs unrelated)
+  - Decision flowchart for group splitting
+- Confidence scoring system (`src/confidence_scorer.py`)
+  - Embedding similarity (30%), Intent similarity (20%), Intent homogeneity (15%)
+  - Symptom overlap (10%), Product/Component match (10% each), Platform uniformity (5%)
+  - Calibrated weights based on PM review correlation
+- PM review batch runner (`scripts/run_pm_review_all.py`)
+  - LLM validates: "Same implementation ticket? If not, split how?"
+  - Creates sub-groups with suggested signatures
+  - Orphan handling: sub-groups <3 accumulate over time
+- Story grouping architecture documentation (`docs/story-grouping-architecture.md`)
+  - 4-phase pipeline design (extraction → scoring → PM review → story creation)
+  - Validation results with quantitative metrics
+  - Target metrics: 70%+ purity, 50%+ precision
+
+**Phase 5 Ground Truth Validation - Vocabulary Feedback Loop (2026-01-08)**:
+
+- Vocabulary feedback loop script (`src/vocabulary_feedback.py`)
+  - Monitors Shortcut stories for new product areas not in vocabulary
+  - CLI: `python -m src.vocabulary_feedback --days 30`
+  - Generates gap reports with priority levels (high/medium/low)
+  - Zero vocabulary gaps found (100% coverage)
+- Ground truth validation pipeline (`scripts/phase5_*.py`)
+  - `phase5_load_ground_truth.py` - Load 195 conversations with story_id_v2
+  - `phase5_run_extraction.py` - Hybrid keyword + LLM extraction
+  - `phase5_compare_accuracy.py` - Calculate precision/recall metrics
+  - `phase5_vocabulary_gaps.py` - Identify missing themes
+  - `phase5_extraction_v2.py` - Iteration 2: Shortcut product names
+  - `phase5_extraction_v3.py` - Iteration 3: Context-aware extraction
+  - `phase5_accuracy_v2.py` - Family-based semantic matching
+- Comprehensive validation documentation:
+  - `prompts/phase5_ground_truth_validation.md` - Master specification
+  - `prompts/phase5_final_report_2026-01-08.md` - Final report
+  - `prompts/phase5_accuracy_report.md` - Accuracy breakdown
+  - `prompts/phase5_vocabulary_gaps.md` - Gap analysis
+  - `prompts/phase5_data_summary.md` - Dataset statistics
+- Family-based semantic matching for product area accuracy
+  - Groups similar products (scheduling family, ai_creation family)
+  - 64.5% accuracy (up from 44.8% exact match)
+
 **Classifier Improvement - 100% Grouping Accuracy (2026-01-08)**:
 
 - Equivalence class system for conversation grouping (`src/equivalence.py`)

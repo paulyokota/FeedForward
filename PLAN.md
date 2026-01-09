@@ -2,9 +2,9 @@
 
 > **Document Purpose**: This is the authoritative project spec for FeedForward. It captures business context, technical decisions, methodology, and phased implementation plan. New sessions should read this first to understand the project's goals and approach.
 
-**Last Updated**: 2026-01-06
+**Last Updated**: 2026-01-08
 **Status**: Approved
-**Branch**: `claude/add-reference-folder-8y8BT`
+**Branch**: `development`
 
 ---
 
@@ -22,6 +22,7 @@ Product teams are drowning in support conversations. Valuable signals—feature 
 
 - **Primary consumers**: Product and Engineering teams at the organization
 - **Output format**: Actionable tickets in Shortcut (the organization's issue tracker)
+- **System-of-record roadmap**: Architecture for a dedicated story-tracking web app with bidirectional Shortcut sync is captured in `docs/story-tracking-web-app-architecture.md`.
 - **Scale**: ~50-150 Intercom conversations per week
 
 ---
@@ -187,13 +188,17 @@ This pattern applies to:
 
 ### Phase Overview
 
-| Phase | Name                     | Focus                   | Success Criteria                         |
-| ----- | ------------------------ | ----------------------- | ---------------------------------------- |
-| 1     | Prototype                | Classification accuracy | ≥80% agreement with human baseline       |
-| 2     | Batch Pipeline MVP       | End-to-end pipeline     | Runs daily, stores to DB, zero data loss |
-| 3     | Product Tool Integration | Shortcut tickets        | Escalation rules route to correct queues |
-| 4     | Real-Time Workflows      | Webhooks                | <5 min latency for critical issues       |
-| 5     | Optimization             | Cost & quality          | <$50/month, maintain accuracy            |
+| Phase | Name                     | Focus                   | Success Criteria                         | Status                |
+| ----- | ------------------------ | ----------------------- | ---------------------------------------- | --------------------- |
+| 1     | Prototype                | Classification accuracy | ≥80% agreement with human baseline       | ✅ Complete           |
+| 2     | Batch Pipeline MVP       | End-to-end pipeline     | Runs daily, stores to DB, zero data loss | ✅ Complete           |
+| 3     | Product Tool Integration | Shortcut tickets        | Escalation rules route to correct queues | ✅ Complete           |
+| 4     | Context Enhancements     | Help articles, Shortcut | +10-20% accuracy improvement             | ✅ Complete           |
+| 5     | Ground Truth Validation  | Accuracy metrics        | Vocabulary aligned with reality          | ✅ Complete (Plateau) |
+| 6+    | Theme-Based Suggestions  | Vector similarity       | Auto-suggest Shortcut links              | Future                |
+| 7     | Real-Time Workflows      | Webhooks                | <5 min latency for critical issues       | Future                |
+| 8     | Optimization             | Cost & quality          | <$50/month, maintain accuracy            | Ongoing               |
+| 9     | Full Context Injection   | Complete threads        | ≥80% family accuracy (from 64.5%)        | Future                |
 
 ---
 
@@ -521,41 +526,113 @@ This filter reduces LLM costs by ~50% while improving classification quality.
 
 **See**: `docs/context-enhancements.md` for complete design of all 6 enhancements (Phases 4a, 4b, 4c, 5, 6+)
 
+#### Two-Stage Classification System ✅
+
+**Status**: Complete (2026-01-07)
+**Impact**: Enables both fast routing AND high-quality analytics
+
+**Architecture**:
+
+```
+Customer Message → Stage 1 (Fast Routing) → Support Team
+                         ↓
+              Support Responses Added
+                         ↓
+                   Stage 2 (Refined Analysis) → Knowledge Base
+```
+
+**Results**:
+
+- Stage 1: 100% high confidence on test data (5/5 conversations)
+- Stage 2: 100% high confidence with support context (3/3 conversations)
+- Classification improvement rate: 33% refined from Stage 1
+- Key insight: Instagram "account_issue" correctly refined to "configuration_help"
+
+**Files**: `src/classifier_stage1.py`, `src/classifier_stage2.py`, `src/classification_manager.py`
+
+#### Equivalence Class System for Grouping ✅
+
+**Status**: Complete (2026-01-08)
+**Impact**: 100% conversation grouping accuracy (from 41.7% baseline)
+
+**Problem Solved**: Human groupings showed `bug_report` and `product_question` are often the same underlying issue. Rather than losing category granularity, we introduced equivalence classes at the evaluation layer.
+
+**Approach**:
+
+```
+bug_report       → technical (equivalence class)
+product_question → technical (equivalence class)
+plan_question + bug indicators → technical (context-aware)
+all other categories → themselves
+```
+
+**Results**:
+
+- Baseline accuracy: 41.7%
+- Iteration 1 (base equivalence): 83.3%
+- Iteration 2 (context-aware): 91.7%
+- After data cleanup: 100%
+
+**Key Insight**: Preserves all 9 original categories for routing value while enabling accurate grouping for analytics and deduplication.
+
+**Files**: `src/equivalence.py`, `prompts/classification_improvement_report_2026-01-08.md`
+
 ---
 
-### Phase 5: Ground Truth Validation & Vocabulary Feedback (Future)
+### Phase 5: Ground Truth Validation & Vocabulary Feedback ✅
 
+**Status**: Complete (Plateau Reached) - 2026-01-08
 **Goal**: Use Shortcut story data as ground truth to validate accuracy and keep vocabulary aligned with reality.
 
-#### Enhancement 3: Shortcut Story Ground Truth Validation
+#### Results Summary
 
-**Timeline**: 3-5 days
-**Complexity**: Medium
-**Impact**: Medium (objective quality metrics)
+| Metric                             | Value | Target | Status       |
+| ---------------------------------- | ----- | ------ | ------------ |
+| Theme Extraction Accuracy (Exact)  | 44.8% | 85%    | Below Target |
+| Theme Extraction Accuracy (Family) | 64.5% | 85%    | Below Target |
+| Vocabulary Gaps Identified         | 0     | -      | ✅ Complete  |
+| Feedback Loop Operational          | Yes   | Yes    | ✅ Complete  |
+| Refinement Iterations              | 3     | Max 3  | ✅ Complete  |
 
-**Approach**:
+#### Key Findings
 
-- Fetch conversations with `Story ID v2` metadata
-- Run theme extraction, compare to Shortcut story labels
-- Generate accuracy reports with matches/mismatches
-- Identify vocabulary gaps
+1. **Vocabulary coverage is complete**: All 17 Shortcut product areas have FeedForward mappings (0 gaps)
+2. **Accuracy ceiling reached**: 64.5% family-based accuracy after 3 refinement iterations
+3. **Root cause identified**: Confusion between similar products and ambiguous messages (not vocabulary gaps)
+4. **Feedback loop operational**: `python -m src.vocabulary_feedback --days 30` for ongoing monitoring
 
-**GitHub Issue**: #20
+#### Why 85% Was Unrealistic
 
-#### Enhancement 4: Vocabulary Feedback Loop from Shortcut Labels
+The 85% target assumed vocabulary gaps were the primary accuracy limiter. Phase 5 revealed:
 
-**Timeline**: 4-6 days
-**Complexity**: Medium
-**Impact**: High (keeps vocabulary aligned)
+- **Product overlap**: Multiple products share similar use cases (3 schedulers, 5+ AI/creation tools)
+- **Message ambiguity**: Many first messages lack product-specific context ("not working", "help with scheduling")
+- **Missing conversation context**: We only see the first customer message, not the full thread
+- **Multi-product conversations**: Some messages touch multiple products simultaneously
 
-**Approach**:
+#### Family-Based Matching (Practical Solution)
 
-- Periodically fetch Shortcut stories from Intercom conversations
-- Aggregate story labels and epics
-- Identify new labels not in current vocabulary (>10 occurrences = high priority)
-- Human review + approval → vocabulary expansion
+Instead of exact product matching, we group similar products into families:
 
-**GitHub Issue**: #21
+| Family       | Products                                                   |
+| ------------ | ---------------------------------------------------------- |
+| Scheduling   | Pin Scheduler, Next Publisher, Legacy Publisher, SmartLoop |
+| AI/Creation  | Create, Made For You, GW Labs, SmartPin, CoPilot           |
+| Analytics    | Analytics                                                  |
+| Billing      | Billing & Settings                                         |
+| Integrations | Extension, Product Dashboard                               |
+
+This raises accuracy from 44.8% (exact) to 64.5% (family) without losing routing value.
+
+#### Deliverables
+
+- ✅ `src/vocabulary_feedback.py` - Ongoing vocabulary monitoring script
+- ✅ `scripts/phase5_*.py` - 7 validation scripts (load, extract, compare, gaps, iterations)
+- ✅ `data/phase5_ground_truth.json` - 195 validation conversations
+- ✅ `prompts/phase5_final_report_2026-01-08.md` - Complete validation report
+- ✅ Documentation updates (architecture.md, status.md, changelog.md)
+
+**GitHub Issues**: #20 (complete), #21 (complete)
 
 ---
 
@@ -594,6 +671,157 @@ This filter reduces LLM costs by ~50% while improving classification quality.
 - Weekly quality audits (sample 50 classifications)
 - Quarterly prompt evolution for new product areas
 - Track impact metrics (% of backlog from FeedForward insights)
+
+---
+
+### Phase 9: Full Conversation Context Injection (Future)
+
+**Goal**: Break through the 65% accuracy ceiling by analyzing complete conversation threads instead of first message only.
+
+**Status**: Future (consider if family-based accuracy proves insufficient)
+**Complexity**: High
+**Impact**: High (+15-25% accuracy improvement potential)
+
+#### Why This Phase Exists
+
+Phase 5 validation revealed that 64.5% family-based accuracy is the ceiling with first-message-only analysis. The root causes are:
+
+1. **Ambiguous first messages** (35%): "not working", "need help" without product context
+2. **Product overlap**: 3 schedulers, 5+ AI tools with similar use cases
+3. **Missing disambiguation**: Support responses often reveal the actual product
+
+Full conversation context is the **only path to >65% accuracy**.
+
+#### What Changes
+
+| Current State                   | With Full Context                      |
+| ------------------------------- | -------------------------------------- |
+| First customer message only     | Full conversation thread (all parts)   |
+| ~500 tokens/conversation        | ~2000-6000 tokens/conversation         |
+| Guess product from URL/keywords | Confirm product from support responses |
+| 64.5% family accuracy           | Target: 80-85% family accuracy         |
+
+#### Implementation Requirements
+
+**1. Intercom Client Enhancements**
+
+```python
+# Fetch full conversation parts (not just source.body)
+def fetch_conversation_with_parts(conversation_id: str) -> FullConversation:
+    """Fetch conversation with all conversation_parts."""
+    # Returns: customer messages, support responses, system events
+    # Ordered by timestamp
+    # Includes author type (user, admin, bot)
+```
+
+**2. Context Window Management**
+
+- Short conversations (<5 messages): Include full thread
+- Medium conversations (5-15 messages): Include all, summarize if needed
+- Long conversations (15+ messages): Truncation strategy
+  - Keep first 3 customer messages
+  - Keep all support responses mentioning products
+  - Keep resolution messages
+  - Summarize middle section
+
+**3. Multi-Turn Prompt Engineering**
+
+```
+CONVERSATION THREAD:
+[CUSTOMER 1 - 2026-01-08 10:30]: "My posts aren't scheduling correctly"
+[SUPPORT 1 - 2026-01-08 10:45]: "I see you're using Pin Scheduler. Which boards?"
+[CUSTOMER 2 - 2026-01-08 10:52]: "The Home Decor board"
+[SUPPORT 2 - 2026-01-08 11:15]: "Your Pinterest API connection expired"
+[RESOLUTION - 2026-01-08 11:20]: Re-authentication completed
+
+ANALYSIS TASK:
+1. Primary product: [Extract from support confirmation]
+2. Root cause: [Extract from resolution]
+3. Customer intent: [From first message]
+4. Disambiguation confidence: [How certain are we?]
+```
+
+**4. Database Schema Extensions**
+
+```sql
+ALTER TABLE conversations ADD COLUMN conversation_parts_count INTEGER;
+ALTER TABLE conversations ADD COLUMN resolution_source TEXT;
+ALTER TABLE conversations ADD COLUMN disambiguation_confidence VARCHAR(10);
+ALTER TABLE conversations ADD COLUMN product_confirmed_by VARCHAR(20); -- 'url', 'support', 'customer', 'inference'
+```
+
+**5. Stage 2 Classifier Updates**
+
+- Accept `conversation_parts` parameter (list of messages)
+- Extract product mentions from support responses
+- Track which message provided disambiguation
+- Calculate confidence based on explicit vs inferred identification
+
+#### Cost & Performance Trade-offs
+
+| Factor              | Current | With Full Context | Impact         |
+| ------------------- | ------- | ----------------- | -------------- |
+| Tokens/conversation | ~500    | ~2000-6000        | 4-12x increase |
+| API cost/month      | ~$1.35  | ~$5-15            | 4-10x increase |
+| Processing time     | ~0.5s   | ~1.5-3s           | 3-6x slower    |
+| Accuracy (family)   | 64.5%   | 80-85% (est.)     | +15-25%        |
+
+#### Success Criteria
+
+| Criterion              | Target           | Measurement                               |
+| ---------------------- | ---------------- | ----------------------------------------- |
+| Family accuracy        | ≥80%             | Same validation set as Phase 5            |
+| Exact product accuracy | ≥70%             | Ground truth with `story_id_v2`           |
+| Disambiguation rate    | ≥90%             | % of conversations with confirmed product |
+| Cost increase          | ≤10x             | Monthly API spend                         |
+| Processing time        | ≤5s/conversation | P95 latency                               |
+
+#### Acceptance Criteria (Preview)
+
+```yaml
+acceptance_criteria:
+  - id: AC-P9-001
+    description: "Full conversation parts fetched"
+    threshold: "100% of conversations have parts"
+
+  - id: AC-P9-002
+    description: "Context window managed"
+    threshold: "<8K tokens for prompt"
+
+  - id: AC-P9-003
+    description: "Family accuracy improvement"
+    threshold: "≥80% (from 64.5% baseline)"
+
+  - id: AC-P9-004
+    description: "Product disambiguation rate"
+    threshold: "≥90% confirmed by support or customer"
+```
+
+#### When to Pursue Phase 9
+
+**Pursue if**:
+
+- Business requires exact product attribution (not family grouping)
+- 64.5% family accuracy is insufficient for trend analysis
+- Cost increase (4-10x) is acceptable for accuracy gains
+- You need resolution pattern analysis at scale
+
+**Don't pursue if**:
+
+- Family-based grouping meets business needs
+- Cost efficiency is a priority
+- Current equivalence class system handles grouping adequately
+
+#### Deliverables (Preview)
+
+- `src/intercom_client_v2.py` - Full conversation parts fetching
+- `src/context_manager.py` - Token budget and truncation logic
+- `src/classifier_stage2_v2.py` - Multi-turn analysis prompts
+- `migrations/00X_add_full_context_fields.sql` - Schema extensions
+- `tests/test_full_context_extraction.py` - Integration tests
+- `docs/phase9-implementation.md` - Implementation documentation
+
+**GitHub Issue**: TBD (create when ready to pursue)
 
 ---
 
@@ -710,11 +938,101 @@ FeedForward/
 
 ---
 
-## 10. Revision History
+## 10. Lessons Learned
 
-| Date       | Author        | Change        |
-| ---------- | ------------- | ------------- |
-| 2026-01-06 | Claude + User | Initial draft |
+### Phase 5 Validation Insights (2026-01-08)
+
+#### 1. Vocabulary Completeness ≠ High Accuracy
+
+**Assumption**: If we fill vocabulary gaps, accuracy will improve.
+**Reality**: We achieved 0 vocabulary gaps but only 64.5% family accuracy.
+
+**Lesson**: Vocabulary coverage is necessary but not sufficient. The limiting factors are:
+
+- Data quality (ambiguous first messages)
+- Product overlap (similar products, different names)
+- Missing context (can't see full conversation)
+
+#### 2. Family-Based Matching Is More Practical
+
+**Assumption**: We need exact product matching for useful analytics.
+**Reality**: Similar products (Pin Scheduler vs Next Publisher) serve similar functions. Distinguishing them requires context we don't have.
+
+**Lesson**: Design metrics around what's achievable. Family-based grouping (scheduling, ai_creation, billing) provides actionable insights without false precision.
+
+#### 3. First-Message-Only Analysis Has Inherent Limits
+
+**Assumption**: The first customer message contains enough context for accurate classification.
+**Reality**: Many first messages are ambiguous:
+
+- "not working" (which product?)
+- "help with scheduling" (which of 3 schedulers?)
+- References to prior conversations we can't see
+
+**Lesson**: To exceed 65% accuracy, we'd need full conversation context injection (see Phase 6 considerations).
+
+#### 4. Three Iterations Is the Right Stopping Point
+
+**Assumption**: More LLM prompt iterations will improve accuracy.
+**Reality**:
+
+- Iteration 1: 44.8% exact
+- Iteration 2: 64.5% family (best)
+- Iteration 3: 56.8% family (regression)
+
+**Lesson**: VDD's 3-5 iteration limit is validated. Diminishing returns set in quickly, and over-iteration can cause regression.
+
+#### 5. Ground Truth Quality Matters More Than Quantity
+
+**Assumption**: More labeled data = better validation.
+**Reality**: 195 conversations with `story_id_v2` were sufficient to identify patterns. The limitation wasn't sample size—it was ground truth granularity (17 Shortcut products vs 8 FeedForward families).
+
+**Lesson**: Match your evaluation framework to your ground truth granularity. Don't set 85% targets when ground truth operates at a different abstraction level.
+
+### Implications for Future Phases
+
+| Future Work                 | Impact of Learnings                                  |
+| --------------------------- | ---------------------------------------------------- |
+| Phase 6 (Vector similarity) | Should use family-based matching, not exact products |
+| Phase 7 (Real-time)         | First-message routing will have same 65% ceiling     |
+| Phase 8 (Optimization)      | Focus on family accuracy, not exact product accuracy |
+| Full context injection      | Only path to >65% accuracy (see below)               |
+
+### Full Conversation Context Injection (Potential Future Enhancement)
+
+**What it means**: Instead of analyzing only the first customer message, fetch and inject the full conversation thread into the LLM prompt.
+
+**Why it could help**:
+
+- Support responses often reveal the actual product ("I see you're using Pin Scheduler...")
+- Follow-up messages clarify ambiguity ("Actually I meant the Chrome extension")
+- Resolution signals indicate what was actually wrong
+
+**Implementation requirements**:
+
+- Modify Intercom client to fetch full `conversation_parts`
+- Extend context window handling (some conversations are 20+ messages)
+- Update Stage 2 classifier prompts for multi-turn analysis
+- Estimated +15-25% accuracy improvement (based on disambiguation patterns seen in Phase 1)
+
+**Trade-offs**:
+
+- Higher API costs (~3-5x more tokens per conversation)
+- Longer processing time
+- Privacy considerations (more customer data in prompts)
+- Complexity in prompt engineering (conversation threading)
+
+**Recommendation**: Consider for Phase 9 if family-based accuracy proves insufficient for business needs.
+
+---
+
+## 11. Revision History
+
+| Date       | Author        | Change                                                       |
+| ---------- | ------------- | ------------------------------------------------------------ |
+| 2026-01-06 | Claude + User | Initial draft                                                |
+| 2026-01-08 | Claude + User | Add two-stage classification & equivalence class system docs |
+| 2026-01-08 | Claude + User | Phase 5 complete; add lessons learned section                |
 
 ---
 

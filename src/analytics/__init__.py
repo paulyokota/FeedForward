@@ -1,21 +1,16 @@
 """
-Analytics module for FeedForward pipeline.
-
-Provides analysis tools for documentation coverage, theme trends, and quality metrics.
+Analytics module for cross-source theme analysis.
 """
-
-from .doc_coverage import (
-    DocumentationCoverageAnalyzer,
-    ThemeGap,
-    ArticleGap,
-    ProductAreaCoverage,
-    CoverageReport
+from .cross_source import (
+    get_cross_source_themes,
+    get_high_confidence_themes,
+    get_source_comparison_report,
+    CrossSourceTheme,
 )
 
 __all__ = [
-    'DocumentationCoverageAnalyzer',
-    'ThemeGap',
-    'ArticleGap',
-    'ProductAreaCoverage',
-    'CoverageReport',
+    "get_cross_source_themes",
+    "get_high_confidence_themes",
+    "get_source_comparison_report",
+    "CrossSourceTheme",
 ]
