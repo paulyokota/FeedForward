@@ -1,6 +1,176 @@
-# Phase 4 Testing Scripts
+# FeedForward Scripts
 
-This directory contains scripts for validating and testing Phase 4a (Help Article Context) and Phase 4b (Shortcut Story Context) implementations.
+This directory contains scripts for classification, validation, and testing.
+
+---
+
+## Classification Pipeline
+
+### Quick Start
+
+```bash
+# 1. Classify conversations (writes results to data/classification_results.jsonl)
+python scripts/classify_to_file.py --max 100
+
+# 2. Create Shortcut stories for review
+python scripts/create_shortcut_stories.py
+
+# Preview without creating stories
+python scripts/create_shortcut_stories.py --dry-run
+```
+
+### `classify_to_file.py`
+
+**Purpose**: Classify Intercom conversations and save results with rich metadata.
+
+**Usage**:
+
+```bash
+python scripts/classify_to_file.py --max 100           # Classify 100 conversations
+python scripts/classify_to_file.py --max 500           # Classify 500 conversations
+python scripts/classify_to_file.py --no-org-ids        # Skip org_id lookup (faster)
+```
+
+**Output**: `data/classification_results.jsonl` with fields:
+
+- `id`: Conversation ID
+- `category`: Classification result
+- `excerpt`: First 300 chars of message
+- `created_at`: Conversation timestamp
+- `email`: Contact email
+- `user_id`: Tailwind user ID (from external_id)
+- `org_id`: Tailwind org ID (from custom_attributes.account_id)
+- `intercom_url`: Link to conversation in Intercom
+- `jarvis_org_url`: Link to org in Jarvis
+- `jarvis_user_url`: Link to user in Jarvis
+
+### `create_shortcut_stories.py`
+
+**Purpose**: Create Shortcut stories from classification results with **proper excerpt formatting**.
+
+**Usage**:
+
+```bash
+python scripts/create_shortcut_stories.py                    # Create stories
+python scripts/create_shortcut_stories.py --dry-run          # Preview only
+python scripts/create_shortcut_stories.py --input other.jsonl # Custom input
+```
+
+### Excerpt Format Specification
+
+Each sample excerpt in Shortcut stories follows this format (matching `theme_tracker.py`):
+
+```markdown
+[email@example.com](https://app.intercom.com/a/apps/2t3d8az2/inbox/inbox/conversation/12345) | [Org](https://jarvis.tailwind.ai/organizations/org123) | [User](https://jarvis.tailwind.ai/organizations/org123/users/user456)
+
+> Customer message excerpt here...
+```
+
+**Links**:
+
+- **Email** → Intercom conversation URL
+- **Org** → Jarvis organization page
+- **User** → Jarvis user page (requires org_id)
+
+**Source of truth**: `src/story_formatter.py`
+
+- `format_excerpt()` - Format individual conversation excerpts
+- `build_story_description()` - Build complete story description
+- `build_story_name()` - Build consistent story titles
+- `get_story_type()` - Map category to story type (bug/feature/chore)
+
+---
+
+## Theme Extraction Pipeline (Recommended)
+
+The theme extraction pipeline extracts **specific issue signatures** from conversations using our 78-theme vocabulary, NOT broad categories.
+
+### Quick Start
+
+```bash
+# 1. Extract specific themes (uses ThemeExtractor + vocabulary)
+python scripts/extract_themes_to_file.py --max 100
+
+# 2. Create Shortcut stories grouped by theme
+python scripts/create_theme_stories.py
+
+# Preview without creating
+python scripts/create_theme_stories.py --dry-run
+
+# Only create stories for themes with 3+ occurrences
+python scripts/create_theme_stories.py --min-count 3
+```
+
+### `extract_themes_to_file.py`
+
+**Purpose**: Extract specific themes using our vocabulary (78 themes like `pinterest_publishing_failure`, `billing_cancellation_request`).
+
+**Usage**:
+
+```bash
+python scripts/extract_themes_to_file.py --max 100        # Extract from 100 conversations
+python scripts/extract_themes_to_file.py --max 100 --strict  # Only match known themes
+```
+
+**Output**: `data/theme_extraction_results.jsonl` with fields:
+
+- `issue_signature`: Specific theme (e.g., `pinterest_publishing_failure`)
+- `product_area`: Product area (e.g., `pinterest_publishing`, `billing`, `ai_creation`)
+- `component`: Component (e.g., `pin_scheduler`, `ghostwriter`)
+- `user_intent`: What user was trying to do
+- `symptoms`: List of observable symptoms
+- `affected_flow`: User journey that's broken
+- `root_cause_hypothesis`: Technical root cause guess
+- Plus all the rich metadata (email, user_id, org_id, URLs)
+
+### `create_theme_stories.py`
+
+**Purpose**: Create Shortcut stories grouped by **specific issue signature**.
+
+**Key Difference from `create_shortcut_stories.py`**:
+
+- Groups by specific themes (78 possible) not broad categories (8 possible)
+- Includes aggregated symptoms and root cause hypotheses
+- Story type inferred from theme (failure → bug, request → feature)
+
+### API Reference
+
+**IMPORTANT**: `ThemeExtractor.extract()` takes a `Conversation` object, not individual parameters:
+
+```python
+from theme_extractor import ThemeExtractor
+from db.models import Conversation
+
+# Create Conversation object first
+conv = Conversation(
+    id=parsed.id,
+    created_at=parsed.created_at,
+    source_body=parsed.source_body,
+    source_type=parsed.source_type,
+    source_url=parsed.source_url,
+    issue_type="bug_report",  # Literal string, not enum
+    sentiment="neutral",       # Literal string: "frustrated", "neutral", "satisfied"
+    priority="normal",         # Literal string: "urgent", "high", "normal", "low"
+    churn_risk=False,          # bool
+    # ... other fields
+)
+
+# Then extract
+extractor = ThemeExtractor(model="gpt-4o-mini", use_vocabulary=True)
+theme = extractor.extract(conv=conv, strict_mode=True)
+```
+
+**Source of truth**:
+
+- `src/theme_extractor.py` - ThemeExtractor class
+- `src/db/models.py` - Conversation model and Literal types
+- `config/theme_vocabulary.json` - 78 specific themes
+
+---
+
+## Phase 4 Testing Scripts
+
+This section contains scripts for validating and testing Phase 4a (Help Article Context) and Phase 4b (Shortcut Story Context) implementations.
 
 ## Scripts Overview
 
