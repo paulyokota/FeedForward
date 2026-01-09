@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """
-Create Shortcut stories from theme extraction results.
+Create Shortcut stories from PM-REVIEWED theme groups.
 
-Groups conversations by issue_signature (specific themes like 'pinterest_publishing_failure')
-rather than broad categories.
+IMPORTANT: This script requires PM review results. Run the full pipeline:
+  1. python scripts/extract_themes_async.py --max 1000
+  2. python scripts/run_pm_review_all.py        # REQUIRED - validates groupings
+  3. python scripts/create_theme_stories.py     # This script - only after PM review
+
+Direct theme-to-story creation bypasses the PM review quality gate.
+Use --skip-pm-review only for testing/debugging.
 
 Usage:
-    python scripts/create_theme_stories.py
-    python scripts/create_theme_stories.py --dry-run
-    python scripts/create_theme_stories.py --min-count 3  # Only themes with 3+ occurrences
+    python scripts/create_theme_stories.py                    # Normal - requires PM review
+    python scripts/create_theme_stories.py --dry-run          # Preview
+    python scripts/create_theme_stories.py --skip-pm-review   # TESTING ONLY - bypass PM review
 """
 import json
 import os
@@ -21,6 +26,34 @@ import requests
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from story_formatter import format_excerpt
+
+PM_REVIEW_FILE = Path(__file__).parent.parent / "data" / "pm_review_results.json"
+
+
+def check_pm_review_exists(skip_check: bool = False) -> dict | None:
+    """Check that PM review has been run. Returns review results or None."""
+    if skip_check:
+        print("WARNING: Skipping PM review check (--skip-pm-review flag)")
+        print("         Stories will be created without PM validation!")
+        print()
+        return None
+
+    if not PM_REVIEW_FILE.exists():
+        print("ERROR: PM review results not found!")
+        print()
+        print("You must run PM review before creating stories:")
+        print("  1. python scripts/extract_themes_async.py --max 1000")
+        print("  2. python scripts/run_pm_review_all.py        # <-- Missing!")
+        print("  3. python scripts/create_theme_stories.py")
+        print()
+        print("To bypass (TESTING ONLY): --skip-pm-review")
+        sys.exit(1)
+
+    with open(PM_REVIEW_FILE) as f:
+        reviews = json.load(f)
+
+    print(f"Found PM review results: {len(reviews)} groups reviewed")
+    return {r["signature"]: r for r in reviews}
 
 
 def load_env():
@@ -151,9 +184,12 @@ def determine_story_type(signature: str, product_area: str) -> str:
     return "bug"
 
 
-def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1):
-    """Create Shortcut stories from theme extraction results."""
+def create_stories(input_file: Path, dry_run: bool = False, min_count: int = 1, skip_pm_review: bool = False):
+    """Create Shortcut stories from PM-reviewed theme groups."""
     load_env()
+
+    # REQUIRED: Check PM review has been run
+    pm_reviews = check_pm_review_exists(skip_check=skip_pm_review)
 
     token = os.getenv("SHORTCUT_API_TOKEN")
     if not token:
@@ -265,6 +301,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--dry-run", action="store_true", help="Preview without creating")
     parser.add_argument("--min-count", type=int, default=1, help="Minimum occurrences to create story")
+    parser.add_argument("--skip-pm-review", action="store_true",
+                        help="TESTING ONLY: Bypass PM review requirement")
 
     args = parser.parse_args()
-    create_stories(args.input, args.dry_run, args.min_count)
+    create_stories(args.input, args.dry_run, args.min_count, args.skip_pm_review)

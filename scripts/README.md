@@ -102,25 +102,87 @@ Each sample excerpt in Shortcut stories follows this format (matching `theme_tra
 
 ## Theme Extraction Pipeline (PRIMARY - Use This)
 
-The theme extraction pipeline extracts **specific issue signatures** from conversations using our 78-theme vocabulary, NOT broad categories.
+The theme extraction pipeline extracts **specific issue signatures** from conversations using our 78-theme vocabulary, then validates them through PM review before creating stories.
 
-### Quick Start
+### Quick Start - FULL PIPELINE
 
 ```bash
-# 1. Extract specific themes (uses ThemeExtractor + vocabulary)
-python scripts/extract_themes_to_file.py --max 100
+# Step 1: Extract themes (async version is 30x faster)
+python scripts/extract_themes_async.py --max 1000
 
-# 2. Create Shortcut stories grouped by theme
-python scripts/create_theme_stories.py
+# Step 2: PM Review - REQUIRED before creating stories
+#         Validates: "Same implementation ticket? If not, split how?"
+python scripts/run_pm_review_all.py
 
-# Preview without creating
-python scripts/create_theme_stories.py --dry-run
-
-# Only create stories for themes with 3+ occurrences
-python scripts/create_theme_stories.py --min-count 3
+# Step 3: Create Shortcut stories from validated groups
+python scripts/create_theme_stories.py --min-count 5
 ```
 
-### `extract_themes_to_file.py`
+### Pipeline Enforcement
+
+`create_theme_stories.py` will **error** if PM review hasn't been run:
+
+```
+ERROR: PM review results not found!
+
+You must run PM review before creating stories:
+  1. python scripts/extract_themes_async.py --max 1000
+  2. python scripts/run_pm_review_all.py        # <-- Missing!
+  3. python scripts/create_theme_stories.py
+```
+
+To bypass for testing only: `--skip-pm-review`
+
+### Why PM Review Matters
+
+Without PM review, you get groupings like:
+
+- `instagram_oauth_multi_account` containing Pinterest, Instagram, AND Facebook issues
+- Never in the same sprint ticket!
+
+PM review validates: **"Would you put ALL of these in ONE implementation ticket?"**
+
+### `extract_themes_async.py` (Recommended)
+
+**Purpose**: Fast parallel theme extraction from classification results.
+
+**Usage**:
+
+```bash
+python scripts/extract_themes_async.py --max 1000              # Extract from 1000 conversations
+python scripts/extract_themes_async.py --max 1000 --concurrency 30  # More parallel requests
+```
+
+**Performance**: ~4 conversations/sec (30x faster than sequential)
+
+**Requires**: `data/classification_results.jsonl` from `classify_to_file.py`
+
+**Output**: `data/theme_extraction_results.jsonl`
+
+### `run_pm_review_all.py`
+
+**Purpose**: PM/Tech Lead review of theme groupings before story creation.
+
+**Usage**:
+
+```bash
+python scripts/run_pm_review_all.py
+```
+
+**What it does**:
+
+- Reviews each theme group with GPT-4o
+- Asks: "Would you put ALL of these in ONE implementation ticket?"
+- Decisions: `keep_together` or `split` with sub-group suggestions
+- Saves results to `data/pm_review_results.json`
+
+**Output fields**:
+
+- `decision`: "keep_together" or "split"
+- `reasoning`: Why the decision was made
+- `sub_groups`: If split, suggested new groupings with conversation IDs
+
+### `extract_themes_to_file.py` (Sequential - Slower)
 
 **Purpose**: Extract specific themes using our vocabulary (78 themes like `pinterest_publishing_failure`, `billing_cancellation_request`).
 
