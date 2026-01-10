@@ -130,7 +130,7 @@ function SortableStoryCard({
         }
 
         :global([data-theme="light"]) .drop-indicator {
-          background: #c0cac9;
+          background: hsl(0, 0%, 85%);
         }
 
         .drop-indicator.dragging {
@@ -292,7 +292,7 @@ export function DroppableColumn({ status, stories }: DroppableColumnProps) {
         }
 
         :global([data-theme="light"]) .drop-indicator-empty {
-          background: #c0cac9;
+          background: hsl(0, 0%, 85%);
         }
 
         .drop-indicator-bottom {
@@ -310,7 +310,7 @@ export function DroppableColumn({ status, stories }: DroppableColumnProps) {
         }
 
         :global([data-theme="light"]) .drop-indicator-bottom {
-          background: #c0cac9;
+          background: hsl(0, 0%, 85%);
         }
       `}</style>
     </div>

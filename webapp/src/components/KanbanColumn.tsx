@@ -42,7 +42,6 @@ export function KanbanColumn({ status, stories }: KanbanColumnProps) {
           align-items: center;
           gap: 10px;
           padding: 14px 16px;
-          border-bottom: 1px solid var(--border-default);
           position: sticky;
           top: 0;
           background: var(--bg-primary);

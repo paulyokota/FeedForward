@@ -84,11 +84,25 @@ export function ThemeToggle() {
         .theme-toggle {
           display: flex;
           align-items: center;
-          background: var(--bg-elevated);
-          border: 1px solid var(--border-default);
-          border-radius: var(--radius-md);
-          padding: 3px;
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 32%),
+            hsl(0, 0%, 28%)
+          );
+          border: none;
+          border-radius: var(--radius-full);
+          padding: 4px;
           gap: 2px;
+          box-shadow: var(--shadow-sm);
+        }
+
+        :global([data-theme="light"]) .theme-toggle {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 96%),
+            hsl(0, 0%, 90%)
+          );
+          box-shadow: var(--shadow-inset);
         }
 
         .toggle-option {
@@ -99,7 +113,7 @@ export function ThemeToggle() {
           height: 28px;
           border: none;
           background: transparent;
-          border-radius: 4px;
+          border-radius: var(--radius-full);
           color: var(--text-tertiary);
           cursor: pointer;
           transition: all 0.2s ease;
