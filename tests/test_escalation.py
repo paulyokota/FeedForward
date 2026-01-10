@@ -350,6 +350,7 @@ class TestSlackClient:
         ))
         assert result is True
 
+    @patch.dict('os.environ', {'SLACK_WEBHOOK_URL': ''}, clear=False)
     def test_no_webhook_logs_warning(self):
         """Missing webhook should log warning and return False."""
         client = SlackClient(webhook_url=None, dry_run=False)

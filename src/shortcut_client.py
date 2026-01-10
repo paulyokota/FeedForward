@@ -144,7 +144,7 @@ class ShortcutClient:
             description: Story description with excerpts
             story_type: "bug", "feature", or "chore"
             project_id: Optional project to add story to
-            workflow_state_id: Workflow state (required if no project_id)
+            workflow_state_id: Workflow state. Defaults to backlog_state_id if not provided.
 
         Returns:
             Story ID if successful, None otherwise.
@@ -156,8 +156,11 @@ class ShortcutClient:
         }
         if project_id:
             data["project_id"] = project_id
-        if workflow_state_id:
-            data["workflow_state_id"] = workflow_state_id
+
+        # Use provided workflow_state_id, or fall back to backlog_state_id
+        effective_state_id = workflow_state_id or self.backlog_state_id
+        if effective_state_id:
+            data["workflow_state_id"] = effective_state_id
 
         result = self._post("/stories", data)
         if result:

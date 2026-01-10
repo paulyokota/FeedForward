@@ -95,3 +95,64 @@ class ClassificationStats(BaseModel):
     resolution_detected_count: int
     top_stage1_types: Dict[str, int]
     top_stage2_types: Dict[str, int]
+
+
+# -----------------------------------------------------------------------------
+# Story Tracking Analytics
+# -----------------------------------------------------------------------------
+
+
+class StoryMetricsResponse(BaseModel):
+    """Aggregated story metrics response."""
+
+    total_stories: int = 0
+    by_status: Dict[str, int] = Field(default_factory=dict)
+    by_priority: Dict[str, int] = Field(default_factory=dict)
+    by_severity: Dict[str, int] = Field(default_factory=dict)
+    by_product_area: Dict[str, int] = Field(default_factory=dict)
+    created_last_7_days: int = 0
+    created_last_30_days: int = 0
+    avg_confidence_score: Optional[float] = None
+    total_evidence_count: int = 0
+    total_conversation_count: int = 0
+
+
+class ThemeTrendResponse(BaseModel):
+    """A trending theme with metrics."""
+
+    theme_signature: str
+    product_area: str = "unknown"
+    occurrence_count: int = 0
+    first_seen_at: datetime
+    last_seen_at: datetime
+    trend_direction: str = "stable"
+    linked_story_count: int = 0
+
+
+class SourceDistributionResponse(BaseModel):
+    """Distribution of evidence by source."""
+
+    source: str
+    conversation_count: int = 0
+    story_count: int = 0
+    percentage: float = 0.0
+
+
+class EvidenceSummaryResponse(BaseModel):
+    """Summary of evidence across all stories."""
+
+    total_evidence_records: int = 0
+    total_conversations_linked: int = 0
+    total_themes_linked: int = 0
+    sources: List[SourceDistributionResponse] = Field(default_factory=list)
+
+
+class SyncMetricsResponse(BaseModel):
+    """Shortcut sync metrics response."""
+
+    total_synced: int = 0
+    success_count: int = 0
+    error_count: int = 0
+    push_count: int = 0
+    pull_count: int = 0
+    unsynced_count: int = 0

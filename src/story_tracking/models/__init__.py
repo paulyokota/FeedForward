@@ -22,6 +22,28 @@ from .orphan import (
     OrphanUpdate,
 )
 
+# Re-export sync models
+from .sync import (
+    PullRequest,
+    PullResponse,
+    PushRequest,
+    PushResponse,
+    ShortcutWebhookEvent,
+    StorySnapshot,
+    SyncMetadataCreate,
+    SyncMetadataUpdate,
+    SyncResult,
+    SyncStatusResponse,
+)
+
+# Re-export label models
+from .label import (
+    ImportResult,
+    LabelCreate,
+    LabelListResponse,
+    LabelUpdate,
+)
+
 
 class StoryBase(BaseModel):
     """Base story fields shared across create/update/response."""

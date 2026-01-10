@@ -5,7 +5,7 @@ Dashboard metrics and classification statistics for operational visibility.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
@@ -14,9 +14,15 @@ from src.api.schemas.analytics import (
     ClassificationStats,
     ConfidenceDistribution,
     DashboardMetrics,
+    EvidenceSummaryResponse,
     PipelineRunSummary,
+    SourceDistributionResponse,
+    StoryMetricsResponse,
+    SyncMetricsResponse,
+    ThemeTrendResponse,
 )
 from src.db.classification_storage import get_classification_stats
+from src.story_tracking.services import AnalyticsService
 
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
@@ -152,4 +158,149 @@ def get_stats(
         resolution_detected_count=stats["resolution_detected_count"],
         top_stage1_types=stats["top_stage1_types"],
         top_stage2_types=stats["top_stage2_types"],
+    )
+
+
+# -----------------------------------------------------------------------------
+# Story Tracking Analytics Endpoints
+# -----------------------------------------------------------------------------
+
+
+def get_analytics_service(db=Depends(get_db)) -> AnalyticsService:
+    """Dependency for AnalyticsService."""
+    return AnalyticsService(db)
+
+
+@router.get("/stories", response_model=StoryMetricsResponse)
+def get_story_metrics(
+    service: AnalyticsService = Depends(get_analytics_service),
+):
+    """
+    Get aggregated story metrics.
+
+    Returns:
+    - Total story count and breakdown by status, priority, severity, product area
+    - Recent creation counts (7 and 30 days)
+    - Average confidence score
+    - Total evidence and conversation counts
+    """
+    metrics = service.get_story_metrics()
+
+    return StoryMetricsResponse(
+        total_stories=metrics.total_stories,
+        by_status=metrics.by_status,
+        by_priority=metrics.by_priority,
+        by_severity=metrics.by_severity,
+        by_product_area=metrics.by_product_area,
+        created_last_7_days=metrics.created_last_7_days,
+        created_last_30_days=metrics.created_last_30_days,
+        avg_confidence_score=metrics.avg_confidence_score,
+        total_evidence_count=metrics.total_evidence_count,
+        total_conversation_count=metrics.total_conversation_count,
+    )
+
+
+@router.get("/themes/trending", response_model=List[ThemeTrendResponse])
+def get_trending_themes(
+    days: int = Query(default=7, ge=1, le=90, description="Lookback period in days"),
+    limit: int = Query(default=20, ge=1, le=100, description="Maximum themes to return"),
+    service: AnalyticsService = Depends(get_analytics_service),
+):
+    """
+    Get trending themes over the specified period.
+
+    Themes are ranked by occurrence count and recency.
+    Only themes with 2+ occurrences are included.
+
+    Returns trend direction:
+    - "rising": Last seen within 1 day
+    - "stable": Last seen within 3 days
+    - "declining": Last seen more than 3 days ago
+    """
+    themes = service.get_trending_themes(days=days, limit=limit)
+
+    return [
+        ThemeTrendResponse(
+            theme_signature=t.theme_signature,
+            product_area=t.product_area,
+            occurrence_count=t.occurrence_count,
+            first_seen_at=t.first_seen_at,
+            last_seen_at=t.last_seen_at,
+            trend_direction=t.trend_direction,
+            linked_story_count=t.linked_story_count,
+        )
+        for t in themes
+    ]
+
+
+@router.get("/sources", response_model=List[SourceDistributionResponse])
+def get_source_distribution(
+    service: AnalyticsService = Depends(get_analytics_service),
+):
+    """
+    Get distribution of evidence by source.
+
+    Returns the count and percentage of conversations from each source
+    (e.g., intercom, slack, coda).
+    """
+    sources = service.get_source_distribution()
+
+    return [
+        SourceDistributionResponse(
+            source=s.source,
+            conversation_count=s.conversation_count,
+            story_count=s.story_count,
+            percentage=s.percentage,
+        )
+        for s in sources
+    ]
+
+
+@router.get("/evidence", response_model=EvidenceSummaryResponse)
+def get_evidence_summary(
+    service: AnalyticsService = Depends(get_analytics_service),
+):
+    """
+    Get summary of all evidence.
+
+    Returns aggregate counts of evidence records, linked conversations,
+    and linked themes, along with source distribution.
+    """
+    summary = service.get_evidence_summary()
+
+    return EvidenceSummaryResponse(
+        total_evidence_records=summary.total_evidence_records,
+        total_conversations_linked=summary.total_conversations_linked,
+        total_themes_linked=summary.total_themes_linked,
+        sources=[
+            SourceDistributionResponse(
+                source=s.source,
+                conversation_count=s.conversation_count,
+                story_count=s.story_count,
+                percentage=s.percentage,
+            )
+            for s in summary.sources
+        ],
+    )
+
+
+@router.get("/sync", response_model=SyncMetricsResponse)
+def get_sync_metrics(
+    service: AnalyticsService = Depends(get_analytics_service),
+):
+    """
+    Get Shortcut sync metrics.
+
+    Returns counts of synced vs unsynced stories, success/error rates,
+    and push/pull direction counts.
+    """
+    metrics = service.get_sync_metrics()
+
+    return SyncMetricsResponse(
+        total_synced=metrics["total_synced"],
+        success_count=metrics["success_count"],
+        error_count=metrics["error_count"],
+        push_count=metrics["push_count"],
+        pull_count=metrics["pull_count"],
+        unsynced_count=metrics["unsynced_count"],
     )
