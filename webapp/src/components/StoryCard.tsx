@@ -1,21 +1,30 @@
 "use client";
 
 import type { Story } from "@/lib/types";
-import { STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/types";
+import { PRIORITY_CONFIG } from "@/lib/types";
 import Link from "next/link";
+import React from "react";
 
 interface StoryCardProps {
   story: Story;
+  isDragOverlay?: boolean;
+  style?: React.CSSProperties;
 }
 
-export function StoryCard({ story }: StoryCardProps) {
-  const priorityConfig = story.priority
-    ? PRIORITY_CONFIG[story.priority]
-    : null;
+export const StoryCard = React.forwardRef<HTMLElement, StoryCardProps>(
+  function StoryCard({ story, isDragOverlay = false, style, ...props }, ref) {
+    const priorityConfig = story.priority
+      ? PRIORITY_CONFIG[story.priority]
+      : null;
 
-  return (
-    <Link href={`/story/${story.id}`}>
-      <article className="story-card">
+    const cardContent = (
+      <article
+        ref={ref}
+        className="story-card"
+        style={style}
+        aria-label={`Story: ${story.title}`}
+        {...props}
+      >
         <div className="card-header">
           <h3 className="card-title">{story.title}</h3>
           {priorityConfig && (
@@ -151,6 +160,13 @@ export function StoryCard({ story }: StoryCardProps) {
           }
         `}</style>
       </article>
-    </Link>
-  );
-}
+    );
+
+    // When used as drag overlay, don't wrap in Link
+    if (isDragOverlay) {
+      return cardContent;
+    }
+
+    return <Link href={`/story/${story.id}`}>{cardContent}</Link>;
+  },
+);
