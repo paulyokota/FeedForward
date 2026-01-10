@@ -3,10 +3,18 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import type { StoryWithEvidence, StatusKey, StoryComment } from "@/lib/types";
+import type { StoryWithEvidence, StatusKey, StoryUpdate } from "@/lib/types";
 import { STATUS_CONFIG, PRIORITY_CONFIG, STATUS_ORDER } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FeedForwardLogo } from "@/components/FeedForwardLogo";
+
+const SEVERITY_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "critical", label: "Critical" },
+  { value: "major", label: "Major" },
+  { value: "moderate", label: "Moderate" },
+  { value: "minor", label: "Minor" },
+];
 
 export default function StoryDetailPage() {
   const params = useParams();
@@ -17,6 +25,20 @@ export default function StoryDetailPage() {
   const [commentText, setCommentText] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Edit mode state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Edit form state
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSeverity, setEditSeverity] = useState("");
+  const [editProductArea, setEditProductArea] = useState("");
+  const [editTechnicalArea, setEditTechnicalArea] = useState("");
+  const [editLabels, setEditLabels] = useState<string[]>([]);
+  const [newLabelInput, setNewLabelInput] = useState("");
 
   useEffect(() => {
     async function fetchStory() {
@@ -96,6 +118,78 @@ export default function StoryDetailPage() {
     }
   };
 
+  // Edit mode handlers
+  const enterEditMode = () => {
+    if (!story) return;
+    setEditTitle(story.title);
+    setEditDescription(story.description || "");
+    setEditSeverity(story.severity || "");
+    setEditProductArea(story.product_area || "");
+    setEditTechnicalArea(story.technical_area || "");
+    setEditLabels(story.labels || []);
+    setNewLabelInput("");
+    setEditError(null);
+    setIsEditMode(true);
+  };
+
+  const cancelEditMode = () => {
+    setIsEditMode(false);
+    setEditError(null);
+    setNewLabelInput("");
+  };
+
+  const handleAddLabel = () => {
+    const label = newLabelInput.trim();
+    if (label && !editLabels.includes(label)) {
+      setEditLabels([...editLabels, label]);
+    }
+    setNewLabelInput("");
+  };
+
+  const handleRemoveLabel = (labelToRemove: string) => {
+    setEditLabels(editLabels.filter((l) => l !== labelToRemove));
+  };
+
+  const handleLabelKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddLabel();
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    if (!story || isSaving) return;
+
+    if (!editTitle.trim()) {
+      setEditError("Title is required");
+      return;
+    }
+
+    setIsSaving(true);
+    setEditError(null);
+
+    try {
+      const updates: StoryUpdate = {
+        title: editTitle.trim(),
+        description: editDescription.trim() || undefined,
+        severity: editSeverity || null,
+        product_area: editProductArea.trim() || null,
+        technical_area: editTechnicalArea.trim() || null,
+        labels: editLabels,
+      };
+
+      const updated = await api.stories.update(story.id, updates);
+      setStory((prev) => (prev ? { ...prev, ...updated } : prev));
+      setIsEditMode(false);
+    } catch (err) {
+      setEditError(
+        err instanceof Error ? err.message : "Failed to save changes",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-state">
@@ -136,7 +230,28 @@ export default function StoryDetailPage() {
         </nav>
         <div className="top-actions">
           <ThemeToggle />
-          <button className="action-btn">Edit</button>
+          {isEditMode ? (
+            <>
+              <button
+                className="action-btn cancel-btn"
+                onClick={cancelEditMode}
+                disabled={isSaving}
+              >
+                Cancel
+              </button>
+              <button
+                className="action-btn save-btn"
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+              >
+                {isSaving ? "Saving..." : "Save"}
+              </button>
+            </>
+          ) : (
+            <button className="action-btn" onClick={enterEditMode}>
+              Edit
+            </button>
+          )}
         </div>
       </header>
 
@@ -146,11 +261,33 @@ export default function StoryDetailPage() {
         <main className="main-content">
           {/* Story Header */}
           <section className="story-header">
-            <h1 className="story-title">{story.title}</h1>
-            {story.description && (
-              <div className="story-description">
-                <p>{story.description}</p>
-              </div>
+            {editError && <div className="edit-error-message">{editError}</div>}
+            {isEditMode ? (
+              <>
+                <input
+                  type="text"
+                  className="edit-title-input"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Story title"
+                />
+                <textarea
+                  className="edit-description-input"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Add a description..."
+                  rows={4}
+                />
+              </>
+            ) : (
+              <>
+                <h1 className="story-title">{story.title}</h1>
+                {story.description && (
+                  <div className="story-description">
+                    <p>{story.description}</p>
+                  </div>
+                )}
+              </>
             )}
           </section>
 
@@ -341,31 +478,65 @@ export default function StoryDetailPage() {
 
             <div className="field-row">
               <span className="field-label">Severity</span>
-              <span className="field-value">
-                {story.severity ? (
-                  <span className="severity-value">{story.severity}</span>
-                ) : (
-                  <span className="field-empty">None</span>
-                )}
-              </span>
+              {isEditMode ? (
+                <select
+                  className="inline-select"
+                  value={editSeverity}
+                  onChange={(e) => setEditSeverity(e.target.value)}
+                >
+                  {SEVERITY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="field-value">
+                  {story.severity ? (
+                    <span className="severity-value">{story.severity}</span>
+                  ) : (
+                    <span className="field-empty">None</span>
+                  )}
+                </span>
+              )}
             </div>
 
             <div className="field-row">
               <span className="field-label">Product Area</span>
-              <span className="field-value">
-                {story.product_area || (
-                  <span className="field-empty">None</span>
-                )}
-              </span>
+              {isEditMode ? (
+                <input
+                  type="text"
+                  className="inline-input"
+                  value={editProductArea}
+                  onChange={(e) => setEditProductArea(e.target.value)}
+                  placeholder="e.g., Billing"
+                />
+              ) : (
+                <span className="field-value">
+                  {story.product_area || (
+                    <span className="field-empty">None</span>
+                  )}
+                </span>
+              )}
             </div>
 
             <div className="field-row">
               <span className="field-label">Technical Area</span>
-              <span className="field-value">
-                {story.technical_area || (
-                  <span className="field-empty">None</span>
-                )}
-              </span>
+              {isEditMode ? (
+                <input
+                  type="text"
+                  className="inline-input"
+                  value={editTechnicalArea}
+                  onChange={(e) => setEditTechnicalArea(e.target.value)}
+                  placeholder="e.g., API"
+                />
+              ) : (
+                <span className="field-value">
+                  {story.technical_area || (
+                    <span className="field-empty">None</span>
+                  )}
+                </span>
+              )}
             </div>
           </div>
 
@@ -402,7 +573,43 @@ export default function StoryDetailPage() {
           {/* Labels */}
           <div className="sidebar-section">
             <span className="field-label standalone">Labels</span>
-            {story.labels && story.labels.length > 0 ? (
+            {isEditMode ? (
+              <div className="labels-edit">
+                <div className="labels-list">
+                  {editLabels.map((label) => (
+                    <span key={label} className="label-tag editable">
+                      {label}
+                      <button
+                        type="button"
+                        className="label-remove-btn"
+                        onClick={() => handleRemoveLabel(label)}
+                        aria-label={`Remove ${label}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="label-input-wrapper">
+                  <input
+                    type="text"
+                    className="label-input"
+                    value={newLabelInput}
+                    onChange={(e) => setNewLabelInput(e.target.value)}
+                    onKeyDown={handleLabelKeyDown}
+                    placeholder="Add label..."
+                  />
+                  <button
+                    type="button"
+                    className="label-add-btn"
+                    onClick={handleAddLabel}
+                    disabled={!newLabelInput.trim()}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            ) : story.labels && story.labels.length > 0 ? (
               <div className="labels-list">
                 {story.labels.map((label) => (
                   <span key={label} className="label-tag">
@@ -412,7 +619,9 @@ export default function StoryDetailPage() {
               </div>
             ) : (
               <div className="add-labels">
-                <button className="add-btn">+ Add Labels</button>
+                <button className="add-btn" onClick={enterEditMode}>
+                  + Add Labels
+                </button>
               </div>
             )}
           </div>
@@ -560,9 +769,31 @@ export default function StoryDetailPage() {
           transition: all 0.15s ease;
         }
 
-        .action-btn:hover {
+        .action-btn:hover:not(:disabled) {
           background: var(--bg-hover);
           color: var(--text-primary);
+        }
+
+        .action-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .action-btn.save-btn {
+          background: var(--accent-blue);
+          border-color: var(--accent-blue);
+          color: white;
+        }
+
+        .action-btn.save-btn:hover:not(:disabled) {
+          background: #74b3ff;
+          border-color: #74b3ff;
+        }
+
+        .action-btn.cancel-btn {
+          background: var(--bg-elevated);
+          border-color: var(--border-default);
+          color: var(--text-secondary);
         }
 
         /* Two-Column Grid */
@@ -599,6 +830,63 @@ export default function StoryDetailPage() {
 
         .story-description p {
           margin: 0;
+        }
+
+        /* Edit Mode - Title and Description */
+        .edit-error-message {
+          background: var(--accent-red-dim);
+          color: var(--accent-red);
+          padding: 10px 14px;
+          border-radius: var(--radius-md);
+          font-size: 13px;
+          margin-bottom: 16px;
+        }
+
+        .edit-title-input {
+          width: 100%;
+          padding: 12px 14px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-md);
+          color: var(--text-primary);
+          font-size: 24px;
+          font-weight: 600;
+          font-family: inherit;
+          margin-bottom: 16px;
+          transition: border-color 0.15s ease;
+        }
+
+        .edit-title-input:focus {
+          outline: none;
+          border-color: var(--accent-blue);
+        }
+
+        .edit-title-input::placeholder {
+          color: var(--text-muted);
+        }
+
+        .edit-description-input {
+          width: 100%;
+          padding: 12px 14px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-md);
+          color: var(--text-primary);
+          font-size: 15px;
+          font-family: inherit;
+          line-height: 1.65;
+          resize: vertical;
+          min-height: 100px;
+          transition: border-color 0.15s ease;
+        }
+
+        .edit-description-input:focus {
+          outline: none;
+          border-color: var(--accent-blue);
+        }
+
+        .edit-description-input::placeholder {
+          color: var(--text-muted);
         }
 
         /* Content Sections */
@@ -746,6 +1034,33 @@ export default function StoryDetailPage() {
         .inline-select:disabled {
           opacity: 0.6;
           cursor: not-allowed;
+        }
+
+        /* Inline Input for sidebar editing */
+        .inline-input {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-sm);
+          color: var(--text-primary);
+          font-size: 13px;
+          padding: 4px 8px;
+          min-width: 100px;
+          max-width: 140px;
+          transition: all 0.15s ease;
+        }
+
+        .inline-input:hover {
+          border-color: var(--accent-blue);
+        }
+
+        .inline-input:focus {
+          outline: none;
+          border-color: var(--accent-blue);
+          box-shadow: 0 0 0 2px var(--accent-blue-dim);
+        }
+
+        .inline-input::placeholder {
+          color: var(--text-muted);
         }
 
         .comments-list {
@@ -940,6 +1255,83 @@ export default function StoryDetailPage() {
           background: var(--accent-purple-dim);
           padding: 4px 10px;
           border-radius: 4px;
+        }
+
+        .label-tag.editable {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding-right: 6px;
+        }
+
+        .label-remove-btn {
+          background: none;
+          border: none;
+          color: var(--accent-purple);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 0;
+          line-height: 1;
+          opacity: 0.7;
+          transition: opacity 0.15s ease;
+        }
+
+        .label-remove-btn:hover {
+          opacity: 1;
+        }
+
+        .labels-edit {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .label-input-wrapper {
+          display: flex;
+          gap: 6px;
+        }
+
+        .label-input {
+          flex: 1;
+          padding: 6px 10px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-sm);
+          color: var(--text-primary);
+          font-size: 12px;
+          transition: border-color 0.15s ease;
+        }
+
+        .label-input:focus {
+          outline: none;
+          border-color: var(--accent-blue);
+        }
+
+        .label-input::placeholder {
+          color: var(--text-muted);
+        }
+
+        .label-add-btn {
+          padding: 6px 10px;
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-sm);
+          color: var(--text-secondary);
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .label-add-btn:hover:not(:disabled) {
+          background: var(--bg-hover);
+          color: var(--text-primary);
+        }
+
+        .label-add-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .add-btn {

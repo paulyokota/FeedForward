@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type Theme = "dark" | "light" | "system";
 type ResolvedTheme = "dark" | "light";
@@ -23,28 +23,36 @@ function getSystemTheme(): ResolvedTheme {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("dark");
-  const [mounted, setMounted] = useState(false);
-
-  // Initialize theme from localStorage or default
-  useEffect(() => {
+  // Use lazy initializer to avoid setState in effect
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "dark";
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    if (stored && ["dark", "light", "system"].includes(stored)) {
-      setThemeState(stored);
-    }
+    return stored && ["dark", "light", "system"].includes(stored)
+      ? stored
+      : "dark";
+  });
+  const [mounted, setMounted] = useState(false);
+  // Counter to trigger re-render when system theme changes
+  const [systemThemeKey, setSystemThemeKey] = useState(0);
+
+  // Use useMemo instead of useState + useEffect for resolved theme
+  const resolvedTheme = useMemo<ResolvedTheme>(() => {
+    if (!mounted) return "dark";
+    // systemThemeKey triggers recalculation when system theme changes
+    void systemThemeKey;
+    return theme === "system" ? getSystemTheme() : theme;
+  }, [theme, mounted, systemThemeKey]);
+
+  // Set mounted on client
+  useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Resolve theme and apply to document
+  // Apply theme to document when resolved theme changes
   useEffect(() => {
     if (!mounted) return;
-
-    const resolved: ResolvedTheme =
-      theme === "system" ? getSystemTheme() : theme;
-    setResolvedTheme(resolved);
-    document.documentElement.setAttribute("data-theme", resolved);
-  }, [theme, mounted]);
+    document.documentElement.setAttribute("data-theme", resolvedTheme);
+  }, [resolvedTheme, mounted]);
 
   // Listen for system theme changes when in "system" mode
   useEffect(() => {
@@ -52,10 +60,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
-    const handleChange = (e: MediaQueryListEvent) => {
-      const newTheme = e.matches ? "dark" : "light";
-      setResolvedTheme(newTheme);
-      document.documentElement.setAttribute("data-theme", newTheme);
+    const handleChange = () => {
+      // Increment key to trigger useMemo recalculation
+      setSystemThemeKey((k) => k + 1);
     };
 
     mediaQuery.addEventListener("change", handleChange);
