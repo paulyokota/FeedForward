@@ -10,28 +10,122 @@
 **Story Grouping Architecture: IN PROGRESS** 🚧
 **Frontend Dashboard: COMPLETE** ✅
 **Multi-Source Architecture: COMPLETE** ✅
-**Story Tracking Web App: PHASE 1 COMPLETE** ✅
+**Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Story Tracking Web App - Logo & Theming Fix (2026-01-09)
+## Latest: Story Tracking Web App - Phase 2.5 Complete (2026-01-09)
 
 ### Session Summary
 
-Fixed FeedForward logo display for both light and dark themes in the Story Tracking Web App.
+Completed Phase 2.5 of the Story Tracking Web App: interactive drag-and-drop kanban board with smooth animations and full accessibility support.
 
-### What Was Done
+### What Was Built
 
-1. **Logo Trimming**: Trimmed logo from 1408×768 to 1397×262, removing excess whitespace
-2. **Transparent Background**: Made logo background transparent for clean display on any theme
-3. **Dark Mode Version**: Created `feedforward-logo-dark.png` with lightened "Feed" text (was too dark to see)
-4. **Theme-Aware Component**: Updated `FeedForwardLogo.tsx` to automatically switch logos based on theme
-5. **Next.js Image Fix**: Switched from Next.js `Image` to native `img` to avoid optimization issues with transparency
+**Drag-and-Drop System** (dnd-kit + Framer Motion):
 
-### Files Modified/Created
+- Type-safe drag-and-drop with TypeScript definitions (`webapp/src/lib/dnd.types.ts`)
+- Custom collision detection using ID patterns (`story-*` and `column-*`)
+- Context-based height sharing for drop indicator sizing
+- DndBoardProvider with drag state management (`webapp/src/components/DndBoardProvider.tsx`)
+- DroppableColumn with sortable story cards (`webapp/src/components/DroppableColumn.tsx`)
 
-- `webapp/public/feedforward-logo.png` - Trimmed + transparent background
-- `webapp/public/feedforward-logo-dark.png` - Dark mode version with light text
-- `webapp/src/components/FeedForwardLogo.tsx` - Theme-aware logo switching
-- `webapp/src/app/globals.css` - Light theme fixes (neutral backgrounds, removed teal tints)
+**Visual Feedback**:
+
+- Animated drag overlay with rotation and scale (Framer Motion)
+- Drop indicators matching dragged card height
+- Bottom drop zone support for empty columns and column ends
+- Smooth card collapse during drag with height transitions
+
+**Accessibility Features**:
+
+- ARIA live region with screen reader announcements
+- Keyboard navigation with arrow keys
+- Focus indicators on draggable elements
+- Semantic HTML with proper ARIA roles
+
+**Key Technical Decisions**:
+
+- **ID-based collision detection** - More reliable than data path traversal
+- **Framer Motion for overlay** - Smooth animations without dnd-kit transforms
+- **Context for height sharing** - Drag overlay height distributed to all drop indicators
+- **Bottom drop zone** - Visible placeholder when dragging over column bottom
+
+### Phase 2.5 Status
+
+| Task                       | Status      |
+| -------------------------- | ----------- |
+| dnd-kit integration        | ✅ Complete |
+| Custom collision detection | ✅ Complete |
+| Drop indicators            | ✅ Complete |
+| Drag overlay animation     | ✅ Complete |
+| Keyboard navigation        | ✅ Complete |
+| Screen reader support      | ✅ Complete |
+| Empty column handling      | ✅ Complete |
+
+### Next Steps (Phase 3)
+
+1. **Bidirectional Shortcut Sync** - Implement sync service with last-write-wins conflict resolution
+2. **Comment Creation UI** - Add comment functionality to story detail page
+3. **Analytics Dashboard** - Aggregate metrics and trends from stories and evidence
+
+---
+
+## Previous: Story Tracking Web App - Phase 2 Complete (2026-01-09)
+
+### Session Summary
+
+Completed Phase 2 of the Story Tracking Web App: full edit capability and pipeline integration for auto-creating candidate stories from PM-reviewed theme groups.
+
+### What Was Built
+
+**Frontend Edit Capability** (`webapp/src/app/story/[id]/page.tsx`):
+
+- Edit mode toggle with Save/Cancel buttons
+- Full field editing: title, description, severity, product area, technical area, labels
+- Label management: add/remove labels with chip UI
+- Loading states and error handling
+- Theme-aware styling (works in light and dark modes)
+
+**Pipeline Integration Service** (`src/story_tracking/services/pipeline_integration.py`):
+
+- `PipelineIntegrationService` class bridges PM review output to story creation
+- `ValidatedGroup` dataclass for PM review output structure
+- `create_candidate_story()` - Creates story with evidence from validated groups
+- `bulk_create_candidates()` - Batch creation with progress logging
+- Automatic deduplication via signature matching
+- Evidence bundle creation with conversation links and excerpts
+- 14 tests passing (creation, deduplication, bulk operations, error handling)
+
+**Bug Fixes**:
+
+- Fixed `FeedForwardLogo.tsx` TypeScript error (systemTheme → resolvedTheme)
+- Fixed `ThemeProvider.tsx` React best practices (lazy initializer, useMemo)
+
+### Phase 2 Status
+
+| Task                         | Status      |
+| ---------------------------- | ----------- |
+| Edit mode UI                 | ✅ Complete |
+| Pipeline integration service | ✅ Complete |
+| Deduplication logic          | ✅ Complete |
+| Evidence bundle creation     | ✅ Complete |
+| Bulk creation support        | ✅ Complete |
+| Tests (14 passing)           | ✅ Complete |
+
+### Next Steps (Phase 3)
+
+1. **Bidirectional Shortcut Sync** - Implement sync service with last-write-wins conflict resolution
+2. **Comment Creation UI** - Add comment functionality to story detail page
+3. **Analytics Dashboard** - Aggregate metrics and trends from stories and evidence
+
+### Previous: Logo & Theming Fix (2026-01-09)
+
+Fixed FeedForward logo display for both light and dark themes:
+
+- Trimmed logo from 1408×768 to 1397×262, removed whitespace
+- Created transparent background version
+- Added `feedforward-logo-dark.png` with lightened "Feed" text
+- Theme-aware `FeedForwardLogo.tsx` component with auto-switching
+- Light theme CSS fixes (neutral backgrounds, removed teal tints)
 
 ---
 

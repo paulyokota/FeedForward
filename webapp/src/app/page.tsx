@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import type { Story, StatusKey, BoardView } from "@/lib/types";
 import { STATUS_ORDER, STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/types";
-import { KanbanColumn } from "@/components/KanbanColumn";
+import { DroppableColumn } from "@/components/DroppableColumn";
+import { DndBoardProvider } from "@/components/DndBoardProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { FeedForwardLogo } from "@/components/FeedForwardLogo";
+import type { StoryMoveEvent } from "@/lib/dnd.types";
 
 type PriorityFilter = "all" | "urgent" | "high" | "medium" | "low" | "none";
 
@@ -71,6 +73,67 @@ export default function BoardPage() {
       };
     });
   };
+
+  const handleStoryMove = useCallback(
+    async (event: StoryMoveEvent) => {
+      if (!board) return;
+
+      const { storyId, sourceStatus, targetStatus, sourceIndex, targetIndex } =
+        event;
+
+      // Find the story being moved
+      const sourceStories = board[sourceStatus] as Story[];
+      const story = sourceStories.find((s) => s.id === storyId);
+      if (!story) return;
+
+      // Optimistic update
+      setBoard((prev) => {
+        if (!prev) return prev;
+
+        const updatedStory = { ...story, status: targetStatus };
+
+        if (sourceStatus === targetStatus) {
+          // Moving within same column - reorder only
+          const columnStories = (prev[sourceStatus] as Story[]).filter(
+            (s) => s.id !== storyId,
+          );
+
+          // Adjust target index: when source is above target, removing source
+          // shifts subsequent cards up, so we need to compensate
+          const adjustedIndex =
+            sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+
+          columnStories.splice(adjustedIndex, 0, updatedStory);
+          return {
+            ...prev,
+            [sourceStatus]: columnStories,
+          };
+        } else {
+          // Moving to different column
+          const newSource = (prev[sourceStatus] as Story[]).filter(
+            (s) => s.id !== storyId,
+          );
+          const newTarget = [...((prev[targetStatus] as Story[]) || [])];
+          newTarget.splice(targetIndex, 0, updatedStory);
+          return {
+            ...prev,
+            [sourceStatus]: newSource,
+            [targetStatus]: newTarget,
+          };
+        }
+      });
+
+      // Persist to API
+      try {
+        await api.stories.update(storyId, { status: targetStatus });
+      } catch (err) {
+        console.error("Failed to update story status:", err);
+        // Revert on error
+        fetchBoard();
+      }
+    },
+    [board, fetchBoard],
+  );
 
   // Filter stories in each column
   const filterStories = (stories: Story[]): Story[] => {
@@ -319,15 +382,17 @@ export default function BoardPage() {
         </div>
       </header>
 
-      <div className="board-container">
-        {STATUS_ORDER.map((status) => (
-          <KanbanColumn
-            key={status}
-            status={status}
-            stories={filterStories((board?.[status] as Story[]) || [])}
-          />
-        ))}
-      </div>
+      <DndBoardProvider onStoryMove={handleStoryMove}>
+        <div className="board-container">
+          {STATUS_ORDER.map((status) => (
+            <DroppableColumn
+              key={status}
+              status={status}
+              stories={filterStories((board?.[status] as Story[]) || [])}
+            />
+          ))}
+        </div>
+      </DndBoardProvider>
 
       <CreateStoryModal
         isOpen={isCreateModalOpen}

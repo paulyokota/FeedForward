@@ -10,6 +10,71 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Story Tracking Web App Phase 2.5 Complete (2026-01-09)**:
+
+- Interactive kanban board with drag-and-drop (`webapp/src/app/board/page.tsx`)
+  - Cards can be dragged between columns to update status
+  - Smooth animations with Framer Motion
+  - Custom collision detection for reliable drop targeting
+  - Visual drop indicators matching dragged card height
+- Drag-and-drop infrastructure:
+  - Type definitions (`webapp/src/lib/dnd.types.ts`)
+    - DraggableId and DroppableId type-safe ID formats
+    - DraggableData and DroppableData for collision detection
+    - StoryMoveEvent for status updates
+    - Helper functions for ID creation and extraction
+  - DndBoardProvider (`webapp/src/components/DndBoardProvider.tsx`)
+    - Custom collision detection using ID patterns (story-_, column-_)
+    - Context-based height sharing for drop indicators
+    - Drag state management with React Context
+    - ARIA live region for screen reader announcements
+  - DroppableColumn (`webapp/src/components/DroppableColumn.tsx`)
+    - SortableContext integration for vertical list sorting
+    - Drop indicators with animated height transitions
+    - Bottom drop zone for empty columns and column ends
+    - Empty state handling with placeholder
+- Accessibility features:
+  - Keyboard navigation with arrow keys and Space/Enter
+  - Screen reader announcements for drag events
+  - Focus indicators on keyboard navigation
+  - Semantic ARIA roles (status, live region)
+- Visual feedback:
+  - Animated drag overlay with 3° rotation and 1.02x scale
+  - Drop indicators with matching card height
+  - Card collapse animation during drag (height: 0 transition)
+  - Enhanced shadow on drag overlay
+- Technical implementation:
+  - dnd-kit core for drag-and-drop primitives
+  - dnd-kit sortable for sortable lists
+  - Framer Motion for smooth overlay animations
+  - Custom PointerSensor with 8px activation constraint
+  - KeyboardSensor with sortable coordinates
+
+**Story Tracking Web App Phase 2 Complete (2026-01-09)**:
+
+- Edit mode UI for story detail page (`webapp/src/app/story/[id]/page.tsx`)
+  - Edit/Save/Cancel buttons with loading states
+  - Full field editing: title, description, severity, product area, technical area
+  - Label management with add/remove chip UI
+  - Theme-aware styling (light and dark modes)
+  - Error handling and validation
+  - Auto-populates edit form from current story state
+- Pipeline integration service (`src/story_tracking/services/pipeline_integration.py`)
+  - `PipelineIntegrationService` class bridges PM review to story creation
+  - `ValidatedGroup` dataclass for PM review output
+  - `create_candidate_story()` - Single story creation with deduplication
+  - `bulk_create_candidates()` - Batch creation with progress logging
+  - `find_existing_story()` - Signature-based deduplication
+  - Automatic evidence bundle creation with conversation links
+  - Source stats calculation and excerpt preparation
+- Comprehensive test suite (`tests/test_pipeline_integration.py`)
+  - 14 tests covering creation, deduplication, bulk operations, validation
+  - Mock fixtures for StoryService and EvidenceService
+  - Edge case testing (empty groups, missing fields, errors)
+- Bug fixes:
+  - Fixed `FeedForwardLogo.tsx` TypeScript error (systemTheme → resolvedTheme)
+  - Fixed `ThemeProvider.tsx` React best practices (lazy state initialization, useMemo optimization)
+
 **Story Tracking Web App Scaffolding (2026-01-09)**:
 
 - Database schema for system of record (`src/db/migrations/004_story_tracking_schema.sql`)

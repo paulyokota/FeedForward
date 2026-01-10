@@ -137,7 +137,7 @@
    Clean neutral with teal accents, slate text
    ============================================ */
 [data-theme="light"] {
-  --bg-void: #f8fafc;
+  --bg-void: #d5dedd;
   --bg-primary: #ffffff;
   --bg-surface: #ffffff;
   --bg-elevated: #f1f5f9;
@@ -299,15 +299,15 @@ body {
 .kanban-column {
   min-width: 300px;
   max-width: 340px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-subtle);
+  background: var(--bg-void);
+  border: none;
   border-radius: var(--radius-lg);
 }
 
 [data-theme="light"] .kanban-column {
-  background: #ffffff;
-  border: 1px solid var(--border-default);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background: var(--bg-void);
+  border: none;
+  box-shadow: none;
 }
 
 /* Tab active state */

@@ -11,11 +11,10 @@ export function FeedForwardLogo({
   size = "md",
   className = "",
 }: FeedForwardLogoProps) {
-  const { theme, systemTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
-  // Determine actual theme (resolve "system" to actual value)
-  const isDark =
-    theme === "dark" || (theme === "system" && systemTheme === "dark");
+  // Use resolved theme (already handles "system" -> actual value)
+  const isDark = resolvedTheme === "dark";
   const logoSrc = isDark
     ? "/feedforward-logo-dark.png"
     : "/feedforward-logo.png";
