@@ -6,7 +6,6 @@ import {
   createDraggableId,
   createDroppableId,
   extractStoryId,
-  extractStatus,
   type DraggableId,
   type DroppableId,
 } from "../dnd.types";
@@ -92,40 +91,6 @@ describe("dnd.types helpers", () => {
       const draggableId = createDraggableId(originalId);
       const extracted = extractStoryId(draggableId);
       expect(extracted).toBe(originalId);
-    });
-  });
-
-  describe("extractStatus", () => {
-    const testCases: Array<[StatusKey, DroppableId]> = [
-      ["candidate", "column-candidate"],
-      ["triaged", "column-triaged"],
-      ["in_progress", "column-in_progress"],
-      ["done", "column-done"],
-      ["dismissed", "column-dismissed"],
-    ];
-
-    it.each(testCases)(
-      'correctly extracts status "%s" from droppable ID',
-      (expectedStatus, droppableId) => {
-        const result = extractStatus(droppableId);
-        expect(result).toBe(expectedStatus);
-      },
-    );
-
-    it("roundtrip: create then extract returns original status", () => {
-      const statuses: StatusKey[] = [
-        "candidate",
-        "triaged",
-        "in_progress",
-        "done",
-        "dismissed",
-      ];
-
-      statuses.forEach((status) => {
-        const droppableId = createDroppableId(status);
-        const extracted = extractStatus(droppableId);
-        expect(extracted).toBe(status);
-      });
     });
   });
 

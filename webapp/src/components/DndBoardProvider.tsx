@@ -4,6 +4,7 @@ import {
   useState,
   useCallback,
   useRef,
+  useEffect,
   createContext,
   useContext,
 } from "react";
@@ -75,6 +76,15 @@ export function DndBoardProvider({
   );
   const storyIdTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const announcementRef = useRef<HTMLDivElement>(null);
+
+  // Cleanup timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (storyIdTimeoutRef.current) {
+        clearTimeout(storyIdTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Configure sensors with activation constraints
   const sensors = useSensors(

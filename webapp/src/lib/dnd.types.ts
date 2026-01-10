@@ -86,8 +86,3 @@ export function createDroppableId(status: StatusKey): DroppableId {
 export function extractStoryId(draggableId: DraggableId): string {
   return draggableId.replace("story-", "");
 }
-
-/** Extract status from droppable ID */
-export function extractStatus(droppableId: DroppableId): StatusKey {
-  return droppableId.replace("column-", "") as StatusKey;
-}

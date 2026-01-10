@@ -14,10 +14,9 @@ Tests for type helper functions and ID formatters:
 - `createDraggableId()` - Creates draggable IDs in format `story-{id}`
 - `createDroppableId()` - Creates droppable IDs in format `column-{status}`
 - `extractStoryId()` - Extracts story ID from draggable ID
-- `extractStatus()` - Extracts status from droppable ID
 - Type safety validation for template literal types
 
-**Key Test Cases** (23 tests):
+**Key Test Cases** (19 tests):
 
 - Correct ID format generation
 - UUID handling
@@ -142,7 +141,7 @@ npm test -- DndBoardProvider.test.tsx
 ### Type Helpers (dnd.types.ts)
 
 - ✅ ID format consistency (`story-*`, `column-*`)
-- ✅ Extract operations (story ID, status)
+- ✅ Extract operations (story ID)
 - ✅ TypeScript type safety
 - ✅ Edge cases (empty strings, special characters, nested prefixes)
 
