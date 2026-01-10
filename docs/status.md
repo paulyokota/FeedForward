@@ -12,7 +12,51 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Sajid-Inspired Design System (2026-01-10)
+## Latest: Phases 3 & 4 Complete + Coda Integration (2026-01-10)
+
+### Session Summary
+
+Completed Phases 3 & 4 of Story Tracking architecture (Bidirectional Shortcut Sync + Analytics). Integrated Coda research data and created stories from both Intercom and Coda sources.
+
+### What Was Done
+
+**Phase 3: Bidirectional Shortcut Sync**:
+
+- Sync models (`src/story_tracking/models/sync.py`, `label.py`)
+- SyncService with push/pull operations (`src/story_tracking/services/sync_service.py`)
+- LabelRegistryService for label management (`src/story_tracking/services/label_registry_service.py`)
+- Sync API router (`src/api/routers/sync.py`) with push/pull/webhook/status endpoints
+- Labels API router (`src/api/routers/labels.py`)
+- Full test coverage (6 test files)
+
+**Phase 4: Analytics Enhancements**:
+
+- AnalyticsService (`src/story_tracking/services/analytics_service.py`)
+- Enhanced analytics endpoints (story metrics, trending themes, source distribution)
+- Analytics schemas for all new response types
+
+**Coda Research Integration**:
+
+- Loaded 4,682 Coda conversations into database (`scripts/load_coda_json.py`)
+- Aggregated 1,919 Coda themes (vs 257 Intercom themes)
+- Created 3 research-based stories from Coda data (Mobile App, Cloud Storage, Streams Terminology)
+- Synced 6 total stories to Shortcut (#518-523)
+
+**Webapp Updates**:
+
+- Added "draft" status to StatusKey, STATUS_ORDER, STATUS_CONFIG
+- Added `--status-draft` CSS variable for light/dark themes
+- All 6 stories now visible in webapp board view
+
+**Process Gates Passed**:
+
+- Test Gate: Tests created for all new services and routers
+- Build: Succeeds without errors
+- Backlog Hygiene: No outstanding issues
+
+---
+
+## Previous: Sajid-Inspired Design System (2026-01-10)
 
 ### Session Summary
 

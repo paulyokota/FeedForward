@@ -10,6 +10,62 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Phases 3 & 4: Shortcut Sync + Analytics (2026-01-10)**:
+
+- Bidirectional Shortcut sync service (`src/story_tracking/services/sync_service.py`)
+  - `push_to_shortcut()` - Push story changes to Shortcut
+  - `pull_from_shortcut()` - Pull updates from Shortcut
+  - `sync_story()` - Auto-determine sync direction based on timestamps
+  - `handle_webhook()` - Process Shortcut webhook events
+  - `_format_shortcut_description()` - Rich description formatting with metadata
+- Label registry service (`src/story_tracking/services/label_registry_service.py`)
+  - `list_labels()` - List all labels with optional source filter
+  - `import_from_shortcut()` - Import labels from Shortcut taxonomy
+  - `ensure_label_in_shortcut()` - Create label in Shortcut if missing
+- Analytics service (`src/story_tracking/services/analytics_service.py`)
+  - `get_story_metrics()` - Aggregate story counts by status/priority
+  - `get_trending_themes()` - Themes with growing evidence
+  - `get_source_distribution()` - Breakdown by data source
+  - `get_evidence_summary()` - Evidence statistics
+- Sync API router (`src/api/routers/sync.py`)
+  - `POST /api/sync/shortcut/push` - Push story to Shortcut
+  - `POST /api/sync/shortcut/pull` - Pull story from Shortcut
+  - `POST /api/sync/shortcut/webhook` - Webhook handler
+  - `GET /api/sync/shortcut/status/{story_id}` - Sync status
+- Labels API router (`src/api/routers/labels.py`)
+  - `GET /api/labels` - List all labels
+  - `POST /api/labels/import` - Import from Shortcut
+  - `POST /api/labels` - Create internal label
+- Enhanced analytics endpoints (`src/api/routers/analytics.py`)
+  - `GET /api/analytics/stories` - Story metrics
+  - `GET /api/analytics/themes/trending` - Trending themes
+  - `GET /api/analytics/sources` - Source distribution
+- Sync and label models (`src/story_tracking/models/sync.py`, `label.py`)
+- Comprehensive test suite (6 new test files)
+
+**Coda Research Integration (2026-01-10)**:
+
+- Coda JSON loader script (`scripts/load_coda_json.py`)
+  - Loads extracted Coda themes as pseudo-conversations
+  - Groups by source_row_id for deduplication
+  - Sets `data_source='coda'` for source tracking
+- 4,682 Coda conversations loaded into database
+- 1,919 aggregated Coda themes created
+- 3 research-based stories created from Coda insights:
+  - Mobile App feature request
+  - Cloud Storage Integration request
+  - Streams Terminology clarification
+- 6 total stories synced to Shortcut (#518-523)
+
+**Webapp Draft Status Support (2026-01-10)**:
+
+- Added "draft" to StatusKey type (`webapp/src/lib/types.ts`)
+- Added "draft" to STATUS_ORDER array
+- Added draft config to STATUS_CONFIG with label and color
+- Added `--status-draft` CSS variable for dark theme (60% lightness)
+- Added `--status-draft` CSS variable for light theme (45% lightness)
+- Draft column now visible in webapp board view
+
 **Sajid-Inspired Design System (2026-01-10)**:
 
 - Pure HSL neutral color system with 5% lightness increments
