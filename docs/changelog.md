@@ -10,6 +10,15 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Sajid-Inspired Design System (2026-01-10)**:
+
+- Pure HSL neutral color system with 5% lightness increments
+- Satoshi font (locally loaded via next/font/local)
+- Higher contrast UI layers (10% increments between elements)
+- Gradient backgrounds for raised elements
+- Updated header, search, buttons, theme toggle styling
+- Consistent styling between main page and story detail page
+
 **Story Tracking Web App Phase 2.5 Complete (2026-01-09)**:
 
 - Interactive kanban board with drag-and-drop (`webapp/src/app/board/page.tsx`)
