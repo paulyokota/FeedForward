@@ -1,188 +1,200 @@
 @import "tailwindcss";
 
 /* ============================================
-   THEME SYSTEM - FeedForward Branding
-   - Dark theme (Teal Forward Dark) is default
-   - Light theme (Teal Forward Light) for light mode
-   - System option respects OS preference
+   THEME SYSTEM - Sajid-Inspired True Neutrals
 
-   Brand Colors:
-   - Primary Teal: #00B4D8 (logo "Forward" text)
-   - Teal Gradient: #0891b2 -> #22d3ee
-   - Slate Blue: #1E3A5F (logo "Feed" text)
+   Based on @whosajid's "The Easy Way to Pick UI Colors"
+   - Pure neutrals: hsl(0, 0%, L%) - only adjust lightness
+   - Three backgrounds: 0%, 5%, 10%
+   - Two text shades: 95% (sharp), 70% (muted)
+   - Light mode: 100 - L pattern
+
+   Brand Colors (accent only):
+   - Primary Teal: hsl(187, 84%, 53%)
    ============================================ */
 
 :root {
-  /* Default to dark theme */
-  --bg-void: #020617;
-  --bg-primary: #0a1628;
-  --bg-surface: #132237;
-  --bg-elevated: #1c3049;
-  --bg-hover: #264060;
-  --bg-active: #2f4d73;
+  /* Backgrounds - pure neutrals, 5% increments (Sajid method) */
+  --bg-void: hsl(0, 0%, 0%); /* 0% - page background */
+  --bg-primary: hsl(0, 0%, 5%); /* 5% - main surfaces */
+  --bg-surface: hsl(0, 0%, 10%); /* 10% - cards, panels */
+  --bg-elevated: hsl(0, 0%, 15%); /* 15% - elevated elements */
+  --bg-hover: hsl(0, 0%, 20%); /* 20% - hover states */
+  --bg-active: hsl(0, 0%, 25%); /* 25% - active/pressed */
 
-  --border-subtle: rgba(34, 211, 238, 0.12);
-  --border-default: rgba(34, 211, 238, 0.2);
-  --border-strong: rgba(34, 211, 238, 0.35);
+  /* Text - sharp for headings, muted for body (Sajid method) */
+  --text-primary: hsl(0, 0%, 95%); /* Sharp - NOT 100%, too harsh */
+  --text-secondary: hsl(0, 0%, 70%); /* Muted - still legible */
+  --text-tertiary: hsl(0, 0%, 50%); /* Subtle hints */
+  --text-muted: hsl(0, 0%, 35%); /* Disabled/placeholder */
 
-  --text-primary: #f0f9ff;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-muted: #475569;
+  /* Borders - neutral at ~40% lightness (Sajid method) */
+  --border-subtle: hsl(0, 0%, 15%);
+  --border-default: hsl(0, 0%, 20%);
+  --border-strong: hsl(0, 0%, 30%);
 
-  /* FeedForward Teal palette */
-  --accent-teal: #22d3ee;
-  --accent-teal-bright: #67e8f9;
-  --accent-teal-dim: rgba(34, 211, 238, 0.18);
-  --accent-slate: #1e3a5f;
+  /* FeedForward Teal (brand accent only) */
+  --accent-teal: hsl(187, 84%, 53%);
+  --accent-teal-bright: hsl(187, 92%, 69%);
+  --accent-teal-dim: hsla(187, 84%, 53%, 0.18);
+  --accent-slate: hsl(212, 52%, 25%);
 
-  /* Keep accent-blue as alias for compatibility */
-  --accent-blue: #22d3ee;
-  --accent-blue-dim: rgba(34, 211, 238, 0.18);
+  /* Semantic accents */
+  --accent-blue: hsl(187, 84%, 53%);
+  --accent-blue-dim: hsla(187, 84%, 53%, 0.18);
+  --accent-green: hsl(160, 64%, 52%);
+  --accent-green-dim: hsla(160, 64%, 52%, 0.18);
+  --accent-amber: hsl(43, 96%, 56%);
+  --accent-amber-dim: hsla(43, 96%, 56%, 0.18);
+  --accent-red: hsl(0, 91%, 68%);
+  --accent-red-dim: hsla(0, 91%, 68%, 0.18);
+  --accent-purple: hsl(258, 90%, 76%);
+  --accent-purple-dim: hsla(258, 90%, 76%, 0.18);
 
-  --accent-green: #34d399;
-  --accent-green-dim: rgba(52, 211, 153, 0.18);
-  --accent-amber: #fbbf24;
-  --accent-amber-dim: rgba(251, 191, 36, 0.18);
-  --accent-red: #f87171;
-  --accent-red-dim: rgba(248, 113, 113, 0.18);
-  --accent-purple: #a78bfa;
-  --accent-purple-dim: rgba(167, 139, 250, 0.18);
+  /* Priority colors */
+  --priority-urgent: hsl(0, 91%, 68%);
+  --priority-high: hsl(27, 96%, 61%);
+  --priority-medium: hsl(43, 96%, 56%);
+  --priority-low: hsl(0, 0%, 50%);
 
-  --priority-urgent: #f87171;
-  --priority-high: #fb923c;
-  --priority-medium: #fbbf24;
-  --priority-low: #64748b;
+  /* Status colors */
+  --status-candidate: hsl(258, 90%, 76%);
+  --status-triaged: hsl(187, 84%, 53%);
+  --status-in-progress: hsl(43, 96%, 56%);
+  --status-done: hsl(160, 64%, 52%);
+  --status-dismissed: hsl(0, 0%, 50%);
 
-  --status-candidate: #a78bfa;
-  --status-triaged: #22d3ee;
-  --status-in-progress: #fbbf24;
-  --status-done: #34d399;
-  --status-dismissed: #64748b;
-
-  --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  /* Typography - Satoshi (Sajid's preferred font) */
+  --font-sans: var(--font-satoshi), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), "SF Mono", Monaco, monospace;
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
+  --space-2xl: 2rem;
 
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
-  --shadow-glow: 0 0 24px rgba(34, 211, 238, 0.2);
+  /* Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
 
-  /* Theme indicator for JS */
+  /* Shadows - Sajid's 3-level system from CodePen
+     Each shadow has 3 parts:
+     1. Inset top highlight (white, increasing opacity)
+     2. Dark shadow (black 30%, smaller blur)
+     3. Soft shadow (black 15%, larger blur)
+  */
+  --shadow-sm:
+    inset 0 1px 2px #ffffff30, 0 1px 2px #00000030, 0 2px 4px #00000015;
+  --shadow-md:
+    inset 0 1px 2px #ffffff50, 0 2px 4px #00000030, 0 4px 8px #00000015;
+  --shadow-lg:
+    inset 0 1px 2px #ffffff70, 0 4px 6px #00000030, 0 6px 10px #00000015;
+  --shadow-inset: inset 0 2px 4px #00000020, inset 0 -1px 0 #ffffff08;
+  --shadow-glow: 0 0 24px hsla(187, 84%, 53%, 0.2);
+
   --theme-mode: dark;
 }
 
 /* ============================================
-   DARK THEME (Teal Forward Dark)
-   Deep slate with teal accents
+   DARK THEME - Pure Neutrals (Sajid Method)
    ============================================ */
 [data-theme="dark"] {
-  --bg-void: #020617;
-  --bg-primary: #0a1628;
-  --bg-surface: #132237;
-  --bg-elevated: #1c3049;
-  --bg-hover: #264060;
-  --bg-active: #2f4d73;
+  /* Backgrounds - pure neutrals, 5% increments */
+  --bg-void: hsl(0, 0%, 0%);
+  --bg-primary: hsl(0, 0%, 5%);
+  --bg-surface: hsl(0, 0%, 10%);
+  --bg-elevated: hsl(0, 0%, 15%);
+  --bg-hover: hsl(0, 0%, 20%);
+  --bg-active: hsl(0, 0%, 25%);
 
-  --border-subtle: rgba(34, 211, 238, 0.12);
-  --border-default: rgba(34, 211, 238, 0.2);
-  --border-strong: rgba(34, 211, 238, 0.35);
+  /* Text - 95% sharp, 70% muted */
+  --text-primary: hsl(0, 0%, 95%);
+  --text-secondary: hsl(0, 0%, 70%);
+  --text-tertiary: hsl(0, 0%, 50%);
+  --text-muted: hsl(0, 0%, 35%);
 
-  --text-primary: #f0f9ff;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-muted: #475569;
+  /* Borders - neutral */
+  --border-subtle: hsl(0, 0%, 15%);
+  --border-default: hsl(0, 0%, 20%);
+  --border-strong: hsl(0, 0%, 30%);
 
-  --accent-teal: #22d3ee;
-  --accent-teal-bright: #67e8f9;
-  --accent-teal-dim: rgba(34, 211, 238, 0.18);
-  --accent-slate: #1e3a5f;
-
-  --accent-blue: #22d3ee;
-  --accent-blue-dim: rgba(34, 211, 238, 0.18);
-  --accent-green: #34d399;
-  --accent-green-dim: rgba(52, 211, 153, 0.18);
-  --accent-amber: #fbbf24;
-  --accent-amber-dim: rgba(251, 191, 36, 0.18);
-  --accent-red: #f87171;
-  --accent-red-dim: rgba(248, 113, 113, 0.18);
-  --accent-purple: #a78bfa;
-  --accent-purple-dim: rgba(167, 139, 250, 0.18);
-
-  --priority-urgent: #f87171;
-  --priority-high: #fb923c;
-  --priority-medium: #fbbf24;
-  --priority-low: #64748b;
-
-  --status-candidate: #a78bfa;
-  --status-triaged: #22d3ee;
-  --status-in-progress: #fbbf24;
-  --status-done: #34d399;
-  --status-dismissed: #64748b;
-
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
-  --shadow-glow: 0 0 24px rgba(34, 211, 238, 0.2);
+  /* Shadows - Sajid's 3-level system */
+  --shadow-sm:
+    inset 0 1px 2px #ffffff30, 0 1px 2px #00000030, 0 2px 4px #00000015;
+  --shadow-md:
+    inset 0 1px 2px #ffffff50, 0 2px 4px #00000030, 0 4px 8px #00000015;
+  --shadow-lg:
+    inset 0 1px 2px #ffffff70, 0 4px 6px #00000030, 0 6px 10px #00000015;
+  --shadow-inset: inset 0 2px 4px #00000020, inset 0 -1px 0 #ffffff08;
+  --shadow-glow: 0 0 24px hsla(187, 84%, 53%, 0.2);
 
   --theme-mode: dark;
 }
 
 /* ============================================
-   LIGHT THEME (Teal Forward Light)
-   Clean neutral with teal accents, slate text
+   LIGHT THEME - 100-L Pattern (Sajid Method)
    ============================================ */
 [data-theme="light"] {
-  --bg-void: #d5dedd;
-  --bg-primary: #ffffff;
-  --bg-surface: #ffffff;
-  --bg-elevated: #f1f5f9;
-  --bg-hover: #e2e8f0;
-  --bg-active: #cbd5e1;
+  /* Backgrounds - 100 minus dark values */
+  --bg-void: hsl(0, 0%, 95%); /* 100 - 5 = 95 (not pure white) */
+  --bg-primary: hsl(0, 0%, 100%); /* 100 - 0 = 100 */
+  --bg-surface: hsl(0, 0%, 100%); /* Cards are white */
+  --bg-elevated: hsl(0, 0%, 98%); /* 100 - 2 */
+  --bg-hover: hsl(0, 0%, 92%); /* 100 - 8 */
+  --bg-active: hsl(0, 0%, 88%); /* 100 - 12 */
 
-  --border-subtle: rgba(100, 116, 139, 0.12);
-  --border-default: rgba(100, 116, 139, 0.2);
-  --border-strong: rgba(100, 116, 139, 0.35);
+  /* Text - inverted: 5% sharp, 30% muted */
+  --text-primary: hsl(0, 0%, 5%);
+  --text-secondary: hsl(0, 0%, 30%);
+  --text-tertiary: hsl(0, 0%, 50%);
+  --text-muted: hsl(0, 0%, 65%);
 
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-tertiary: #64748b;
-  --text-muted: #94a3b8;
+  /* Borders - neutral */
+  --border-subtle: hsl(0, 0%, 90%);
+  --border-default: hsl(0, 0%, 85%);
+  --border-strong: hsl(0, 0%, 75%);
 
-  --accent-teal: #0891b2;
-  --accent-teal-bright: #06b6d4;
-  --accent-teal-dim: rgba(8, 145, 178, 0.12);
-  --accent-slate: #1e3a5f;
+  /* Accents - darker for contrast on light bg */
+  --accent-teal: hsl(187, 90%, 32%);
+  --accent-teal-bright: hsl(187, 85%, 40%);
+  --accent-teal-dim: hsla(187, 90%, 32%, 0.12);
+  --accent-slate: hsl(212, 52%, 25%);
 
-  --accent-blue: #0891b2;
-  --accent-blue-dim: rgba(8, 145, 178, 0.12);
-  --accent-green: #059669;
-  --accent-green-dim: rgba(5, 150, 105, 0.12);
-  --accent-amber: #d97706;
-  --accent-amber-dim: rgba(217, 119, 6, 0.12);
-  --accent-red: #dc2626;
-  --accent-red-dim: rgba(220, 38, 38, 0.12);
-  --accent-purple: #7c3aed;
-  --accent-purple-dim: rgba(124, 58, 237, 0.12);
+  --accent-blue: hsl(187, 90%, 32%);
+  --accent-blue-dim: hsla(187, 90%, 32%, 0.12);
+  --accent-green: hsl(160, 84%, 29%);
+  --accent-green-dim: hsla(160, 84%, 29%, 0.12);
+  --accent-amber: hsl(32, 95%, 44%);
+  --accent-amber-dim: hsla(32, 95%, 44%, 0.12);
+  --accent-red: hsl(0, 72%, 51%);
+  --accent-red-dim: hsla(0, 72%, 51%, 0.12);
+  --accent-purple: hsl(262, 83%, 58%);
+  --accent-purple-dim: hsla(262, 83%, 58%, 0.12);
 
-  --priority-urgent: #dc2626;
-  --priority-high: #ea580c;
-  --priority-medium: #d97706;
-  --priority-low: #64748b;
+  /* Priority - darker for light bg */
+  --priority-urgent: hsl(0, 72%, 51%);
+  --priority-high: hsl(21, 90%, 48%);
+  --priority-medium: hsl(32, 95%, 44%);
+  --priority-low: hsl(0, 0%, 50%);
 
-  --status-candidate: #7c3aed;
-  --status-triaged: #0891b2;
-  --status-in-progress: #d97706;
-  --status-done: #059669;
-  --status-dismissed: #64748b;
+  /* Status - darker for light bg */
+  --status-candidate: hsl(262, 83%, 58%);
+  --status-triaged: hsl(187, 90%, 32%);
+  --status-in-progress: hsl(32, 95%, 44%);
+  --status-done: hsl(160, 84%, 29%);
+  --status-dismissed: hsl(0, 0%, 50%);
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+  /* Shadows - softer for light mode (no inset highlight needed) */
+  --shadow-sm: 0 1px 2px #00000010, 0 2px 4px #00000008;
+  --shadow-md: 0 2px 4px #00000012, 0 4px 8px #0000000a;
+  --shadow-lg: 0 4px 6px #00000015, 0 8px 16px #0000000d;
+  --shadow-inset: inset 0 2px 4px #00000008;
   --shadow-glow: none;
 
   --theme-mode: light;
@@ -217,11 +229,9 @@ body {
     color 0.2s ease;
 }
 
-/* Dark theme noise texture */
+/* Dark theme - pure solid background (Sajid method) */
 [data-theme="dark"] body {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-blend-mode: overlay;
-  background-size: 200px;
+  background-image: none;
 }
 
 /* Light theme subtle pattern */
@@ -265,34 +275,36 @@ body {
   outline-offset: 2px;
 }
 
-/* Card surface */
+/* Card surface - Sajid method: gradient + shadows for depth
+   Lighter on top (simulates light from above), darker on bottom
+   No borders - rely on bg difference + shadows */
 .story-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
+  background: linear-gradient(to bottom, hsl(0, 0%, 12%), hsl(0, 0%, 8%));
+  border: none;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
-    border-color 0.2s ease,
     background 0.2s ease;
 }
 
 .story-card:hover {
   transform: translateY(-2px);
-  background: var(--bg-elevated);
+  background: linear-gradient(to bottom, hsl(0, 0%, 15%), hsl(0, 0%, 10%));
   box-shadow: var(--shadow-md);
-  border-color: var(--border-strong);
 }
 
-/* Light theme card adjustments */
+/* Light theme card adjustments - subtle gradient */
 [data-theme="light"] .story-card {
-  border: 1px solid var(--border-default);
+  background: linear-gradient(to bottom, hsl(0, 0%, 100%), hsl(0, 0%, 97%));
+  border: none;
+  box-shadow: var(--shadow-sm);
 }
 
 [data-theme="light"] .story-card:hover {
-  background: var(--bg-surface);
-  border-color: var(--border-strong);
+  background: linear-gradient(to bottom, hsl(0, 0%, 100%), hsl(0, 0%, 95%));
+  box-shadow: var(--shadow-md);
 }
 
 /* Kanban columns */

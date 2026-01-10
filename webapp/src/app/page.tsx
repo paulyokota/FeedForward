@@ -419,13 +419,27 @@ export default function BoardPage() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 14px 28px;
-          border-bottom: 1px solid var(--border-default);
-          background: var(--bg-surface);
+          padding: 12px 24px;
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 22%),
+            hsl(0, 0%, 18%)
+          );
+          box-shadow: var(--shadow-md);
           position: sticky;
-          top: 0;
+          top: 16px;
+          margin: 16px 24px 0;
+          border-radius: var(--radius-full);
           z-index: 10;
           gap: 20px;
+        }
+
+        :global([data-theme="light"]) .board-header {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 100%),
+            hsl(0, 0%, 94%)
+          );
         }
 
         .header-left {
@@ -470,24 +484,38 @@ export default function BoardPage() {
 
         .search-icon {
           position: absolute;
-          left: 12px;
+          left: 16px;
           color: var(--text-muted);
           pointer-events: none;
         }
 
         .search-input {
           width: 100%;
-          padding: 8px 36px;
-          background: var(--bg-elevated);
-          border: 1px solid var(--border-default);
-          border-radius: var(--radius-md);
+          padding: 10px 40px;
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 32%),
+            hsl(0, 0%, 28%)
+          );
+          border: none;
+          border-radius: var(--radius-full);
           color: var(--text-primary);
           font-size: 13px;
+          box-shadow: var(--shadow-sm);
+        }
+
+        :global([data-theme="light"]) .search-input {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 96%),
+            hsl(0, 0%, 90%)
+          );
+          box-shadow: var(--shadow-inset);
         }
 
         .search-input:focus {
-          outline: none;
-          border-color: var(--accent-blue);
+          outline: 2px solid var(--accent-blue);
+          outline-offset: -2px;
         }
 
         .search-input::placeholder {
@@ -527,9 +555,9 @@ export default function BoardPage() {
           left: 0;
           right: 0;
           background: var(--bg-surface);
-          border: 1px solid var(--border-default);
+          border: none;
           border-radius: var(--radius-md);
-          box-shadow: var(--shadow-md);
+          box-shadow: var(--shadow-lg);
           z-index: 20;
           max-height: 400px;
           overflow-y: auto;
@@ -601,8 +629,8 @@ export default function BoardPage() {
           display: flex;
           align-items: center;
           gap: 8px;
-          padding: 8px 14px;
-          border-radius: var(--radius-md);
+          padding: 8px 18px;
+          border-radius: var(--radius-full);
           font-size: 13px;
           font-weight: 500;
           cursor: pointer;
@@ -610,16 +638,42 @@ export default function BoardPage() {
         }
 
         .btn-secondary {
-          background: var(--bg-elevated);
-          border: 1px solid var(--border-default);
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 32%),
+            hsl(0, 0%, 28%)
+          );
+          border: none;
           color: var(--text-secondary);
+          box-shadow: var(--shadow-sm);
+        }
+
+        :global([data-theme="light"]) .btn-secondary {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 96%),
+            hsl(0, 0%, 90%)
+          );
         }
 
         .btn-secondary:hover,
         .btn-secondary.active {
-          background: var(--bg-hover);
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 38%),
+            hsl(0, 0%, 32%)
+          );
           color: var(--text-primary);
-          border-color: var(--border-strong);
+          box-shadow: var(--shadow-md);
+        }
+
+        :global([data-theme="light"]) .btn-secondary:hover,
+        :global([data-theme="light"]) .btn-secondary.active {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 100%),
+            hsl(0, 0%, 94%)
+          );
         }
 
         .filter-badge {
@@ -635,9 +689,9 @@ export default function BoardPage() {
           right: 0;
           width: 240px;
           background: var(--bg-surface);
-          border: 1px solid var(--border-default);
+          border: none;
           border-radius: var(--radius-md);
-          box-shadow: var(--shadow-md);
+          box-shadow: var(--shadow-lg);
           z-index: 30;
           padding: 16px;
         }
@@ -683,16 +737,17 @@ export default function BoardPage() {
           width: 100%;
           padding: 8px 10px;
           background: var(--bg-elevated);
-          border: 1px solid var(--border-default);
+          border: none;
           border-radius: var(--radius-md);
           color: var(--text-primary);
           font-size: 13px;
           cursor: pointer;
+          box-shadow: var(--shadow-inset);
         }
 
         .filter-section select:focus {
-          outline: none;
-          border-color: var(--accent-blue);
+          outline: 2px solid var(--accent-blue);
+          outline-offset: -2px;
         }
 
         .filter-backdrop {
@@ -703,14 +758,15 @@ export default function BoardPage() {
 
         .btn-primary {
           background: var(--accent-blue);
-          border: 1px solid var(--accent-blue);
+          border: none;
           color: white;
           font-weight: 600;
+          box-shadow: var(--shadow-sm);
         }
 
         .btn-primary:hover {
           background: #74b3ff;
-          border-color: #74b3ff;
+          box-shadow: var(--shadow-md);
         }
 
         .board-container {
@@ -766,17 +822,18 @@ export default function BoardPage() {
         .error-container button {
           padding: 10px 20px;
           background: var(--bg-surface);
-          border: 1px solid var(--border-default);
+          border: none;
           border-radius: var(--radius-md);
           color: var(--text-primary);
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s ease;
+          box-shadow: var(--shadow-sm);
         }
 
         .error-container button:hover {
           background: var(--bg-elevated);
-          border-color: var(--border-strong);
+          box-shadow: var(--shadow-md);
         }
       `}</style>
     </div>

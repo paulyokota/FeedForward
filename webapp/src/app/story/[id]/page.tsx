@@ -695,17 +695,32 @@ export default function StoryDetailPage() {
           background: var(--bg-void);
         }
 
-        /* Top Navigation Bar */
+        /* Top Navigation Bar - Floating pill design (Sajid method) */
         .top-bar {
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 12px 24px;
-          background: var(--bg-surface);
-          border-bottom: 1px solid var(--border-default);
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 22%),
+            hsl(0, 0%, 18%)
+          );
+          box-shadow: var(--shadow-md);
           position: sticky;
-          top: 0;
+          top: 16px;
+          margin: 16px 24px 0;
+          border-radius: var(--radius-full);
           z-index: 20;
+          gap: 16px;
+        }
+
+        :global([data-theme="light"]) .top-bar {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 100%),
+            hsl(0, 0%, 94%)
+          );
         }
 
         .breadcrumb {
@@ -758,15 +773,28 @@ export default function StoryDetailPage() {
         }
 
         .action-btn {
-          padding: 6px 14px;
-          background: var(--bg-elevated);
-          border: 1px solid var(--border-default);
-          border-radius: var(--radius-md);
+          padding: 8px 18px;
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 32%),
+            hsl(0, 0%, 28%)
+          );
+          border: none;
+          border-radius: var(--radius-full);
           color: var(--text-secondary);
           font-size: 13px;
           font-weight: 500;
           cursor: pointer;
+          box-shadow: var(--shadow-sm);
           transition: all 0.15s ease;
+        }
+
+        :global([data-theme="light"]) .action-btn {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 96%),
+            hsl(0, 0%, 90%)
+          );
         }
 
         .action-btn:hover:not(:disabled) {
@@ -780,27 +808,64 @@ export default function StoryDetailPage() {
         }
 
         .action-btn.save-btn {
-          background: var(--accent-blue);
-          border-color: var(--accent-blue);
+          background: linear-gradient(
+            to bottom,
+            hsl(187, 84%, 58%),
+            hsl(187, 84%, 48%)
+          );
+          color: hsl(0, 0%, 5%);
+          box-shadow: var(--shadow-sm);
+        }
+
+        :global([data-theme="light"]) .action-btn.save-btn {
+          background: linear-gradient(
+            to bottom,
+            hsl(187, 90%, 38%),
+            hsl(187, 90%, 28%)
+          );
           color: white;
         }
 
         .action-btn.save-btn:hover:not(:disabled) {
-          background: #74b3ff;
-          border-color: #74b3ff;
+          background: linear-gradient(
+            to bottom,
+            hsl(187, 84%, 63%),
+            hsl(187, 84%, 53%)
+          );
+        }
+
+        :global([data-theme="light"])
+          .action-btn.save-btn:hover:not(:disabled) {
+          background: linear-gradient(
+            to bottom,
+            hsl(187, 90%, 42%),
+            hsl(187, 90%, 32%)
+          );
         }
 
         .action-btn.cancel-btn {
-          background: var(--bg-elevated);
-          border-color: var(--border-default);
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 32%),
+            hsl(0, 0%, 28%)
+          );
           color: var(--text-secondary);
+        }
+
+        :global([data-theme="light"]) .action-btn.cancel-btn {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 96%),
+            hsl(0, 0%, 90%)
+          );
         }
 
         /* Two-Column Grid */
         .content-grid {
           display: grid;
           grid-template-columns: 1fr 320px;
-          min-height: calc(100vh - 49px);
+          min-height: calc(100vh - 80px);
+          margin-top: 16px;
         }
 
         /* Main Content Area */
@@ -1157,8 +1222,8 @@ export default function StoryDetailPage() {
           padding: 20px;
           background: var(--bg-primary);
           position: sticky;
-          top: 49px;
-          height: calc(100vh - 49px);
+          top: 80px;
+          height: calc(100vh - 96px);
           overflow-y: auto;
         }
 
