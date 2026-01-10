@@ -1,0 +1,240 @@
+# Claude Code Preferences for [PROJECT_NAME]
+
+> **When in doubt, do it by the book.**
+>
+> Feeling tempted to skip a step? Don't. The Critical Path Checklist and Tech Lead Gates exist because we learned the hard way. Check the boxes. Every time.
+
+<!--
+  This is a template CLAUDE.md file. Customize it for your project.
+
+  Best practices (from Anthropic research):
+  - Keep it concise: ~150-200 instructions max for reliable following
+  - Use pointers, not copies: reference file paths, not inline code
+  - Don't use CLAUDE.md for style guidelines: use linters instead
+  - Treat as living documentation: update as project evolves
+
+  Sources:
+  - https://www.anthropic.com/engineering/claude-code-best-practices
+  - https://www.humanlayer.dev/blog/writing-a-good-claude-md
+-->
+
+## Tech Stack
+
+- **[Language]** [version/mode], **[Framework]** [version]
+- **[Database]** for data, **[Test Framework]** for testing
+- Key commands: `[build command]`, `[test command]`
+
+## Project Structure
+
+| Path | Purpose |
+|------|---------|
+| `[path/to/core/]` | [Description] |
+| `[path/to/api/]` | [Description] |
+| `[path/to/ui/]` | [Description] |
+| `[path/to/tests/]` | [Description] |
+
+## Project Context
+
+[PROJECT_NAME] is [brief description of what the project does].
+
+[Any important context about how the project works]
+
+---
+
+## Critical Path Checklist (Every PR)
+
+```
+[ ] Tests exist (see [path/to/test-gate.md])
+[ ] Build passes: [build command]
+[ ] Tests pass: [test command]
+[ ] Pipeline PRs: Functional test evidence attached (see [path/to/functional-testing-gate.md])
+[ ] Review converged: 5-personality, 2+ rounds
+[ ] Dev fixes own code (see [path/to/learning-loop.md])
+[ ] CONVERGED comment posted
+[ ] Post-merge: Docs agent deployed for reflections
+```
+
+**PRs that skip tests will be reverted.**
+**Pipeline PRs without functional test evidence will be blocked.**
+
+---
+
+## Tech Lead Gates (Self-Check)
+
+BEFORE these actions, STOP and answer:
+
+| Action | Gate Question | If "No" |
+|--------|---------------|---------|
+| **Creating task list** | Are tests in the list? | Add now |
+| **Deploying complex agent** | Loaded required context? | See context-loading-gate.md |
+| **Deploying 2+ agents** | Did architect define boundaries? | Deploy architect first |
+| **Launching reviewers** | Do tests exist for new code? | Write tests first |
+| **After Round 1 review** | Who wrote the code I'm fixing? | Route to original dev |
+| **Creating PR** | Build + tests pass? | Fix before PR |
+| **PR with prompt/pipeline changes** | Functional test run and verified? | Run test, attach evidence |
+| **Session ending** | BACKLOG_FLAGs to file? TODOs in code? | Review and file issues |
+
+---
+
+## Agent Deployment
+
+You (Claude Code) are the **Tech Lead**. Deploy specialists via the Task tool.
+
+### Quick Decision Tree
+
+| Situation | Action |
+|-----------|--------|
+| 2+ agents needed | **Architect first** to define boundaries |
+| <30 min, single file | Do it yourself |
+| Single agent, clear contract | Skip architect |
+| Unsure? | Use architect |
+
+**Full coordination patterns**: [path/to/coordination-patterns.md]
+
+### The Team
+
+**Development Agents:**
+
+| Agent | Role | Domain |
+|-------|------|--------|
+| **[Backend Agent]** | Backend | [Backend paths] |
+| **[Frontend Agent]** | Frontend | [Frontend paths] |
+| **[AI Agent]** | AI/Prompts | [AI paths] |
+| **[Test Agent]** | Test/QA | Tests, edge cases |
+| **[Architect Agent]** | Architecture | Upfront design + conflict resolution |
+| **[Docs Agent]** | Docs/Historian | Post-merge: docs + reflections |
+
+**Review Agents:**
+
+| Agent | Personality | Focus |
+|-------|-------------|-------|
+| **Reginald** | Architect | Correctness, performance |
+| **Sanjay** | Security Auditor | Security, validation |
+| **Quinn** | Quality Champion | Output quality, coherence |
+| **Dmitri** | Pragmatist | Simplicity, YAGNI |
+| **Maya** | Maintainer | Clarity, future maintainability |
+
+Agent profiles: `[path/to/agents/]` - read before deploying, update after.
+
+### Agent Count Guidance
+
+- **2-3 agents**: Easy, minimal overhead
+- **4-5 agents**: Sweet spot for complex features
+- **6+ agents**: Danger zone - coordination cost explodes
+
+---
+
+## Code Review Protocol
+
+**5-Personality Review = 5 SEPARATE AGENTS + MINIMUM 2 ROUNDS**
+
+```
+Round 1: Launch 5 agents in parallel -> Collect issues -> Dev fixes own code
+Round 2: Launch 5 agents again -> Verify fixes -> Repeat until 0 new issues
+         -> Post "CONVERGED" -> Merge immediately
+```
+
+**Critical**: Use 5 separate agents, not 1 agent playing all 5 personalities.
+
+**Full protocol**: [path/to/five-personality-review.md]
+
+---
+
+## Key Process Gates
+
+| Gate | Enforcement | Reference |
+|------|-------------|-----------|
+| **Test Gate** | Tests before review, no exceptions | [path/to/test-gate.md] |
+| **Learning Loop** | Original dev fixes their own review issues | [path/to/learning-loop.md] |
+| **5-Personality Review** | 2+ rounds, 5 separate agents | [path/to/five-personality-review.md] |
+| **Functional Testing** | Evidence required for pipeline/LLM PRs | [path/to/functional-testing-gate.md] |
+| **Backlog Hygiene** | File issues before session ends, use BACKLOG_FLAG | [path/to/backlog-hygiene.md] |
+
+---
+
+## Key Documentation
+
+| Document | Purpose |
+|----------|---------|
+| `[path/to/architecture-decisions.md]` | ADR log - check before proposing changes |
+| `[path/to/agents/*.md]` | Agent profiles, constraints, learnings |
+| `[path/to/docs/*.md]` | Process reference docs |
+| `[path/to/memory/]` | Agent memory system |
+
+---
+
+## Agent Memory System
+
+Poor man's RAG for agent learning continuity.
+
+```
+[path/to/memory/]
+├── [tech-lead]/    # Tech Lead meta-decisions
+├── [agent-a]/      # Agent A experiences
+├── [agent-b]/      # Agent B patterns
+└── ...
+```
+
+When deploying an agent, retrieve relevant memories:
+```bash
+MEMORIES=$([path/to/retrieve.sh] [agent] keyword1 keyword2)
+```
+
+Schema details: `[path/to/memory/README.md]`
+
+---
+
+## Long-Running Sessions
+
+For multi-session work, maintain a progress file:
+
+**File**: `[project]-progress.txt`
+
+**Contents**: What's done, in progress, next, blockers.
+
+Update at natural checkpoints. New sessions read it first.
+
+---
+
+## Backlog Hygiene (Session End)
+
+**Don't lose issues at session boundaries.** Two mechanisms:
+
+1. **Tech Lead Triggers** - Check after functional tests, review convergence, and session end:
+   - Functional test revealed out-of-scope issue?
+   - Fix exposed adjacent problem?
+   - Workaround instead of proper fix?
+   - TODO/FIXME added to code?
+
+2. **BACKLOG_FLAG Convention** - Any agent can flag potential issues:
+
+   ```markdown
+   ## BACKLOG_FLAG
+
+   title: [Concise issue title]
+   reason: [Why this matters, how it was discovered]
+   suggested_labels: [priority, type, component]
+   ```
+
+Tech Lead reviews at checkpoints, decides: file, merge with existing, or dismiss.
+
+**Full guide**: [path/to/backlog-hygiene.md]
+
+---
+
+<!--
+  CUSTOMIZATION NOTES:
+
+  1. Replace all [PLACEHOLDERS] with your actual values
+  2. Update paths to match your directory structure
+  3. Add or remove agent types based on your team
+  4. Customize the checklist items for your workflow
+  5. Consider adding:
+     - Project-specific code patterns
+     - Environment setup instructions
+     - Deployment procedures
+     - Common debugging steps
+
+  Remember: CLAUDE.md should be concise and focused.
+  Put detailed docs in separate files and link to them.
+-->
