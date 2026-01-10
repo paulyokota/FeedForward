@@ -11,6 +11,17 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# Re-export orphan models
+from .orphan import (
+    MIN_GROUP_SIZE,
+    Orphan,
+    OrphanCreate,
+    OrphanGraduationResult,
+    OrphanListResponse,
+    OrphanThemeData,
+    OrphanUpdate,
+)
+
 
 class StoryBase(BaseModel):
     """Base story fields shared across create/update/response."""
