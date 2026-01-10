@@ -485,8 +485,12 @@ export default function BoardPage() {
         .search-icon {
           position: absolute;
           left: 16px;
-          color: var(--text-muted);
+          color: white;
           pointer-events: none;
+        }
+
+        :global([data-theme="light"]) .search-icon {
+          color: var(--text-muted);
         }
 
         .search-input {
@@ -519,6 +523,10 @@ export default function BoardPage() {
         }
 
         .search-input::placeholder {
+          color: white;
+        }
+
+        :global([data-theme="light"]) .search-input::placeholder {
           color: var(--text-muted);
         }
 

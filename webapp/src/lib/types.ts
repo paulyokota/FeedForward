@@ -86,6 +86,7 @@ export interface StoryUpdate {
 export type PriorityKey = "urgent" | "high" | "medium" | "low";
 
 export type StatusKey =
+  | "draft"
   | "candidate"
   | "triaged"
   | "in_progress"
@@ -93,6 +94,7 @@ export type StatusKey =
   | "dismissed";
 
 export const STATUS_ORDER: StatusKey[] = [
+  "draft",
   "candidate",
   "triaged",
   "in_progress",
@@ -104,6 +106,7 @@ export const STATUS_CONFIG: Record<
   StatusKey,
   { label: string; color: string }
 > = {
+  draft: { label: "Draft", color: "var(--status-draft)" },
   candidate: { label: "Candidate", color: "var(--status-candidate)" },
   triaged: { label: "Triaged", color: "var(--status-triaged)" },
   in_progress: { label: "In Progress", color: "var(--status-in-progress)" },

@@ -26,7 +26,11 @@
   --text-primary: hsl(0, 0%, 95%); /* Sharp - NOT 100%, too harsh */
   --text-secondary: hsl(0, 0%, 70%); /* Muted - still legible */
   --text-tertiary: hsl(0, 0%, 50%); /* Subtle hints */
-  --text-muted: hsl(0, 0%, 35%); /* Disabled/placeholder */
+  --text-muted: hsl(
+    0,
+    0%,
+    45%
+  ); /* Disabled/placeholder - increased for contrast */
 
   /* Borders - neutral at ~40% lightness (Sajid method) */
   --border-subtle: hsl(0, 0%, 15%);
@@ -58,6 +62,7 @@
   --priority-low: hsl(0, 0%, 50%);
 
   /* Status colors */
+  --status-draft: hsl(0, 0%, 60%);
   --status-candidate: hsl(258, 90%, 76%);
   --status-triaged: hsl(187, 84%, 53%);
   --status-in-progress: hsl(43, 96%, 56%);
@@ -117,7 +122,7 @@
   --text-primary: hsl(0, 0%, 95%);
   --text-secondary: hsl(0, 0%, 70%);
   --text-tertiary: hsl(0, 0%, 50%);
-  --text-muted: hsl(0, 0%, 35%);
+  --text-muted: hsl(0, 0%, 45%); /* Increased for better placeholder contrast */
 
   /* Borders - neutral */
   --border-subtle: hsl(0, 0%, 15%);
@@ -184,6 +189,7 @@
   --priority-low: hsl(0, 0%, 50%);
 
   /* Status - darker for light bg */
+  --status-draft: hsl(0, 0%, 45%);
   --status-candidate: hsl(262, 83%, 58%);
   --status-triaged: hsl(187, 90%, 32%);
   --status-in-progress: hsl(32, 95%, 44%);
@@ -277,9 +283,9 @@ body {
 
 /* Card surface - Sajid method: gradient + shadows for depth
    Lighter on top (simulates light from above), darker on bottom
-   No borders - rely on bg difference + shadows */
+   Increased contrast from void (0%) to cards (16-12%) for better visibility */
 .story-card {
-  background: linear-gradient(to bottom, hsl(0, 0%, 12%), hsl(0, 0%, 8%));
+  background: linear-gradient(to bottom, hsl(0, 0%, 16%), hsl(0, 0%, 12%));
   border: none;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
@@ -291,7 +297,7 @@ body {
 
 .story-card:hover {
   transform: translateY(-2px);
-  background: linear-gradient(to bottom, hsl(0, 0%, 15%), hsl(0, 0%, 10%));
+  background: linear-gradient(to bottom, hsl(0, 0%, 20%), hsl(0, 0%, 15%));
   box-shadow: var(--shadow-md);
 }
 
