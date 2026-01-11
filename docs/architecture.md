@@ -829,14 +829,17 @@ Optional:
                             └─────────────────────┘
 ```
 
-**API Endpoints (19 total)**:
+**API Endpoints (25+ total)**:
 
-| Category  | Endpoints                                                                 |
-| --------- | ------------------------------------------------------------------------- |
-| Health    | `/health`, `/health/db`, `/health/full`                                   |
-| Analytics | `/api/analytics/dashboard`, `/api/analytics/stats`                        |
-| Pipeline  | `/api/pipeline/run`, `/status/{id}`, `/history`, `/active`                |
-| Themes    | `/api/themes/trending`, `/orphans`, `/singletons`, `/all`, `/{signature}` |
+| Category  | Endpoints                                                                        |
+| --------- | -------------------------------------------------------------------------------- |
+| Health    | `/health`, `/health/db`, `/health/full`                                          |
+| Analytics | `/api/analytics/dashboard`, `/stats`, `/stories`, `/themes/trending`, `/sources` |
+| Pipeline  | `/api/pipeline/run`, `/status/{id}`, `/history`, `/active`                       |
+| Themes    | `/api/themes/trending`, `/orphans`, `/singletons`, `/all`, `/{signature}`        |
+| Stories   | `/api/stories`, `/api/stories/{id}`, `/board`, `/search`                         |
+| Sync      | `/api/sync/shortcut/push`, `/pull`, `/webhook`, `/status/{id}`                   |
+| Labels    | `/api/labels`, `/api/labels/import`                                              |
 
 **Frontend Pages**:
 
@@ -957,6 +960,102 @@ CODA_DOC_ID=c4RRJ_VLtW
 
 ---
 
+### 14. Story Tracking System (NEW - 2026-01-10)
+
+**Purpose**: Canonical story management with bidirectional Shortcut sync and analytics.
+
+**Architecture**:
+
+```
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│   Webapp (Next.js)  │────►│   FastAPI Backend   │────►│   Shortcut API      │
+│   (localhost:3000)  │     │   (localhost:8000)  │     │   (external)        │
+│                     │     │                     │     │                     │
+│  - Board view       │     │  - /api/stories     │     │  - Create stories   │
+│  - Story detail     │     │  - /api/sync        │     │  - Update stories   │
+│  - Edit mode        │     │  - /api/labels      │     │  - Webhook events   │
+└─────────────────────┘     └──────────┬──────────┘     └─────────────────────┘
+                                       │
+                                       ▼
+                            ┌─────────────────────┐
+                            │     PostgreSQL      │
+                            │  stories            │
+                            │  story_evidence     │
+                            │  story_sync_metadata│
+                            │  label_registry     │
+                            └─────────────────────┘
+```
+
+**Services** (`src/story_tracking/services/`):
+
+| Service                      | Purpose                                             |
+| ---------------------------- | --------------------------------------------------- |
+| `StoryService`               | CRUD, search, board view, status management         |
+| `EvidenceService`            | Evidence bundles, conversation/theme linking        |
+| `SyncService`                | Bidirectional Shortcut sync (push/pull/webhook)     |
+| `LabelRegistryService`       | Label management, Shortcut taxonomy import          |
+| `AnalyticsService`           | Story metrics, trending themes, source distribution |
+| `PipelineIntegrationService` | Bridge PM review output to story creation           |
+
+**API Routes**:
+
+| Category  | Endpoints                                                               |
+| --------- | ----------------------------------------------------------------------- |
+| Stories   | `GET/POST /api/stories`, `GET/PATCH/DELETE /api/stories/{id}`           |
+| Board     | `GET /api/stories/board`, `GET /api/stories/search`                     |
+| Evidence  | `POST /api/stories/{id}/evidence/*`                                     |
+| Sync      | `POST /api/sync/shortcut/push`, `/pull`, `/webhook`, `GET /status/{id}` |
+| Labels    | `GET /api/labels`, `POST /api/labels`, `POST /api/labels/import`        |
+| Analytics | `GET /api/analytics/stories`, `/themes/trending`, `/sources`            |
+
+**Sync Strategy**: Last-write-wins using timestamps
+
+- `last_internal_update_at` vs `last_external_update_at` determines direction
+- Webhook handler for real-time Shortcut updates
+- Sync metadata tracks status, errors, and direction
+
+**Database Tables**:
+
+```sql
+stories              -- Canonical work items (system of record)
+story_evidence       -- Evidence bundles (conversations, themes, excerpts)
+story_comments       -- Comments with source tracking (internal/shortcut)
+story_sync_metadata  -- Bidirectional sync state
+label_registry       -- Shortcut taxonomy + internal labels
+```
+
+**Files**:
+
+```
+src/story_tracking/
+├── models/
+│   ├── story.py         # Story, StoryCreate, StoryUpdate
+│   ├── evidence.py      # StoryEvidence, EvidenceExcerpt
+│   ├── sync.py          # SyncMetadata, SyncResult
+│   └── label.py         # LabelEntry, LabelCreate
+└── services/
+    ├── story_service.py
+    ├── evidence_service.py
+    ├── sync_service.py
+    ├── label_registry_service.py
+    ├── analytics_service.py
+    └── pipeline_integration.py
+
+src/api/routers/
+├── stories.py           # Story CRUD + board
+├── sync.py              # Shortcut sync endpoints
+└── labels.py            # Label management
+
+webapp/                  # Next.js frontend
+├── src/app/
+│   ├── page.tsx         # Board view
+│   └── story/[id]/      # Story detail + edit
+└── src/lib/
+    └── types.ts         # StatusKey, STATUS_ORDER
+```
+
+---
+
 ## Current Status
 
 **Implemented**:
@@ -972,24 +1071,20 @@ CODA_DOC_ID=c4RRJ_VLtW
 ✅ Phase 5 Ground Truth Validation (64.5% family accuracy)
 ✅ Vocabulary feedback loop for drift monitoring
 ✅ Story Grouping baseline (45% purity, validation pipeline)
-✅ FastAPI + Streamlit frontend (19 API endpoints, 3 UI pages)
+✅ FastAPI + Streamlit frontend (25+ API endpoints, 3 UI pages)
 ✅ Coda research repository exploration (API access verified, content analyzed)
+✅ Story Tracking Web App (Next.js) - Phases 1-2.5 complete
+✅ Phase 3: Bidirectional Shortcut Sync (SyncService, LabelRegistryService)
+✅ Phase 4: Analytics Enhancements (AnalyticsService, trending themes)
+✅ Coda data integration (4,682 conversations, 1,919 themes loaded)
+✅ Multi-source story creation (Intercom + Coda research)
 
 **In Progress**:
-🚧 Story Grouping Pipeline
-
-- ⏳ Improve scheduler symptom extraction (precision from 35.6% → 50%+)
-- ⏳ Add error code extraction for disambiguation
-- ⏳ Target 70%+ group purity
-- ⏳ Implement orphan persistence (accumulate over time)
-
 🚧 Production deployment
 🚧 Monitoring and metrics
 
 **Future**:
-⏳ Coda client implementation (`src/coda_client.py`)
-⏳ Multi-source theme extraction (Intercom + Coda)
-⏳ Escalation rules engine
-⏳ Auto-ticket creation (Shortcut integration)
-⏳ Slack alerts
+⏳ Webhook-driven real-time sync
+⏳ Advanced analytics dashboard
+⏳ Slack alerts for high-priority stories
 ⏳ Trend analysis and reporting
