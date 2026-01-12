@@ -10,6 +10,56 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Coda Story Formatting & Markdown Rendering (2026-01-12)**:
+
+- Coda story formatting functions (`src/story_formatter.py`):
+  - `format_coda_excerpt()` - Format Coda excerpts with participant/table links
+  - `format_excerpt_multi_source()` - Router for source-aware formatting
+  - `build_research_story_description()` - Research story template (Theme Summary → Quotes → Investigation)
+- Frontend markdown rendering:
+  - Added `react-markdown` for rendering story descriptions
+  - Comprehensive CSS styles for markdown content (headers, blockquotes, links, code)
+- Frontend Coda evidence support (`EvidenceBrowser.tsx`):
+  - `getExcerptUrl()` - Source-aware URL generation for Coda/Intercom excerpts
+  - Coda deep links using composite IDs (`coda_row_{table_slug}_{row_id}`)
+- Backfill script (`scripts/backfill_coda_formatting.py`):
+  - Regenerate descriptions for existing Coda stories
+  - Idempotency check to prevent double-formatting
+- Unit tests for all new formatting functions
+
+**Webapp Analytics & Bug Fixes (2026-01-12)**:
+
+- Analytics page (`webapp/src/app/analytics/page.tsx`)
+  - Story metrics dashboard with MetricCard components
+  - Status distribution DonutChart visualization
+  - TrendingList for theme trends
+  - Period selector (7d, 30d, 90d)
+- New frontend components:
+  - `MetricCard` - Displays metric with optional delta indicator
+  - `DonutChart` - SVG donut chart with legend
+  - `TrendingList` - Theme trends with direction indicators
+  - `EvidenceBrowser` - Collapsible evidence excerpts by source
+  - `LabelPicker` - Searchable label dropdown with keyboard navigation
+  - `ShortcutSyncPanel` - Sync status and action buttons
+  - `SyncStatusBadge` - Visual sync state indicator
+- Frontend test coverage (24 new tests):
+  - `SyncStatusBadge.test.tsx` - State rendering tests
+  - `charts.test.tsx` - MetricCard, DonutChart, TrendingList tests
+  - `EvidenceBrowser.test.tsx` - Evidence display and grouping tests
+  - `LabelPicker.test.tsx` - Label selection and dropdown tests
+  - `ShortcutSyncPanel.test.tsx` - Sync panel integration tests
+- Backend test coverage (8 new tests):
+  - `test_sync_service.py` - Metadata stripping tests for `_strip_feedforward_metadata()`
+
+### Fixed
+
+**Webapp Bug Fixes (2026-01-12)**:
+
+- Fixed analytics 500 error - SQL referenced non-existent `theme_signature` column
+- Fixed "Refresh from Shortcut" appending duplicate metadata - Added `_strip_feedforward_metadata()` regex
+- Fixed UI theme flash on page refresh - Inline script sets theme before React hydration
+- Fixed drop indicator contrast in dark mode - Changed background to `hsl(0, 0%, 20%)`
+
 **Phases 3 & 4: Shortcut Sync + Analytics (2026-01-10)**:
 
 - Bidirectional Shortcut sync service (`src/story_tracking/services/sync_service.py`)
