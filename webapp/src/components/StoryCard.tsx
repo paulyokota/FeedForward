@@ -1,12 +1,18 @@
 "use client";
 
 import type { Story } from "@/lib/types";
-import { PRIORITY_CONFIG } from "@/lib/types";
+import { PRIORITY_CONFIG, getSyncState } from "@/lib/types";
 import Link from "next/link";
 import React from "react";
+import { SyncStatusBadge } from "./SyncStatusBadge";
+
+// Extended Story type to include optional sync_status from board API
+interface StoryWithSync extends Story {
+  sync_status?: string | null;
+}
 
 interface StoryCardProps {
-  story: Story;
+  story: StoryWithSync;
   isDragOverlay?: boolean;
   style?: React.CSSProperties;
 }
@@ -16,6 +22,7 @@ export const StoryCard = React.forwardRef<HTMLElement, StoryCardProps>(
     const priorityConfig = story.priority
       ? PRIORITY_CONFIG[story.priority]
       : null;
+    const syncState = getSyncState(story.sync_status);
 
     const cardContent = (
       <article
@@ -74,6 +81,14 @@ export const StoryCard = React.forwardRef<HTMLElement, StoryCardProps>(
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             <span>{story.conversation_count}</span>
+          </div>
+
+          {/* Sync status indicator */}
+          <div
+            className="meta-item sync-indicator"
+            title={`Sync: ${syncState}`}
+          >
+            <SyncStatusBadge state={syncState} size="sm" />
           </div>
 
           {story.confidence_score !== null && (

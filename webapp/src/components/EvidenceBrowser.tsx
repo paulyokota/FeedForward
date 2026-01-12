@@ -1,0 +1,594 @@
+"use client";
+
+import React, { useState } from "react";
+import type { StoryEvidence, EvidenceExcerpt } from "@/lib/types";
+
+interface EvidenceBrowserProps {
+  evidence: StoryEvidence | null;
+  maxExcerpts?: number;
+}
+
+interface SourceGroup {
+  source: string;
+  excerpts: EvidenceExcerpt[];
+}
+
+function groupExcerptsBySource(excerpts: EvidenceExcerpt[]): SourceGroup[] {
+  const groups: Record<string, EvidenceExcerpt[]> = {};
+
+  for (const excerpt of excerpts) {
+    const source = excerpt.source || "unknown";
+    if (!groups[source]) {
+      groups[source] = [];
+    }
+    groups[source].push(excerpt);
+  }
+
+  return Object.entries(groups).map(([source, excerpts]) => ({
+    source,
+    excerpts,
+  }));
+}
+
+function getSourceIcon(source: string): React.ReactNode {
+  switch (source.toLowerCase()) {
+    case "intercom":
+      return <IntercomIcon />;
+    case "coda":
+      return <CodaIcon />;
+    default:
+      return <DocumentIcon />;
+  }
+}
+
+function getSourceLabel(source: string): string {
+  switch (source.toLowerCase()) {
+    case "intercom":
+      return "Intercom";
+    case "coda":
+      return "Coda";
+    default:
+      return source.charAt(0).toUpperCase() + source.slice(1);
+  }
+}
+
+export function EvidenceBrowser({
+  evidence,
+  maxExcerpts = 5,
+}: EvidenceBrowserProps) {
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(
+    new Set(["intercom"]),
+  );
+  const [expandedExcerpts, setExpandedExcerpts] = useState<Set<string>>(
+    new Set(),
+  );
+  const [showAllBySource, setShowAllBySource] = useState<Set<string>>(
+    new Set(),
+  );
+
+  if (!evidence || !evidence.excerpts || evidence.excerpts.length === 0) {
+    return (
+      <div className="evidence-browser empty">
+        <div className="empty-state">
+          <EmptyIcon />
+          <span>No evidence linked to this story</span>
+        </div>
+        <style jsx>{`
+          .evidence-browser.empty {
+            background: linear-gradient(
+              to bottom,
+              hsl(0, 0%, 16%),
+              hsl(0, 0%, 12%)
+            );
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+          }
+
+          :global([data-theme="light"]) .evidence-browser.empty {
+            background: linear-gradient(
+              to bottom,
+              hsl(0, 0%, 100%),
+              hsl(0, 0%, 97%)
+            );
+          }
+
+          .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-tertiary);
+            font-size: 14px;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  const sourceGroups = groupExcerptsBySource(evidence.excerpts);
+
+  const toggleSource = (source: string) => {
+    setExpandedSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(source)) {
+        next.delete(source);
+      } else {
+        next.add(source);
+      }
+      return next;
+    });
+  };
+
+  const toggleExcerpt = (excerptId: string) => {
+    setExpandedExcerpts((prev) => {
+      const next = new Set(prev);
+      if (next.has(excerptId)) {
+        next.delete(excerptId);
+      } else {
+        next.add(excerptId);
+      }
+      return next;
+    });
+  };
+
+  const toggleShowAll = (source: string) => {
+    setShowAllBySource((prev) => {
+      const next = new Set(prev);
+      if (next.has(source)) {
+        next.delete(source);
+      } else {
+        next.add(source);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <div className="evidence-browser">
+      <div className="browser-header">
+        <h3 className="browser-title">Evidence</h3>
+        <span className="total-count">
+          {evidence.excerpts.length} excerpt
+          {evidence.excerpts.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      <div className="source-groups">
+        {sourceGroups.map((group) => {
+          const isExpanded = expandedSources.has(group.source);
+          const showAll = showAllBySource.has(group.source);
+          const displayedExcerpts = showAll
+            ? group.excerpts
+            : group.excerpts.slice(0, maxExcerpts);
+          const hasMore = group.excerpts.length > maxExcerpts;
+
+          return (
+            <div key={group.source} className="source-group">
+              <button
+                type="button"
+                className="source-header"
+                onClick={() => toggleSource(group.source)}
+                aria-expanded={isExpanded}
+              >
+                <div className="source-info">
+                  {getSourceIcon(group.source)}
+                  <span className="source-name">
+                    {getSourceLabel(group.source)}
+                  </span>
+                  <span className="source-count">{group.excerpts.length}</span>
+                </div>
+                <ChevronIcon isExpanded={isExpanded} />
+              </button>
+
+              {isExpanded && (
+                <div className="excerpts-list">
+                  {displayedExcerpts.map((excerpt, index) => {
+                    const excerptId = `${group.source}-${excerpt.conversation_id || index}`;
+                    const isExcerptExpanded = expandedExcerpts.has(excerptId);
+                    const intercomUrl = excerpt.conversation_id
+                      ? `https://app.intercom.com/a/inbox/conversation/${excerpt.conversation_id}`
+                      : null;
+
+                    return (
+                      <div key={excerptId} className="excerpt-card">
+                        <div
+                          className={`excerpt-text ${isExcerptExpanded ? "expanded" : ""}`}
+                          onClick={() => toggleExcerpt(excerptId)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              toggleExcerpt(excerptId);
+                            }
+                          }}
+                        >
+                          {excerpt.text}
+                        </div>
+
+                        <div className="excerpt-meta">
+                          {excerpt.conversation_id && (
+                            <span
+                              className="conversation-id"
+                              title="Conversation ID"
+                            >
+                              {excerpt.conversation_id}
+                            </span>
+                          )}
+                          {intercomUrl && (
+                            <a
+                              href={intercomUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="external-link"
+                              title="Open in Intercom"
+                            >
+                              <ExternalLinkIcon />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {hasMore && (
+                    <button
+                      type="button"
+                      className="show-more-btn"
+                      onClick={() => toggleShowAll(group.source)}
+                    >
+                      {showAll
+                        ? "Show less"
+                        : `Show ${group.excerpts.length - maxExcerpts} more`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {evidence.theme_signatures && evidence.theme_signatures.length > 0 && (
+        <div className="themes-section">
+          <div className="themes-header">Related Themes</div>
+          <div className="themes-list">
+            {evidence.theme_signatures.map((theme) => (
+              <span key={theme} className="theme-tag">
+                {theme}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        .evidence-browser {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 16%),
+            hsl(0, 0%, 12%)
+          );
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+          overflow: hidden;
+          box-shadow: var(--shadow-md);
+        }
+
+        :global([data-theme="light"]) .evidence-browser {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 100%),
+            hsl(0, 0%, 97%)
+          );
+        }
+
+        .browser-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 16px;
+          border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .browser-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin: 0;
+        }
+
+        .total-count {
+          font-size: 12px;
+          color: var(--text-secondary);
+          background: var(--bg-elevated);
+          padding: 3px 8px;
+          border-radius: var(--radius-full);
+        }
+
+        .source-groups {
+          padding: 8px;
+        }
+
+        .source-group {
+          margin-bottom: 8px;
+        }
+
+        .source-group:last-child {
+          margin-bottom: 0;
+        }
+
+        .source-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          padding: 10px 12px;
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .source-header:hover {
+          background: var(--bg-hover);
+        }
+
+        .source-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .source-name {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-primary);
+        }
+
+        .source-count {
+          font-size: 11px;
+          color: var(--text-secondary);
+          background: var(--bg-surface);
+          padding: 2px 6px;
+          border-radius: var(--radius-full);
+        }
+
+        .excerpts-list {
+          padding: 8px 0 0 0;
+        }
+
+        .excerpt-card {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: 12px;
+          margin-bottom: 8px;
+        }
+
+        .excerpt-card:last-child {
+          margin-bottom: 0;
+        }
+
+        .excerpt-text {
+          font-size: 13px;
+          line-height: 1.5;
+          color: var(--text-secondary);
+          cursor: pointer;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          white-space: pre-wrap;
+          transition: all 0.15s ease;
+        }
+
+        .excerpt-text:hover {
+          color: var(--text-primary);
+        }
+
+        .excerpt-text.expanded {
+          display: block;
+          -webkit-line-clamp: unset;
+          overflow: visible;
+        }
+
+        .excerpt-meta {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid var(--border-subtle);
+        }
+
+        .conversation-id {
+          font-family: monospace;
+          font-size: 11px;
+          color: var(--text-tertiary);
+          background: var(--bg-elevated);
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .external-link {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--accent-teal);
+          padding: 4px;
+          border-radius: 4px;
+          transition: all 0.15s ease;
+        }
+
+        .external-link:hover {
+          background: var(--accent-teal-dim, rgba(20, 184, 166, 0.1));
+        }
+
+        .show-more-btn {
+          display: block;
+          width: 100%;
+          padding: 10px;
+          margin-top: 8px;
+          background: transparent;
+          border: 1px dashed var(--border-default);
+          border-radius: var(--radius-md);
+          color: var(--text-secondary);
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .show-more-btn:hover {
+          background: var(--bg-hover);
+          color: var(--text-primary);
+          border-style: solid;
+        }
+
+        .themes-section {
+          padding: 12px 16px;
+          border-top: 1px solid var(--border-subtle);
+        }
+
+        .themes-header {
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--text-tertiary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 8px;
+        }
+
+        .themes-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .theme-tag {
+          font-size: 11px;
+          color: var(--accent-purple);
+          background: var(--accent-purple-dim, rgba(168, 85, 247, 0.1));
+          padding: 4px 8px;
+          border-radius: var(--radius-full);
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function ChevronIcon({ isExpanded }: { isExpanded: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--text-tertiary)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{
+        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+        transition: "transform 0.15s ease",
+      }}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function IntercomIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--accent-blue, #60a5fa)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function CodaIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--accent-amber)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  );
+}
+
+function DocumentIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--text-tertiary)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  );
+}
+
+function EmptyIcon() {
+  return (
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="9" y1="15" x2="15" y2="15" />
+    </svg>
+  );
+}
