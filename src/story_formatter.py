@@ -10,9 +10,14 @@ Format spec:
 """
 
 import os
-from typing import Optional
+from typing import Optional, Dict, List
 
+# Production Intercom app ID for URL generation
 INTERCOM_APP_ID = os.getenv("INTERCOM_APP_ID", "2t3d8az2")
+# Coda document ID for deep links to research data
+CODA_DOC_ID = os.getenv("CODA_DOC_ID", "")
+# Maximum characters for excerpt text in formatted output
+EXCERPT_MAX_LENGTH = 300
 
 
 def format_excerpt(
@@ -69,7 +74,7 @@ def format_excerpt(
         parts.append(f"[User]({jarvis_user_url})")
 
     user_info = " | ".join(parts)
-    excerpt_text = excerpt[:300] if excerpt else ""
+    excerpt_text = excerpt[:EXCERPT_MAX_LENGTH] if excerpt else ""
 
     return f"{user_info}\n> {excerpt_text}"
 
@@ -358,3 +363,197 @@ def get_priority_label(source_counts: dict) -> str:
         return "strategic"
     else:
         return "tactical"
+
+
+def format_coda_excerpt(
+    text: str,
+    table_name: Optional[str] = None,
+    participant: Optional[str] = None,
+    page_id: Optional[str] = None,
+    row_id: Optional[str] = None,
+    coda_doc_id: Optional[str] = None,
+) -> str:
+    """
+    Format Coda research excerpt with links.
+
+    Format: [Participant or Table](Coda URL)
+    > "Quote from research..."
+
+    Link generation strategy:
+    - For table rows: https://coda.io/d/{doc_id}#row-{row_id}
+    - For pages: https://coda.io/d/{doc_id}/_/{page_id}
+    - Fallback: https://coda.io/d/{doc_id} (doc root)
+
+    Args:
+        text: Excerpt text
+        table_name: Table name (for display)
+        participant: Participant identifier (for display)
+        page_id: Coda page ID
+        row_id: Coda row ID
+        coda_doc_id: Coda doc ID (optional, defaults to env)
+
+    Returns:
+        Formatted markdown string
+    """
+    doc_id = coda_doc_id or CODA_DOC_ID
+
+    # Build URL based on available identifiers
+    if row_id and doc_id:
+        url = f"https://coda.io/d/{doc_id}#row-{row_id}"
+    elif page_id and doc_id:
+        url = f"https://coda.io/d/{doc_id}/_/{page_id}"
+    elif doc_id:
+        url = f"https://coda.io/d/{doc_id}"
+    else:
+        url = "https://coda.io"
+
+    # Display label priority: participant > table_name > "Research"
+    if participant:
+        display = participant
+    elif table_name:
+        display = table_name
+    else:
+        display = "Research"
+
+    excerpt_text = text[:300] if text else ""
+    return f"[{display}]({url})\n> {excerpt_text}"
+
+
+def format_excerpt_multi_source(
+    source: str,
+    text: str,
+    conversation_id: Optional[str] = None,
+    source_metadata: Optional[Dict] = None,
+) -> str:
+    """
+    Route to source-specific formatting.
+
+    For Intercom: Uses existing format_excerpt() with Jarvis links
+    For Coda: Uses format_coda_excerpt() with Coda doc links
+
+    Args:
+        source: "intercom" or "coda"
+        text: Excerpt text
+        conversation_id: Intercom conversation ID (for intercom source)
+        source_metadata: Dict with source-specific fields:
+            For Intercom: email, org_id, user_id, urls
+            For Coda: table_name, participant, page_id, row_id
+
+    Returns:
+        Formatted markdown string
+    """
+    metadata = source_metadata or {}
+
+    if source == "intercom":
+        return format_excerpt(
+            conversation_id=conversation_id or "unknown",
+            email=metadata.get("email"),
+            excerpt=text,
+            org_id=metadata.get("org_id"),
+            user_id=metadata.get("user_id"),
+            intercom_url=metadata.get("intercom_url"),
+            jarvis_org_url=metadata.get("jarvis_org_url"),
+            jarvis_user_url=metadata.get("jarvis_user_url"),
+        )
+    elif source == "coda":
+        return format_coda_excerpt(
+            text=text,
+            table_name=metadata.get("table_name"),
+            participant=metadata.get("participant"),
+            page_id=metadata.get("page_id"),
+            row_id=metadata.get("row_id"),
+            coda_doc_id=metadata.get("coda_doc_id"),
+        )
+    else:
+        # Unknown source: return plain text
+        return f"> {text[:300]}"
+
+
+def build_research_story_description(
+    theme_name: str,
+    excerpts: List[Dict],
+    participant_count: int,
+    theme_type: str,
+    source_breakdown: Dict[str, int],
+) -> str:
+    """
+    Build description optimized for research-sourced stories.
+
+    Structure (different from bug reports):
+    1. Theme Summary (what users are saying)
+    2. Research Context (participant count, sources)
+    3. Representative Quotes (with links)
+    4. Suggested Investigation (product questions)
+    5. Acceptance Criteria (validation approach)
+
+    Args:
+        theme_name: Theme name
+        excerpts: List of excerpt dicts with keys:
+            - source: "intercom" or "coda"
+            - text: excerpt text
+            - source_metadata: source-specific metadata
+        participant_count: Number of research participants
+        theme_type: pain_point, feature_request, or insight
+        source_breakdown: Dict of counts per source
+
+    Returns:
+        Formatted markdown description
+    """
+    # Theme type label
+    type_label = theme_type.replace("_", " ").title()
+
+    # Build description header
+    description = f"""## Theme Summary
+
+**Theme**: {theme_name.replace('_', ' ').title()}
+**Type**: {type_label}
+**Participants**: {participant_count}
+
+### Source Breakdown
+"""
+
+    # Add source breakdown
+    for source, count in source_breakdown.items():
+        source_label = source.title()
+        description += f"- {source_label}: {count}\n"
+
+    description += "\n---\n\n## Representative Quotes\n\n"
+
+    # Add formatted excerpts
+    for i, excerpt in enumerate(excerpts[:5], 1):
+        source = excerpt.get("source", "unknown")
+        text = excerpt.get("text", "")
+        metadata = excerpt.get("source_metadata", {})
+        conversation_id = excerpt.get("conversation_id")
+
+        formatted = format_excerpt_multi_source(
+            source=source,
+            text=text,
+            conversation_id=conversation_id,
+            source_metadata=metadata,
+        )
+        description += f"### Quote {i}\n{formatted}\n\n"
+
+    # Add investigation section
+    description += """---
+
+## Suggested Investigation
+
+- What user needs does this theme reveal?
+- How does this align with product strategy?
+- What additional validation is needed?
+- What are the potential solutions?
+
+---
+
+## Acceptance Criteria
+
+- [ ] Theme validated with additional user research
+- [ ] Product opportunity sized and prioritized
+- [ ] Solution approach defined
+- [ ] Next steps identified
+
+---
+*Generated by FeedForward Research Pipeline*
+"""
+    return description

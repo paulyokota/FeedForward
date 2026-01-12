@@ -65,8 +65,12 @@ def main():
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             for row_id, themes in rows.items():
-                # Build conversation ID
-                conv_id = f"coda_{row_id}"
+                metadata = row_metadata[row_id]
+
+                # Build conversation ID with proper composite format
+                # Format: coda_row_{table_slug}_{row_id}
+                table_slug = metadata['table'].lower().replace(' ', '_')[:20]
+                conv_id = f"coda_row_{table_slug}_{row_id}"
 
                 # Check if already exists
                 cur.execute("SELECT id FROM conversations WHERE id = %s", (conv_id,))
@@ -92,7 +96,8 @@ def main():
                     skipped += 1
                     continue
 
-                metadata = row_metadata[row_id]
+                # Get participant info from first theme (if available)
+                participant = themes[0].get('participant', 'Research participant')
 
                 # Insert as conversation
                 cur.execute("""
@@ -119,6 +124,7 @@ def main():
                         'row_id': row_id,
                         'theme_types': list(theme_types),
                         'theme_count': len(themes),
+                        'participant': participant,
                     })
                 ))
                 inserted += 1

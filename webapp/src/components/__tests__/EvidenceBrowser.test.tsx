@@ -2,7 +2,7 @@
  * Minimal tests for EvidenceBrowser
  */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { EvidenceBrowser } from "../EvidenceBrowser";
 import type { StoryEvidence } from "@/lib/types";
 
@@ -63,5 +63,63 @@ describe("EvidenceBrowser", () => {
     };
     render(<EvidenceBrowser evidence={multiSourceEvidence} />);
     expect(screen.getByText(/From Intercom/)).toBeInTheDocument();
+  });
+});
+
+describe("Source-aware URLs", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetModules();
+    process.env = { ...originalEnv, NEXT_PUBLIC_CODA_DOC_ID: "test-doc-id" };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("renders Intercom link for intercom excerpts", () => {
+    const intercomEvidence: StoryEvidence = {
+      ...mockEvidence,
+      excerpts: [
+        {
+          text: "From Intercom",
+          source: "intercom",
+          conversation_id: "12345",
+          timestamp: "2024-01-01T00:00:00Z",
+        },
+      ],
+    };
+    render(<EvidenceBrowser evidence={intercomEvidence} />);
+    const link = screen.getByRole("link");
+    expect(link).toHaveAttribute(
+      "href",
+      expect.stringContaining("app.intercom.com"),
+    );
+    expect(link).toHaveAttribute("title", "Open in Intercom");
+  });
+
+  it("renders Coda link for coda row excerpts", () => {
+    const codaEvidence: StoryEvidence = {
+      ...mockEvidence,
+      source_stats: { coda: 1 },
+      excerpts: [
+        {
+          text: "From Coda research",
+          source: "coda",
+          conversation_id: "coda_row_table123_row456",
+          timestamp: "2024-01-01T00:00:00Z",
+        },
+      ],
+    };
+    render(<EvidenceBrowser evidence={codaEvidence} />);
+
+    // Need to expand the coda section first
+    const codaHeader = screen.getByText("Coda");
+    fireEvent.click(codaHeader);
+
+    const link = screen.getByRole("link");
+    expect(link).toHaveAttribute("href", expect.stringContaining("coda.io"));
+    expect(link).toHaveAttribute("title", "Open in Coda");
   });
 });
