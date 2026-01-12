@@ -12,7 +12,54 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Phases 3 & 4 Complete + Coda Integration (2026-01-10)
+## Latest: Webapp Bug Fixes & UX Polish (2026-01-12)
+
+### Session Summary
+
+Fixed critical bugs discovered during testing of the Story Tracking Web App and polished UX with theme flash prevention and improved visual feedback.
+
+### What Was Fixed
+
+**Analytics Page 500 Error**:
+
+- Root cause: SQL query referenced non-existent `theme_signature` column
+- Fix: Changed to `ta.issue_signature as theme_signature` alias
+- File: `src/story_tracking/services/analytics_service.py`
+
+**"Refresh from Shortcut" Adding Metadata to Description**:
+
+- Root cause: Push adds `## Metadata` block, pull brings it back without stripping
+- Fix: Added `_strip_feedforward_metadata()` regex method to strip metadata on pull
+- File: `src/story_tracking/services/sync_service.py`
+
+**UI Blink/Flash on Page Refresh**:
+
+- Root cause: ThemeProvider hiding content with `visibility: hidden` during React hydration
+- Fix: Added inline script in layout.tsx to set theme BEFORE React hydrates
+- Files: `webapp/src/app/layout.tsx`, `webapp/src/components/ThemeProvider.tsx`
+
+**Loading State Flash**:
+
+- Root cause: "Loading stories..." appeared briefly even on fast loads
+- Fix: Added 200ms delayed animation before showing loading states
+- Files: `webapp/src/app/globals.css`, page components
+
+**Drop Indicator Contrast in Dark Mode**:
+
+- Root cause: Background color `var(--bg-primary)` (5% gray) nearly invisible on black
+- Fix: Changed to `hsl(0, 0%, 20%)` for better contrast without borders
+- File: `webapp/src/components/DroppableColumn.tsx`
+
+### Process Gates Passed
+
+- Test Gate: Existing tests continue to pass
+- Build: `npm run build` succeeds without errors
+- Functional Testing: Manual verification of all fixes
+- Backlog Hygiene: No outstanding issues
+
+---
+
+## Previous: Phases 3 & 4 Complete + Coda Integration (2026-01-10)
 
 ### Session Summary
 

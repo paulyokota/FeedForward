@@ -124,13 +124,13 @@ function SortableStoryCard({
         }
 
         .drop-indicator {
-          background: var(--bg-primary);
+          background: hsl(0, 0%, 20%);
           border-radius: 12px;
           box-sizing: border-box;
         }
 
         :global([data-theme="light"]) .drop-indicator {
-          background: hsl(0, 0%, 85%);
+          background: hsl(0, 0%, 88%);
         }
 
         .drop-indicator.dragging {
@@ -279,7 +279,7 @@ export function DroppableColumn({ status, stories }: DroppableColumnProps) {
 
         .drop-indicator-empty {
           width: 100%;
-          background: var(--bg-primary);
+          background: hsl(0, 0%, 20%);
           border-radius: 12px;
           box-sizing: border-box;
           opacity: 0;
@@ -292,11 +292,11 @@ export function DroppableColumn({ status, stories }: DroppableColumnProps) {
         }
 
         :global([data-theme="light"]) .drop-indicator-empty {
-          background: hsl(0, 0%, 85%);
+          background: hsl(0, 0%, 88%);
         }
 
         .drop-indicator-bottom {
-          background: var(--bg-primary);
+          background: hsl(0, 0%, 20%);
           border-radius: 12px;
           box-sizing: border-box;
           flex-shrink: 0;
@@ -310,7 +310,7 @@ export function DroppableColumn({ status, stories }: DroppableColumnProps) {
         }
 
         :global([data-theme="light"]) .drop-indicator-bottom {
-          background: hsl(0, 0%, 85%);
+          background: hsl(0, 0%, 88%);
         }
       `}</style>
     </div>

@@ -168,17 +168,17 @@ class AnalyticsService:
         with self.db.cursor() as cur:
             cur.execute("""
                 SELECT
-                    ta.theme_signature,
+                    ta.issue_signature as theme_signature,
                     ta.product_area,
                     ta.occurrence_count,
                     ta.first_seen_at,
                     ta.last_seen_at,
                     COUNT(DISTINCT se.story_id) as linked_story_count
                 FROM theme_aggregates ta
-                LEFT JOIN story_evidence se ON ta.theme_signature = ANY(se.theme_signatures)
+                LEFT JOIN story_evidence se ON ta.issue_signature = ANY(se.theme_signatures)
                 WHERE ta.last_seen_at > NOW() - INTERVAL '%s days'
                   AND ta.occurrence_count >= 2
-                GROUP BY ta.theme_signature, ta.product_area, ta.occurrence_count,
+                GROUP BY ta.issue_signature, ta.product_area, ta.occurrence_count,
                          ta.first_seen_at, ta.last_seen_at
                 ORDER BY ta.occurrence_count DESC, ta.last_seen_at DESC
                 LIMIT %s

@@ -6,6 +6,20 @@ import type {
   StoryListResponse,
   BoardView,
   StoryUpdate,
+  SyncStatusResponse,
+  StorySnapshot,
+  PushResponse,
+  PullResponse,
+  SyncResult,
+  LabelRegistryEntry,
+  LabelListResponse,
+  LabelCreate,
+  ImportResult,
+  StoryMetricsResponse,
+  ThemeTrendResponse,
+  SourceDistributionResponse,
+  EvidenceSummaryResponse,
+  SyncMetricsResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -111,6 +125,93 @@ export const api = {
   health: {
     check: async (): Promise<{ status: string }> => {
       return fetcher("/health");
+    },
+  },
+
+  // Sync endpoints
+  sync: {
+    getStatus: async (storyId: string): Promise<SyncStatusResponse> => {
+      return fetcher(`/api/sync/shortcut/status/${storyId}`);
+    },
+
+    push: async (
+      storyId: string,
+      snapshot?: StorySnapshot,
+    ): Promise<PushResponse> => {
+      return fetcher("/api/sync/shortcut/push", {
+        method: "POST",
+        body: JSON.stringify({ story_id: storyId, snapshot }),
+      });
+    },
+
+    pull: async (
+      shortcutStoryId: string,
+      storyId?: string,
+    ): Promise<PullResponse> => {
+      return fetcher("/api/sync/shortcut/pull", {
+        method: "POST",
+        body: JSON.stringify({
+          shortcut_story_id: shortcutStoryId,
+          story_id: storyId,
+        }),
+      });
+    },
+
+    syncStory: async (storyId: string): Promise<SyncResult> => {
+      return fetcher(`/api/sync/shortcut/sync/${storyId}`, { method: "POST" });
+    },
+  },
+
+  // Label endpoints
+  labels: {
+    list: async (source?: string, limit = 100): Promise<LabelListResponse> => {
+      const params = new URLSearchParams();
+      if (source) params.set("source", source);
+      params.set("limit", limit.toString());
+      return fetcher(`/api/labels?${params}`);
+    },
+
+    get: async (labelName: string): Promise<LabelRegistryEntry> => {
+      return fetcher(`/api/labels/${encodeURIComponent(labelName)}`);
+    },
+
+    create: async (label: LabelCreate): Promise<LabelRegistryEntry> => {
+      return fetcher("/api/labels", {
+        method: "POST",
+        body: JSON.stringify(label),
+      });
+    },
+
+    importFromShortcut: async (): Promise<ImportResult> => {
+      return fetcher("/api/labels/import", { method: "POST" });
+    },
+  },
+
+  // Analytics endpoints
+  analytics: {
+    getStoryMetrics: async (): Promise<StoryMetricsResponse> => {
+      return fetcher("/api/analytics/stories");
+    },
+
+    getTrendingThemes: async (
+      days = 7,
+      limit = 20,
+    ): Promise<ThemeTrendResponse[]> => {
+      return fetcher(
+        `/api/analytics/themes/trending?days=${days}&limit=${limit}`,
+      );
+    },
+
+    getSourceDistribution: async (): Promise<SourceDistributionResponse[]> => {
+      return fetcher("/api/analytics/sources");
+    },
+
+    getEvidenceSummary: async (): Promise<EvidenceSummaryResponse> => {
+      return fetcher("/api/analytics/evidence");
+    },
+
+    getSyncMetrics: async (): Promise<SyncMetricsResponse> => {
+      return fetcher("/api/analytics/sync");
     },
   },
 };

@@ -7,6 +7,9 @@ import type { StoryWithEvidence, StatusKey, StoryUpdate } from "@/lib/types";
 import { STATUS_CONFIG, PRIORITY_CONFIG, STATUS_ORDER } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FeedForwardLogo } from "@/components/FeedForwardLogo";
+import { ShortcutSyncPanel } from "@/components/ShortcutSyncPanel";
+import { LabelPicker } from "@/components/LabelPicker";
+import { EvidenceBrowser } from "@/components/EvidenceBrowser";
 
 const SEVERITY_OPTIONS = [
   { value: "", label: "None" },
@@ -192,7 +195,7 @@ export default function StoryDetailPage() {
 
   if (loading) {
     return (
-      <div className="loading-state">
+      <div className="loading-state loading-delayed">
         <div className="spinner" />
         <span>Loading story...</span>
       </div>
@@ -291,31 +294,10 @@ export default function StoryDetailPage() {
             )}
           </section>
 
-          {/* Evidence Section */}
-          {story.evidence &&
-            story.evidence.excerpts &&
-            story.evidence.excerpts.length > 0 && (
-              <section className="content-section">
-                <h2 className="section-title">Evidence</h2>
-                <div className="evidence-list">
-                  {story.evidence.excerpts.map((excerpt, idx) => (
-                    <div key={idx} className="evidence-card">
-                      <p className="evidence-text">{excerpt.text}</p>
-                      <div className="evidence-meta">
-                        <span className="evidence-source">
-                          {excerpt.source}
-                        </span>
-                        {excerpt.conversation_id && (
-                          <span className="evidence-id">
-                            {excerpt.conversation_id}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+          {/* Evidence Section - using EvidenceBrowser component */}
+          <section className="content-section">
+            <EvidenceBrowser evidence={story.evidence} />
+          </section>
 
           {/* Comments Section */}
           <section className="content-section">
@@ -574,41 +556,10 @@ export default function StoryDetailPage() {
           <div className="sidebar-section">
             <span className="field-label standalone">Labels</span>
             {isEditMode ? (
-              <div className="labels-edit">
-                <div className="labels-list">
-                  {editLabels.map((label) => (
-                    <span key={label} className="label-tag editable">
-                      {label}
-                      <button
-                        type="button"
-                        className="label-remove-btn"
-                        onClick={() => handleRemoveLabel(label)}
-                        aria-label={`Remove ${label}`}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="label-input-wrapper">
-                  <input
-                    type="text"
-                    className="label-input"
-                    value={newLabelInput}
-                    onChange={(e) => setNewLabelInput(e.target.value)}
-                    onKeyDown={handleLabelKeyDown}
-                    placeholder="Add label..."
-                  />
-                  <button
-                    type="button"
-                    className="label-add-btn"
-                    onClick={handleAddLabel}
-                    disabled={!newLabelInput.trim()}
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
+              <LabelPicker
+                selectedLabels={editLabels}
+                onLabelsChange={setEditLabels}
+              />
             ) : story.labels && story.labels.length > 0 ? (
               <div className="labels-list">
                 {story.labels.map((label) => (
@@ -628,37 +579,34 @@ export default function StoryDetailPage() {
 
           <div className="sidebar-divider" />
 
-          {/* Sync Status */}
+          {/* Sync Status - using ShortcutSyncPanel component */}
           <div className="sidebar-section">
-            <span className="field-label standalone">Shortcut Sync</span>
-            {story.sync ? (
-              <div className="sync-info">
-                <div className="field-row compact">
-                  <span className="field-label-sm">Story ID</span>
-                  <span className="field-value-sm mono">
-                    {story.sync.shortcut_story_id || "—"}
-                  </span>
-                </div>
-                <div className="field-row compact">
-                  <span className="field-label-sm">Status</span>
-                  <span
-                    className={`sync-status sync-${story.sync.last_sync_status}`}
-                  >
-                    {story.sync.last_sync_status || "Not synced"}
-                  </span>
-                </div>
-                {story.sync.last_synced_at && (
-                  <div className="field-row compact">
-                    <span className="field-label-sm">Last sync</span>
-                    <span className="field-value-sm">
-                      {new Date(story.sync.last_synced_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button className="link-btn">Link to Shortcut</button>
-            )}
+            <ShortcutSyncPanel
+              storyId={story.id}
+              initialSyncStatus={
+                story.sync
+                  ? {
+                      story_id: story.sync.story_id,
+                      shortcut_story_id: story.sync.shortcut_story_id,
+                      last_internal_update_at:
+                        story.sync.last_internal_update_at,
+                      last_external_update_at:
+                        story.sync.last_external_update_at,
+                      last_synced_at: story.sync.last_synced_at,
+                      last_sync_status: story.sync.last_sync_status,
+                      last_sync_error: story.sync.last_sync_error,
+                      last_sync_direction: story.sync.last_sync_direction,
+                      needs_sync: false,
+                      sync_direction_hint: null,
+                    }
+                  : undefined
+              }
+              onSyncComplete={async () => {
+                // Refresh story data after sync
+                const data = await api.stories.get(story.id);
+                setStory(data);
+              }}
+            />
           </div>
 
           <div className="sidebar-divider" />

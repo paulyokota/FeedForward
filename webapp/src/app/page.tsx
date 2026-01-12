@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { FeedForwardLogo } from "@/components/FeedForwardLogo";
 import type { StoryMoveEvent } from "@/lib/dnd.types";
+import Link from "next/link";
 
 type PriorityFilter = "all" | "urgent" | "high" | "medium" | "low" | "none";
 
@@ -191,7 +192,7 @@ export default function BoardPage() {
 
   if (loading) {
     return (
-      <div className="loading-container">
+      <div className="loading-container loading-delayed">
         <div className="loading-spinner" />
         <span>Loading stories...</span>
       </div>
@@ -296,6 +297,21 @@ export default function BoardPage() {
         </div>
 
         <div className="header-actions">
+          <Link href="/analytics" className="nav-link">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M18 20V10" />
+              <path d="M12 20V4" />
+              <path d="M6 20v-6" />
+            </svg>
+            Analytics
+          </Link>
           <ThemeToggle />
           <div className="filter-wrapper">
             <button
@@ -624,8 +640,27 @@ export default function BoardPage() {
 
         .header-actions {
           display: flex;
+          align-items: center;
           gap: 10px;
           flex-shrink: 0;
+        }
+
+        .header-actions :global(.nav-link) {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          border-radius: var(--radius-full);
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          text-decoration: none;
+          transition: all 0.15s ease;
+        }
+
+        .header-actions :global(.nav-link):hover {
+          color: var(--text-primary);
+          background: var(--bg-hover);
         }
 
         .filter-wrapper {

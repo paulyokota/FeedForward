@@ -434,3 +434,29 @@ a:hover {
 .theme-icon {
   animation: rotateIn 0.3s ease-out;
 }
+
+/* Delayed loading indicator - only shows after 200ms
+   Prevents flash for fast loads */
+@keyframes delayedFadeIn {
+  0%,
+  99% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.loading-delayed {
+  animation: delayedFadeIn 200ms ease-out forwards;
+}
+
+/* Smooth page transitions */
+.page-content {
+  animation: fadeIn 0.15s ease-out;
+}
+
+/* Prevent layout shift during hydration */
+html {
+  overflow-y: scroll;
+}
