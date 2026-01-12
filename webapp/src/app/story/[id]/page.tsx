@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import { api } from "@/lib/api";
 import type { StoryWithEvidence, StatusKey, StoryUpdate } from "@/lib/types";
 import { STATUS_CONFIG, PRIORITY_CONFIG, STATUS_ORDER } from "@/lib/types";
@@ -286,8 +287,8 @@ export default function StoryDetailPage() {
               <>
                 <h1 className="story-title">{story.title}</h1>
                 {story.description && (
-                  <div className="story-description">
-                    <p>{story.description}</p>
+                  <div className="story-description markdown-content">
+                    <ReactMarkdown>{story.description}</ReactMarkdown>
                   </div>
                 )}
               </>
@@ -842,7 +843,80 @@ export default function StoryDetailPage() {
         }
 
         .story-description p {
-          margin: 0;
+          margin: 0 0 1em 0;
+        }
+
+        .story-description p:last-child {
+          margin-bottom: 0;
+        }
+
+        /* Markdown content styling */
+        .markdown-content h2 {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin: 1.5em 0 0.75em 0;
+          padding-bottom: 0.3em;
+          border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .markdown-content h2:first-child {
+          margin-top: 0;
+        }
+
+        .markdown-content h3 {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin: 1.25em 0 0.5em 0;
+        }
+
+        .markdown-content strong {
+          color: var(--text-primary);
+          font-weight: 600;
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+          margin: 0.5em 0 1em 0;
+          padding-left: 1.5em;
+        }
+
+        .markdown-content li {
+          margin: 0.25em 0;
+        }
+
+        .markdown-content blockquote {
+          margin: 0.75em 0;
+          padding: 0.5em 1em;
+          border-left: 3px solid var(--accent-teal, var(--accent-blue));
+          background: var(--bg-surface);
+          border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+          font-style: italic;
+          color: var(--text-secondary);
+        }
+
+        .markdown-content hr {
+          border: none;
+          border-top: 1px solid var(--border-subtle);
+          margin: 1.5em 0;
+        }
+
+        .markdown-content a {
+          color: var(--accent-teal, var(--accent-blue));
+          text-decoration: none;
+        }
+
+        .markdown-content a:hover {
+          text-decoration: underline;
+        }
+
+        .markdown-content code {
+          background: var(--bg-elevated);
+          padding: 0.2em 0.4em;
+          border-radius: var(--radius-sm);
+          font-family: var(--font-mono);
+          font-size: 0.9em;
         }
 
         /* Edit Mode - Title and Description */
