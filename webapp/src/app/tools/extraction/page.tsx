@@ -22,8 +22,22 @@ interface ExtractionStatus {
         with_content: number;
       };
     };
+    costs?: {
+      usdTotal: number;
+      inputTokens: number;
+      outputTokens: number;
+      imageCount: number;
+    };
   } | null;
   logTail: string[];
+  costs: {
+    usdTotal: number;
+    inputTokens: number;
+    outputTokens: number;
+    imageCount: number;
+  } | null;
+  runningCost: number;
+  mode: "dom" | "vision";
 }
 
 export default function ExtractionPage() {
@@ -32,6 +46,9 @@ export default function ExtractionPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [extractionMode, setExtractionMode] = useState<"dom" | "vision">(
+    "vision",
+  );
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -64,7 +81,7 @@ export default function ExtractionPage() {
       const response = await fetch("/api/extraction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, mode: extractionMode }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -192,6 +209,50 @@ export default function ExtractionPage() {
             )}
           </div>
 
+          <div className="mode-selector">
+            <h3>Extraction Mode</h3>
+            <div className="mode-options">
+              <label
+                className={`mode-option ${extractionMode === "vision" ? "active" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="mode"
+                  value="vision"
+                  checked={extractionMode === "vision"}
+                  onChange={() => setExtractionMode("vision")}
+                  disabled={status?.isRunning}
+                />
+                <div className="mode-content">
+                  <span className="mode-name">Vision (GPT-4o)</span>
+                  <span className="mode-desc">
+                    Screenshot + AI extraction - better for canvas content
+                  </span>
+                  <span className="mode-cost">~$0.01/page</span>
+                </div>
+              </label>
+              <label
+                className={`mode-option ${extractionMode === "dom" ? "active" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="mode"
+                  value="dom"
+                  checked={extractionMode === "dom"}
+                  onChange={() => setExtractionMode("dom")}
+                  disabled={status?.isRunning}
+                />
+                <div className="mode-content">
+                  <span className="mode-name">DOM Parser</span>
+                  <span className="mode-desc">
+                    Direct HTML extraction - free but limited
+                  </span>
+                  <span className="mode-cost">Free</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div className="action-buttons">
             <button
               className="btn-primary"
@@ -278,6 +339,41 @@ export default function ExtractionPage() {
                   ).toLocaleString()}
                 </div>
               )}
+            </div>
+          )}
+
+          {(status?.runningCost > 0 || status?.costs) && (
+            <div className="cost-section">
+              <h3>Cost Tracking</h3>
+              <div className="cost-display">
+                <div className="cost-current">
+                  <span className="cost-label">Running Cost</span>
+                  <span className="cost-value">
+                    $
+                    {(
+                      status?.runningCost ||
+                      status?.costs?.usdTotal ||
+                      0
+                    ).toFixed(4)}
+                  </span>
+                </div>
+                {status?.costs && (
+                  <div className="cost-details">
+                    <div className="cost-detail">
+                      <span>Images:</span>
+                      <span>{status.costs.imageCount}</span>
+                    </div>
+                    <div className="cost-detail">
+                      <span>Input tokens:</span>
+                      <span>{status.costs.inputTokens?.toLocaleString()}</span>
+                    </div>
+                    <div className="cost-detail">
+                      <span>Output tokens:</span>
+                      <span>{status.costs.outputTokens?.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -614,6 +710,130 @@ export default function ExtractionPage() {
           margin-top: 12px;
           font-size: 12px;
           color: var(--text-tertiary);
+        }
+
+        .mode-selector {
+          background: var(--bg-surface);
+          border-radius: var(--radius-lg);
+          padding: 20px;
+        }
+
+        .mode-selector h3 {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin: 0 0 12px 0;
+        }
+
+        .mode-options {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .mode-option {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 12px;
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          border: 2px solid transparent;
+          transition: all 0.15s ease;
+        }
+
+        .mode-option:hover {
+          background: var(--bg-hover);
+        }
+
+        .mode-option.active {
+          border-color: var(--accent-blue);
+          background: rgba(99, 166, 255, 0.1);
+        }
+
+        .mode-option input {
+          margin-top: 3px;
+        }
+
+        .mode-content {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .mode-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .mode-desc {
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+
+        .mode-cost {
+          font-size: 11px;
+          color: var(--accent-green);
+          font-weight: 500;
+        }
+
+        .cost-section {
+          background: var(--bg-surface);
+          border-radius: var(--radius-lg);
+          padding: 20px;
+        }
+
+        .cost-section h3 {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin: 0 0 12px 0;
+        }
+
+        .cost-display {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .cost-current {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 16px;
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+        }
+
+        .cost-label {
+          font-size: 13px;
+          color: var(--text-secondary);
+        }
+
+        .cost-value {
+          font-size: 24px;
+          font-weight: 700;
+          color: var(--accent-green);
+        }
+
+        .cost-details {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-size: 12px;
+        }
+
+        .cost-detail {
+          display: flex;
+          justify-content: space-between;
+          color: var(--text-muted);
+        }
+
+        .cost-detail span:last-child {
+          color: var(--text-secondary);
+          font-family: var(--font-geist-mono);
         }
 
         .instructions {

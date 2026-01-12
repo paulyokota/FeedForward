@@ -12,7 +12,52 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Coda Extraction Strategy & Skills Migration (2026-01-12)
+## Latest: Coda JSON Extraction Complete (2026-01-12)
+
+### Session Summary
+
+Implemented high-speed Coda content extraction via direct JSON parsing, replacing slow vision-based screenshot approach. Extracted 1,271 pages in 1.4 seconds with optimized storage.
+
+### What Was Done
+
+**Coda JSON Extraction Pipeline**:
+
+- Discovered Coda's internal JSON endpoints via network probe
+  - `fui-critical.json` (9MB) - Document structure and metadata
+  - `fui-allcanvas.json` (104MB) - All canvas content
+- Created extraction scripts:
+  - `scripts/coda_embed_probe.js` - Network capture to discover endpoints
+  - `scripts/coda_json_extract.js` - Parse JSON directly (1,271 pages extracted)
+  - `scripts/coda_storage_optimize.js` - Compress + index for search/RAG
+
+**Storage Optimization**:
+
+- Compressed raw JSON: 107MB → 11MB (90% reduction)
+- Created SQLite + FTS5 database for full-text search (20MB, 1,271 pages indexed)
+- Kept markdown files for RAG embedding (15MB)
+- Final storage: 48MB (was ~125MB)
+
+**Performance Comparison**:
+
+| Method            | Pages | Time    | Cost       |
+| ----------------- | ----- | ------- | ---------- |
+| Vision/Screenshot | 1     | 20+ min | $0.10/page |
+| JSON Direct       | 1,271 | 1.4 sec | $0         |
+
+**Webapp Fixes**:
+
+- Fixed Tailwind CSS resolution error in Next.js Turbopack
+- Updated `webapp/next.config.ts` with `turbopack.root: process.cwd()`
+
+### Process Gates Passed
+
+- Build: Passes
+- Spot Check: Data verified correct (content integrity, FTS search working)
+- Backlog Hygiene: No outstanding issues
+
+---
+
+## Previous: Coda Extraction Strategy & Skills Migration (2026-01-12)
 
 ### Session Summary
 

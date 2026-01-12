@@ -9,21 +9,21 @@ let processOutput: string[] = [];
 let processStatus: "idle" | "running" | "paused" | "completed" | "error" =
   "idle";
 let processError: string | null = null;
+let currentMode: "dom" | "vision" = "vision";
 
 // Get project root (parent of webapp directory)
 function getProjectRoot(): string {
-  // process.cwd() returns webapp directory when running Next.js
-  // We need parent directory for the main FeedForward project
   const cwd = process.cwd();
-  // Check if we're in webapp subdirectory
   if (cwd.endsWith("webapp")) {
     return dirname(cwd);
   }
   return cwd;
 }
 
-function getScriptPath(): string {
-  return join(getProjectRoot(), "scripts", "coda_full_extract.js");
+function getScriptPath(mode: "dom" | "vision"): string {
+  const scriptName =
+    mode === "vision" ? "coda_vision_extract.js" : "coda_full_extract.js";
+  return join(getProjectRoot(), "scripts", scriptName);
 }
 
 function getManifestPath(): string {
@@ -34,10 +34,14 @@ function getLogPath(): string {
   return join(getProjectRoot(), "data", "coda_raw", "extraction.log");
 }
 
+function getCostPath(): string {
+  return join(getProjectRoot(), "data", "coda_raw", "extraction_costs.json");
+}
+
 export async function GET() {
-  // Return current status
   let manifest = null;
   let logTail: string[] = [];
+  let costs = null;
 
   try {
     const manifestData = await readFile(getManifestPath(), "utf8");
@@ -49,28 +53,52 @@ export async function GET() {
   try {
     const logData = await readFile(getLogPath(), "utf8");
     const lines = logData.split("\n").filter((l) => l.trim());
-    logTail = lines.slice(-50); // Last 50 lines
+    logTail = lines.slice(-50);
   } catch {
     // No log yet
+  }
+
+  try {
+    const costData = await readFile(getCostPath(), "utf8");
+    costs = JSON.parse(costData);
+  } catch {
+    // No costs yet
+  }
+
+  // Also extract running cost from output if available
+  let runningCost = 0;
+  for (const line of processOutput) {
+    const match = line.match(/💰.*\$([0-9.]+)/);
+    if (match) {
+      runningCost = parseFloat(match[1]) || 0;
+    }
+    // Also check for TOTAL COST line
+    const totalMatch = line.match(/TOTAL COST: \$([0-9.]+)/);
+    if (totalMatch) {
+      runningCost = parseFloat(totalMatch[1]) || 0;
+    }
   }
 
   return NextResponse.json({
     status: processStatus,
     isRunning: extractionProcess !== null && !extractionProcess.killed,
     error: processError,
-    output: processOutput.slice(-100), // Last 100 lines
+    output: processOutput.slice(-100),
     manifest,
     logTail,
+    costs,
+    runningCost,
+    mode: currentMode,
   });
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { action } = body;
+  const { action, mode } = body;
 
   switch (action) {
     case "start":
-      return startExtraction();
+      return startExtraction(mode || "vision");
     case "stop":
       return stopExtraction();
     case "clear":
@@ -80,7 +108,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function startExtraction() {
+async function startExtraction(mode: "dom" | "vision") {
   if (extractionProcess && !extractionProcess.killed) {
     return NextResponse.json(
       { error: "Extraction already running" },
@@ -88,8 +116,9 @@ async function startExtraction() {
     );
   }
 
-  const scriptPath = getScriptPath();
+  const scriptPath = getScriptPath(mode);
   const projectRoot = getProjectRoot();
+  currentMode = mode;
 
   // Check script exists
   try {
@@ -109,6 +138,7 @@ async function startExtraction() {
     extractionProcess = spawn("node", [scriptPath], {
       cwd: projectRoot,
       stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env },
     });
 
     extractionProcess.stdout?.on("data", (data: Buffer) => {
@@ -117,7 +147,6 @@ async function startExtraction() {
         .split("\n")
         .filter((l) => l.trim());
       processOutput.push(...lines);
-      // Keep last 500 lines
       if (processOutput.length > 500) {
         processOutput = processOutput.slice(-500);
       }
@@ -149,8 +178,9 @@ async function startExtraction() {
 
     return NextResponse.json({
       success: true,
-      message: "Extraction started",
+      message: `Extraction started (${mode} mode)`,
       pid: extractionProcess.pid,
+      mode,
     });
   } catch (err) {
     processStatus = "error";
@@ -169,7 +199,6 @@ async function stopExtraction() {
 
   extractionProcess.kill("SIGTERM");
 
-  // Give it 2 seconds then force kill
   setTimeout(() => {
     if (extractionProcess && !extractionProcess.killed) {
       extractionProcess.kill("SIGKILL");
