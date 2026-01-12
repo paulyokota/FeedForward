@@ -44,3 +44,14 @@ build/
 logs/
 data/
 .mcp.json
+
+# Claude Code local artifacts
+.claude/memory/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+.playwright-profile/
+
+# Root-level npm (webapp has its own)
+/package.json
+/package-lock.json
