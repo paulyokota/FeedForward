@@ -22,37 +22,30 @@ function getSystemTheme(): ResolvedTheme {
     : "light";
 }
 
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+  return stored && ["dark", "light", "system"].includes(stored)
+    ? stored
+    : "dark";
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Use lazy initializer to avoid setState in effect
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "dark";
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    return stored && ["dark", "light", "system"].includes(stored)
-      ? stored
-      : "dark";
-  });
-  const [mounted, setMounted] = useState(false);
+  // Initialize with actual value (inline script already set data-theme)
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
   // Counter to trigger re-render when system theme changes
   const [systemThemeKey, setSystemThemeKey] = useState(0);
 
-  // Use useMemo instead of useState + useEffect for resolved theme
   const resolvedTheme = useMemo<ResolvedTheme>(() => {
-    if (!mounted) return "dark";
     // systemThemeKey triggers recalculation when system theme changes
     void systemThemeKey;
     return theme === "system" ? getSystemTheme() : theme;
-  }, [theme, mounted, systemThemeKey]);
+  }, [theme, systemThemeKey]);
 
-  // Set mounted on client
+  // Sync theme to document (inline script handles initial, this handles changes)
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Apply theme to document when resolved theme changes
-  useEffect(() => {
-    if (!mounted) return;
     document.documentElement.setAttribute("data-theme", resolvedTheme);
-  }, [resolvedTheme, mounted]);
+  }, [resolvedTheme]);
 
   // Listen for system theme changes when in "system" mode
   useEffect(() => {
@@ -61,7 +54,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
     const handleChange = () => {
-      // Increment key to trigger useMemo recalculation
       setSystemThemeKey((k) => k + 1);
     };
 
@@ -74,11 +66,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, newTheme);
   };
 
-  // Prevent flash of wrong theme
-  if (!mounted) {
-    return <div style={{ visibility: "hidden" }}>{children}</div>;
-  }
-
+  // No hiding - inline script in layout.tsx already set correct theme
   return (
     <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
       {children}
