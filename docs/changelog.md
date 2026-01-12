@@ -10,6 +10,24 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Coda Extraction Strategy (2026-01-12)**:
+
+- Documentation for comprehensive Coda data extraction (`docs/coda-extraction/`)
+  - `coda-extraction-doc.md` - "Extract Everything, Decide Later" philosophy
+  - `coda-extraction-pmt.md` - Playwright workflow prompt for page extraction
+- Key decisions:
+  - Coda as peer data source (equal weight to Intercom themes)
+  - Hybrid extraction: Playwright (pages) + API (tables, hierarchy)
+  - Output structure: `data/coda_raw/` with manifest tracking
+  - Supports multiple downstream uses: theme source, story enrichment, validation signal
+
+**Skills Migration (2026-01-12)**:
+
+- Migrated v1 agent profiles to v2 skills architecture (PR #31)
+- Converted old agent profiles (`docs/process-playbook/agents/`) to redirect stubs
+- Skills now in `.claude/skills/{agent}/SKILL.md + IDENTITY.md`
+- Declarative context loading via `keywords.yaml`
+
 **Coda Story Formatting & Markdown Rendering (2026-01-12)**:
 
 - Coda story formatting functions (`src/story_formatter.py`):

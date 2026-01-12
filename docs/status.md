@@ -12,7 +12,41 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Webapp Bug Fixes & UX Polish (2026-01-12)
+## Latest: Coda Extraction Strategy & Skills Migration (2026-01-12)
+
+### Session Summary
+
+Created comprehensive Coda extraction documentation and completed v1→v2 skills architecture migration.
+
+### What Was Done
+
+**Coda Extraction Strategy** (PR #32):
+
+- Created `docs/coda-extraction/coda-extraction-doc.md` - "Extract Everything, Decide Later" philosophy
+- Created `docs/coda-extraction/coda-extraction-pmt.md` - Playwright workflow prompt for page extraction
+- Key decisions: Coda as peer data source (equal weight to Intercom), hybrid extraction (Playwright + API), output to `data/coda_raw/`
+
+**Skills Migration** (PR #31 merged):
+
+- Validated v2 skills architecture was properly wired up
+- Converted old agent profiles to redirect stubs
+- Updated CLAUDE.md references to new skill locations
+
+**Coda Story Feature Parity** (earlier):
+
+- Backend formatter functions for Coda excerpts
+- Frontend EvidenceBrowser with source-aware URLs
+- 5-personality review converged
+
+### Process Gates Passed
+
+- Build: Passes
+- Review: CONVERGED (for feature parity work)
+- Backlog Hygiene: No outstanding issues
+
+---
+
+## Previous: Webapp Bug Fixes & UX Polish (2026-01-12)
 
 ### Session Summary
 
