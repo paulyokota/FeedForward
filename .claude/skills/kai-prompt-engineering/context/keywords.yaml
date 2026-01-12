@@ -1,0 +1,17 @@
+load_always:
+  - docs/prompts.md
+  - config/theme_vocabulary.json
+  - docs/process-playbook/gates/functional-testing-gate.md
+
+load_for_keywords:
+  classification|classifier|stage:
+    - src/classifier_stage1.py
+    - src/classifier_stage2.py
+  theme|extraction|extract:
+    - src/theme_extractor.py
+    - src/vocabulary.py
+  accuracy|fixture|test:
+    - data/theme_fixtures.json
+    - data/labeled_fixtures.json
+  vocabulary|keyword|pattern:
+    - config/theme_vocabulary.json

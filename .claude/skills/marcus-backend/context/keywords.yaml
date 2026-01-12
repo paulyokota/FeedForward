@@ -1,0 +1,17 @@
+load_always:
+  - docs/architecture.md
+  - src/db/schema.sql
+
+load_for_keywords:
+  intercom|conversation|fetch:
+    - src/intercom_client.py
+    - reference/intercom-llm-guide.md
+  database|schema|migration:
+    - src/db/connection.py
+    - src/db/models.py
+  api|route|endpoint:
+    - src/api/main.py
+    - src/api/routers/
+  theme|extraction|vocabulary:
+    - src/theme_extractor.py
+    - config/theme_vocabulary.json

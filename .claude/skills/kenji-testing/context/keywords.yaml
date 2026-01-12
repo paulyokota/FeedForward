@@ -1,0 +1,14 @@
+load_always:
+  - tests/
+  - docs/process-playbook/gates/test-gate.md
+
+load_for_keywords:
+  pipeline|classification:
+    - tests/test_pipeline.py
+    - tests/test_classifier.py
+  theme|extraction:
+    - tests/test_theme_extraction.py
+  story|tracking:
+    - tests/test_story_tracking.py
+  evidence|validation:
+    - tests/test_evidence_validator.py
