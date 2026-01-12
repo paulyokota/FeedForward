@@ -1,0 +1,11 @@
+load_always:
+  - docs/status.md
+  - docs/changelog.md
+
+load_for_keywords:
+  architecture|design:
+    - docs/architecture.md
+  session|summary:
+    - docs/session/last-session.md
+  story|grouping:
+    - docs/story-grouping-architecture.md

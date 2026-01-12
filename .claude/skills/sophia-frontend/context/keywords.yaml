@@ -1,0 +1,23 @@
+load_always:
+  - docs/story-tracking-web-app-architecture.md
+
+load_for_keywords:
+  # Story Tracking Web App (Next.js)
+  webapp|story|tracking|next:
+    - webapp/src/app/
+    - webapp/src/components/
+  story|board|kanban|next:
+    - webapp/src/app/stories/
+    - webapp/src/components/StoryBoard.tsx
+  theme|theming|dark|light:
+    - webapp/src/app/globals.css
+    - webapp/src/components/FeedForwardLogo.tsx
+
+  # Streamlit Dashboard (legacy)
+  dashboard|metrics|stats|streamlit:
+    - frontend/app.py
+    - frontend/pages/1_Dashboard.py
+  pipeline|run|status|streamlit:
+    - frontend/pages/2_Pipeline.py
+  theme|trending|orphan|streamlit:
+    - frontend/pages/3_Themes.py

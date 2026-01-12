@@ -1,0 +1,14 @@
+load_always:
+  - docs/architecture.md
+  - CLAUDE.md
+
+load_for_keywords:
+  story|grouping|pipeline:
+    - docs/story-grouping-architecture.md
+    - docs/story-granularity-standard.md
+  classification|two-stage:
+    - docs/two-stage-classification-system.md
+  api|endpoint|route:
+    - src/api/main.py
+  database|schema:
+    - src/db/schema.sql

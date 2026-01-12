@@ -47,7 +47,7 @@ See `docs/architecture.md` for complete system design and `docs/status.md` for c
 [ ] Review converged: 5-personality, 2+ rounds
 [ ] Dev fixes own code (see docs/process-playbook/gates/learning-loop.md)
 [ ] CONVERGED comment posted
-[ ] Post-merge: Theo (Docs Agent) deployed for reflections
+[ ] Post-merge: Theo (Docs Skill) deployed for reflections
 ```
 
 **PRs that skip tests will be reverted.**
@@ -72,51 +72,51 @@ BEFORE these actions, STOP and answer:
 
 ---
 
-## Agent Deployment
+## Skill Deployment
 
-You (Claude Code) are the **Tech Lead**. Deploy specialists via the Task tool.
+You (Claude Code) are the **Tech Lead**. Deploy skills via the Task tool.
 
 ### Quick Decision Tree
 
 | Situation                    | Action                                   |
 | ---------------------------- | ---------------------------------------- |
-| 2+ agents needed             | **Architect first** to define boundaries |
+| 2+ skills needed             | **Architect first** to define boundaries |
 | <30 min, single file         | Do it yourself                           |
-| Single agent, clear contract | Skip architect                           |
+| Single skill, clear contract | Skip architect                           |
 | Unsure?                      | Use architect                            |
 
 **Full coordination patterns**: `docs/process-playbook/agents/coordination-patterns.md`
 
 ### The Team
 
-**Development Agents:**
+**Development Skills:**
 
-| Agent      | Role           | Domain                                    | Profile                                  |
-| ---------- | -------------- | ----------------------------------------- | ---------------------------------------- |
-| **Marcus** | Backend        | `src/`, database, API                     | `docs/process-playbook/agents/marcus.md` |
-| **Sophia** | Frontend       | `frontend/`, `webapp/`, UI                | `docs/process-playbook/agents/sophia.md` |
-| **Kai**    | AI/Prompts     | Theme extraction, classification, prompts | `docs/process-playbook/agents/kai.md`    |
-| **Kenji**  | Test/QA        | Tests, edge cases                         | `docs/process-playbook/agents/kenji.md`  |
-| **Priya**  | Architecture   | Upfront design + conflict resolution      | `docs/process-playbook/agents/priya.md`  |
-| **Theo**   | Docs/Historian | Post-merge: docs + reflections            | `docs/process-playbook/agents/theo.md`   |
+| Skill                    | Identity   | Domain                                    | Location                                 |
+| ------------------------ | ---------- | ----------------------------------------- | ---------------------------------------- |
+| `marcus-backend`         | **Marcus** | `src/`, database, API                     | `.claude/skills/marcus-backend/`         |
+| `sophia-frontend`        | **Sophia** | `frontend/`, `webapp/`, UI                | `.claude/skills/sophia-frontend/`        |
+| `kai-prompt-engineering` | **Kai**    | Theme extraction, classification, prompts | `.claude/skills/kai-prompt-engineering/` |
+| `kenji-testing`          | **Kenji**  | Tests, edge cases                         | `.claude/skills/kenji-testing/`          |
+| `priya-architecture`     | **Priya**  | Upfront design + conflict resolution      | `.claude/skills/priya-architecture/`     |
+| `theo-documentation`     | **Theo**   | Post-merge: docs + reflections            | `.claude/skills/theo-documentation/`     |
 
-**Review Agents (5-Personality Review):**
+**Review Skill (5-Personality):**
 
-| Agent        | Personality      | Focus                           |
-| ------------ | ---------------- | ------------------------------- |
-| **Reginald** | Architect        | Correctness, performance        |
-| **Sanjay**   | Security Auditor | Security, validation            |
-| **Quinn**    | Quality Champion | Output quality, coherence       |
-| **Dmitri**   | Pragmatist       | Simplicity, YAGNI               |
-| **Maya**     | Maintainer       | Clarity, future maintainability |
+| Personality  | Focus                           | Location                                            |
+| ------------ | ------------------------------- | --------------------------------------------------- |
+| **Reginald** | Correctness, performance        | `.claude/skills/review-5personality/personalities/` |
+| **Sanjay**   | Security, validation            | `.claude/skills/review-5personality/personalities/` |
+| **Quinn**    | Output quality, coherence       | `.claude/skills/review-5personality/personalities/` |
+| **Dmitri**   | Simplicity, YAGNI               | `.claude/skills/review-5personality/personalities/` |
+| **Maya**     | Clarity, future maintainability | `.claude/skills/review-5personality/personalities/` |
 
-Agent profiles: `docs/process-playbook/review/reviewer-profiles.md`
+Review protocol: `.claude/skills/review-5personality/SKILL.md`
 
-### Agent Count Guidance
+### Skill Count Guidance
 
-- **2-3 agents**: Easy, minimal overhead
-- **4-5 agents**: Sweet spot for complex features
-- **6+ agents**: Danger zone - coordination cost explodes
+- **2-3 skills**: Easy, minimal overhead
+- **4-5 skills**: Sweet spot for complex features
+- **6+ skills**: Danger zone - coordination cost explodes
 
 ---
 
@@ -148,25 +148,24 @@ Round 2: Launch 5 agents again -> Verify fixes -> Repeat until 0 new issues
 
 ---
 
-## Agent Memory System
+## Skill Memory System
 
-Poor man's RAG for agent learning continuity.
+Memories are collocated with each skill for portability.
 
 ```
-.claude/memory/
-├── tech-lead/     # Tech Lead meta-decisions
-├── backend/       # Backend agent experiences
-├── frontend/      # Frontend patterns
+.claude/skills/
+├── kai-prompt-engineering/
+│   ├── SKILL.md           # Procedures
+│   ├── IDENTITY.md        # Personality + lessons learned
+│   ├── memories/          # Skill-specific learnings
+│   └── context/
+│       └── keywords.yaml  # Declarative context loading
 └── ...
 ```
 
-When deploying an agent, retrieve relevant memories:
+Context is loaded declaratively via `keywords.yaml` - no manual retrieval needed.
 
-```bash
-MEMORIES=$(docs/process-playbook/memory/retrieve.sh [agent] keyword1 keyword2)
-```
-
-Schema details: `docs/process-playbook/memory/README.md`
+Legacy location (deprecated): `.claude/memory/`
 
 ---
 
@@ -255,15 +254,15 @@ pytest tests/ -v
 
 ---
 
-## Project-Specific Subagents
+## Project-Specific Skills
 
-Auto-invoked agents that handle FeedForward-specific tasks. Claude decides when to use them based on context.
+Auto-invoked skills that handle FeedForward-specific tasks. Claude decides when to use them based on context.
 
-| Agent                  | Purpose                                         | Trigger                   |
-| ---------------------- | ----------------------------------------------- | ------------------------- |
-| `prompt-tester`        | Tests classification prompts, measures accuracy | When iterating on prompts |
-| `schema-validator`     | Validates Pydantic/DB/LLM schema consistency    | When models change        |
-| `escalation-validator` | Validates escalation rules and edge cases       | When rules change         |
+| Skill                  | Purpose                                         | Location                               |
+| ---------------------- | ----------------------------------------------- | -------------------------------------- |
+| `prompt-tester`        | Tests classification prompts, measures accuracy | `.claude/skills/prompt-tester/`        |
+| `schema-validator`     | Validates Pydantic/DB/LLM schema consistency    | `.claude/skills/schema-validator/`     |
+| `escalation-validator` | Validates escalation rules and edge cases       | `.claude/skills/escalation-validator/` |
 
 ---
 
