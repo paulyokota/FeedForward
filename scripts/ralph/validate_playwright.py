@@ -23,6 +23,7 @@ Exit codes:
 import asyncio
 import json
 import sys
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -99,8 +100,8 @@ async def validate_technical_area(page, repo_name, story_problem):
         print(f"     INVALID - Empty repository name")
         return {"valid": False, "reason": "empty_repo_name", "files_found": []}
 
-    # Try different GitHub org variations
-    orgs_to_try = ["tailwindlabs", "tailwind", "tailwindcss"]
+    # Try different GitHub org variations (tailwind first - private repos)
+    orgs_to_try = ["tailwind", "tailwindlabs", "tailwindcss"]
     repo_url = None
 
     for org in orgs_to_try:
@@ -131,12 +132,12 @@ async def validate_technical_area(page, repo_name, story_problem):
         if login_form:
             print(f"     LOGIN REQUIRED")
             print(f"     Browser window is open - PLEASE LOG IN")
-            print(f"     Waiting for login (60 second timeout)...")
+            print(f"     Waiting for login (120 seconds for 2FA)...")
             print(f"     Complete login in browser, then script will resume")
 
-            # Wait for navigation away from login page
+            # Wait for navigation away from login page (allow time for 2FA)
             try:
-                await page.wait_for_url(f"**/{repo_name}**", timeout=60000)
+                await page.wait_for_url(f"**/{repo_name}**", timeout=120000)
                 print(f"     Login successful, resuming validation")
             except:
                 print(f"     Login timeout - continuing anyway")
@@ -206,6 +207,60 @@ async def validate_technical_area(page, repo_name, story_problem):
         return {"valid": True, "reason": "repo_accessible_search_error", "files_found": []}
 
 
+async def ensure_github_login(page, headless=False):
+    """
+    Navigate to GitHub and ensure user is logged in.
+    For private repos, GitHub returns 404 if not logged in (no login prompt).
+    So we must authenticate FIRST before checking repos.
+    """
+    print(f"\n   Checking GitHub authentication status...")
+
+    try:
+        await page.goto("https://github.com", wait_until="domcontentloaded", timeout=15000)
+
+        # Check if already logged in by looking for user menu or sign-in button
+        sign_in_button = await page.query_selector('a[href="/login"]')
+
+        if sign_in_button:
+            print(f"\n   {'='*50}")
+            print(f"   LOGIN REQUIRED FOR PRIVATE REPOS")
+            print(f"   {'='*50}")
+            print(f"   Browser window is open at github.com")
+            print(f"   Please log in to access private tailwind/* repos")
+            print(f"   Waiting up to 120 seconds for login...")
+            print(f"   {'='*50}\n")
+
+            if headless:
+                print(f"   ERROR: Cannot log in when running headless!")
+                print(f"   Run without --headless flag for interactive login")
+                return False
+
+            # Wait for login to complete (user menu appears)
+            try:
+                await page.wait_for_selector(
+                    'img.avatar, [data-login], summary[aria-label*="View profile"]',
+                    timeout=120000
+                )
+                print(f"   Login successful! Continuing with validation...\n")
+                return True
+            except:
+                print(f"   Login timeout after 120 seconds")
+                return False
+        else:
+            # Check for avatar/user indicator
+            avatar = await page.query_selector('img.avatar, [data-login]')
+            if avatar:
+                print(f"   Already logged in to GitHub\n")
+                return True
+            else:
+                print(f"   GitHub login status unclear, proceeding anyway...\n")
+                return True
+
+    except Exception as e:
+        print(f"   Warning checking GitHub login: {e}")
+        return True  # Proceed anyway
+
+
 async def validate_stories_batch(stories_data, headless=False):
     """
     Validate all stories in a batch using real Playwright browser automation.
@@ -221,8 +276,8 @@ async def validate_stories_batch(stories_data, headless=False):
     print(f"PLAYWRIGHT VALIDATION RUN - {timestamp}")
     print(f"{'='*60}")
     print(f"   Starting browser automation ({'HEADLESS' if headless else 'VISIBLE WINDOW'})...")
-    print(f"   If login is needed, you'll see a browser window")
-    print(f"   Each validation takes 15-60 seconds depending on login")
+    print(f"   Will check GitHub login before validating private repos")
+    print(f"   Each validation takes 15-60 seconds")
 
     results = []
     login_required_count = 0
@@ -235,6 +290,12 @@ async def validate_stories_batch(stories_data, headless=False):
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
         )
         page = await context.new_page()
+
+        # FIRST: Ensure logged in to GitHub for private repo access
+        logged_in = await ensure_github_login(page, headless)
+        if not logged_in and not headless:
+            print(f"   WARNING: Not logged in - private repos will show as 404")
+            print(f"   Continuing anyway, but validation may fail...\n")
 
         for i, story in enumerate(stories_data, 1):
             print(f"\n[{i}/{len(stories_data)}] Processing story...")
@@ -324,16 +385,45 @@ async def validate_stories_batch(stories_data, headless=False):
         print(f"\n  THRESHOLD MET: {success_rate:.1f}% >= 85%")
         print(f"  Completion may proceed to Phase 4")
 
+    # Generate unique validation token (proves script actually ran)
+    validation_token = f"PVAL-{uuid.uuid4().hex[:8].upper()}-{datetime.now().strftime('%H%M%S')}"
+
     # Output JSON summary for programmatic consumption
     print(f"\n{'='*60}")
     print("JSON OUTPUT (for programmatic use):")
     print(f"{'='*60}")
     output = {
         'success': success_rate >= 85,
+        'validation_token': validation_token,
         'summary': summary,
         'results': results
     }
     print(json.dumps(output, indent=2))
+
+    # Write validation artifact file (anti-faking measure)
+    artifact_path = Path(__file__).parent / "outputs" / "last_validation.json"
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    artifact_data = {
+        'validation_token': validation_token,
+        'timestamp': timestamp,
+        'success': success_rate >= 85,
+        'success_rate': success_rate,
+        'threshold': 85,
+        'total_validated': total,
+        'passed': passed,
+        'failed': failed,
+        'results': results
+    }
+    with open(artifact_path, 'w') as f:
+        json.dump(artifact_data, f, indent=2)
+
+    print(f"\n{'='*60}")
+    print(f"VALIDATION TOKEN: {validation_token}")
+    print(f"{'='*60}")
+    print(f"   Artifact written to: {artifact_path}")
+    print(f"   YOU MUST include this token in progress.txt")
+    print(f"   to prove Playwright validation actually ran.")
+    print(f"{'='*60}")
 
     return success_rate >= 85, results, summary
 

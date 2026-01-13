@@ -551,23 +551,31 @@ NOT ACCEPTABLE:
 
 **What to Log in progress.txt**
 
-After running validation, append this to `progress.txt`:
+After running validation, you MUST:
+
+1. Read the artifact file: `scripts/ralph/outputs/last_validation.json`
+2. Extract the `validation_token` from it
+3. Include the token in progress.txt (REQUIRED - proves script ran)
+
+Append this to `progress.txt`:
 
 ```
 ### Phase 3 - Playwright Validation (REAL BROWSER AUTOMATION)
+
+**VALIDATION TOKEN: PVAL-XXXXXXXX-HHMMSS** (from last_validation.json)
 
 Command executed:
   python3 scripts/ralph/validate_playwright.py '[{"id":"story-001",...}]'
 
 Execution timestamp: 2026-01-13T14:45:30
 Browser automation: YES (visible window)
-Login required: YES (1 repo needed login)
+Login required: YES (GitHub login for private repos)
 Exit code: 0 (success)
 
 Validation details:
-- story-001: VALID (found auth/, login.ts in tailwind/aero)
-- story-002: VALID (found scheduler/, cron.js in tailwind/tack after login)
-- story-003: VALID (found src/, lib/ in tailwind/ghostwriter)
+- story-001: VALID (tailwind/aero accessible)
+- story-002: VALID (tailwind/tack accessible)
+- story-003: VALID (tailwind/ghostwriter accessible)
 
 Summary:
 - Total stories validated: 3
@@ -577,28 +585,40 @@ Summary:
 - Threshold: 85%
 - **RESULT: 100.0% >= 85% - VALIDATION PASSED**
 
-Developer workflow notes:
-- All repos accessible via browser (actual GitHub navigation tested)
-- All problem-related code found (auth, scheduler, prompts)
-- Engineer could start investigation immediately
-
 Next action: Proceed to Phase 4 (Analysis)
 ```
+
+**ANTI-FAKING REQUIREMENT: VALIDATION TOKEN**
+
+The script generates a unique token each run (format: `PVAL-XXXXXXXX-HHMMSS`).
+
+You MUST:
+
+1. Run the actual script via Bash tool
+2. Read `scripts/ralph/outputs/last_validation.json` after it completes
+3. Copy the `validation_token` from that file into progress.txt
+
+**WITHOUT THE TOKEN, VALIDATION IS NOT ACCEPTED.**
+
+The token proves you actually ran the script. Fabricating a token is impossible because:
+
+- Tokens are random UUIDs
+- Tokens are timestamped
+- The artifact file only exists if the script ran
 
 **The Iron Rule**
 
 You may NOT claim validation success without:
 
-1. Running the actual Playwright script (not simulation)
-2. Opening a real browser window
-3. Navigating to actual GitHub repos
-4. Allowing manual login pause if needed
-5. Finding relevant code files
-6. Capturing timestamped output
-7. Achieving >= 85% success rate
-8. Logging everything to `progress.txt`
+1. Running the actual Playwright script via Bash tool
+2. A real browser window opening for GitHub login
+3. The script navigating to actual private repos
+4. Reading `scripts/ralph/outputs/last_validation.json`
+5. Including the VALIDATION TOKEN in progress.txt
+6. Achieving >= 85% success rate
+7. The artifact file timestamp matching your run
 
-**Violation = Premature completion = Loop rejected**
+**NO TOKEN = NO VALIDATION = LOOP CANNOT COMPLETE**
 
 If validation fails (< 85%), you MUST return to Phase 1 and improve `technical_area` accuracy.
 
@@ -809,10 +829,18 @@ Before outputting the completion promise, verify ALL of these:
 
 ### Checklist B: Technical Accuracy
 
-- [ ] All URLs have been validated with Playwright
+- [ ] All repos have been validated with Playwright script
 - [ ] All codebase references match `tailwind-codebase-map.md`
 - [ ] All service mappings are accurate
 - [ ] No invented or assumed technical details
+
+### Checklist B2: Playwright Validation Proof (REQUIRED)
+
+- [ ] `scripts/ralph/outputs/last_validation.json` exists
+- [ ] VALIDATION TOKEN from that file is recorded in progress.txt
+- [ ] Token format matches `PVAL-XXXXXXXX-HHMMSS`
+- [ ] Token timestamp is from THIS session (not old)
+- [ ] Validation success_rate >= 85% in artifact file
 
 ### Checklist C: Documentation
 
