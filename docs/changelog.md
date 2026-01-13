@@ -10,6 +10,17 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Ralph Wiggum Autonomous Loop Infrastructure (2026-01-13)**:
+
+- Complete autonomous story generation loop for Feed Forward
+  - `scripts/ralph/ralph.sh` - Bash loop script with completion detection
+  - `scripts/ralph/PROMPT.md` - Hardened 5-phase workflow (1,264 lines)
+  - `scripts/ralph/prd.json` - Task tracking with database stories
+  - `scripts/ralph/progress.txt` - Cross-iteration memory system
+- Quality thresholds: Gestalt >= 4.0, Dimensional >= 3.5, Playwright >= 85%
+- Initialized with 2 stories from database
+- Ready to run: `./scripts/ralph/ralph.sh 15`
+
 **Unified Research Search with Vector Embeddings (2026-01-13)**:
 
 - Semantic search across Coda research and Intercom support data
