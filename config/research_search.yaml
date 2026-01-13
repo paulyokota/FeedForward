@@ -1,0 +1,68 @@
+# Research Search Configuration
+# All tunable parameters for the unified search and RAG system.
+
+search:
+  # Default number of results to return
+  default_limit: 20
+
+  # Maximum allowed limit (server-enforced)
+  max_limit: 100
+
+  # Default minimum similarity threshold
+  default_min_similarity: 0.5
+
+  # Server-enforced minimum similarity (cannot be overridden by client)
+  # Prevents data exposure via similarity=0
+  server_min_similarity: 0.3
+
+context_augmentation:
+  # Maximum research results to inject into theme extraction prompts
+  max_results: 3
+
+  # Token budget for research context in prompts
+  # Keeps context concise to avoid overwhelming the LLM
+  max_tokens: 500
+
+evidence_suggestion:
+  # Minimum similarity for suggesting evidence to stories
+  # Higher threshold ensures high-quality suggestions
+  min_similarity: 0.7
+
+  # Maximum suggestions per story
+  max_suggestions: 5
+
+embedding:
+  # OpenAI embedding model
+  # text-embedding-3-large: Higher quality, 3072 dims by default
+  # We use 1536 dims for efficiency (matches text-embedding-ada-002)
+  model: "text-embedding-3-large"
+
+  # Vector dimensions
+  # 1536 is a good balance between quality and performance
+  dimensions: 1536
+
+  # Records per embedding API call
+  # Batch processing is more efficient
+  batch_size: 100
+
+rate_limiting:
+  # Search endpoints: requests per minute per user
+  search_rpm: 60
+
+  # Admin endpoints: requests per minute per user
+  admin_rpm: 5
+
+sources:
+  # Enabled source types for indexing
+  enabled:
+    - coda_page
+    - coda_theme
+    - intercom
+
+  # Minimum content length to index (characters)
+  min_content_length: 100
+
+  # Sources to exclude from context augmentation
+  # (to avoid circular references)
+  exclude_from_context:
+    - intercom

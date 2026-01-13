@@ -276,3 +276,60 @@ export function getSyncState(syncStatus: string | null | undefined): SyncState {
   if (syncStatus === "success") return "synced";
   return "unsynced";
 }
+
+// =============================================================================
+// Research Search Types
+// =============================================================================
+
+export type ResearchSourceType = "coda_page" | "coda_theme" | "intercom";
+
+export interface SearchResult {
+  id: string;
+  source_type: ResearchSourceType;
+  source_id: string;
+  title: string;
+  snippet: string;
+  similarity: number;
+  url: string;
+  metadata: Record<string, unknown>;
+}
+
+export type SuggestedEvidenceStatus = "suggested" | "accepted" | "rejected";
+
+export interface SuggestedEvidence extends SearchResult {
+  status: SuggestedEvidenceStatus;
+}
+
+export interface ResearchSearchRequest {
+  query: string;
+  limit?: number;
+  source_types?: ResearchSourceType[];
+}
+
+export interface SimilarContentRequest {
+  source_type: ResearchSourceType;
+  source_id: string;
+  limit?: number;
+}
+
+// Source type display config
+export const SOURCE_TYPE_CONFIG: Record<
+  ResearchSourceType,
+  { label: string; color: string; bgColor: string }
+> = {
+  coda_page: {
+    label: "Coda Research",
+    color: "hsl(217, 91%, 60%)",
+    bgColor: "hsla(217, 91%, 60%, 0.15)",
+  },
+  coda_theme: {
+    label: "Coda Theme",
+    color: "hsl(258, 90%, 66%)",
+    bgColor: "hsla(258, 90%, 66%, 0.15)",
+  },
+  intercom: {
+    label: "Intercom Support",
+    color: "hsl(160, 64%, 52%)",
+    bgColor: "hsla(160, 64%, 52%, 0.15)",
+  },
+};

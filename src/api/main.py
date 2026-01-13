@@ -15,7 +15,7 @@ API Documentation available at:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.routers import analytics, health, labels, pipeline, stories, sync, themes
+from src.api.routers import analytics, health, labels, pipeline, research, stories, sync, themes
 
 # Create FastAPI application
 app = FastAPI(
@@ -65,6 +65,7 @@ app.include_router(themes.router)
 app.include_router(stories.router)
 app.include_router(sync.router)
 app.include_router(labels.router)
+app.include_router(research.router)
 
 
 @app.get("/")
