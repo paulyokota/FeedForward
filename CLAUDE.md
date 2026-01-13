@@ -299,6 +299,7 @@ Use these for general development tasks. Our custom subagents above are FeedForw
 | `docs/changelog.md`                   | What's shipped                          |
 | `docs/story-grouping-architecture.md` | Story grouping pipeline design          |
 | `docs/story-granularity-standard.md`  | INVEST-based grouping criteria          |
+| `docs/tailwind-codebase-map.md`       | URL → Service mapping for ticket triage |
 | `docs/process-playbook/`              | Process gates and coordination patterns |
 
 ---

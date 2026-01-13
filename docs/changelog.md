@@ -10,6 +10,29 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Tailwind Codebase Map (2026-01-13)**:
+
+- Comprehensive URL → Service mapping for Intercom ticket routing (`docs/tailwind-codebase-map.md`)
+  - 24 validated components with 99% confidence scores
+  - Page Title → Path lookup table for feature name vocabulary
+  - URL Path gotchas (legacy vs v2 routes) documented via Playwright verification
+  - Service detection decision tree with regex patterns
+  - Backend service inventory (bach, aero, otto, tack, charlotte, etc.)
+  - Database schema patterns (Jarvis, Cockroach, Supabase)
+- Verified against live Tailwind app using Playwright browser automation
+- Confidentiality marker added for internal use
+
+**Coda Standalone Extraction Script (2026-01-12)**:
+
+- Standalone Node.js extraction script (`scripts/coda_full_extract.js`)
+  - Launches Chromium with persistent profile for one-time auth
+  - Recursively discovers pages from navigation and content links
+  - Scroll-to-load for lazy content extraction
+  - Resumable via manifest (skips already-extracted pages)
+  - Logs to console and `data/coda_raw/extraction.log`
+- Webapp extraction controls at `/tools/extraction`
+- Updated `docs/coda-extraction/coda-extraction-doc.md` with standalone script documentation
+
 **Coda JSON Extraction System (2026-01-12)**:
 
 - High-speed Coda content extraction via direct JSON parsing

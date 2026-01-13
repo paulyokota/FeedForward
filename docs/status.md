@@ -12,7 +12,52 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Coda JSON Extraction Complete (2026-01-12)
+## Latest: Tailwind Codebase Map Added (2026-01-13)
+
+### Session Summary
+
+Created comprehensive Tailwind codebase map for routing Intercom support tickets to the correct codebase locations. Verified all URL mappings against live app using Playwright browser automation.
+
+### What Was Done
+
+**Tailwind Codebase Map** (PR #33):
+
+- Created `docs/tailwind-codebase-map.md` (2,395 lines)
+  - 24 validated components with 99% confidence scores
+  - URL Path → Service mapping for Intercom ticket triage
+  - Page Title → Path vocabulary for feature name lookup
+  - Service detection decision tree with regex patterns
+  - Backend service inventory (bach, aero, otto, tack, charlotte, scooby)
+  - Database schema patterns (Jarvis PostgreSQL, Cockroach, Supabase)
+
+**Playwright Verification**:
+
+- Verified actual URLs from live Tailwind app navigation
+- Discovered URL path gotchas (legacy vs v2 routes):
+  - `/dashboard/smartbio` NOT `/dashboard/v2/smartbio`
+  - `/dashboard/tribes` NOT `/dashboard/v2/tribes`
+  - `/dashboard/profile` NOT `/dashboard/v2/profile`
+
+**5-Personality Code Review** (3 rounds):
+
+- Round 1: Fixed Smart.Bio path inconsistencies, Blogs service mapping, added confidentiality marker
+- Round 2: Fixed Smart.Bio backend from `bach/bachv3` to `aero/api`
+- Round 3: All 5 reviewers CONVERGED
+
+**Merge Conflict Resolution**:
+
+- Resolved conflicts with main branch in DEPRECATED.md, changelog.md, coda-extraction-doc.md
+- PR #33 ready for merge
+
+### Process Gates Passed
+
+- Build: Passes (docs only)
+- Review: CONVERGED (3 rounds, 5-personality)
+- Backlog Hygiene: No outstanding issues
+
+---
+
+## Previous: Coda JSON Extraction Complete (2026-01-12)
 
 ### Session Summary
 
