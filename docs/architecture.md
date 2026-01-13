@@ -1056,6 +1056,82 @@ webapp/                  # Next.js frontend
 
 ---
 
+### 15. Unified Research Search (NEW - 2026-01-13)
+
+**Purpose**: Semantic search across Coda research and Intercom support data for evidence discovery and story enrichment.
+
+**Architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Data Sources                                               │
+│  - Coda Pages (AI Summaries, Research)                     │
+│  - Coda Themes (Synthesized insights)                       │
+│  - Intercom Support (Conversations)                         │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Source Adapters (src/research/adapters/)                   │
+│  - CodaSearchAdapter (pages, themes)                        │
+│  - IntercomSearchAdapter (conversations)                    │
+│  - Abstract base with content hashing, snippet creation     │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Embedding Pipeline (src/research/embedding_pipeline.py)    │
+│  - OpenAI text-embedding-3-large (3072 dimensions)         │
+│  - Batch embedding with content hash change detection       │
+│  - pgvector storage with HNSW index                        │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Unified Search Service (src/research/unified_search.py)    │
+│  - Semantic similarity search                               │
+│  - "More like this" related content                         │
+│  - Story evidence suggestions                               │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  API Layer (src/api/routers/research.py)                   │
+│  - /api/research/search                                     │
+│  - /api/research/similar/{source_type}/{source_id}         │
+│  - /api/research/stories/{id}/suggested-evidence           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Features**:
+
+- **Source Adapter Pattern**: Extensible design for adding new data sources
+- **Content Hash Detection**: Only re-embed changed content (incremental updates)
+- **HNSW Index**: Fast approximate nearest neighbor search
+- **Evidence Suggestions**: Semantic matching for story enrichment
+- **Graceful Degradation**: Search continues if embedding service unavailable
+
+**Files**:
+
+```
+src/research/
+├── __init__.py
+├── models.py               # Pydantic models
+├── unified_search.py       # Search service (474 lines)
+├── embedding_pipeline.py   # Content ingestion (445 lines)
+└── adapters/
+    ├── base.py             # Abstract base (111 lines)
+    ├── coda_adapter.py     # Coda adapter (274 lines)
+    └── intercom_adapter.py # Intercom adapter (163 lines)
+
+src/api/routers/research.py # API endpoints (301 lines)
+config/research_search.yaml  # Configuration
+tests/test_research.py       # 32 tests
+webapp/src/app/research/     # Frontend search page
+```
+
+**Database**: `research_embeddings` table with pgvector extension
+
+**Documentation**: `docs/search-rag-architecture.md`
+
+---
+
 ## Current Status
 
 **Implemented**:
@@ -1078,6 +1154,7 @@ webapp/                  # Next.js frontend
 ✅ Phase 4: Analytics Enhancements (AnalyticsService, trending themes)
 ✅ Coda data integration (4,682 conversations, 1,919 themes loaded)
 ✅ Multi-source story creation (Intercom + Coda research)
+✅ Unified Research Search with vector embeddings (pgvector + HNSW)
 
 **In Progress**:
 🚧 Production deployment

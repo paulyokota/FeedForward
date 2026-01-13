@@ -10,6 +10,49 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Unified Research Search with Vector Embeddings (2026-01-13)**:
+
+- Semantic search across Coda research and Intercom support data
+  - `src/research/` module with adapters, unified search, embedding pipeline
+  - pgvector with HNSW index for approximate nearest neighbor search
+  - OpenAI text-embedding-3-large (3072 dimensions)
+  - Content hash-based change detection for incremental reindexing
+- Source adapter pattern (`src/research/adapters/`):
+  - `base.py` - Abstract base with content hashing, snippet creation
+  - `coda_adapter.py` - Coda pages and themes adapter
+  - `intercom_adapter.py` - Intercom support conversations adapter
+- UnifiedSearchService (`src/research/unified_search.py`):
+  - `search()` - Query-based semantic search with source filtering
+  - `search_similar()` - "More like this" similarity search
+  - `suggest_evidence()` - Evidence suggestions for stories (Coda-only)
+  - `get_stats()` - Embedding statistics
+- EmbeddingPipeline (`src/research/embedding_pipeline.py`):
+  - Batch embedding with OpenAI API
+  - Graceful degradation on embedding service failures
+  - Configurable via `config/research_search.yaml`
+- Research API router (`src/api/routers/research.py`):
+  - `GET /api/research/search` - Semantic search
+  - `GET /api/research/similar/{source_type}/{source_id}` - Similar content
+  - `GET /api/research/stats` - Embedding statistics
+  - `POST /api/research/reindex` - Trigger re-embedding (admin)
+  - `GET /api/research/stories/{id}/suggested-evidence` - Story evidence
+- Frontend `/research` page (`webapp/src/app/research/page.tsx`):
+  - Multi-source search UI with source filtering
+  - Search results with similarity scores and source badges
+  - Debounced search input
+- Frontend components:
+  - `ResearchSearch.tsx` - Search input with suggestions
+  - `SearchResults.tsx` - Results display with metadata
+  - `SourceFilter.tsx` - Filter by Coda Pages, Themes, Intercom
+  - `SuggestedEvidence.tsx` - Evidence suggestions for story detail
+- Research search types (`webapp/src/lib/types.ts`):
+  - ResearchSourceType, SearchResult, SuggestedEvidence
+  - SOURCE_TYPE_CONFIG with display labels and colors
+- Database migration: `src/db/migrations/001_add_research_embeddings.sql`
+- Test suite: 32 tests in `tests/test_research.py`
+- Architecture documentation: `docs/search-rag-architecture.md`
+- Configuration: `config/research_search.yaml`
+
 **Tailwind Codebase Map (2026-01-13)**:
 
 - Comprehensive URL → Service mapping for Intercom ticket routing (`docs/tailwind-codebase-map.md`)

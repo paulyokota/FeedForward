@@ -12,7 +12,71 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Tailwind Codebase Map Added (2026-01-13)
+## Latest: Unified Research Search with Vector Embeddings (2026-01-13)
+
+### Session Summary
+
+Implemented Phase 2 (Vector Search) from `docs/search-rag-architecture.md`. Added semantic search across Coda research and Intercom support data using pgvector and OpenAI embeddings.
+
+### What Was Built
+
+**Backend (`src/research/`)**:
+
+- Source adapter pattern for extensible multi-source search
+  - `adapters/base.py` - Abstract base with content hashing and snippet creation
+  - `adapters/coda_adapter.py` - Coda pages and themes (274 lines)
+  - `adapters/intercom_adapter.py` - Intercom support conversations (163 lines)
+- `unified_search.py` - UnifiedSearchService with semantic search (474 lines)
+  - `search()` - Query-based similarity search with source filtering
+  - `search_similar()` - "More like this" similarity search
+  - `suggest_evidence()` - Story evidence suggestions (Coda-only)
+  - `get_stats()` - Embedding statistics
+- `embedding_pipeline.py` - Content ingestion and embedding (445 lines)
+  - Batch embedding with OpenAI text-embedding-3-large (3072 dimensions)
+  - Content hash-based change detection (skip unchanged content)
+  - pgvector storage with HNSW index
+- `models.py` - Pydantic models (190 lines)
+  - SearchableContent, UnifiedSearchResult, SuggestedEvidence
+  - Request/response models with validation
+- Database migration: `src/db/migrations/001_add_research_embeddings.sql`
+
+**Frontend (`webapp/`)**:
+
+- `/research` page with multi-source search UI (464 lines)
+- `ResearchSearch.tsx` - Search input with debounced queries (196 lines)
+- `SearchResults.tsx` - Results with similarity scores and source badges (454 lines)
+- `SourceFilter.tsx` - Filter by Coda Pages, Themes, Intercom (139 lines)
+- `SuggestedEvidence.tsx` - Evidence suggestions for story detail (442 lines)
+- Updated `types.ts` with search types and source config (57 new lines)
+- Updated `api.ts` with search API calls (62 new lines)
+
+**API Endpoints** (`src/api/routers/research.py`):
+
+- `GET /api/research/search` - Semantic search with source filtering
+- `GET /api/research/similar/{source_type}/{source_id}` - Similar content
+- `GET /api/research/stats` - Embedding statistics
+- `POST /api/research/reindex` - Trigger re-embedding (admin)
+- `GET /api/research/stories/{id}/suggested-evidence` - Story evidence
+
+**Tests**: 32 tests in `tests/test_research.py` covering models, adapters, services
+
+### Process Gates Passed
+
+- Test Gate: 32 tests passing
+- Build: pytest + npm build pass
+- Review: 5-personality code review CONVERGED (3 rounds)
+- PR: #34 created
+
+### Activation Steps (Post-Merge)
+
+```bash
+psql $DATABASE_URL < src/db/migrations/001_add_research_embeddings.sql
+python -m src.research.embedding_pipeline --limit 100
+```
+
+---
+
+## Previous: Tailwind Codebase Map Added (2026-01-13)
 
 ### Session Summary
 
