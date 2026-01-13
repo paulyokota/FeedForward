@@ -1,0 +1,12 @@
+{
+  "id": "intercom_001",
+  "type": "intercom",
+  "source_subject": "Can't reconnect my Pinterest account - authorization keeps failing",
+  "source_body": "Hi, I've been trying to reconnect my Pinterest account for the past 3 days and keep getting an error. When I click 'Connect Pinterest' it takes me to Pinterest to authorize, I click allow, but then I get redirected back to Tailwind and it says 'Authorization failed. Please try again.' I've tried:\n\n1. Clearing my browser cache\n2. Using a different browser (Chrome and Safari)\n3. Disconnecting and reconnecting from Pinterest side\n4. Logging out of Tailwind completely\n\nNothing works! This is really frustrating because I have a big campaign planned for next week and I can't schedule any pins right now. The error started happening after Pinterest asked me to re-verify my account.\n\nMy Pinterest username is @myfashionblog and my Tailwind email is sarah@example.com.\n\nPlease help ASAP!",
+  "issue_type": "bug_report",
+  "sentiment": "frustrated",
+  "priority": "high",
+  "churn_risk": true,
+  "created_at": "2026-01-10T14:23:00Z",
+  "contact_email": "sarah@example.com"
+}

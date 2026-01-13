@@ -1,0 +1,12 @@
+{
+  "id": "intercom_002",
+  "type": "intercom",
+  "source_subject": "Ghostwriter doesn't remember my brand or what we just talked about",
+  "source_body": "I've been using Ghostwriter to write pin descriptions and I'm finding it really frustrating. Two main issues:\n\n1. Brand Voice: I've filled out my brand preferences in the settings (I'm a home decor brand with a warm, cozy voice), but Ghostwriter keeps giving me generic, corporate-sounding copy. It doesn't sound like my brand at all.\n\n2. Context: Within the SAME session, if I ask for revisions, it forgets what we were talking about. For example, I'll say 'make it shorter' and instead of shortening the previous suggestion, it writes something completely different. I have to keep re-explaining what I want.\n\nI feel like I'm spending more time correcting Ghostwriter than just writing the descriptions myself. Is this how it's supposed to work? Am I missing something?\n\nI'm on the Pro plan if that matters.",
+  "issue_type": "feature_feedback",
+  "sentiment": "frustrated",
+  "priority": "high",
+  "churn_risk": false,
+  "created_at": "2026-01-11T09:45:00Z",
+  "contact_email": "decor@homeliving.com"
+}
