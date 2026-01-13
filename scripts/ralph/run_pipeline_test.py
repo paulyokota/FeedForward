@@ -163,13 +163,18 @@ Describe the current user experience and the improved experience:
 
 ## Acceptance Criteria
 
-Write 4-6 testable criteria covering:
-1. Happy path (main success scenario)
-2. Edge cases (boundary conditions, unusual inputs)
-3. Error handling (what happens when things fail)
-4. User feedback (how does the user know the operation succeeded/failed)
+Write exactly 6 testable criteria with this distribution:
+1. **1 Happy path** (main success scenario)
+2. **2 Edge cases** (boundary conditions, unusual inputs, concurrent operations)
+3. **2 Error cases** (API failures, network issues, invalid data)
+4. **1 Feedback case** (how user knows operation succeeded/failed)
 
 **CRITICAL: Each criterion MUST have a SPECIFIC verification method with OBSERVABLE OUTCOMES**
+
+**For Edge Cases, consider:**
+- What happens at boundaries? (max length inputs, empty values, Unicode characters)
+- What happens with timing? (concurrent requests, race conditions, timeouts)
+- What happens with state? (user logged out mid-operation, session expired, stale data)
 
 Format:
 - [ ] **[Happy/Edge/Error/Feedback]** Given [specific precondition], when [specific action], then [expected observable behavior]
@@ -187,10 +192,24 @@ Example set with COMPLETE verification methods:
 
 ## Success Metrics
 
-Define measurable outcomes beyond test passage:
-- **User Impact:** [specific metric, e.g., "Reduce failed OAuth attempts from X% to Y%"]
-- **Technical Health:** [specific metric, e.g., "Error rate in oauth_callback endpoint drops below 1%"]
-- **Time to Resolution:** [how quickly should we ship? e.g., "Within 1 sprint"]
+**IMPORTANT: Every metric MUST have a baseline ("before") and target ("after") value.**
+
+Define measurable outcomes tied directly to user problems:
+
+- **User Impact:** [metric with baseline and target]
+  - Baseline: [current state, e.g., "37% of Pinterest reconnection attempts fail"]
+  - Target: [goal state, e.g., "< 5% failure rate"]
+  - Measurement: [how to measure, e.g., "Mixpanel event tracking on 'pinterest_connect_result'"]
+
+- **Technical Health:** [metric with baseline and target]
+  - Baseline: [current state, e.g., "OAuth callback errors: 150/day"]
+  - Target: [goal state, e.g., "< 10/day"]
+  - Measurement: [how to measure, e.g., "Datadog dashboard 'OAuth Health'"]
+
+- **Business Outcome:** [user-facing outcome]
+  - Current: [what users experience now]
+  - Target: [what users will experience after fix]
+  - Validation: [how PM will verify success with users]
 
 ## Investigation Subtasks
 
@@ -229,7 +248,7 @@ Generate a single, well-structured story based on the feedback above. Be specifi
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a senior product analyst at Tailwind, expert in creating INVEST-compliant engineering stories. You understand Tailwind's architecture (tack for OAuth/scheduling, gandalf for auth, ghostwriter for AI features). Your stories are immediately actionable by engineers - specific, testable, and technically accurate."},
+                {"role": "system", "content": "You are a senior product analyst at Tailwind writing GOLD-STANDARD engineering stories. Your stories are so well-crafted that engineers can start immediately with zero clarifying questions. Every acceptance criterion has an explicit, measurable verification method. Every success metric has a baseline and target with specific measurement approach. Every investigation subtask points to specific files, logs, or code paths. You understand Tailwind's architecture deeply: tack handles OAuth and scheduling, gandalf manages auth, ghostwriter powers AI features. Your output quality is exceptional - a PM would approve without edits."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,
