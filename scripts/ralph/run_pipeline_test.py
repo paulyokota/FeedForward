@@ -131,35 +131,51 @@ Generate a story in this EXACT format:
 
 ## Technical Context
 
-For Tailwind products, map to these services:
-- OAuth/Integrations → tailwind/tack, tailwind/gandalf
-- AI/Ghostwriter → tailwind/ghostwriter
-- Scheduling → tailwind/tack
-- Analytics → tailwind/analytics
+For Tailwind products, map to these services with their dependencies:
 
-- **Primary Service:** [specific service from above]
-- **Affected Endpoints/URLs:** [specific URLs or API endpoints]
-- **Related Components:** [specific code modules or features]
-- **Error Patterns:** [any error codes, messages, or logs to look for]
+**Service Architecture (dependencies flow left-to-right):**
+- **OAuth/Integrations:** Pinterest API → gandalf (auth validation) → tack (token storage) → aero (UI display)
+- **AI/Ghostwriter:** User input → ghostwriter (LLM orchestration) → brandy2 (brand voice data) → content delivery
+- **Scheduling:** User selection → tack (scheduler service) → Pinterest API (post submission)
+- **Analytics:** Pinterest API → analytics (data collection) → tack (display)
+
+**Provide ALL of the following (be specific, not generic):**
+
+- **Primary Service:** [specific service from list above, e.g., "tailwind/tack"]
+- **Dependency Chain:** [upstream service] → [this service] → [downstream service]
+  - Example: "Pinterest OAuth → gandalf (token validation) → tack (token storage)"
+- **Affected Endpoints/URLs:** [specific API paths or UI routes]
+  - Example: "/api/v1/pinterest/oauth/callback", "/dashboard/v2/settings/integrations"
+- **Related Components:** [specific files/modules with purpose]
+  - Example: "auth/pinterest_handler.py (token refresh logic)", "models/integration.py (token schema)"
+- **Inter-Service Communication:** [how services talk to each other]
+  - Example: "REST API call from gandalf to tack via internal endpoint /api/internal/tokens"
+- **Error Patterns to Search:** [specific error codes, log patterns, exceptions]
+  - Example: "Look for 'invalid_grant' in gandalf logs, 'ECONNREFUSED' in tack→Pinterest calls"
 
 ## User Experience Flow
 
-Describe the current user experience and the improved experience:
+**You MUST describe BOTH current AND target UX with SPECIFIC UI elements:**
 
-**Current UX (Problem State):**
-1. [Step 1 - what user does]
-2. [Step 2 - what happens that's wrong]
-3. [Step 3 - resulting confusion/frustration]
+**Current UX (Problem State) - What happens TODAY:**
+1. **User Action:** [exact click/input, e.g., "User clicks 'Connect Pinterest' button"]
+2. **System Response:** [exactly what UI shows, e.g., "Spinner appears for 3s, then error toast appears"]
+3. **Error/Confusion Point:** [specific moment of frustration, e.g., "'Authorization failed' message with no next steps"]
+4. **User Impact:** [behavioral result, e.g., "User retries 3x, gives up, contacts support"]
 
-**Ideal UX (Target State):**
-1. [Step 1 - what user does]
-2. [Step 2 - what should happen (with specific UI feedback)]
-3. [Step 3 - successful outcome with clear confirmation]
+**Target UX (Goal State) - What SHOULD happen:**
+1. **User Action:** [same as above]
+2. **System Response:** [ideal behavior with timing, e.g., "Spinner for <2s, redirects to Pinterest OAuth"]
+3. **Success Indicator:** [how user KNOWS it worked, e.g., "Green checkmark + 'Pinterest Connected' toast for 3s"]
+4. **Recovery Path:** [what happens on failure, e.g., "Clear error message + 'Try Again' button + link to help docs"]
 
-**Key UX Signals:**
-- Loading states: [how does user know system is working?]
-- Success feedback: [what confirms the operation worked?]
-- Error recovery: [how does user recover from failures?]
+**UX Signals Mapping (connect to Acceptance Criteria):**
+| Signal Type | UI Element | Connected AC |
+|-------------|------------|--------------|
+| Loading | [specific element, e.g., spinner, skeleton] | AC #X |
+| Success | [specific element, e.g., toast, banner, status change] | AC #X |
+| Error | [specific element, e.g., toast type, error page] | AC #X |
+| Recovery | [specific element, e.g., retry button, help link] | AC #X |
 
 ## Acceptance Criteria
 
@@ -171,10 +187,25 @@ Write exactly 6 testable criteria with this distribution:
 
 **CRITICAL: Each criterion MUST have a SPECIFIC verification method with OBSERVABLE OUTCOMES**
 
-**For Edge Cases, consider:**
-- What happens at boundaries? (max length inputs, empty values, Unicode characters)
-- What happens with timing? (concurrent requests, race conditions, timeouts)
-- What happens with state? (user logged out mid-operation, session expired, stale data)
+**For Edge Cases, you MUST consider ALL THREE categories:**
+
+1. **Boundary Conditions** - What happens at limits?
+   - Max/min values (e.g., 0 pins, 1000 pins, empty caption, 2200 char caption)
+   - Empty states (no boards, no followers, new account)
+   - Special characters (Unicode, emojis, RTL text, HTML entities)
+   - Rate limits (what if API quota is hit mid-operation?)
+
+2. **Timing/Concurrency** - What happens with parallelism?
+   - Concurrent requests (user double-clicks, multiple tabs)
+   - Race conditions (token refreshed while operation in progress)
+   - Timeouts (Pinterest API slow response, 30s+)
+   - Order dependencies (step 2 completes before step 1)
+
+3. **State Transitions** - What happens when state changes unexpectedly?
+   - Session expiry mid-operation (OAuth token expired during multi-step flow)
+   - Stale data (UI shows old state, backend has new state)
+   - Partial completion (half the operation succeeds, half fails)
+   - Recovery scenarios (user refreshes page mid-operation)
 
 Format:
 - [ ] **[Happy/Edge/Error/Feedback]** Given [specific precondition], when [specific action], then [expected observable behavior]
