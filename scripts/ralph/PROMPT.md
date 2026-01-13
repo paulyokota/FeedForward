@@ -378,149 +378,227 @@ Lowest dimension: [letter] ([score])
 
 **Target**: Average >= 3.5, no single dimension < 3.0
 
-### Validation Type 3: Playwright Technical Area Validation (EXECUTABLE)
+### Validation Type 3: Playwright Browser Automation (REAL BROWSER)
 
-**CRITICAL: This section requires ACTUAL code execution with captured output, not pseudocode or claims.**
+**CRITICAL: This uses REAL Playwright browser automation with interactive login support.**
+
+This is the objective test for "investigation accuracy" using actual browser automation that:
+
+- Opens a VISIBLE browser window (not headless)
+- Navigates to actual GitHub repositories
+- Pauses for manual login if authentication is needed (60 second timeout)
+- Searches for relevant code files based on story keywords
+- Reports validation with timestamped evidence
 
 For each story you've generated, you MUST:
 
-1. Extract the `technical_area` field (e.g., "tailwind/aero")
-2. ACTUALLY RUN the validation script (see below)
-3. CAPTURE the output with exit code
-4. Log results to `progress.txt` with timestamps
+1. Extract `technical_area` AND `description` from each story
+2. ACTUALLY RUN the validation script (opens real browser window)
+3. IF login is needed: pause and wait for user to log in (60 second timeout)
+4. CAPTURE the full output with validation results
 5. Check success rate before declaring completion
 
 **The Validation Script**
 
-The file `scripts/ralph/validate_playwright.py` exists and does the following:
+The file `scripts/ralph/validate_playwright.py` uses real Playwright browser automation:
 
-- Uses `git ls-remote` to verify repos actually exist on GitHub
-- Checks that repos have active branches (not empty/archived)
-- Cross-references `docs/tailwind-codebase-map.md`
+- Opens actual browser window (headless=False by default)
+- Navigates to GitHub repos via real HTTP requests
+- Detects login prompts and pauses for manual authentication
+- Extracts keywords from story descriptions to find relevant files
+- Searches repo file listings for matching code
 - Returns exit code 0 (>= 85% success) or 1 (< 85% failure)
-- Outputs timestamped validation results
+- Outputs timestamped validation with files found
 
 **How You MUST Run It**
 
-Step 1: Extract `technical_area` values from each story in your batch
+Step 1: Extract `technical_area` and `description` from each story
 
-Step 2: Build a JSON array with story ids and technical_areas
+Step 2: Build a JSON array with story data:
+
+```json
+[
+  {
+    "id": "story-001",
+    "technical_area": "tailwind/aero",
+    "description": "Fix authentication flow"
+  },
+  {
+    "id": "story-002",
+    "technical_area": "tailwind/ghostwriter",
+    "description": "Add prompt templates"
+  }
+]
+```
 
 Step 3: Execute the validation script via Bash tool:
 
 ```bash
 python3 scripts/ralph/validate_playwright.py '[
-  {"id":"story-001","technical_area":"tailwind/aero"},
-  {"id":"story-002","technical_area":"tailwind/tack"},
-  {"id":"story-003","technical_area":"tailwind/ghostwriter"}
+  {"id":"story-001","technical_area":"tailwind/aero","description":"Fix authentication flow"},
+  {"id":"story-002","technical_area":"tailwind/ghostwriter","description":"Add prompt templates"}
 ]'
 ```
 
-Step 4: CAPTURE the full output (including the `======` summary lines)
+**What to Expect When Running**
 
-Step 5: Check the exit code:
+1. Browser window opens (not headless)
+2. For each story:
+   - Browser navigates to GitHub repo
+   - If login required: PAUSE and wait for you to log in
+   - Searches for relevant files based on description keywords
+   - Reports VALID or INVALID with files found
+3. Summary with success rate
+4. Exit code: 0 if >= 85%, 1 if < 85%
 
-- `0` = success (>= 85%)
-- `1` = failure (< 85%)
+**Login Pause Instructions**
 
-Step 6: Log everything to `progress.txt` including: command, output, timestamp, results
+If the script outputs:
+
+```
+     LOGIN REQUIRED
+     Browser window is open - PLEASE LOG IN
+     Waiting for login (60 second timeout)...
+```
+
+Then:
+
+1. A browser window has opened
+2. Log in to GitHub using your credentials
+3. The script will automatically resume after you complete login
+4. Validation continues automatically
 
 **What Real Output Looks Like**
 
 ```
 ============================================================
-PLAYWRIGHT VALIDATION RUN - 2026-01-13T14:30:45.123456
+PLAYWRIGHT VALIDATION RUN - 2026-01-13T14:45:30.123456
 ============================================================
+   Starting browser automation (VISIBLE WINDOW)...
+   If login is needed, you'll see a browser window
+   Each validation takes 15-60 seconds depending on login
+
+[1/3] Processing story...
 
   VALIDATING: tailwind/aero
-     Repository exists: tailwindlabs/aero
-     Repository found in tailwind-codebase-map.md
-     VALID - Repository verified on GitHub
+     Story problem: Fix authentication flow in login...
+     Trying https://github.com/tailwindlabs/aero
+     Repository loaded: tailwindlabs/aero
+     Searching for files matching: auth, login, session
+     Found relevant files: auth/, login.ts, session.js
+     Developer can navigate to investigate this issue
+
+[2/3] Processing story...
 
   VALIDATING: tailwind/tack
-     INVALID - Repository not found on GitHub
-     Tried: tailwindlabs/tack, tailwind/tack, tailwindcss/tack
+     Story problem: Pinterest scheduler timezone bug...
+     Trying https://github.com/tailwindlabs/tack
+     LOGIN REQUIRED
+     Browser window is open - PLEASE LOG IN
+     Waiting for login (60 second timeout)...
+     [User logs in via browser window]
+     Login successful, resuming validation
+     Searching for files matching: scheduler, schedule, cron
+     Found relevant files: scheduler/, cron.js
+     Developer can navigate to investigate this issue
+
+[3/3] Processing story...
 
   VALIDATING: tailwind/ghostwriter
-     Repository exists: tailwindlabs/ghostwriter
-     Repository found in tailwind-codebase-map.md
-     VALID - Repository verified on GitHub
+     Story problem: Add prompt templates...
+     Trying https://github.com/tailwindlabs/ghostwriter
+     Repository loaded: tailwindlabs/ghostwriter
+     Searching for files matching: main, index, lib, src, config
+     Found relevant files: src/, lib/, config/
+     Developer can navigate to investigate this issue
 
 ============================================================
 PLAYWRIGHT VALIDATION SUMMARY
 ============================================================
-Timestamp: 2026-01-13T14:30:45.123456
+Timestamp: 2026-01-13T14:45:30.123456
+Browser mode: Visible window
 Total stories validated: 3
-Passed: 2
-Failed: 1
-Success rate: 66.7%
+Passed: 3
+Failed: 0
+Success rate: 100.0%
 Threshold: 85%
 ============================================================
 
-  THRESHOLD NOT MET: 66.7% < 85%
-  Do NOT declare completion
-  Return to Phase 1 to improve technical area accuracy
+  THRESHOLD MET: 100.0% >= 85%
+  Completion may proceed to Phase 4
 ```
 
 **What Counts as Valid Validation Evidence**
 
 ACCEPTABLE:
 
-- Actual script execution with command shown
-- Real output showing ` VALIDATING` checks for each repo
-- Specific repo names tested (not generic claims)
-- `======` summary section with numbers
+- Script execution with actual browser window opening
+- Real output showing ` VALIDATING` and ` Navigating` for each repo
+- If login paused: evidence that login prompt appeared and resumed
+- Specific files found (auth/, scheduler/, etc.)
+- `======` summary section with real numbers
 - Exit code shown (0 or 1)
-- Timestamp in output
+- Browser mode shown (Visible window)
 
 NOT ACCEPTABLE:
 
 - "All stories validated" with no output
-- "100% success" without showing which repos checked
-- "All codebase references verified" without listing them
-- No command, no timestamp, no exit code
-- Pseudocode or hypothetical output
+- "100% success" without showing which repos and files checked
+- No browser interaction mentioned
+- No login pause if authentication is needed
+- Pseudocode or claimed validation
+- Headless mode without explicit `--headless` flag
 
 **What to Log in progress.txt**
 
 After running validation, append this to `progress.txt`:
 
 ```
-### Phase 3 - Playwright Validation (EXECUTED)
+### Phase 3 - Playwright Validation (REAL BROWSER AUTOMATION)
 
 Command executed:
-  python3 scripts/ralph/validate_playwright.py '[{"id":"story-001","technical_area":"tailwind/aero"}, ...]'
+  python3 scripts/ralph/validate_playwright.py '[{"id":"story-001",...}]'
 
-Execution timestamp: 2026-01-13T14:30:45
-Exit code: [0 or 1]
+Execution timestamp: 2026-01-13T14:45:30
+Browser automation: YES (visible window)
+Login required: YES (1 repo needed login)
+Exit code: 0 (success)
 
-Results:
-- story-001: VALID (tailwind/aero exists in codebase-map)
-- story-002: INVALID (tailwind/tack not found on GitHub)
-- story-003: VALID (tailwind/ghostwriter exists in codebase-map)
+Validation details:
+- story-001: VALID (found auth/, login.ts in tailwind/aero)
+- story-002: VALID (found scheduler/, cron.js in tailwind/tack after login)
+- story-003: VALID (found src/, lib/ in tailwind/ghostwriter)
 
 Summary:
 - Total stories validated: 3
-- Passed: 2
-- Failed: 1
-- Success rate: 66.7%
+- Passed: 3
+- Failed: 0
+- Success rate: 100.0%
 - Threshold: 85%
-- **RESULT: 66.7% < 85% - VALIDATION FAILED**
+- **RESULT: 100.0% >= 85% - VALIDATION PASSED**
 
-Next action: Return to Phase 1 to improve technical_area mapping accuracy
+Developer workflow notes:
+- All repos accessible via browser (actual GitHub navigation tested)
+- All problem-related code found (auth, scheduler, prompts)
+- Engineer could start investigation immediately
+
+Next action: Proceed to Phase 4 (Analysis)
 ```
 
 **The Iron Rule**
 
 You may NOT claim validation success without:
 
-1. Running the actual validation script (not pseudocode)
-2. Capturing its output (with timestamps)
-3. Showing the exit code
-4. Achieving >= 85% success rate
-5. Logging everything to `progress.txt`
+1. Running the actual Playwright script (not simulation)
+2. Opening a real browser window
+3. Navigating to actual GitHub repos
+4. Allowing manual login pause if needed
+5. Finding relevant code files
+6. Capturing timestamped output
+7. Achieving >= 85% success rate
+8. Logging everything to `progress.txt`
 
-**Violation = Premature completion = Loop does not accept it**
+**Violation = Premature completion = Loop rejected**
 
 If validation fails (< 85%), you MUST return to Phase 1 and improve `technical_area` accuracy.
 
@@ -1151,25 +1229,50 @@ SELECT status, COUNT(*) FROM stories GROUP BY status;
 
 ---
 
-## PLAYWRIGHT VALIDATION GUIDE (EXECUTABLE SCRIPT)
+## PLAYWRIGHT VALIDATION GUIDE (REAL BROWSER AUTOMATION)
 
-**This guide explains how to use the actual validation script.**
+**This guide explains how to use the real Playwright browser automation script.**
+
+### Prerequisites
+
+```bash
+# Install Playwright Python if not already installed
+pip install playwright
+playwright install chromium
+```
 
 ### The Validation Script
 
 Location: `scripts/ralph/validate_playwright.py`
 
-This Python script validates that `technical_area` recommendations point to real repositories.
+This Python script uses REAL Playwright browser automation to:
+
+- Open a visible browser window
+- Navigate to actual GitHub repositories
+- Pause for manual login if authentication is needed
+- Search for relevant code files based on story descriptions
 
 ### Step 1: Prepare Your Story Data
 
-Extract the `id` and `technical_area` from each story:
+Extract `id`, `technical_area`, AND `description` from each story:
 
 ```json
 [
-  { "id": "story-001", "technical_area": "tailwind/aero" },
-  { "id": "story-002", "technical_area": "tailwind/ghostwriter" },
-  { "id": "story-003", "technical_area": "tailwind/tack" }
+  {
+    "id": "story-001",
+    "technical_area": "tailwind/aero",
+    "description": "Fix authentication flow"
+  },
+  {
+    "id": "story-002",
+    "technical_area": "tailwind/ghostwriter",
+    "description": "Add prompt templates"
+  },
+  {
+    "id": "story-003",
+    "technical_area": "tailwind/tack",
+    "description": "Pinterest scheduler bug"
+  }
 ]
 ```
 
@@ -1179,36 +1282,50 @@ Execute via Bash tool:
 
 ```bash
 python3 scripts/ralph/validate_playwright.py '[
-  {"id":"story-001","technical_area":"tailwind/aero"},
-  {"id":"story-002","technical_area":"tailwind/ghostwriter"}
+  {"id":"story-001","technical_area":"tailwind/aero","description":"Fix authentication flow"},
+  {"id":"story-002","technical_area":"tailwind/ghostwriter","description":"Add prompt templates"}
 ]'
 ```
 
-### Step 3: Interpret the Output
+**Options:**
+
+- Default: Opens visible browser window for interactive login
+- `--headless`: Run without visible window (for CI environments)
+
+### Step 3: Handle Login if Needed
+
+If you see:
+
+```
+     LOGIN REQUIRED
+     Browser window is open - PLEASE LOG IN
+     Waiting for login (60 second timeout)...
+```
+
+1. A browser window has opened
+2. Log in to GitHub using your credentials
+3. Script automatically resumes after login
+
+### Step 4: Interpret the Output
 
 The script will output:
 
-1. Per-repository checks with ` VALIDATING` prefix
-2. Pass/fail status for each check
-3. Summary section with `======` borders
-4. Overall success rate and threshold comparison
+1. Browser mode (Visible window or Headless)
+2. Per-repository checks with ` VALIDATING` prefix
+3. Files found based on story description keywords
+4. Summary section with `======` borders
 5. Exit code (0 = pass, 1 = fail)
-
-### Step 4: Check Exit Code
-
-```bash
-echo $?  # Should be 0 for success, 1 for failure
-```
 
 ### Step 5: Log Results
 
-Copy the full output (including timestamp and summary) to `progress.txt`.
+Copy the full output (including timestamp, browser mode, and summary) to `progress.txt`.
 
 ### What the Script Validates
 
-1. **Repository Exists**: Uses `git ls-remote` to check GitHub
-2. **Has Active Branches**: Verifies repo is not empty
-3. **In Codebase Map**: Cross-references `docs/tailwind-codebase-map.md`
+1. **Repository Accessible**: Real browser navigation to GitHub
+2. **Login Support**: Pauses for manual authentication if needed
+3. **Relevant Files Found**: Searches for files matching story keywords
+4. **Developer Workflow**: Simulates actual investigation path
 
 ### Threshold
 
