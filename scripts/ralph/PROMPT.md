@@ -378,37 +378,163 @@ Lowest dimension: [letter] ([score])
 
 **Target**: Average >= 3.5, no single dimension < 3.0
 
-### Validation Type 3: Playwright URL Validation
+### Validation Type 3: Playwright Technical Area Validation (EXECUTABLE)
 
-For each story, validate that referenced URLs actually exist on the live Tailwind site.
+**CRITICAL: This section requires ACTUAL code execution with captured output, not pseudocode or claims.**
 
-**Process**:
+For each story you've generated, you MUST:
 
-1. Extract all URLs mentioned in the story
-2. Use Playwright browser tools to navigate to each URL
-3. Verify the page loads (not 404)
-4. Verify the described functionality exists
-5. Take snapshots as evidence
+1. Extract the `technical_area` field (e.g., "tailwind/aero")
+2. ACTUALLY RUN the validation script (see below)
+3. CAPTURE the output with exit code
+4. Log results to `progress.txt` with timestamps
+5. Check success rate before declaring completion
 
-**Commands to use**:
+**The Validation Script**
+
+The file `scripts/ralph/validate_playwright.py` exists and does the following:
+
+- Uses `git ls-remote` to verify repos actually exist on GitHub
+- Checks that repos have active branches (not empty/archived)
+- Cross-references `docs/tailwind-codebase-map.md`
+- Returns exit code 0 (>= 85% success) or 1 (< 85% failure)
+- Outputs timestamped validation results
+
+**How You MUST Run It**
+
+Step 1: Extract `technical_area` values from each story in your batch
+
+Step 2: Build a JSON array with story ids and technical_areas
+
+Step 3: Execute the validation script via Bash tool:
+
+```bash
+python3 scripts/ralph/validate_playwright.py '[
+  {"id":"story-001","technical_area":"tailwind/aero"},
+  {"id":"story-002","technical_area":"tailwind/tack"},
+  {"id":"story-003","technical_area":"tailwind/ghostwriter"}
+]'
+```
+
+Step 4: CAPTURE the full output (including the `======` summary lines)
+
+Step 5: Check the exit code:
+
+- `0` = success (>= 85%)
+- `1` = failure (< 85%)
+
+Step 6: Log everything to `progress.txt` including: command, output, timestamp, results
+
+**What Real Output Looks Like**
 
 ```
-mcp__plugin_developer-kit_playwright__browser_navigate
-mcp__plugin_developer-kit_playwright__browser_snapshot
+============================================================
+PLAYWRIGHT VALIDATION RUN - 2026-01-13T14:30:45.123456
+============================================================
+
+  VALIDATING: tailwind/aero
+     Repository exists: tailwindlabs/aero
+     Repository found in tailwind-codebase-map.md
+     VALID - Repository verified on GitHub
+
+  VALIDATING: tailwind/tack
+     INVALID - Repository not found on GitHub
+     Tried: tailwindlabs/tack, tailwind/tack, tailwindcss/tack
+
+  VALIDATING: tailwind/ghostwriter
+     Repository exists: tailwindlabs/ghostwriter
+     Repository found in tailwind-codebase-map.md
+     VALID - Repository verified on GitHub
+
+============================================================
+PLAYWRIGHT VALIDATION SUMMARY
+============================================================
+Timestamp: 2026-01-13T14:30:45.123456
+Total stories validated: 3
+Passed: 2
+Failed: 1
+Success rate: 66.7%
+Threshold: 85%
+============================================================
+
+  THRESHOLD NOT MET: 66.7% < 85%
+  Do NOT declare completion
+  Return to Phase 1 to improve technical area accuracy
 ```
 
-**Validation record**:
+**What Counts as Valid Validation Evidence**
+
+ACCEPTABLE:
+
+- Actual script execution with command shown
+- Real output showing ` VALIDATING` checks for each repo
+- Specific repo names tested (not generic claims)
+- `======` summary section with numbers
+- Exit code shown (0 or 1)
+- Timestamp in output
+
+NOT ACCEPTABLE:
+
+- "All stories validated" with no output
+- "100% success" without showing which repos checked
+- "All codebase references verified" without listing them
+- No command, no timestamp, no exit code
+- Pseudocode or hypothetical output
+
+**What to Log in progress.txt**
+
+After running validation, append this to `progress.txt`:
 
 ```
-Story: [title]
-URLs validated:
-1. [URL] - [Status: OK/FAIL] - [Notes]
-2. [URL] - [Status: OK/FAIL] - [Notes]
----
-Playwright accuracy: [X]% ([valid]/[total])
+### Phase 3 - Playwright Validation (EXECUTED)
+
+Command executed:
+  python3 scripts/ralph/validate_playwright.py '[{"id":"story-001","technical_area":"tailwind/aero"}, ...]'
+
+Execution timestamp: 2026-01-13T14:30:45
+Exit code: [0 or 1]
+
+Results:
+- story-001: VALID (tailwind/aero exists in codebase-map)
+- story-002: INVALID (tailwind/tack not found on GitHub)
+- story-003: VALID (tailwind/ghostwriter exists in codebase-map)
+
+Summary:
+- Total stories validated: 3
+- Passed: 2
+- Failed: 1
+- Success rate: 66.7%
+- Threshold: 85%
+- **RESULT: 66.7% < 85% - VALIDATION FAILED**
+
+Next action: Return to Phase 1 to improve technical_area mapping accuracy
 ```
 
-**Target**: >= 85% accuracy
+**The Iron Rule**
+
+You may NOT claim validation success without:
+
+1. Running the actual validation script (not pseudocode)
+2. Capturing its output (with timestamps)
+3. Showing the exit code
+4. Achieving >= 85% success rate
+5. Logging everything to `progress.txt`
+
+**Violation = Premature completion = Loop does not accept it**
+
+If validation fails (< 85%), you MUST return to Phase 1 and improve `technical_area` accuracy.
+
+**CRITICAL SAFEGUARD**
+
+If you're on iteration 3+ and still not meeting validation thresholds:
+
+- Do NOT keep iterating with same approach
+- Document the specific blockers (which repos don't exist, why mapping fails)
+- Suggest a strategy change
+- Output `<promise>PARTIAL_COMPLETE</promise>` with explanation
+- This is a SUCCESS OUTCOME (surfaced a real problem)
+
+**Target**: >= 85% accuracy (verified by script exit code 0)
 
 ### Step 3.4: Record Validation Results
 
@@ -1025,50 +1151,70 @@ SELECT status, COUNT(*) FROM stories GROUP BY status;
 
 ---
 
-## PLAYWRIGHT VALIDATION GUIDE
+## PLAYWRIGHT VALIDATION GUIDE (EXECUTABLE SCRIPT)
 
-### Step 1: Extract URLs
+**This guide explains how to use the actual validation script.**
 
-```
-From story, identify all URLs:
-- Settings pages
-- Feature pages
-- Integration pages
-- Any URL mentioned in technical context
-```
+### The Validation Script
 
-### Step 2: Navigate and Verify
+Location: `scripts/ralph/validate_playwright.py`
 
-```javascript
-// For each URL:
-mcp__plugin_developer -
-  kit_playwright__browser_navigate({ url: "https://..." });
-mcp__plugin_developer - kit_playwright__browser_snapshot();
+This Python script validates that `technical_area` recommendations point to real repositories.
 
-// Check:
-// - Page loads (not 404)
-// - Expected elements exist
-// - Described feature is present
+### Step 1: Prepare Your Story Data
+
+Extract the `id` and `technical_area` from each story:
+
+```json
+[
+  { "id": "story-001", "technical_area": "tailwind/aero" },
+  { "id": "story-002", "technical_area": "tailwind/ghostwriter" },
+  { "id": "story-003", "technical_area": "tailwind/tack" }
+]
 ```
 
-### Step 3: Record Results
+### Step 2: Run the Validation Script
 
-```
-URL: https://www.tailwindapp.com/settings/integrations
-Status: OK
-Notes: Page loads, Pinterest integration section visible
+Execute via Bash tool:
 
-URL: https://www.tailwindapp.com/invalid/page
-Status: FAIL
-Notes: 404 error
+```bash
+python3 scripts/ralph/validate_playwright.py '[
+  {"id":"story-001","technical_area":"tailwind/aero"},
+  {"id":"story-002","technical_area":"tailwind/ghostwriter"}
+]'
 ```
 
-### Step 4: Calculate Accuracy
+### Step 3: Interpret the Output
 
+The script will output:
+
+1. Per-repository checks with ` VALIDATING` prefix
+2. Pass/fail status for each check
+3. Summary section with `======` borders
+4. Overall success rate and threshold comparison
+5. Exit code (0 = pass, 1 = fail)
+
+### Step 4: Check Exit Code
+
+```bash
+echo $?  # Should be 0 for success, 1 for failure
 ```
-Playwright accuracy = (valid URLs / total URLs) * 100
-Target: >= 85%
-```
+
+### Step 5: Log Results
+
+Copy the full output (including timestamp and summary) to `progress.txt`.
+
+### What the Script Validates
+
+1. **Repository Exists**: Uses `git ls-remote` to check GitHub
+2. **Has Active Branches**: Verifies repo is not empty
+3. **In Codebase Map**: Cross-references `docs/tailwind-codebase-map.md`
+
+### Threshold
+
+- **Target**: >= 85% of technical_area values must be valid
+- **Exit 0**: >= 85% passed (may proceed)
+- **Exit 1**: < 85% passed (must fix before completion)
 
 ---
 
