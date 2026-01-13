@@ -142,6 +142,25 @@ For Tailwind products, map to these services:
 - **Related Components:** [specific code modules or features]
 - **Error Patterns:** [any error codes, messages, or logs to look for]
 
+## User Experience Flow
+
+Describe the current user experience and the improved experience:
+
+**Current UX (Problem State):**
+1. [Step 1 - what user does]
+2. [Step 2 - what happens that's wrong]
+3. [Step 3 - resulting confusion/frustration]
+
+**Ideal UX (Target State):**
+1. [Step 1 - what user does]
+2. [Step 2 - what should happen (with specific UI feedback)]
+3. [Step 3 - successful outcome with clear confirmation]
+
+**Key UX Signals:**
+- Loading states: [how does user know system is working?]
+- Success feedback: [what confirms the operation worked?]
+- Error recovery: [how does user recover from failures?]
+
 ## Acceptance Criteria
 
 Write 4-6 testable criteria covering:
@@ -150,18 +169,21 @@ Write 4-6 testable criteria covering:
 3. Error handling (what happens when things fail)
 4. User feedback (how does the user know the operation succeeded/failed)
 
-Each criterion MUST have:
-- A specific, observable behavior
-- A measurable verification method in parentheses
+**CRITICAL: Each criterion MUST have a SPECIFIC verification method with OBSERVABLE OUTCOMES**
 
 Format:
-- [ ] **[Happy/Edge/Error/Feedback]** Given [specific precondition], when [specific action], then [expected observable behavior] (Verify by: [specific test method])
+- [ ] **[Happy/Edge/Error/Feedback]** Given [specific precondition], when [specific action], then [expected observable behavior]
+  - **Verify**: [test type] - Assert [exact condition] - Expected: [quantifiable outcome]
 
-Example set:
-- [ ] **[Happy]** Given a user has valid Pinterest credentials, when they click "Connect Pinterest", then the connection succeeds and dashboard shows "Connected" status (Verify by: E2E test with test account)
-- [ ] **[Edge]** Given a user's Pinterest session has expired, when they attempt to connect, then they are redirected to re-authenticate (Verify by: unit test with expired session mock)
-- [ ] **[Error]** Given Pinterest API is unavailable, when connection is attempted, then user sees "Pinterest is temporarily unavailable. Please try again in a few minutes." (Verify by: integration test with API mock returning 503)
-- [ ] **[Feedback]** Given any connection attempt, when the process completes, then user receives clear visual feedback within 3 seconds (Verify by: UI test measuring response time)
+Example set with COMPLETE verification methods:
+- [ ] **[Happy]** Given a user has valid Pinterest credentials, when they click "Connect Pinterest", then the connection succeeds and dashboard shows "Connected" status
+  - **Verify**: E2E test (Playwright) - Assert `[data-testid="pinterest-status"]` text equals "Connected" - Expected: Status updates within 5s, no error toasts
+- [ ] **[Edge]** Given a user's Pinterest session has expired (token older than 60 days), when they attempt to connect, then they are redirected to Pinterest OAuth page
+  - **Verify**: Integration test - Assert HTTP 302 redirect to `https://api.pinterest.com/oauth/` - Expected: Redirect occurs, no data loss
+- [ ] **[Error]** Given Pinterest API returns 503, when connection is attempted, then user sees error message "Pinterest is temporarily unavailable. Please try again in a few minutes."
+  - **Verify**: Unit test with MSW mock - Assert error toast contains exact message - Expected: Toast visible for 5s, retry button appears
+- [ ] **[Feedback]** Given any connection attempt, when the process completes (success or failure), then user receives visual feedback
+  - **Verify**: E2E test timing - Assert feedback element appears within 3000ms of click event - Expected: p95 latency < 3s
 
 ## Success Metrics
 
@@ -172,12 +194,24 @@ Define measurable outcomes beyond test passage:
 
 ## Investigation Subtasks
 
-Number each subtask with a specific expected outcome:
+Number each subtask with specific file paths, queries, or commands. Include expected findings with quantifiable signals.
 
-1. [ ] **[Component to examine]**: [What to look for] → Expected finding: [hypothesis of what we might discover]
-2. [ ] **[Logs/Metrics to check]**: [Specific queries/dashboards] → Expected finding: [what patterns would confirm the issue]
-3. [ ] **[Code path to trace]**: [Entry point to exit] → Expected finding: [where the bug likely lives]
-4. [ ] **[Reproduction steps]**: [Exact steps to reproduce in staging] → Expected outcome: [what should happen vs what actually happens]
+1. [ ] **[Code Audit]**: Examine `[specific file path]` for [specific pattern/function]
+   - Look for: [specific code pattern, e.g., "error handling in catch blocks"]
+   - Expected finding: [hypothesis with signal, e.g., "Missing retry logic in OAuth callback - look for lack of exponential backoff"]
+
+2. [ ] **[Log Analysis]**: Query `[specific log system/dashboard]` with filter `[query]`
+   - Time range: [e.g., "Last 7 days"]
+   - Expected pattern: [what signals confirm the issue, e.g., "Spike in 401 errors correlating with user reports"]
+
+3. [ ] **[Trace Code Path]**: Follow execution from `[entry point]` to `[exit point]`
+   - Key decision points: [specific functions/conditionals to examine]
+   - Expected finding: [where bug likely lives, e.g., "Token validation in auth.py:validate_token() may not handle expired tokens"]
+
+4. [ ] **[Reproduce in Staging]**:
+   - Pre-conditions: [exact setup needed]
+   - Steps: [numbered steps to reproduce]
+   - Expected vs Actual: [what should happen vs what happens, with observable signals]
 
 ## Definition of Done
 
