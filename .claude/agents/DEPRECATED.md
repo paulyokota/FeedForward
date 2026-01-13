@@ -1,3 +1,9 @@
+---
+name: deprecated-agents-doc
+description: Documentation about deprecated v1 agents.
+hidden: true
+---
+
 # DEPRECATED
 
 This directory has been superseded by the v2 skills architecture.

@@ -10,6 +10,38 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Coda JSON Extraction System (2026-01-12)**:
+
+- High-speed Coda content extraction via direct JSON parsing
+  - Discovered Coda's internal JSON endpoints (`fui-critical`, `fui-allcanvas`)
+  - `scripts/coda_embed_probe.js` - Network probe to capture JSON endpoints
+  - `scripts/coda_json_extract.js` - Direct JSON parsing (1,271 pages in 1.4 seconds)
+  - `scripts/coda_storage_optimize.js` - Compress JSON + create SQLite/FTS5 database
+- Storage optimization:
+  - `data/coda_raw/archive/*.gz` - Compressed JSON (107MB → 11MB, 90% reduction)
+  - `data/coda_raw/coda_content.db` - SQLite + FTS5 for full-text search (20MB)
+  - `data/coda_raw/pages_json/*.md` - 1,271 markdown files for RAG embedding
+- Performance: 1,271 pages extracted in 1.4 seconds at $0 cost (vs 20+ min and $0.10/page for vision)
+- Search example: `sqlite3 coda_content.db "SELECT title FROM pages_fts WHERE pages_fts MATCH 'prototype'"`
+
+**Coda Extraction Strategy (2026-01-12)**:
+
+- Documentation for comprehensive Coda data extraction (`docs/coda-extraction/`)
+  - `coda-extraction-doc.md` - "Extract Everything, Decide Later" philosophy
+  - `coda-extraction-pmt.md` - Playwright workflow prompt for page extraction
+- Key decisions:
+  - Coda as peer data source (equal weight to Intercom themes)
+  - Hybrid extraction: Playwright (pages) + API (tables, hierarchy)
+  - Output structure: `data/coda_raw/` with manifest tracking
+  - Supports multiple downstream uses: theme source, story enrichment, validation signal
+
+**Skills Migration (2026-01-12)**:
+
+- Migrated v1 agent profiles to v2 skills architecture (PR #31)
+- Converted old agent profiles (`docs/process-playbook/agents/`) to redirect stubs
+- Skills now in `.claude/skills/{agent}/SKILL.md + IDENTITY.md`
+- Declarative context loading via `keywords.yaml`
+
 **Coda Story Formatting & Markdown Rendering (2026-01-12)**:
 
 - Coda story formatting functions (`src/story_formatter.py`):
@@ -55,6 +87,7 @@ Format: [ISO Date] - Summary of changes
 
 **Webapp Bug Fixes (2026-01-12)**:
 
+- Fixed Tailwind CSS resolution error in Next.js Turbopack - Added `turbopack.root: process.cwd()` to `next.config.ts`
 - Fixed analytics 500 error - SQL referenced non-existent `theme_signature` column
 - Fixed "Refresh from Shortcut" appending duplicate metadata - Added `_strip_feedforward_metadata()` regex
 - Fixed UI theme flash on page refresh - Inline script sets theme before React hydration

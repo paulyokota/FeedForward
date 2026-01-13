@@ -206,16 +206,44 @@ Raw Coda content normalizes to `NormalizedConversation` format:
 
 ## Related Code
 
-| File                              | Purpose                           |
-| --------------------------------- | --------------------------------- |
-| `src/coda_client.py`              | Coda API client                   |
-| `src/adapters/coda_adapter.py`    | Normalizes Coda data for pipeline |
-| `scripts/load_coda_json.py`       | Loads extracted JSON into DB      |
-| `scripts/import_coda_research.py` | Research-specific import logic    |
+| File                              | Purpose                              |
+| --------------------------------- | ------------------------------------ |
+| `scripts/coda_full_extract.js`    | **Standalone Playwright extraction** |
+| `src/coda_client.py`              | Coda API client                      |
+| `src/adapters/coda_adapter.py`    | Normalizes Coda data for pipeline    |
+| `scripts/load_coda_json.py`       | Loads extracted JSON into DB         |
+| `scripts/import_coda_research.py` | Research-specific import logic       |
+
+## Standalone Extraction Script
+
+For independent, resumable extraction without Claude Code token usage:
+
+```bash
+# Run the standalone extraction script
+node scripts/coda_full_extract.js
+```
+
+**Features**:
+
+- Launches Chromium with persistent profile (auth only needed once)
+- Recursively discovers all pages from navigation and content links
+- Extracts content with scroll-to-load for lazy content
+- Resumable via manifest (skips already-extracted pages)
+- Logs progress to console and `data/coda_raw/extraction.log`
+- Saves pages to `data/coda_raw/pages/` with metadata
+
+**Configuration** (in `scripts/coda_full_extract.js`):
+
+- `LOGIN_TIMEOUT_MS`: Time to wait for authentication (default 3min)
+- `PAGE_TIMEOUT_MS`: Navigation timeout per page (default 45s)
+- `VIEWPORT`: Browser window size (default 1920x1080)
+- `MIN_CONTENT_LENGTH`: Skip pages with less content (default 50 chars)
+
+**Web UI**: A control panel is available in the Story Tracking webapp at `/tools/extraction`.
 
 ## Next Steps
 
-1. **Run full extraction** - Playwright + API hybrid
+1. **Run full extraction** - `node scripts/coda_full_extract.js`
 2. **Store in `data/coda_raw/`** - Version controlled archive
 3. **Review extraction quality** - Spot check content
 4. **Update adapter** - Expand `coda_adapter.py` to handle all content types
