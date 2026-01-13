@@ -169,13 +169,18 @@ For Tailwind products, map to these services with their dependencies:
 3. **Success Indicator:** [how user KNOWS it worked, e.g., "Green checkmark + 'Pinterest Connected' toast for 3s"]
 4. **Recovery Path:** [what happens on failure, e.g., "Clear error message + 'Try Again' button + link to help docs"]
 
-**UX Signals Mapping (connect to Acceptance Criteria):**
-| Signal Type | UI Element | Connected AC |
-|-------------|------------|--------------|
-| Loading | [specific element, e.g., spinner, skeleton] | AC #X |
-| Success | [specific element, e.g., toast, banner, status change] | AC #X |
-| Error | [specific element, e.g., toast type, error page] | AC #X |
-| Recovery | [specific element, e.g., retry button, help link] | AC #X |
+**UX Signals Mapping - CRITICAL: Map EVERY signal to a SPECIFIC acceptance criterion:**
+
+You MUST fill this table with actual AC references. Each signal type MUST map to at least one AC below.
+
+| Signal Type | UI Element | Verifies AC # | Test Method |
+|-------------|------------|---------------|-------------|
+| Loading | [e.g., `#loading-spinner`] | AC #1 (Happy) | Assert visible during operation |
+| Success | [e.g., `[data-testid="success-toast"]`] | AC #6 (Feedback) | Assert text matches expected message |
+| Error | [e.g., `.error-message-banner`] | AC #4-5 (Error) | Assert appears within 3s of failure |
+| Recovery | [e.g., `button[data-action="retry"]`] | AC #4-5 (Error) | Assert clickable, triggers retry flow |
+
+**IMPORTANT**: After writing acceptance criteria, VERIFY each row in this table references a valid AC number.
 
 ## Acceptance Criteria
 
@@ -220,6 +225,12 @@ Example set with COMPLETE verification methods:
   - **Verify**: Unit test with MSW mock - Assert error toast contains exact message - Expected: Toast visible for 5s, retry button appears
 - [ ] **[Feedback]** Given any connection attempt, when the process completes (success or failure), then user receives visual feedback
   - **Verify**: E2E test timing - Assert feedback element appears within 3000ms of click event - Expected: p95 latency < 3s
+
+**CROSS-REFERENCE CHECK**: After writing all 6 ACs above, verify that:
+- [ ] Every row in the UX Signals Mapping table references a valid AC number from this section
+- [ ] AC #1 (Happy) is referenced by the Success signal
+- [ ] AC #4-5 (Error) are referenced by the Error and Recovery signals
+- [ ] AC #6 (Feedback) ties UX signals to observable outcomes
 
 ## Success Metrics
 
