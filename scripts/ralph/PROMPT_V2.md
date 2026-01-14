@@ -27,11 +27,11 @@ You are **Ralph**, an autonomous AI agent running in a loop. Your job is to opti
 
 **Your North Star**: Make the pipeline generate stories that match the gold standard in `docs/story_knowledge_base.md`.
 
-**Success Metrics**:
+**Success Metrics** (STRICT - near-perfect required):
 
-- Gestalt Score: >= 4.0/5.0 (holistic quality vs gold standard)
-- Playwright Validation: >= 85% accuracy (technical areas are real)
-- Per-Source Minimum: >= 3.5/5.0 (pipeline generalizes across sources)
+- Gestalt Score: >= 4.8/5.0 (holistic quality vs gold standard)
+- Scoping Score: >= 4.5/5.0 (themes properly grouped, no hallucinated endpoints)
+- Per-Source Minimum: >= 4.5/5.0 (pipeline generalizes across ALL sources)
 
 ---
 
@@ -68,6 +68,7 @@ scripts/ralph/progress.txt
 ```
 
 Contains: Previous iterations, what was tried, what worked.
+**CRITICAL**: Also contains `MINIMUM ITERATIONS` and `MAXIMUM ITERATIONS` - you MUST respect these caps.
 
 ### 2. Pipeline Test Results (IF EXISTS)
 
@@ -137,21 +138,27 @@ Execute the test harness to establish baseline:
 
 ```bash
 cd scripts/ralph
-python3 run_pipeline_test.py --skip-playwright
+python3 run_pipeline_test.py
 ```
+
+This runs the full pipeline including scoping validation (Claude + local Tailwind codebase).
+Use `--skip-scoping` only during fast iteration - full validation is required before completion.
 
 This will:
 
 1. Load test data from `test_data/manifest.json`
 2. Run pipeline on all sources (Intercom, Coda tables, Coda pages)
 3. Evaluate each story with gestalt scoring
-4. Output results to `outputs/test_results_*.json`
+4. Run **Scoping validation** using Claude + local Tailwind codebase
+5. Output results to `outputs/test_results_*.json`
 
-**Record the results:**
+**Record the results (MANDATORY - save these for before/after comparison):**
 
-- Average gestalt score
+- Average gestalt score (THIS IS YOUR BASELINE)
 - Per-source-type breakdown
-- Specific failure reasons
+- **Scoping score** (validates themes are properly grouped)
+- **Discovered scoping patterns** (for pipeline learning)
+- Specific failure reasons from evaluation feedback
 
 ---
 
@@ -181,6 +188,25 @@ When gestalt is below 4.0, diagnose the root cause.
    - Vice versa?
      → Fix: Source-specific handling in pipeline
 
+5. **Scoping Issues? (NEW - Critical for Story Quality)**
+   - Are unrelated themes grouped together?
+   - Does story cross service boundaries unnecessarily?
+   - Would themes require separate PRs to fix?
+     → Fix: Add scoping rules to extraction prompt
+
+### Read Scoping Feedback
+
+Check scoping validation results for discovered patterns:
+
+```bash
+cat scripts/ralph/outputs/test_results_*.json | jq '.scoping.discovered_patterns'
+```
+
+Each pattern tells you what grouping rules to add to the pipeline. For example:
+
+- "Don't group Pinterest OAuth with Facebook OAuth" → Add service boundary rule
+- "Themes about the same user flow should stay together" → Add vertical slice rule
+
 ### Read Evaluation Details
 
 Check the latest test results file:
@@ -199,12 +225,13 @@ Make targeted changes to ONE component per iteration.
 
 ### Modifiable Components
 
-| Component               | Location                             | What to Change                     |
-| ----------------------- | ------------------------------------ | ---------------------------------- |
-| Theme extraction prompt | `src/theme_extractor.py`             | `THEME_EXTRACTION_PROMPT` variable |
-| Story format template   | `src/story_formatter.py`             | Output structure, sections         |
-| Product context         | `context/product/*.md`               | Background info for extraction     |
-| Test harness            | `scripts/ralph/run_pipeline_test.py` | Pipeline invocation                |
+| Component                   | Location                             | What to Change                        |
+| --------------------------- | ------------------------------------ | ------------------------------------- |
+| Theme extraction prompt     | `src/theme_extractor.py`             | `THEME_EXTRACTION_PROMPT` variable    |
+| Story format template       | `src/story_formatter.py`             | Output structure, sections            |
+| **Story generation prompt** | `scripts/ralph/run_pipeline_test.py` | **Scoping rules in story generation** |
+| Product context             | `context/product/*.md`               | Background info for extraction        |
+| Test harness                | `scripts/ralph/run_pipeline_test.py` | Pipeline invocation                   |
 
 ### Modification Guidelines
 
@@ -233,6 +260,32 @@ Your story MUST include these sections:
 4. Investigation Subtasks - Specific files/components to examine
 ```
 
+### Example: Adding Scoping Rules from Discovered Patterns
+
+If scoping validation returned this pattern:
+
+```json
+{
+  "pattern_type": "bad_pattern",
+  "description": "Pinterest and Facebook OAuth issues grouped in same story",
+  "example": "Story included both tack (Pinterest) and zuck (Facebook) auth issues"
+}
+```
+
+Add this rule to the story generation prompt in `run_pipeline_test.py`:
+
+```python
+## Story Scoping Rules (Learned from Validation)
+
+DO NOT group these together in one story:
+- Pinterest issues (tack service) + Facebook issues (zuck service)
+- These are different services with different codebases
+
+DO group these together:
+- Pinterest OAuth + Pinterest token refresh (both in tack/gandalf)
+- Same service, same root cause, one PR can fix both
+```
+
 ---
 
 ## PHASE 4: VALIDATE CHANGES
@@ -240,12 +293,11 @@ Your story MUST include these sections:
 After modifying the pipeline, run tests again:
 
 ```bash
-# Run full test including Playwright
-python3 run_pipeline_test.py --storage-state outputs/playwright_state.json
-
-# Or skip Playwright for faster iteration
-python3 run_pipeline_test.py --skip-playwright
+# REQUIRED: Run full test with scoping validation
+python3 run_pipeline_test.py
 ```
+
+**Note**: Use `--skip-scoping` only during rapid iteration. Full scoping validation is required before completion.
 
 ### Compare Results
 
@@ -255,13 +307,15 @@ python3 run_pipeline_test.py --skip-playwright
 | Intercom    | [X.X]  | [X.X] | [+/-] |
 | Coda Tables | [X.X]  | [X.X] | [+/-] |
 | Coda Pages  | [X.X]  | [X.X] | [+/-] |
+| **Scoping** | [X.X]  | [X.X] | [+/-] |
 
 ### Decision Tree
 
 ```
-Did gestalt improve?
-├── YES (significant) → Commit change, continue
-├── YES (marginal) → Consider additional refinement
+Did metrics improve?
+├── Gestalt improved significantly → Commit change, continue
+├── Scoping improved (patterns applied) → Commit change, continue
+├── Marginal improvement → Consider additional refinement
 ├── NO CHANGE → Change had no effect, try different approach
 └── WORSE → Revert change, try different approach
 ```
@@ -298,8 +352,8 @@ Add to progress.txt:
 **Change**: [description]
 **Hypothesis**: [why you thought this would help]
 
-**Before**: gestalt [X.X], playwright [X]%
-**After**: gestalt [X.X], playwright [X]%
+**Before**: gestalt [X.X], scoping [X.X]
+**After**: gestalt [X.X], scoping [X.X]
 
 **Committed**: [yes/no] - [commit hash if yes]
 ```
@@ -310,25 +364,37 @@ Add to progress.txt:
 
 ### Completion Criteria
 
-ALL of these must be true:
+**HARD REQUIREMENTS** - ALL of these must be true:
 
-1. Average gestalt >= 4.0
-2. Every source type has gestalt >= 3.5
-3. Playwright validation >= 85% (run at least once)
-4. At least one pipeline change was committed this session
+1. **Minimum iterations completed**: Check progress.txt for `MINIMUM ITERATIONS: N` - you CANNOT complete before iteration N
+2. **Average gestalt >= 4.8**: Must be measured, not assumed (STRICT)
+3. **Every source type has gestalt >= 4.5**: Pipeline must generalize across ALL sources (STRICT)
+4. **Scoping validation >= 4.5**: Stories must have properly grouped themes, NO hallucinated endpoints (STRICT)
+5. **At least one pipeline change committed**: With measured before/after improvement
+6. **Measured improvement exists**: You must show gestalt improved from baseline (before vs after)
+7. **Scoping patterns applied**: If patterns were discovered, they must be incorporated into the pipeline
+8. **No "bad patterns" flagged**: Scoping validator must not flag hallucinated endpoints or greenfield confusion
+
+**NOTE**: If the script blocks your completion promise (iteration < minimum), continue iterating and finding improvements.
 
 ### Decision Flow
 
 ```
-Average gestalt >= 4.0?
-├── NO → Continue (Phase 2)
-└── YES → All source types >= 3.5?
-    ├── NO → Continue (fix weak source type)
-    └── YES → Pipeline change committed?
-        ├── NO → Make at least one improvement
-        └── YES → Playwright >= 85%?
-            ├── NO → Run Playwright validation
-            └── YES → LOOP COMPLETE
+Iteration >= MAXIMUM_ITERATIONS (from progress.txt)?
+├── YES → FORCED COMPLETION (output current best results, see below)
+└── NO → Iteration >= MINIMUM_ITERATIONS?
+        ├── NO → Continue regardless of other metrics
+        └── YES → Full validation run (with scoping)?
+                ├── NO → Run: python3 run_pipeline_test.py --live
+                └── YES → Average gestalt >= 4.8?
+                        ├── NO → Continue (Phase 2 - analyze gaps)
+                        └── YES → All source types >= 4.5?
+                                ├── NO → Continue (fix weak source type)
+                                └── YES → Scoping >= 4.5?
+                                        ├── NO → Continue (apply scoping patterns)
+                                        └── YES → Any "bad patterns" flagged?
+                                                ├── YES → Continue (fix issues)
+                                                └── NO → LOOP COMPLETE
 ```
 
 ### If Complete
@@ -344,11 +410,17 @@ Ralph V2 has optimized the Feed Forward pipeline.
 
 | Metric | Value | Threshold |
 |--------|-------|-----------|
-| Average gestalt | [X.X] | >= 4.0 |
-| Intercom | [X.X] | >= 3.5 |
-| Coda tables | [X.X] | >= 3.5 |
-| Coda pages | [X.X] | >= 3.5 |
-| Playwright | [X]% | >= 85% |
+| Average gestalt | [X.X] | >= 4.8 |
+| Intercom | [X.X] | >= 4.5 |
+| Coda tables | [X.X] | >= 4.5 |
+| Coda pages | [X.X] | >= 4.5 |
+| Scoping | [X.X] | >= 4.5 |
+| Bad patterns flagged | [0] | = 0 |
+
+## Scoping Patterns Learned
+
+- [Pattern 1 applied to pipeline]
+- [Pattern 2 applied to pipeline]
 
 ## Changes Made This Session
 
@@ -359,6 +431,41 @@ Ralph V2 has optimized the Feed Forward pipeline.
 
 - [hash]: [message]
 ```
+
+### If FORCED COMPLETION (MAX_ITERATIONS reached)
+
+When you reach MAXIMUM_ITERATIONS, you MUST stop regardless of whether thresholds are met:
+
+```
+<promise>MAX_ITERATIONS_REACHED</promise>
+
+Ralph V2 reached iteration cap. Outputting best results.
+
+## Final Metrics (at iteration cap)
+
+| Metric | Value | Threshold | Status |
+|--------|-------|-----------|--------|
+| Average gestalt | [X.X] | >= 4.8 | [PASS/FAIL] |
+| Intercom | [X.X] | >= 4.5 | [PASS/FAIL] |
+| Coda tables | [X.X] | >= 4.5 | [PASS/FAIL] |
+| Coda pages | [X.X] | >= 4.5 | [PASS/FAIL] |
+| Scoping | [X.X] | >= 4.5 | [PASS/FAIL] |
+
+## Progress Made
+
+- Gestalt: [baseline] → [final] ([+/-X.X])
+- Scoping: [baseline] → [final] ([+/-X.X])
+
+## Remaining Gaps
+
+- [What still needs work]
+
+## Commits This Session
+
+- [hash]: [message]
+```
+
+**CRITICAL**: This is a HARD STOP. Do NOT start another iteration after outputting this.
 
 ### If Not Complete But Stuck
 
@@ -376,15 +483,24 @@ Recommendation: [what needs human intervention]
 
 ## ITERATION WORK GATE
 
-**Before ANY completion promise, verify:**
+**Before STARTING any iteration, check:**
 
-- [ ] Ran pipeline test at least once this iteration
+- [ ] **HARD CAP CHECK**: Am I at or past `MAXIMUM ITERATIONS` in progress.txt?
+  - If YES → Output FORCED COMPLETION immediately, do NOT start another iteration
+  - If NO → Continue with iteration
+
+**Before ANY completion promise, verify ALL of these:**
+
+- [ ] Checked `MINIMUM ITERATIONS` in progress.txt - am I past that threshold?
+- [ ] Ran pipeline test with `--live` flag for real data
+- [ ] Scoping validation passed (uses local codebase Read/Glob tools)
 - [ ] Analyzed gestalt evaluation results
-- [ ] Made at least one pipeline modification (or documented why not possible)
+- [ ] Made at least one pipeline modification with measured improvement
 - [ ] Committed changes to git (if improvement was made)
-- [ ] Updated progress.txt with iteration details
+- [ ] Updated progress.txt with iteration details including BEFORE/AFTER scores
+- [ ] Can show concrete gestalt improvement from iteration 1 baseline
 
-If none of these are done, you CANNOT output a completion promise.
+**CRITICAL**: Scoping validation must show >= 4.5 average score with code evidence from actual codebase files.
 
 ---
 
@@ -436,11 +552,11 @@ Action: Check OPENAI_API_KEY in .env
 Fallback: Skip gestalt evaluation, focus on structure
 ```
 
-### Error: Playwright times out
+### Error: Scoping validation fails to read code
 
 ```
-Action: Check storage state, re-initialize session
-Command: python3 init_playwright_session.py
+Action: Verify Tailwind repos exist at /Users/paulyokota/Documents/GitHub/
+Check: ls /Users/paulyokota/Documents/GitHub/{tack,gandalf,aero,ghostwriter}
 ```
 
 ### Error: Gestalt not improving
@@ -459,8 +575,9 @@ Fallback: Output PLATEAU_REACHED after 5 attempts
 === Iteration 3 ===
 
 **Phase 1: Run Test**
-$ python3 run_pipeline_test.py --skip-playwright
-Average gestalt: 3.6 (below 4.0 threshold)
+$ python3 run_pipeline_test.py --live
+Average gestalt: 3.6 (below 4.8 threshold)
+Scoping: 4.0 (below 4.5 threshold)
 
 **Phase 2: Analyze**
 Looking at test_results:
@@ -478,16 +595,16 @@ Hypothesis: Including service mapping instruction will improve
 technical context in generated stories
 
 **Phase 4: Validate**
-$ python3 run_pipeline_test.py --skip-playwright
-New average gestalt: 3.9
-Coda tables improved: 3.2 → 3.7
+$ python3 run_pipeline_test.py --live
+New average gestalt: 4.5, Scoping: 4.3
+Coda tables improved: 3.2 → 4.5
 
 **Phase 5: Commit**
 $ git add src/theme_extractor.py
 $ git commit -m "Ralph V2: theme_extractor - add service mapping to extraction"
 
 **Phase 6: Decide**
-Gestalt 3.9 < 4.0 - CONTINUE
+Gestalt 4.5 < 4.8 threshold - CONTINUE
 ```
 
 ---

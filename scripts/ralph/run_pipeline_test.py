@@ -168,21 +168,38 @@ Generate a story in this EXACT format:
 
 For Tailwind products, map to these services with their dependencies:
 
+**🚨 BEFORE WRITING DEPENDENCY CHAINS, READ THIS 🚨**
+
+If your story is about Pinterest OAuth, Facebook OAuth, or content generation:
+- **DO NOT include gandalf** - gandalf is ONLY for internal employee SSO
+- Pinterest OAuth chain: `aero → tack → Pinterest API` (NO gandalf)
+- Facebook OAuth chain: `aero → zuck → Meta API` (NO gandalf)
+- Content generation: `aero (ghostwriter-labs) → ghostwriter` (NO gandalf)
+
 **Service Architecture (VERIFIED against actual codebase):**
 
 IMPORTANT: Verify service responsibilities before referencing them!
 - **gandalf**: Handles INTERNAL Tailwind authentication (Google OAuth for employees), NOT Pinterest/Facebook
 - **tack**: Pinterest integration - handles Pinterest OAuth, token storage, scheduling
 - **zuck**: Facebook/Instagram integration - handles Meta OAuth, token storage
-- **aero**: Main monorepo - frontend UI, API routes, shared services
-- **ghostwriter**: AI text generation, uses brandy2 for brand voice
-- **brandy2**: Brand voice/settings data provider
+- **aero**: Main monorepo - frontend UI, API routes, AND brand voice injection (ghostwriter-labs module)
+- **ghostwriter**: AI text generation backend - receives prompts from aero, DOES NOT call brandy2 directly
+- **brandy2**: Brand voice/settings data provider - called by AERO, not ghostwriter
+
+**⚠️ CRITICAL: Brand Voice Architecture (Often Misunderstood):**
+- Brand voice injection happens in AERO, not ghostwriter
+- Code path: aero/packages/core/src/ghostwriter-labs/generators/*.ts
+- The `injectPersonalization()` function in aero fetches brand data from brandy2
+- Ghostwriter receives the ALREADY-PERSONALIZED prompt from aero
+- If a feature "lacks brand voice", the fix is in AERO (add injectPersonalization), NOT ghostwriter
 
 **Dependency chains:**
 - **Pinterest OAuth:** aero UI → tack (OAuth handlers) → Pinterest API
 - **Facebook OAuth:** aero UI → zuck (OAuth handlers) → Meta Graph API
-- **AI/Ghostwriter:** User input → ghostwriter (LLM orchestration) → brandy2 (brand voice data) → content delivery
+- **AI/Content Generation:** aero (fetches brand from brandy2, builds prompt) → ghostwriter (LLM call) → returns to aero
 - **Scheduling:** aero UI → tack (Pinterest scheduler) → Pinterest API
+
+**NOTE**: ghostwriter DOES NOT call brandy2. The flow is: aero → brandy2 (get brand), aero → ghostwriter (with personalized prompt)
 
 **CRITICAL: Distinguish Greenfield vs Existing Code**
 
@@ -218,11 +235,13 @@ You MUST explicitly classify this story as one of:
   - Example (bug): "aero/src/pages/api/pinterest/oauth/callback.ts (EXISTING - token handling)"
   - Example (new): "tack/src/services/timezone-handler.ts (TO BE CREATED)"
 - **Inter-Service Communication:** [how services talk to each other]
-  - Example: "REST API call from gandalf to tack via internal endpoint /api/internal/tokens"
+  - Example: "REST API call from aero to tack via internal endpoint /api/internal/oauth/finalize"
+  - Example: "aero's ghostwriter-labs calls brandy2 client to get brand settings, then calls ghostwriter with personalized prompt"
+  - NOTE: ghostwriter does NOT call brandy2 directly - aero mediates all brand voice data
 - **Error Patterns to Search:** [specific error codes, log patterns, exceptions]
   - Example: "Look for 'invalid_grant' in tack logs, 'ECONNREFUSED' in tack→Pinterest API calls"
 
-**STORY SCOPING RULES (Learned from Validation)**
+**STORY SCOPING RULES (CRITICAL - Validated Against Codebase)**
 
 When grouping themes into a story, follow these rules:
 
@@ -232,10 +251,74 @@ DO bundle themes that:
 - Are variations of the same user flow (edge cases of happy path)
 
 DO NOT bundle:
-- Unrelated LLM features (brand voice + caption generation + hashtags)
-- Features from different data flows (session-based vs per-request)
-- Net-new features with bug fixes to existing features
-- Conflict detection with timezone display (different features)
+- **MISSING FEATURES with BUG FIXES** - If a feature doesn't exist (e.g., brandy2 integration in ghostwriter), DON'T claim it's "broken". Instead, classify as NEW FEATURE
+- Different data flows (REST integration vs state management)
+- Unrelated user symptoms that LOOK similar but have different technical roots
+- Issues requiring different engineers (frontend vs backend specialists)
+
+**🚨 GHOSTWRITER SCOPING (CRITICAL - These are ALWAYS separate stories):**
+
+If user feedback mentions Ghostwriter/AI content issues, these are DIFFERENT stories:
+
+1. **"Content is generic/robotic"** = Brand voice issue
+   - Root cause: Missing `injectPersonalization()` call in aero
+   - Fix location: aero/packages/core/src/ghostwriter-labs/generations/chat.ts (NOTE: "generations" not "generators")
+   - Effort: ~1 day (add function call, same pattern as pinterest-title-and-description.ts)
+
+2. **"AI forgets what I said"** = Context retention issue
+   - Root cause: Token limit trimming (BY DESIGN - 4096 token limit)
+   - Fix location: Multiple files, architectural decision needed
+   - Effort: ~1-2 weeks (database/cache design, multi-tab sync)
+
+**THESE ARE NOT THE SAME BUG.** If user mentions both, write 2 separate stories.
+
+Example of WRONG: "Fix Ghostwriter brand voice and context retention"
+Example of RIGHT: Story A: "Add brand voice to Ghostwriter chat" + Story B: "Improve Ghostwriter context handling"
+
+**CRITICAL VALIDATION QUESTIONS (Ask Before Finalizing Story):**
+
+1. **Is this actually broken, or never implemented?**
+   - If no code path exists for the feature, it's a NEW FEATURE, not a bug
+   - Example: ghostwriter has NO brandy2 integration - brand voice is NOT broken, it doesn't exist
+
+2. **Do all themes share ONE code change to fix?**
+   - If different modules/services need changes, SPLIT the story
+   - Example: "fetch brand data" (REST) vs "persist session" (cache) = 2 separate stories
+
+3. **Is the dependency chain actually correct?**
+   - gandalf = internal employee auth ONLY (Google SSO)
+   - Pinterest OAuth goes: Pinterest API → tack → aero (NO gandalf)
+   - Facebook OAuth goes: Meta API → zuck → aero (NO gandalf)
+
+4. **Are the complexity levels compatible?**
+   - Simple: Adding a parameter, fixing a typo, updating a message
+   - Medium: Adding a new field to an API, modifying UI component
+   - Complex: Adding service-to-service integration, adding state management, architectural changes
+
+   **SPLIT IF**: One theme is Simple/Medium and another is Complex
+   Example: "Pass brandId to endpoint" (Simple) + "Add server-side session storage" (Complex) = SPLIT INTO 2 STORIES
+
+5. **Is this grouping by USER SYMPTOM or TECHNICAL ROOT CAUSE?**
+   - BAD: "Users report bad content" (symptom) - could be brand voice, context, prompts, etc.
+   - GOOD: "Chat endpoint doesn't pass brandId to prompt builder" (specific root cause)
+
+   If multiple themes share a SYMPTOM but have DIFFERENT ROOT CAUSES, SPLIT THEM.
+
+6. **Is this behavior WORKING AS DESIGNED, or actually broken?**
+   - Many "issues" are intentional tradeoffs (e.g., token limits, rate limits, session timeouts)
+   - Example: Ghostwriter chat "forgetting context" may be BY DESIGN (token limit trimming)
+   - If behavior is documented/intentional, classify as ENHANCEMENT REQUEST, not bug
+
+7. **Do ALL acceptance criteria test the SAME feature?**
+   - BAD: AC #1 tests brand voice, AC #3 tests session persistence (different features)
+   - GOOD: All 6 ACs test variations of timezone display (same feature, different scenarios)
+
+   **RULE**: If you can't explain how ALL ACs relate to ONE code change, SPLIT the story.
+
+8. **Have you VERIFIED the feature exists before claiming it's broken?**
+   - Before writing "X doesn't work", check if code path for X even exists
+   - Example: ghostwriter chat.handler.ts has NO brandy2 import - brand voice isn't "broken", it's MISSING
+   - If feature doesn't exist, write it as NEW FEATURE story, not BUG FIX
 
 **CRITICAL FOR HIGH-QUALITY STORIES: Add Pre-Investigation Analysis**
 
@@ -248,18 +331,43 @@ To reach GOLD STANDARD quality (4.8+/5.0), you MUST include this section:
 - Counter-evidence to consider: [What might disprove this hypothesis]
 - Confidence level: [HIGH/MEDIUM/LOW] based on evidence strength
 
-**Code Paths to Examine (IMPORTANT: Tailwind uses TypeScript/Next.js):**
+**Code Paths to Examine (IMPORTANT: Tailwind uses TypeScript/Next.js monorepo):**
 
-Tailwind codebase is TypeScript, NOT Python. Use these path patterns:
-1. aero/src/pages/api/[endpoint].ts - API routes
-2. aero/src/components/[component-name].tsx - React components
-3. aero/src/services/[service-name].ts - Service layer
-4. [service-name]/src/[module].ts - Backend services
+Tailwind codebase is TypeScript with Next.js App Router. Use these ACTUAL path patterns:
 
-Example file paths (TypeScript):
-- "aero/src/pages/api/pinterest/oauth/callback.ts" - OAuth callback handler
-- "ghostwriter/src/services/chat-handler.ts" - Ghostwriter chat logic
-- "tack/src/services/scheduler.ts" - Pinterest scheduler
+**aero (frontend monorepo):**
+1. aero/packages/tailwindapp/app/[route]/page.tsx - Page components
+2. aero/packages/tailwindapp/app/dashboard/v3/api/[endpoint]/route.ts - API routes (App Router)
+3. aero/packages/tailwindapp/client/domains/[domain]/components/*.tsx - Feature components
+4. aero/packages/tailwindapp/client/hooks/*.ts - React hooks
+5. aero/packages/core/src/[module]/*.ts - Shared core logic
+
+**Backend services:**
+1. tack/service/lib/handlers/api/[endpoint]/[endpoint]-handler.ts - API handlers
+2. tack/service/lib/clients/pinterestv5/*.ts - Pinterest API clients
+3. ghostwriter/stack/service/handlers/api/[endpoint]/[endpoint].handler.ts - Ghostwriter APIs
+4. brandy2/packages/client/src/*.ts - Brand data client
+
+Example file paths (ACTUAL paths from codebase):
+- "aero/packages/tailwindapp/app/dashboard/v3/api/oauth/pinterest/callback/route.ts" - Pinterest OAuth callback
+- "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts" - OAuth token finalization
+- "ghostwriter/stack/service/handlers/api/chat/chat.handler.ts" - Ghostwriter chat handler
+- "aero/packages/tailwindapp/client/domains/scheduler/components/*.tsx" - Scheduler UI components
+
+**⚠️ CRITICAL: DO NOT HALLUCINATE FILE PATHS ⚠️**
+
+If you're UNSURE about a specific file path:
+- Use GENERIC patterns with wildcards: "ghostwriter/stack/service/handlers/api/**/*.handler.ts"
+- Say "Investigate [service]/[module] for [functionality]" instead of inventing specific filenames
+- NEVER reference files like "session.manager.ts" or "brand-voice-handler.ts" unless you KNOW they exist
+- If the user feedback doesn't mention specific code, use exploratory language: "Search for [pattern]"
+
+**Known Ghostwriter endpoints (verified):**
+- /api/chat - Main chat handler (chat.handler.ts)
+- /prompt/pinterest-title-and-description - Pinterest content generation
+- /prompt/facebook-post - Facebook post generation
+
+**DO NOT reference:** /api/v1/ghostwriter/generate (doesn't exist)
 
 **Database/State to Check:**
 - Table/Collection: [specific table name]
