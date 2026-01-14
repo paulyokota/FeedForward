@@ -95,6 +95,22 @@ src/story_formatter.py          # Output formatting
 
 Contains: The code you'll be modifying.
 
+### 5. Knowledge Cache (Learning System)
+
+```
+scripts/ralph/knowledge_cache.py       # Learning system module
+scripts/ralph/learned_patterns.json    # Cached patterns (auto-generated)
+docs/tailwind-codebase-map.md          # Core codebase reference
+```
+
+Contains: Patterns learned from previous scoping validations. The knowledge cache automatically:
+
+- Captures good/bad patterns discovered during scoping validation
+- Loads relevant codebase context into story generation prompts
+- Tracks service-specific insights for better technical accuracy
+
+**NOTE**: `learned_patterns.json` is auto-updated after each scoping validation run.
+
 ---
 
 ## PHASE 0: ORIENTATION
@@ -147,10 +163,14 @@ Use `--skip-scoping` only during fast iteration - full validation is required be
 This will:
 
 1. Load test data from `test_data/manifest.json`
-2. Run pipeline on all sources (Intercom, Coda tables, Coda pages)
-3. Evaluate each story with gestalt scoring
-4. Run **Scoping validation** using Claude + local Tailwind codebase
-5. Output results to `outputs/test_results_*.json`
+2. **Load knowledge context** from `learned_patterns.json` + codebase map
+3. Run pipeline on all sources (Intercom, Coda tables, Coda pages)
+4. Evaluate each story with gestalt scoring
+5. Run **Scoping validation** using Claude + local Tailwind codebase
+6. **Auto-update knowledge cache** with discovered patterns
+7. Output results to `outputs/test_results_*.json`
+
+**Learning Loop**: Steps 2 and 6 form an automatic learning loop. Each run improves future runs by capturing what the validator learns about good/bad patterns.
 
 **Record the results (MANDATORY - save these for before/after comparison):**
 
@@ -202,6 +222,12 @@ Check scoping validation results for discovered patterns:
 cat scripts/ralph/outputs/test_results_*.json | jq '.scoping.discovered_patterns'
 ```
 
+**Or check the knowledge cache directly** (patterns are auto-captured):
+
+```bash
+cat scripts/ralph/learned_patterns.json | jq '.patterns'
+```
+
 Each pattern tells you what grouping rules to add to the pipeline. For example:
 
 - "Don't group Pinterest OAuth with Facebook OAuth" → Add service boundary rule
@@ -225,13 +251,15 @@ Make targeted changes to ONE component per iteration.
 
 ### Modifiable Components
 
-| Component                   | Location                             | What to Change                        |
-| --------------------------- | ------------------------------------ | ------------------------------------- |
-| Theme extraction prompt     | `src/theme_extractor.py`             | `THEME_EXTRACTION_PROMPT` variable    |
-| Story format template       | `src/story_formatter.py`             | Output structure, sections            |
-| **Story generation prompt** | `scripts/ralph/run_pipeline_test.py` | **Scoping rules in story generation** |
-| Product context             | `context/product/*.md`               | Background info for extraction        |
-| Test harness                | `scripts/ralph/run_pipeline_test.py` | Pipeline invocation                   |
+| Component                   | Location                             | What to Change                         |
+| --------------------------- | ------------------------------------ | -------------------------------------- |
+| Theme extraction prompt     | `src/theme_extractor.py`             | `THEME_EXTRACTION_PROMPT` variable     |
+| Story format template       | `src/story_formatter.py`             | Output structure, sections             |
+| **Story generation prompt** | `scripts/ralph/run_pipeline_test.py` | **Scoping rules in story generation**  |
+| Product context             | `context/product/*.md`               | Background info for extraction         |
+| Test harness                | `scripts/ralph/run_pipeline_test.py` | Pipeline invocation                    |
+| **Knowledge cache**         | `scripts/ralph/knowledge_cache.py`   | **Learning rules, pattern extraction** |
+| Codebase map                | `docs/tailwind-codebase-map.md`      | Service/URL/repo mappings              |
 
 ### Modification Guidelines
 
@@ -262,6 +290,11 @@ Your story MUST include these sections:
 
 ### Example: Adding Scoping Rules from Discovered Patterns
 
+**NOTE**: The knowledge cache now auto-captures patterns from scoping validation.
+Patterns in `learned_patterns.json` are automatically loaded into story generation.
+
+For **manual** pattern refinement, you can still modify the prompts directly.
+
 If scoping validation returned this pattern:
 
 ```json
@@ -272,7 +305,7 @@ If scoping validation returned this pattern:
 }
 ```
 
-Add this rule to the story generation prompt in `run_pipeline_test.py`:
+This pattern is **auto-captured** in `learned_patterns.json`. For additional rules, add to `run_pipeline_test.py`:
 
 ```python
 ## Story Scoping Rules (Learned from Validation)
