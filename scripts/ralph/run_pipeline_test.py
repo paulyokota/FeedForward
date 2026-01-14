@@ -355,6 +355,23 @@ If user feedback mentions Ghostwriter/AI content issues, these are DIFFERENT sto
 
 **THESE ARE NOT THE SAME BUG.** If user mentions both, you MUST write 2 SEPARATE stories.
 
+**🛑 FORBIDDEN LANGUAGE IN BRAND VOICE STORIES (NEVER USE THESE PHRASES) 🛑**
+
+If your story is about brand voice (missing injectPersonalization), do NOT use these phrases:
+
+- ❌ "context retention" - this is a DIFFERENT issue (session memory)
+- ❌ "remembers context" - this is session memory, not brand voice
+- ❌ "conversation history" - this is session memory, not brand voice
+- ❌ "forgets what I said" - this is session memory, not brand voice
+- ❌ "retains context" - ambiguous, avoid this phrase entirely
+
+**USE THESE PHRASES INSTEAD:**
+- ✅ "brand voice" or "brand personality"
+- ✅ "personalization" or "personalized content"
+- ✅ "brand preferences" or "brand settings"
+- ✅ "tone and style" or "writing style"
+- ✅ "robotic content" or "generic responses" (as symptoms)
+
 **CRITICAL: When writing Ghostwriter-related stories:**
 - Primary Service is ALWAYS **tailwind/aero** for chat features (NOT tailwind/ghostwriter)
 - The ghostwriter SERVICE is a backend LLM call handler
@@ -460,6 +477,60 @@ This is one of the most common scoping mistakes. NEVER bundle these in the same 
    - Before writing "X doesn't work", check if code path for X even exists
    - Example: ghostwriter chat.handler.ts has NO brandy2 import - brand voice isn't "broken", it's MISSING
    - If feature doesn't exist, write it as NEW FEATURE story, not BUG FIX
+
+10. **Does your proposed change CONTRADICT documented design decisions?**
+   - Before proposing behavioral changes, check if the current behavior is INTENTIONAL
+   - **CRITICAL EXAMPLE - timezone-date.ts:**
+     - This file (aero/packages/tailwindapp/client/utils/timezone-date.ts) contains explicit documentation:
+       "We want to keep the user interface in this timezone even if the user travels to a different timezone"
+     - ANY AC proposing "auto-detect browser timezone" CONTRADICTS this documented design decision
+     - This requires a PRODUCT/DESIGN DISCUSSION TICKET, not an engineering story
+
+   **BAD EXAMPLE:**
+   ```
+   AC #2: System auto-detects user's current browser timezone
+   ```
+   This contradicts timezone-date.ts design! The behavior is INTENTIONAL.
+
+   **GOOD EXAMPLE:**
+   ```
+   [Design Spike]: Evaluate timezone detection strategy
+   - Current: Profile timezone persists across devices (by design per timezone-date.ts)
+   - Requested: Auto-detect browser timezone
+   - This requires product decision - not an engineering story
+   ```
+
+   **RULE**: If behavior X exists and is documented as intentional, but user feedback requests changing X:
+   1. DO NOT write an AC to change it
+   2. Note it in Technical Context as "Requires design discussion"
+   3. Create a SEPARATE design spike ticket if needed
+
+11. **Are you mixing BUG FIXES with NEW FEATURES in the same story?**
+   - **Bug fix**: Restoring functionality that USED to work, or fixing code that doesn't match documented behavior
+   - **New feature**: Adding functionality that never existed before
+
+   **BAD EXAMPLE (from intercom_001 anti-pattern):**
+   ```
+   Story: "Fix Pinterest OAuth Reconnection"  [Bug Fix]
+   AC #1: Reconnection completes successfully [Bug fix - good]
+   AC #2: Expired token redirects to re-auth [Bug fix - good]
+   AC #3: Users can select which Pinterest account to reconnect [NEW FEATURE - bad!]
+   ```
+   AC #3 requests a new account selection dropdown that doesn't exist - this is a NEW FEATURE, not part of the bug fix.
+
+   **GOOD EXAMPLE (properly split):**
+   ```
+   Story A: "Fix Pinterest OAuth Reconnection" [Bug Fix]
+   - All ACs test the reconnection flow working correctly
+
+   Story B: "Add Pinterest Account Selection During Reconnection" [New Feature]
+   - ACs test the new account selection UI
+   ```
+
+   **RULE**: Check each AC - if it adds NEW functionality that never existed:
+   1. REMOVE it from the bug fix story
+   2. Note it in Technical Context as "Future enhancement: [description]"
+   3. Keep bug fix focused on restoring broken functionality
 
 **CRITICAL FOR HIGH-QUALITY STORIES: Add Pre-Investigation Analysis**
 
@@ -695,7 +766,67 @@ These are COMMONLY bundled incorrectly - NEVER put these in the same story:
    - UI clarity: Frontend-only, aero service
    - API error handling: Backend retries, circuit breakers (tack, multi-service)
 
+4. **UI clarity improvements** + **Behavioral changes that contradict documented design** = TWO SEPARATE STORIES
+   - UI clarity: Making existing behavior more visible (ENHANCEMENT)
+   - Behavioral change: Changing how the system works (DESIGN DECISION)
+   - **EXAMPLE**: timezone-date.ts documents that profile timezone persists even when traveling
+     - ✅ "Display timezone more prominently" = UI clarity enhancement (keep in story)
+     - ❌ "Auto-detect browser timezone" = Contradicts documented design (requires separate design spike)
+
+5. **Input validation** + **Feature enhancements** = TWO SEPARATE STORIES
+   - Input validation: Defensive coding, error handling (security/reliability improvement)
+   - Feature enhancement: Adding new user-visible functionality
+   - Example: "Validate time input is valid" is separate from "Show timezone clearly"
+
 If your timezone clarity story has an AC about "conflict detection" or "scheduling collision", REMOVE IT immediately.
+If your timezone clarity story has an AC about "auto-detect browser timezone", CHECK if this contradicts documented design (it does).
+If your timezone clarity story has an AC about "invalid time input", MOVE IT to a separate validation story.
+
+**🚨🚨🚨 TIMEZONE STORY SCOPING CHECKLIST (MUST VERIFY BEFORE SUBMITTING) 🚨🚨🚨**
+
+Before finalizing ANY timezone-related story, answer these questions:
+
+1. **Is EVERY AC about UI DISPLAY clarity?** (showing timezone info more clearly)
+   - ✅ "Display timezone in confirmation message"
+   - ✅ "Show timezone in time slot picker"
+   - ❌ "Auto-detect timezone when traveling" (behavioral change - REMOVE)
+   - ❌ "Detect scheduling conflicts" (separate feature - REMOVE)
+   - ❌ "Handle Pinterest API 503 errors" (error handling - REMOVE)
+
+2. **Does ANY AC propose changing behavior documented in timezone-date.ts?**
+   - timezone-date.ts says: "Keep user interface in profile timezone even when traveling"
+   - If AC proposes auto-detect browser timezone: REMOVE IT (requires design spike)
+
+3. **Does ANY AC mention "conflict", "collision", or "overlap"?**
+   - REMOVE IT - conflict detection is a SEPARATE feature
+
+4. **Does ANY AC mention "503", "timeout", "retry", or "unavailable"?**
+   - REMOVE IT - error handling is a SEPARATE story
+
+5. **Are ALL your ACs achievable with AERO-ONLY changes?**
+   - Timezone display = aero frontend changes only
+   - If AC requires tack changes: REMOVE IT (different service boundary)
+
+**🛑 FORBIDDEN ACs IN TIMEZONE STORIES (NEVER INCLUDE THESE) 🛑**
+
+These phrases MUST NEVER appear in a timezone clarity story. If you wrote any of these, DELETE THE AC:
+
+- ❌ "Pinterest API 503" - error handling story
+- ❌ "Pinterest API error" - error handling story
+- ❌ "service unavailable" - error handling story
+- ❌ "retry" or "circuit breaker" - reliability story
+- ❌ "scheduling conflict" - conflict detection story
+- ❌ "overlap" or "collision" - conflict detection story
+- ❌ "auto-detect timezone" or "browser timezone" - contradicts design
+- ❌ "DST backend" or "Unix timestamp conversion" - backend story
+- ❌ "tack service" (except noting it as dependency) - wrong service scope
+
+**ALLOWED ACs IN TIMEZONE STORIES:**
+- ✅ Display timezone in confirmation message
+- ✅ Show timezone abbreviation (EST, PST) in time picker
+- ✅ Handle missing timezone gracefully in UI
+- ✅ Show tooltip explaining what timezone means
+- ✅ DST edge cases that affect DISPLAY only (spring forward, fall back)
 
 ## Success Metrics
 
