@@ -12,7 +12,48 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Ralph V2 Pipeline Optimization Session (2026-01-13)
+## Latest: Knowledge Cache Learning System (2026-01-13)
+
+### Session Summary
+
+Added a learning system to give the story generator indirect codebase access via cached knowledge. This addresses the scoping validation plateau (3.5) by capturing patterns from validation runs and loading relevant codebase context into story generation.
+
+### What Was Built
+
+**Knowledge Cache Module** (`scripts/ralph/knowledge_cache.py`):
+
+- `load_knowledge_for_generation()` - Loads codebase map, learned patterns, scoping rules, service insights
+- `update_knowledge_from_scoping()` - Captures good/bad patterns from scoping validation
+- Bounded growth (max 50 insights per service), error handling, configuration constants
+- Loads from `docs/tailwind-codebase-map.md` and `learned_patterns.json`
+
+**Pipeline Integration** (`scripts/ralph/run_pipeline_test.py`):
+
+- Loads knowledge context before story generation (~16K chars)
+- Auto-updates cache after each scoping validation run
+- Forms automatic learning loop: generate → validate → learn → generate better
+
+**Documentation Updates** (`scripts/ralph/PROMPT_V2.md`):
+
+- Added knowledge cache to Required Reading (Phase 0, section 5)
+- Added `knowledge_cache.py` to Modifiable Components table
+- Updated Phase 1 steps to show learning loop
+- Noted patterns are now auto-captured from scoping validation
+
+### Commits This Session
+
+- dc8107c: feat: Add knowledge cache learning system for story generation
+- 8d6bf93: docs: Update PROMPT_V2.md with knowledge cache learning system
+
+### Next Steps
+
+- Run full Ralph V2 session to validate knowledge cache improves scoping scores
+- Monitor `learned_patterns.json` growth and pattern quality
+- Consider expanding codebase map with discovered service insights
+
+---
+
+## Previous: Ralph V2 Pipeline Optimization Session (2026-01-13)
 
 ### Session Summary
 

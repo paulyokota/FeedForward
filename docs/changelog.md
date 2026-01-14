@@ -10,6 +10,25 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Knowledge Cache Learning System (2026-01-13)**:
+
+- Learning system for story generation with codebase context
+  - `scripts/ralph/knowledge_cache.py` - Two-phase learning module
+    - `load_knowledge_for_generation()` - Loads codebase map, patterns, rules, insights
+    - `update_knowledge_from_scoping()` - Captures good/bad patterns from validation
+  - `scripts/ralph/learned_patterns.json` - Cached patterns from scoping validation
+  - Bounded growth (max 50 insights per service), error handling, configuration constants
+- Pipeline integration in `scripts/ralph/run_pipeline_test.py`:
+  - Loads knowledge context before story generation (~16K chars)
+  - Auto-updates cache after each scoping validation run
+  - Automatic learning loop: generate → validate → learn → generate better
+- Updated `scripts/ralph/PROMPT_V2.md`:
+  - Added knowledge cache to Required Reading (Phase 0, section 5)
+  - Added `knowledge_cache.py` to Modifiable Components table
+  - Updated Phase 1 steps to show learning loop
+- Renamed `scripts/ralph/PROMPT.md` → `scripts/ralph/PROMPT_V1.md` (for history)
+- Commits: dc8107c, 8d6bf93
+
 **Ralph V2 Pipeline Optimization Session (2026-01-13)**:
 
 - Ran 7-iteration autonomous loop optimizing Feed Forward story generation
