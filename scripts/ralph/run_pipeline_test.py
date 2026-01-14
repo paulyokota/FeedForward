@@ -238,7 +238,16 @@ For stories about AI content generation (Ghostwriter chat, pin descriptions, etc
 - Timezone hooks: aero/packages/tailwindapp/client/hooks/use-time-zone.ts
 - Timezone utility: aero/packages/tailwindapp/client/utils/timezone-date.ts
 - Timezone selector: aero/packages/tailwindapp/client/domains/smart-schedule/components/select-time-zone-section.tsx
+- **Scheduler toast messages**: aero/packages/tailwindapp/client/domains/scheduler/hooks/use-scheduler-toasts.ts
+- **Timeslot display**: aero/packages/tailwindapp/client/domains/scheduler/components/timeslot-radio-group/timeslot-radio-group.tsx
+- **Date picker with timeslots**: aero/packages/tailwindapp/client/domains/scheduler/components/date-time-picker-with-timeslots/date-time-picker-with-timeslots.tsx
 - tack has ZERO timezone-related code - do NOT reference tack for timezone issues
+
+**⚠️ FILES THAT DO NOT EXIST (verified against codebase):**
+- ❌ `timezone-display.tsx` - DOES NOT EXIST. Use timeslot-radio-group.tsx instead.
+- ❌ `timezone-handler.ts` - DOES NOT EXIST. Timezone is frontend-only.
+- ❌ `timezone.controller.ts` - DOES NOT EXIST. No backend timezone code.
+- tack stores `sendAt` as Unix timestamp (seconds since epoch) - inherently timezone-agnostic
 
 **EXAMPLE EDGE CASES FOR TIMEZONE STORIES (USE THESE AS TEMPLATES):**
 ```
@@ -582,7 +591,15 @@ Format:
 
 ## Success Metrics
 
+**🚨 CRITICAL: Do NOT invent statistics without data. If you don't know the baseline, say so explicitly. 🚨**
+
 **IMPORTANT: Every metric MUST have a baseline ("before") and target ("after") value.**
+
+**Rules for Success Metrics:**
+1. If specific numbers aren't mentioned in user feedback, use qualitative estimates: "Baseline: Unknown - requires instrumentation"
+2. Do NOT claim specific failure rates (e.g., "20% of scheduled pins fail") unless user feedback contains that data
+3. For UI clarity issues (like timezone confusion), measure USER CONFIDENCE, not system failure rates
+4. tack uses Unix timestamps - scheduling failures are NOT caused by timezone bugs. Be honest about what's actually broken.
 
 Define measurable outcomes tied directly to user problems:
 

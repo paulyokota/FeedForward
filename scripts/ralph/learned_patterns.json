@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": "2026-01-13T22:34:48.998549",
+  "last_updated": "2026-01-13T23:18:17.393875",
   "patterns": [
     {
       "type": "bad_pattern",
@@ -715,6 +715,524 @@
       "example": "Story mentions 'timezone-display.tsx' which does not exist in the codebase - should clarify this is a new component",
       "discovered_at": "2026-01-13T22:34:48.998358",
       "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story correctly identifies a single vertical slice: Pinterest OAuth reconnection flow from UI through backend to external API",
+      "example": "The dependency chain 'aero UI \u2192 tack (Pinterest OAuth handlers) \u2192 Pinterest API' is accurate and the code paths listed (get-oauth-response-handler.ts, oauth-finalize-handler.ts, pinterestv5/*.ts) are all within the same functional domain",
+      "discovered_at": "2026-01-13T22:45:43.320638",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Service boundaries are respected - Pinterest OAuth lives in tack, UI/session management in aero",
+      "example": "The story correctly identifies tack as the primary service and doesn't bundle unrelated services like zuck (Facebook) or unrelated functionality",
+      "discovered_at": "2026-01-13T22:45:43.321199",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Investigation subtasks trace a single code path rather than multiple unrelated areas",
+      "example": "Subtask 3 correctly traces from aero callback route \u2192 tack oauth-finalize-handler, which matches the actual code dependency (aero's TailwindPinterestOauthCompleter calls tack.finalizeOauth())",
+      "discovered_at": "2026-01-13T22:45:43.321950",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Single root cause with surgical fix: Story correctly identifies one missing function call as the root cause, verified by code comparison with working implementations.",
+      "example": "chat.ts is missing `.preprocess((input) => injectPersonalization(input))` that exists in pinterest-title-and-description.ts and 38 other files.",
+      "discovered_at": "2026-01-13T22:45:43.322618",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Stays within single service boundary: The fix is entirely within aero's ghostwriter-labs module. Even though brandy2 is called for brand data, that integration already exists and works correctly - no changes needed there.",
+      "example": "Fix requires editing only aero/packages/core/src/ghostwriter-labs/generations/chat.ts - no cross-service changes.",
+      "discovered_at": "2026-01-13T22:45:43.323366",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Complete vertical slice: Story covers the full path from user input (chat prompt) through processing (personalization injection) to output (brand-voice-aware response).",
+      "example": "Acceptance criteria cover happy path (brand voice applied), edge cases (different voice types), and error handling (brandy2 failures, ghostwriter unavailability).",
+      "discovered_at": "2026-01-13T22:45:43.324004",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Pre-investigation with code evidence: Story includes specific file paths, line numbers, and comparison to working implementations - reducing investigation time.",
+      "example": "Hypothesis points to chat.ts:21 missing injectPersonalization call, verified by comparing to pinterest-title-and-description.ts:30.",
+      "discovered_at": "2026-01-13T22:45:43.324626",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story targets a single missing function call that exists in peer files but was omitted from one specific file",
+      "example": "The story correctly identifies that injectPersonalization() is missing ONLY from chat.ts while present in 39+ other generation files in the same directory",
+      "discovered_at": "2026-01-13T22:45:43.326217",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story stays within the aero service boundary - no changes needed to downstream services",
+      "example": "The fix is entirely in aero's chat.ts file. The ghostwriter service already supports personalization via the prompt content - aero just needs to inject it",
+      "discovered_at": "2026-01-13T22:45:43.326815",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story provides complete vertical slice - single code change fixes the entire user-facing problem",
+      "example": "Adding .preprocess((input) => injectPersonalization(input)) to chat.ts will automatically fetch brand data from brandy2 and include it in the prompt",
+      "discovered_at": "2026-01-13T22:45:43.327371",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Clear code path tracing with specific line numbers that can be verified",
+      "example": "Story correctly identifies chat.ts:21 as the location where the fix would go (between checkAvailableCredits and .prompt())",
+      "discovered_at": "2026-01-13T22:45:43.327887",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Group UI display consistency changes together when they address the same user confusion point",
+      "example": "All timezone clarity improvements (timeslot display, confirmation toast, custom picker) are in aero UI layer and relate to the same user experience gap",
+      "discovered_at": "2026-01-13T22:45:43.328443",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Keep backend out of scope when timestamps are already timezone-agnostic",
+      "example": "tack stores sendAt as Unix timestamp (seconds since epoch) which is inherently timezone-independent. Only UI formatting in aero needs to change, not tack's scheduling logic.",
+      "discovered_at": "2026-01-13T22:45:43.328949",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "bad_pattern",
+      "description": "Avoid referencing non-existent files in story documentation - verify paths before writing",
+      "example": "Story references 'timezone-display.tsx' which doesn't exist. The actual components are timeslot-radio-group.tsx, date-time-picker-with-timeslots-provider.tsx, and use-scheduler-toasts.ts",
+      "discovered_at": "2026-01-13T22:45:43.329477",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "bad_pattern",
+      "description": "Don't overstate baseline metrics without data - '20% timezone failures' is likely inflated since tack uses timezone-agnostic Unix timestamps",
+      "example": "Success metrics claim '20% of scheduled pins fail due to timezone errors' but tack's Post.sendAt is UnixTimestamp type - timezone conversion happens in UI only",
+      "discovered_at": "2026-01-13T22:45:43.330149",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story focuses on a single platform OAuth flow (Pinterest only) without mixing in Facebook/Instagram OAuth from zuck service",
+      "example": "All code paths mentioned are in tack (Pinterest OAuth) and aero (frontend), not mixing with zuck (Facebook/Instagram OAuth)",
+      "discovered_at": "2026-01-13T22:54:21.063209",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story correctly identifies the vertical slice: UI (aero) \u2192 OAuth handlers (tack) \u2192 Pinterest API, without bundling unrelated services",
+      "example": "Dependency chain correctly identifies aero UI \u2192 tack (OAuth handlers) \u2192 Pinterest API, with appropriate files like oauth-finalize-handler.ts and pinterest-oauth-completer.ts",
+      "discovered_at": "2026-01-13T22:54:21.064266",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Acceptance criteria cover a complete user journey: happy path, edge cases (expired token, API down), and error handling - all within the same OAuth reconnection flow",
+      "example": "Criteria range from successful connection to token expiry handling to Pinterest API unavailability - all scenarios occur in the same code path",
+      "discovered_at": "2026-01-13T22:54:21.065101",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Investigation subtasks are properly scoped to examine only relevant code paths in tack's OAuth finalization and aero's OAuth completion",
+      "example": "Code audit targets oauth-finalize-handler.ts; trace follows aero UI to tack handlers - no unnecessary exploration of unrelated services",
+      "discovered_at": "2026-01-13T22:54:21.065770",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Single service, single file change with clearly identified root cause",
+      "example": "This story correctly identifies that the fix is isolated to aero/packages/core/src/ghostwriter-labs/generations/chat.ts - adding one preprocessor call",
+      "discovered_at": "2026-01-13T22:54:21.066317",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story hypothesis was verified against actual code structure",
+      "example": "The Pre-Investigation Analysis correctly identified the missing injectPersonalization() call and the exact code path. Comparing chat.ts to pinterest-title-and-description.ts confirms the pattern.",
+      "discovered_at": "2026-01-13T22:54:21.066847",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Complete vertical slice - from user action to data layer",
+      "example": "The story covers the full flow: User inputs prompt \u2192 chat.ts \u2192 injectPersonalization \u2192 brandy2 \u2192 brand settings \u2192 personalized prompt \u2192 LLM \u2192 response",
+      "discovered_at": "2026-01-13T22:54:21.067407",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Acceptance criteria align with the single root cause",
+      "example": "All acceptance criteria relate to brand voice being applied to chat responses - no scope creep into unrelated features",
+      "discovered_at": "2026-01-13T22:54:21.067951",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story identifies a single, verifiable root cause with code path evidence",
+      "example": "Story correctly pinpoints chat.ts:21 as missing the injectPersonalization call, with comparison to other files as evidence",
+      "discovered_at": "2026-01-13T22:54:21.068539",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Enhancement uses existing proven infrastructure rather than building new",
+      "example": "The fix leverages existing personalization.ts processor and brandy2 integration that already works for 39 other generation types",
+      "discovered_at": "2026-01-13T22:54:21.069100",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Single service boundary with clear dependency chain",
+      "example": "All changes are in aero/packages/core/src/ghostwriter-labs/; brandy2 integration is already working",
+      "discovered_at": "2026-01-13T22:54:21.069685",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Focus on a single user pain point with clear vertical slice through UI components",
+      "example": "Story focuses on 'timezone confusion' which manifests in multiple related UI locations (date picker, timeslots, confirmation toast) - all fixable with consistent timezone display additions in the same aero UI layer",
+      "discovered_at": "2026-01-13T22:54:21.070384",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Include related error scenarios that would be addressed as part of the same change",
+      "example": "Timezone unavailable error and invalid timezone error are both natural edge cases that would be handled when adding timezone display logic - they share the same code path",
+      "discovered_at": "2026-01-13T22:54:21.071022",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Correctly scope to a single service when changes are UI-only",
+      "example": "Story correctly identifies aero as primary service and does NOT include tack backend changes - the timezone display is purely a frontend concern since TimezoneDate already handles conversions correctly",
+      "discovered_at": "2026-01-13T22:54:21.071598",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Include DST edge case when timezone handling is the core issue",
+      "example": "The DST spring-forward acceptance criterion (AC #3) is directly related to timezone display clarity - users need to understand that times are in THEIR timezone even during DST transitions. This is the same TimezoneDate code path.",
+      "discovered_at": "2026-01-13T22:54:21.072220",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Group all error handling scenarios for the same flow in one story",
+      "example": "This story includes happy path, edge cases (expired token, API down), and error cases (invalid grant, timeout) - all for Pinterest OAuth reconnection. These share the same code path through oauth-finalize-handler.ts",
+      "discovered_at": "2026-01-13T23:02:32.313669",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Keep OAuth flows service-specific - Pinterest OAuth stays in tack, not mixed with Facebook/Instagram in zuck",
+      "example": "Story correctly focuses on tack for Pinterest OAuth without bundling unrelated Facebook OAuth issues from zuck",
+      "discovered_at": "2026-01-13T23:02:32.314519",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Include the minimal necessary services in the dependency chain",
+      "example": "Story includes aero (UI) and tack (Pinterest handler) which are both required for this flow, but doesn't unnecessarily include gandalf since tack handles Pinterest token validation directly",
+      "discovered_at": "2026-01-13T23:02:32.315120",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Identify specific code paths rather than broad service areas",
+      "example": "Story pinpoints oauth-finalize-handler.ts lines and specific Pinterest client files rather than saying 'fix something in tack'",
+      "discovered_at": "2026-01-13T23:02:32.315730",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Single root cause with clear code path identified. The story correctly identifies that the fix is localized to one file in one service.",
+      "example": "The missing injectPersonalization call in chat.ts:21 is the only change needed. The story doesn't bundle unrelated issues.",
+      "discovered_at": "2026-01-13T23:02:32.316579",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Proper vertical slice - the fix touches the preprocessing layer in aero's generation config, which is a complete functional unit.",
+      "example": "The story correctly identifies aero as the primary service. The ghostwriter service receives prompts from aero and doesn't need modification.",
+      "discovered_at": "2026-01-13T23:02:32.317376",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Accurate dependency chain documentation. The story correctly maps aero \u2192 brandy2 for brand data and aero \u2192 ghostwriter for generation.",
+      "example": "Technical context states 'aero fetches brand settings from brandy2, builds a personalized prompt, and sends it to ghostwriter' - this matches the code in personalization.ts which calls getBrandForOrg.",
+      "discovered_at": "2026-01-13T23:02:32.318302",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Specific code path with line numbers matches actual code structure.",
+      "example": "The story references chat.ts:21 - the actual file shows line 21 is indeed where .prompt() is called, and the injectPersonalization preprocess should be added before it.",
+      "discovered_at": "2026-01-13T23:02:32.318936",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Single root cause with clear, localized fix - ideal story scoping",
+      "example": "This story identifies one missing function call (.preprocess((input) => injectPersonalization(input))) in one file (chat.ts) that causes the entire reported issue. The fix is a 1-line addition.",
+      "discovered_at": "2026-01-13T23:02:32.319594",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story stays within single service boundary - no cross-service complexity",
+      "example": "All changes are confined to aero/packages/core/src/ghostwriter-labs/. The brandy2 integration already works correctly (used by 39 other generation files). No changes needed to brandy2 or ghostwriter services.",
+      "discovered_at": "2026-01-13T23:02:32.320234",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Pre-investigation hypothesis was verified against actual code",
+      "example": "Story hypothesized missing injectPersonalization() at chat.ts:21 with HIGH confidence. Code examination confirmed this exactly - the call exists at line 30 in instagram-caption.ts, line 22 in facebook-post.ts, etc., but is absent from chat.ts.",
+      "discovered_at": "2026-01-13T23:02:32.320835",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Clean vertical slice - complete feature path from input to output",
+      "example": "The story covers the complete path: user input \u2192 chat.ts preprocessing \u2192 personalization injection \u2192 LLM prompt \u2192 output. No horizontal layer isolation.",
+      "discovered_at": "2026-01-13T23:02:32.321494",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "All changes are within a single service (aero) and address the same UX inconsistency",
+      "example": "Timezone display improvements needed in timeslot-radio-group.tsx, use-scheduler-toasts.ts, and date-time-picker.tsx are all in aero's scheduler domain",
+      "discovered_at": "2026-01-13T23:02:32.322222",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story correctly identifies a vertical slice from user action to confirmation feedback",
+      "example": "The story traces the complete flow: user selects time \u2192 views in picker \u2192 sees confirmation toast, ensuring end-to-end consistency",
+      "discovered_at": "2026-01-13T23:02:32.322910",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story correctly notes tack dependency but scope is limited to aero UI changes",
+      "example": "While tack handles the actual scheduling, this story correctly focuses on aero UI clarity - no tack code changes needed since the backend already stores and handles timezone correctly",
+      "discovered_at": "2026-01-13T23:02:32.323614",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story focuses on a single platform's OAuth flow (Pinterest only) rather than bundling multiple platform reconnection issues",
+      "example": "Story is scoped to tack (Pinterest) service only, not mixing with zuck (Facebook) or gandalf (Google) OAuth flows",
+      "discovered_at": "2026-01-13T23:10:38.855973",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Complete vertical slice from UI to backend - includes error messaging improvements AND backend token validation fixes",
+      "example": "Covers aero UI error pages (error.tsx), aero OAuth completer (pinterest-oauth-completer.ts), and tack token handlers (oauth-finalize-handler.ts, access-token-refresh-handler.ts)",
+      "discovered_at": "2026-01-13T23:10:38.856768",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Investigation subtasks correctly point to the actual code paths where the issue likely exists",
+      "example": "Story correctly identifies tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts and mentions examining Pinterest API clients",
+      "discovered_at": "2026-01-13T23:10:38.857510",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story identifies specific error patterns to search for that align with actual code error handling",
+      "example": "Story mentions 'invalid_grant' and 'Authorization failed' which maps to base.ts:59 case 3 handling and test fixtures",
+      "discovered_at": "2026-01-13T23:10:38.858271",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story targets a single missing function call with clear before/after code comparison",
+      "example": "Comparing chat.ts (missing injectPersonalization) with pinterest-title-and-description.ts (has injectPersonalization) makes the fix obvious",
+      "discovered_at": "2026-01-13T23:10:38.858986",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story correctly identifies that the fix is in aero, not in the ghostwriter service - personalization is injected before sending to ghostwriter",
+      "example": "The dependency chain aero \u2192 ghostwriter is read-only from ghostwriter's perspective; no changes needed there",
+      "discovered_at": "2026-01-13T23:10:38.859838",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Single root cause with single fix location - ideal vertical slice",
+      "example": "All 39 other generation files have the pattern, only chat.ts is missing it - this is a consistency bug, not a feature request",
+      "discovered_at": "2026-01-13T23:10:38.860544",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story provides exact line number and code path for verification",
+      "example": "Pre-investigation hypothesis points to chat.ts:21 - verified that .prompt() is at line 21 and personalization should be added at line 20",
+      "discovered_at": "2026-01-13T23:10:38.861228",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Single root cause with code-level verification: The story correctly identifies that one missing function call causes all reported symptoms",
+      "example": "Story pinpoints chat.ts:21 as missing injectPersonalization(), and code examination confirms 39/40 files have it, only chat.ts is missing it",
+      "discovered_at": "2026-01-13T23:10:38.862094",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Minimal blast radius: Fix is contained to a single file in a single service with no ripple effects",
+      "example": "Adding .preprocess((input) => injectPersonalization(input)) to chat.ts requires no changes to brandy2, ghostwriter service, or other aero files",
+      "discovered_at": "2026-01-13T23:10:38.862889",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Existing infrastructure reuse: The fix uses an already-working pattern from peer files rather than inventing new architecture",
+      "example": "The injectPersonalization() function already exists in personalization.ts and works correctly in 39 other generation files - this is a copy-paste pattern fix",
+      "discovered_at": "2026-01-13T23:10:38.863695",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Clear acceptance criteria tied to the single change: All 6 acceptance criteria directly relate to brand voice appearing in chat output",
+      "example": "AC1 tests brand voice in output, AC2 tests brand switching, AC3 tests special chars, AC4-5 test error handling for brand data - all unified around the personalization feature",
+      "discovered_at": "2026-01-13T23:10:38.864542",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Group all timezone display enhancements together since they share the same UI layer (aero) and address the same user confusion",
+      "example": "Combining SmartSchedule timezone display, custom date picker timezone display, and confirmation messaging in one story - all modify aero scheduler components",
+      "discovered_at": "2026-01-13T23:10:38.865407",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Keep backend-agnostic UI enhancements in a single story when they don't require backend changes",
+      "example": "The timezone display enhancement doesn't require tack changes - tack already handles Unix timestamps correctly. The story correctly identifies this as aero-only work",
+      "discovered_at": "2026-01-13T23:10:38.866191",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Include error handling for the specific feature being enhanced, not general error handling",
+      "example": "Including 'timezone data fails to load' error case is appropriate since it directly relates to the timezone display enhancement being added",
+      "discovered_at": "2026-01-13T23:10:38.866952",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story correctly identifies a single OAuth flow failure without bundling unrelated platform issues",
+      "example": "Story focuses on Pinterest OAuth reconnection in tack/aero without mixing in Facebook/Instagram OAuth (which would be in zuck service)",
+      "discovered_at": "2026-01-13T23:18:17.381363",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Acceptance criteria align with the identified code paths",
+      "example": "AC mentions oauth-finalize-handler.ts for token handling, which is exactly where the finalize logic lives (lines 29-118)",
+      "discovered_at": "2026-01-13T23:18:17.382522",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Error scenarios are realistic based on actual code structure",
+      "example": "The 'invalid_grant' error pattern matches what would happen in oauth.ts if Pinterest rejects a stale refresh token during reconnection",
+      "discovered_at": "2026-01-13T23:18:17.383261",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Single root cause with surgical fix: One missing function call in one file that causes one specific user-facing problem.",
+      "example": "This story identifies that chat.ts is missing injectPersonalization() while all 39 other generation files have it. The fix is adding one line: `.preprocess((input) => injectPersonalization(input))`",
+      "discovered_at": "2026-01-13T23:18:17.384174",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Stays within service boundaries: The entire fix is contained within aero, even though the story involves brand data from brandy2.",
+      "example": "The getBrandForOrg() function in aero/packages/core/src/brands/server.ts already handles the brandy2 integration. No changes to brandy2 or ghostwriter services are needed.",
+      "discovered_at": "2026-01-13T23:18:17.385100",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Clean vertical slice: The story follows a complete vertical from user input \u2192 preprocessing \u2192 prompt generation \u2192 AI response.",
+      "example": "User input in chat \u2192 injectPersonalization fetches brand settings \u2192 personalization info added to prompt \u2192 ghostwriter generates personalized response",
+      "discovered_at": "2026-01-13T23:18:17.386191",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Leverages existing patterns: The fix reuses existing infrastructure rather than requiring new code.",
+      "example": "The injectPersonalization function, getBrandForOrg, and the entire preprocessing chain already exist and work correctly for 39 other generation types.",
+      "discovered_at": "2026-01-13T23:18:17.387008",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Single file, single fix - all acceptance criteria test variations of the same atomic change",
+      "example": "Adding one line (.preprocess((input) => injectPersonalization(input))) to chat.ts addresses all stated issues: robotic content, ignored brand preferences, and lack of personalization",
+      "discovered_at": "2026-01-13T23:18:17.387868",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Read-only dependencies don't require service bundling - when a service only consumes data from another service (no writes), they shouldn't be bundled",
+      "example": "brandy2 is correctly listed as a dependency (provides brand data), but no changes are required there. The story stays focused on aero where the fix lives.",
+      "discovered_at": "2026-01-13T23:18:17.388846",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Precise code location hypothesis with verifiable evidence - story identifies exact file:line and provides comparison evidence",
+      "example": "Hypothesis correctly identified chat.ts:21 as missing personalization. Verified by comparing with 39 other files that all have the call.",
+      "discovered_at": "2026-01-13T23:18:17.389729",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Error handling criteria for the same code path - edge cases and error states all relate to the single feature being added",
+      "example": "AC4 (brand data unavailable) and AC5 (brand settings not configured) are error scenarios for the personalization injection, not separate features",
+      "discovered_at": "2026-01-13T23:18:17.390730",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story focuses on a single vertical slice: UI clarity for timezone display in the Pinterest scheduler",
+      "example": "All acceptance criteria relate to displaying/confirming timezone in the scheduler UI components within aero",
+      "discovered_at": "2026-01-13T23:18:17.391623",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Story correctly identifies that changes are isolated to frontend (aero) with no backend changes needed",
+      "example": "Story identifies exact file paths and confirms tack scheduling logic doesn't need modification - verified by code inspection showing tack has no timezone handling",
+      "discovered_at": "2026-01-13T23:18:17.392560",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Edge cases (DST, travel timezone change) are appropriate scope expansions of the same root cause",
+      "example": "DST handling and browser timezone detection both relate to ensuring displayed timezone accurately reflects when the pin will publish - same UX problem",
+      "discovered_at": "2026-01-13T23:18:17.393454",
+      "source": "scoping_validation"
     }
   ],
   "service_insights": {
@@ -778,6 +1296,42 @@
       {
         "finding": "The timezone infrastructure is robust: useTimezone hook uses user profile timezone with browser fallback, TimezoneDate class handles conversions properly, and timeslot-radio-group already displays tim",
         "discovered_at": "2026-01-13T22:34:48.998512"
+      },
+      {
+        "finding": "The Pinterest OAuth flow is well-contained within tack and aero services, which is the correct boundary for Pinterest-specific functionality. The flow is: 1) Pinterest redirects to tack get-oauth-resp",
+        "discovered_at": "2026-01-13T22:45:43.330192"
+      },
+      {
+        "finding": "1) TimeslotRadioGroup (line 113) ALREADY displays timezone with format 'EEE, MMM d, yyyy, h:mmaa (z)'. 2) Success toast in use-scheduler-toasts.ts (line 32) does NOT include timezone - only shows 'MMM",
+        "discovered_at": "2026-01-13T22:45:43.330245"
+      },
+      {
+        "finding": "The OAuth flow is well-contained: 1) aero initiates OAuth via `/dashboard/v3/api/oauth/pinterest/connect` which redirects to tack, 2) tack handles the Pinterest OAuth token exchange via `oauth.ts` (ge",
+        "discovered_at": "2026-01-13T22:54:21.072292"
+      },
+      {
+        "finding": "The timezone infrastructure is already in place: useTimezone hook (use-time-zone.ts) retrieves user timezone from userInfo with browser fallback; TimezoneDate class handles timezone conversions proper",
+        "discovered_at": "2026-01-13T22:54:21.072350"
+      },
+      {
+        "finding": "The OAuth flow is well-architected with clear separation: aero handles UI/session, tack handles Pinterest OAuth + token storage. The flow is: aero/connect \u2192 tack/redirect \u2192 Pinterest \u2192 tack/response \u2192",
+        "discovered_at": "2026-01-13T23:02:32.323722"
+      },
+      {
+        "finding": "1) Pinterest OAuth flow is entirely contained within tack for token management (oauth.ts:93-151 handles refresh tokens, base.ts:346-358 handles 401 unauthorized responses triggering deauthorizeToken).",
+        "discovered_at": "2026-01-13T23:10:38.867506"
+      },
+      {
+        "finding": "The timezone handling infrastructure already exists and is well-implemented. The TimeslotRadioGroup (line 113) already displays timezone using format 'EEE, MMM d, yyyy, h:mmaa (z)' with timeZone param",
+        "discovered_at": "2026-01-13T23:10:38.867583"
+      },
+      {
+        "finding": "The Pinterest OAuth flow is cleanly contained within tack (Pinterest-specific service) and aero (UI layer). The flow is: 1) aero/connect/route.ts initiates OAuth with state validation, 2) Pinterest re",
+        "discovered_at": "2026-01-13T23:18:17.393795"
+      },
+      {
+        "finding": "The codebase already has proper timezone infrastructure: (1) useTimezone hook fetches user timezone with browser fallback (line 14-22 in use-time-zone.ts), (2) timezone is passed through DateTimePicke",
+        "discovered_at": "2026-01-13T23:18:17.393842"
       }
     ],
     "aero": [
@@ -844,6 +1398,46 @@
       {
         "finding": "CONFIRMED: chat.ts (lines 18-23) is missing the `.preprocess((input) => injectPersonalization(input))` call that appears in 39 other generation files. Example comparison: instagram-caption.ts has the ",
         "discovered_at": "2026-01-13T22:34:48.998501"
+      },
+      {
+        "finding": "The Pinterest OAuth flow is well-contained within tack and aero services, which is the correct boundary for Pinterest-specific functionality. The flow is: 1) Pinterest redirects to tack get-oauth-resp",
+        "discovered_at": "2026-01-13T22:45:43.330207"
+      },
+      {
+        "finding": "Confirmed the hypothesis: chat.ts (lines 19-23) has only performObjectModeration and checkAvailableCredits as preprocessors, but is MISSING the injectPersonalization() call. Compare to facebook-post.t",
+        "discovered_at": "2026-01-13T22:45:43.330236"
+      },
+      {
+        "finding": "The OAuth flow is well-contained: 1) aero initiates OAuth via `/dashboard/v3/api/oauth/pinterest/connect` which redirects to tack, 2) tack handles the Pinterest OAuth token exchange via `oauth.ts` (ge",
+        "discovered_at": "2026-01-13T22:54:21.072306"
+      },
+      {
+        "finding": "The timezone infrastructure is already in place: useTimezone hook (use-time-zone.ts) retrieves user timezone from userInfo with browser fallback; TimezoneDate class handles timezone conversions proper",
+        "discovered_at": "2026-01-13T22:54:21.072353"
+      },
+      {
+        "finding": "The OAuth flow is well-architected with clear separation: aero handles UI/session, tack handles Pinterest OAuth + token storage. The flow is: aero/connect \u2192 tack/redirect \u2192 Pinterest \u2192 tack/response \u2192",
+        "discovered_at": "2026-01-13T23:02:32.323734"
+      },
+      {
+        "finding": "Confirmed the hypothesis in the story is accurate. chat.ts (lines 18-23) chains preprocessors for moderation and credit checks, then directly calls .prompt() without injectPersonalization. By contrast",
+        "discovered_at": "2026-01-13T23:02:32.323766"
+      },
+      {
+        "finding": "1) Pinterest OAuth flow is entirely contained within tack for token management (oauth.ts:93-151 handles refresh tokens, base.ts:346-358 handles 401 unauthorized responses triggering deauthorizeToken).",
+        "discovered_at": "2026-01-13T23:10:38.867532"
+      },
+      {
+        "finding": "Verified that chat.ts is the ONLY file (1 of 40) in the generations folder missing the `injectPersonalization()` call. All other 39 generation files follow the pattern: performObjectModeration \u2192 check",
+        "discovered_at": "2026-01-13T23:10:38.867557"
+      },
+      {
+        "finding": "The timezone handling infrastructure already exists and is well-implemented. The TimeslotRadioGroup (line 113) already displays timezone using format 'EEE, MMM d, yyyy, h:mmaa (z)' with timeZone param",
+        "discovered_at": "2026-01-13T23:10:38.867586"
+      },
+      {
+        "finding": "The Pinterest OAuth flow is cleanly contained within tack (Pinterest-specific service) and aero (UI layer). The flow is: 1) aero/connect/route.ts initiates OAuth with state validation, 2) Pinterest re",
+        "discovered_at": "2026-01-13T23:18:17.393810"
       }
     ],
     "ghostwriter": [
@@ -870,6 +1464,18 @@
       {
         "finding": "CONFIRMED: chat.ts (lines 18-23) is missing the `.preprocess((input) => injectPersonalization(input))` call that appears in 39 other generation files. Example comparison: instagram-caption.ts has the ",
         "discovered_at": "2026-01-13T22:34:48.998496"
+      },
+      {
+        "finding": "Confirmed the hypothesis: chat.ts (lines 19-23) has only performObjectModeration and checkAvailableCredits as preprocessors, but is MISSING the injectPersonalization() call. Compare to facebook-post.t",
+        "discovered_at": "2026-01-13T22:45:43.330232"
+      },
+      {
+        "finding": "Confirmed the hypothesis in the story is accurate. chat.ts (lines 18-23) chains preprocessors for moderation and credit checks, then directly calls .prompt() without injectPersonalization. By contrast",
+        "discovered_at": "2026-01-13T23:02:32.323763"
+      },
+      {
+        "finding": "Verified that chat.ts is the ONLY file (1 of 40) in the generations folder missing the `injectPersonalization()` call. All other 39 generation files follow the pattern: performObjectModeration \u2192 check",
+        "discovered_at": "2026-01-13T23:10:38.867550"
       }
     ],
     "gandalf": [
@@ -888,6 +1494,22 @@
       {
         "finding": "The OAuth flow is a clean vertical slice: aero initiates (connect/route.ts) \u2192 tack handles token exchange (oauth.ts, oauth-finalize-handler.ts) \u2192 aero finalizes (callback/route.ts, pinterest-oauth-com",
         "discovered_at": "2026-01-13T22:24:44.252433"
+      },
+      {
+        "finding": "The Pinterest OAuth flow is well-contained within tack and aero services, which is the correct boundary for Pinterest-specific functionality. The flow is: 1) Pinterest redirects to tack get-oauth-resp",
+        "discovered_at": "2026-01-13T22:45:43.330205"
+      },
+      {
+        "finding": "The OAuth flow is well-contained: 1) aero initiates OAuth via `/dashboard/v3/api/oauth/pinterest/connect` which redirects to tack, 2) tack handles the Pinterest OAuth token exchange via `oauth.ts` (ge",
+        "discovered_at": "2026-01-13T22:54:21.072303"
+      },
+      {
+        "finding": "1) Pinterest OAuth flow is entirely contained within tack for token management (oauth.ts:93-151 handles refresh tokens, base.ts:346-358 handles 401 unauthorized responses triggering deauthorizeToken).",
+        "discovered_at": "2026-01-13T23:10:38.867522"
+      },
+      {
+        "finding": "The Pinterest OAuth flow is cleanly contained within tack (Pinterest-specific service) and aero (UI layer). The flow is: 1) aero/connect/route.ts initiates OAuth with state validation, 2) Pinterest re",
+        "discovered_at": "2026-01-13T23:18:17.393807"
       }
     ],
     "brandy2": [
@@ -922,6 +1544,34 @@
       {
         "finding": "CONFIRMED: chat.ts (lines 18-23) is missing the `.preprocess((input) => injectPersonalization(input))` call that appears in 39 other generation files. Example comparison: instagram-caption.ts has the ",
         "discovered_at": "2026-01-13T22:34:48.998499"
+      },
+      {
+        "finding": "Code verification confirms the story hypothesis is correct. At chat.ts:19-21, the preprocessing chain includes performObjectModeration and checkAvailableCredits, but unlike pinterest-title-and-descrip",
+        "discovered_at": "2026-01-13T22:45:43.330219"
+      },
+      {
+        "finding": "Confirmed the hypothesis: chat.ts (lines 19-23) has only performObjectModeration and checkAvailableCredits as preprocessors, but is MISSING the injectPersonalization() call. Compare to facebook-post.t",
+        "discovered_at": "2026-01-13T22:45:43.330234"
+      },
+      {
+        "finding": "CONFIRMED: chat.ts is the ONLY generation file (of 40) that does NOT call injectPersonalization(). All other files (facebook-post.ts, instagram-caption.ts, twitter-post.ts, text.ts, etc.) include `.pr",
+        "discovered_at": "2026-01-13T22:54:21.072327"
+      },
+      {
+        "finding": "CONFIRMED: chat.ts at lines 19-21 shows: .preprocess((input, meta) => performObjectModeration(input, meta)).preprocess((input, meta) => checkAvailableCredits(input, meta)).prompt(PromptRegistry.CHAT) ",
+        "discovered_at": "2026-01-13T23:02:32.323806"
+      },
+      {
+        "finding": "Verified that chat.ts is the ONLY file (1 of 40) in the generations folder missing the `injectPersonalization()` call. All other 39 generation files follow the pattern: performObjectModeration \u2192 check",
+        "discovered_at": "2026-01-13T23:10:38.867555"
+      },
+      {
+        "finding": "Confirmed: chat.ts (lines 18-23) is the ONLY generation file out of 40 that does NOT call injectPersonalization(). All other generation files like pinterest-title-and-description.ts include `.preproce",
+        "discovered_at": "2026-01-13T23:18:17.393821"
+      },
+      {
+        "finding": "Confirmed: chat.ts (lines 19-21) has performObjectModeration and checkAvailableCredits preprocessors but skips directly to .prompt() without calling injectPersonalization. In contrast, 39 other genera",
+        "discovered_at": "2026-01-13T23:18:17.393831"
       }
     ]
   },
