@@ -43,6 +43,13 @@ try:
 except ImportError:
     LIVE_DATA_AVAILABLE = False
 
+# Import knowledge cache for story generation
+try:
+    from knowledge_cache import load_knowledge_for_generation, update_knowledge_from_scoping
+    KNOWLEDGE_CACHE_AVAILABLE = True
+except ImportError:
+    KNOWLEDGE_CACHE_AVAILABLE = False
+
 
 # Constants
 SCRIPT_DIR = Path(__file__).parent
@@ -129,6 +136,20 @@ Subject: {source_data.get('source_subject', 'N/A')}
         # Fallback: try source_body first, then content, then stringify
         content = source_data.get('source_body') or source_data.get('content') or str(source_data)
 
+    # Load knowledge context from the learning system
+    knowledge_context = ""
+    if KNOWLEDGE_CACHE_AVAILABLE:
+        try:
+            knowledge_context = load_knowledge_for_generation(content, max_chars=16000)  # ~4000 tokens
+            if knowledge_context:
+                print(f"  Loaded knowledge context ({len(knowledge_context)} chars)")
+        except FileNotFoundError as e:
+            print(f"  Warning: Knowledge cache file not found (first run?): {e}")
+        except json.JSONDecodeError as e:
+            print(f"  Warning: Knowledge cache file corrupted, ignoring: {e}")
+        except Exception as e:
+            print(f"  Warning: Unexpected error loading knowledge context: {type(e).__name__}: {e}")
+
     # Generate story using the pipeline (improved for quality)
     # Key improvements from gold standard analysis:
     # - Explicit INVEST criteria
@@ -136,11 +157,16 @@ Subject: {source_data.get('source_subject', 'N/A')}
     # - Expected outcomes for investigation subtasks
     # - User persona context
     # - Specific technical service mapping for Tailwind
+    # - Knowledge from previous scoping validations (learning system)
     prompt = f"""You are a senior product analyst creating an INVEST-compliant engineering story from user feedback.
 
 ## User Feedback Content
 
 {content}
+
+## Learned Knowledge (from codebase analysis and validation)
+
+{knowledge_context if knowledge_context else "No cached knowledge available - using built-in architecture knowledge."}
 
 ## INVEST Quality Criteria (Your story MUST follow these)
 
@@ -942,6 +968,14 @@ def run_full_test(manifest_path: Path = DEFAULT_MANIFEST,
             for p in discovered_patterns[:3]:  # Show first 3
                 ptype = "✓" if p.get("pattern_type") == "good_pattern" else "✗"
                 print(f"         {ptype} {p.get('description', 'N/A')[:60]}...")
+
+        # Update knowledge cache with discovered patterns (learning system)
+        if KNOWLEDGE_CACHE_AVAILABLE:
+            try:
+                print(f"\n  [PHASE 2.5: UPDATING KNOWLEDGE CACHE]")
+                update_knowledge_from_scoping(scoping_result)
+            except Exception as e:
+                print(f"  Warning: Could not update knowledge cache: {e}")
 
     # Calculate summary metrics
     gestalt_scores = [r["gestalt_score"] for r in results if r.get("gestalt_score", 0) > 0]

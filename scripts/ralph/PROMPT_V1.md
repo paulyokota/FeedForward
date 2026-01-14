@@ -857,7 +857,64 @@ Before outputting the completion promise, verify ALL of these:
 
 ### ONLY if ALL checkboxes above are TRUE:
 
-Output: `<promise>LOOP_COMPLETE</promise>`
+**STOP! You must also pass the ITERATION WORK GATE below.**
+
+---
+
+## ITERATION WORK GATE (MANDATORY - NEW RUN DETECTION)
+
+**This gate prevents premature completion when starting a fresh run.**
+
+Before outputting ANY completion promise, you MUST verify that ACTUAL WORK was done **in THIS iteration**:
+
+### Step 1: Check if This is a Fresh Run
+
+Look for the marker `=== FRESH RUN MARKER ===` in progress.txt. If present:
+
+- This is iteration 1 of a new run
+- Previous completion status is INVALID
+- You MUST do real work before declaring completion
+
+### Step 2: Verify Iteration Work (Required)
+
+At least ONE of these must be true for THIS iteration:
+
+- [ ] Refined at least one story (description, acceptance criteria, or technical context changed)
+- [ ] Split a story into smaller stories
+- [ ] Added a new story
+- [ ] Identified and documented a failing validation (with specific remediation plan)
+- [ ] Improved a score (gestalt, dimensional, or playwright) for at least one story
+- [ ] Re-ran Playwright validation script and got a NEW validation token
+
+### Step 3: Document Your Work
+
+In progress.txt, you MUST record under "### Iteration N Work Summary":
+
+```
+Changes made this iteration:
+1. [Specific change to specific story]
+2. [Another change]
+
+If no changes: [Explanation of why no changes were needed AND evidence of investigation]
+```
+
+### Step 4: Work Gate Decision
+
+**IF you have checked at least one box in Step 2:**
+→ Proceed to output completion promise
+
+**IF NO boxes are checked:**
+→ You CANNOT output a completion promise
+→ You MUST either:
+a) Find and execute an improvement (even if stories "pass", there's always room to improve)
+b) Output `<promise>IMPROVEMENT_NEEDED</promise>` with explanation of what prevented work
+
+### Why This Gate Exists
+
+Previous iterations of Ralph would read existing state from progress.txt, verify all stories "pass", and immediately declare completion without doing any actual work. This gate ensures every run either:
+
+1. Makes real progress
+2. OR explicitly acknowledges it found nothing to improve (which is a valid outcome if documented)
 
 ---
 

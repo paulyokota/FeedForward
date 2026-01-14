@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "last_updated": "2026-01-13T21:11:48.132148",
+  "patterns": [
+    {
+      "type": "bad_pattern",
+      "description": "Do not group Pinterest OAuth with Facebook OAuth in same story",
+      "example": "They use different services (tack vs zuck)",
+      "discovered_at": "2026-01-13T21:11:48.132107",
+      "source": "scoping_validation"
+    },
+    {
+      "type": "good_pattern",
+      "description": "Pinterest token refresh and OAuth issues can be grouped together",
+      "example": "Both handled in tack service",
+      "discovered_at": "2026-01-13T21:11:48.132135",
+      "source": "scoping_validation"
+    }
+  ],
+  "service_insights": {
+    "tack": [
+      {
+        "finding": "OAuth token refresh handled in tack/src/oauth.ts with Pinterest API",
+        "discovered_at": "2026-01-13T21:11:48.132144"
+      }
+    ]
+  },
+  "scoping_rules": []
+}
