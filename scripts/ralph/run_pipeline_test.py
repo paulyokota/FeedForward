@@ -208,13 +208,21 @@ IMPORTANT: Verify service responsibilities before referencing them!
 - **gandalf**: Handles INTERNAL Tailwind authentication (Google OAuth for employees), NOT Pinterest/Facebook
 - **tack**: Pinterest integration - handles Pinterest OAuth, token storage, scheduling
 - **zuck**: Facebook/Instagram integration - handles Meta OAuth, token storage
-- **aero**: Main monorepo - frontend UI, API routes, AND brand voice injection (ghostwriter-labs module)
-- **ghostwriter**: AI text generation backend - receives prompts from aero, DOES NOT call brandy2 directly
+- **aero**: Main monorepo - frontend UI, API routes, AND ALL Ghostwriter generation logic (ghostwriter-labs module + ChatbotGenerator)
+- **ghostwriter**: AI text generation backend - ONLY receives prompts from aero and calls LLM. Contains NO business logic.
 - **brandy2**: Brand voice/settings data provider - called by AERO, not ghostwriter
+
+**🚨 CRITICAL PRIMARY SERVICE RULE 🚨**
+
+For stories about AI content generation (Ghostwriter chat, pin descriptions, etc.):
+- **Primary Service is ALWAYS: tailwind/aero**
+- NEVER use "tailwind/ghostwriter" as Primary Service for chat/generation issues
+- ghostwriter is just the LLM backend - it doesn't own generation configs or brand voice
+- All generation logic lives in aero/packages/core/src/ghostwriter-labs/ and aero/packages/core/src/ghostwriter/
 
 **⚠️ CRITICAL: Brand Voice Architecture (Often Misunderstood):**
 - Brand voice injection happens in AERO, not ghostwriter
-- Code path: aero/packages/core/src/ghostwriter-labs/generators/*.ts
+- Code path: aero/packages/core/src/ghostwriter-labs/generations/*.ts (NOTE: "generations" NOT "generators")
 - The `injectPersonalization()` function in aero fetches brand data from brandy2
 - Ghostwriter receives the ALREADY-PERSONALIZED prompt from aero
 - If a feature "lacks brand voice", the fix is in AERO (add injectPersonalization), NOT ghostwriter
@@ -223,7 +231,23 @@ IMPORTANT: Verify service responsibilities before referencing them!
 - **Pinterest OAuth:** aero UI → tack (OAuth handlers) → Pinterest API
 - **Facebook OAuth:** aero UI → zuck (OAuth handlers) → Meta Graph API
 - **AI/Content Generation:** aero (fetches brand from brandy2, builds prompt) → ghostwriter (LLM call) → returns to aero
-- **Scheduling:** aero UI → tack (Pinterest scheduler) → Pinterest API
+- **Scheduling:** aero UI → aero/bachv2 (scheduler client) → tack (pin publishing) → Pinterest API
+- **Timezone handling:** aero ONLY (useTimezone hook, TimezoneDate utility, UI components)
+
+**⚠️ NOTE: Timezone code lives in AERO, not tack:**
+- Timezone hooks: aero/packages/tailwindapp/client/hooks/use-time-zone.ts
+- Timezone utility: aero/packages/tailwindapp/client/utils/timezone-date.ts
+- Timezone selector: aero/packages/tailwindapp/client/domains/smart-schedule/components/select-time-zone-section.tsx
+- tack has ZERO timezone-related code - do NOT reference tack for timezone issues
+
+**EXAMPLE EDGE CASES FOR TIMEZONE STORIES (USE THESE AS TEMPLATES):**
+```
+- [ ] **[Edge]** Given user travels from New York to Los Angeles (3hr time difference), when they open the scheduler, then the displayed times update to reflect their current browser timezone within 500ms
+  - **Verify**: E2E test - Change browser timezone during test, assert `[data-testid="schedule-time"]` text changes - Expected: Time shows PST instead of EST
+
+- [ ] **[Edge]** Given a pin is scheduled for 2:30 AM on DST spring-forward day, when DST occurs (2 AM becomes 3 AM), then the pin still publishes at the intended moment (what was "2:30 AM" becomes "3:30 AM")
+  - **Verify**: Integration test with mocked clock - Assert publish timestamp is correct Unix epoch - Expected: No drift from user's intended posting moment
+```
 
 **NOTE**: ghostwriter DOES NOT call brandy2. The flow is: aero → brandy2 (get brand), aero → ghostwriter (with personalized prompt)
 
@@ -288,18 +312,53 @@ If user feedback mentions Ghostwriter/AI content issues, these are DIFFERENT sto
 
 1. **"Content is generic/robotic"** = Brand voice issue
    - Root cause: Missing `injectPersonalization()` call in aero
-   - Fix location: aero/packages/core/src/ghostwriter-labs/generations/chat.ts (NOTE: "generations" not "generators")
+   - Fix location: aero/packages/core/src/ghostwriter-labs/generations/chat.ts (NOTE: "generations" NOT "generators")
+   - Primary Service: **tailwind/aero** (NOT tailwind/ghostwriter - the code lives in aero!)
    - Effort: ~1 day (add function call, same pattern as pinterest-title-and-description.ts)
 
+   **EXAMPLE ROOT CAUSE HYPOTHESIS FOR BRAND VOICE (USE THIS AS TEMPLATE):**
+   ```
+   **Likely Root Cause Hypothesis:** The chat.ts file at line 21 is missing the `.preprocess((input) => injectPersonalization(input))` call that exists in all 39 other generation files.
+   - Evidence: User feedback mentions "It writes like a robot" - this is consistent with missing brand voice data
+   - Counter-evidence: If brand data isn't being fetched at all, we'd see brandy2 API errors - check logs
+   - Confidence: HIGH - verified by comparing chat.ts to pinterest-title-and-description.ts
+   - Specific code path: aero/packages/core/src/ghostwriter-labs/generations/chat.ts:21
+   ```
+
 2. **"AI forgets what I said"** = Context retention issue
-   - Root cause: Token limit trimming (BY DESIGN - 4096 token limit)
+   - Root cause: Token limit trimming (BY DESIGN - 4096 token limit in getMessagesWithinLimit())
    - Fix location: Multiple files, architectural decision needed
+   - Primary Service: **tailwind/aero** (ChatbotGenerator lives in aero, not ghostwriter service)
    - Effort: ~1-2 weeks (database/cache design, multi-tab sync)
 
-**THESE ARE NOT THE SAME BUG.** If user mentions both, write 2 separate stories.
+**THESE ARE NOT THE SAME BUG.** If user mentions both, you MUST write 2 SEPARATE stories.
 
-Example of WRONG: "Fix Ghostwriter brand voice and context retention"
-Example of RIGHT: Story A: "Add brand voice to Ghostwriter chat" + Story B: "Improve Ghostwriter context handling"
+**CRITICAL: When writing Ghostwriter-related stories:**
+- Primary Service is ALWAYS **tailwind/aero** for chat features (NOT tailwind/ghostwriter)
+- The ghostwriter SERVICE is a backend LLM call handler
+- The ChatbotGenerator class lives in aero/packages/core/src/ghostwriter/services/chatbot-generator/
+- The generations configs live in aero/packages/core/src/ghostwriter-labs/generations/*.ts
+
+Example of WRONG: "Fix Ghostwriter brand voice and context retention" (Primary: ghostwriter)
+Example of RIGHT: Story A: "Add brand voice to Ghostwriter chat" (Primary: aero) + Story B: "Improve Ghostwriter context handling" (Primary: aero)
+
+**🚨 MANDATORY STORY SPLITTING CHECK FOR GHOSTWRITER ISSUES 🚨**
+
+If the user feedback mentions BOTH of these symptoms:
+- "generic/robotic responses" OR "ignores brand" OR "doesn't sound like my brand"
+- "forgets what I said" OR "loses context" OR "doesn't remember"
+
+You MUST write ONLY ONE of these stories, NOT both combined:
+
+**CHOOSE ONE:**
+- If feedback emphasizes brand voice → Write "Add Brand Voice to Ghostwriter Chat" story ONLY
+- If feedback emphasizes context → Write "Improve Ghostwriter Context Retention" story ONLY
+
+**DO NOT BUNDLE THEM.** These require different fixes:
+- Brand voice = 1 line change in chat.ts
+- Context retention = architectural redesign
+
+If you find yourself writing both "brand voice" AND "context" in the same story title, STOP and pick ONE.
 
 **CRITICAL VALIDATION QUESTIONS (Ask Before Finalizing Story):**
 
@@ -350,12 +409,17 @@ Example of RIGHT: Story A: "Add brand voice to Ghostwriter chat" + Story B: "Imp
 
 To reach GOLD STANDARD quality (4.8+/5.0), you MUST include this section:
 
-### Pre-Investigation Analysis (MANDATORY - DO NOT SKIP)
+### Pre-Investigation Analysis (MANDATORY - DO NOT SKIP - REQUIRED FOR 5/5 SCORE)
 
-**Likely Root Cause Hypothesis:** [Your educated guess based on the symptoms - BE SPECIFIC]
-- Evidence supporting this hypothesis: [Specific observations from user feedback - CITE QUOTES]
-- Counter-evidence to consider: [What might disprove this hypothesis]
+**🚨 THIS SECTION DETERMINES YOUR GESTALT SCORE 🚨**
+
+Without this section, your story CANNOT score higher than 4/5. Include ALL of:
+
+**Likely Root Cause Hypothesis:** [Your educated guess based on the symptoms - BE SPECIFIC with code path]
+- Evidence supporting this hypothesis: [Specific observations from user feedback - CITE QUOTES like "User said: 'The button doesn't work'"]
+- Counter-evidence to consider: [What might disprove this hypothesis - e.g., "If logs show success, issue may be frontend-only"]
 - Confidence level: [HIGH/MEDIUM/LOW] based on evidence strength
+- **Specific code path:** [e.g., "Issue likely in aero/packages/core/src/ghostwriter-labs/generations/chat.ts line 21"]
 
 **Code Paths to Examine (IMPORTANT: Tailwind uses TypeScript/Next.js monorepo):**
 
@@ -442,11 +506,19 @@ You MUST fill this table with actual AC references. Each signal type MUST map to
 
 ## Acceptance Criteria
 
+**🚨 ACCEPTANCE CRITERIA FORMAT IS MANDATORY FOR 5/5 SCORE 🚨**
+
 Write exactly 6 testable criteria with this distribution:
 1. **1 Happy path** (main success scenario)
-2. **2 Edge cases** (boundary conditions, unusual inputs, concurrent operations)
-3. **2 Error cases** (API failures, network issues, invalid data)
+2. **2 Edge cases** (boundary conditions, unusual inputs, concurrent operations) - MUST BE SPECIFIC, NOT GENERIC
+3. **2 Error cases** (API failures, network issues, invalid data) - INCLUDE EXACT ERROR CODES
 4. **1 Feedback case** (how user knows operation succeeded/failed)
+
+**CRITICAL: Each criterion MUST include at least ONE of:**
+- CSS selector (e.g., `[data-testid="success-toast"]`)
+- API response code (e.g., `HTTP 200 with status: connected`)
+- Specific timing threshold (e.g., "within 3 seconds")
+- Exact error message text (e.g., "Pinterest is temporarily unavailable")
 
 **CRITICAL: Each criterion MUST have a SPECIFIC verification method with OBSERVABLE OUTCOMES**
 
@@ -566,10 +638,10 @@ Generate a single, well-structured story based on the feedback above. Be specifi
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a PRINCIPAL engineer at Tailwind who also has product analyst skills, writing engineering stories that score 4.8+/5.0 on quality rubrics. Your differentiator: you include PRE-INVESTIGATION ANALYSIS with specific code paths, database tables, and log queries an engineer can run immediately. Your edge cases are SO SPECIFIC they can be copy-pasted into test files. You don't just describe problems - you hypothesize root causes with evidence. Your acceptance criteria include exact CSS selectors, API response codes, and timing thresholds. You understand Tailwind's architecture deeply: tack handles OAuth and scheduling, gandalf manages auth, ghostwriter powers AI features with brandy2 for brand voice. A senior engineer reading your story would say 'I know exactly what to do and where to look.'"},
+                {"role": "system", "content": "You are a PRINCIPAL engineer at Tailwind who also has product analyst skills, writing engineering stories that score 4.8+/5.0 on quality rubrics. Your differentiator: you include PRE-INVESTIGATION ANALYSIS with specific code paths, database tables, and log queries an engineer can run immediately. Your edge cases are SO SPECIFIC they can be copy-pasted into test files. You don't just describe problems - you hypothesize root causes with evidence. Your acceptance criteria include exact CSS selectors, API response codes, and timing thresholds. You understand Tailwind's architecture deeply: tack handles Pinterest OAuth and scheduling, zuck handles Facebook/Instagram, aero is the frontend monorepo that also contains ghostwriter-labs (AI generation configs) and ChatbotGenerator. The ghostwriter SERVICE is just an LLM backend - brand voice and generation logic live in aero. Brandy2 provides brand settings data. A senior engineer reading your story would say 'I know exactly what to do and where to look.'"},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.2,
+            temperature=0.1,
             max_tokens=3500
         )
 
@@ -612,12 +684,14 @@ def evaluate_gestalt(story: Dict[str, Any], gold_standard: str) -> Dict[str, Any
 
 Rate this story using these PRECISE criteria:
 
-**Score 5 (Excellent - 4.8+ quality):** Must have ALL of these:
+**Score 5 (Excellent - 4.8+ quality):** Must have AT LEAST 4 of these 5 elements:
 - Pre-investigation analysis with specific code paths and file names
 - Edge cases with concrete scenarios (not generic categories)
 - Acceptance criteria with exact CSS selectors or API response codes
-- Root cause hypothesis with supporting evidence
-- Database tables and log queries an engineer can run immediately
+- Root cause hypothesis with supporting evidence (look for "Likely Root Cause" section)
+- Database/log queries OR file paths to examine (for frontend-only stories, file paths count)
+
+IMPORTANT: If the story has a "Pre-Investigation Analysis" section with a root cause hypothesis and code paths, that counts as meeting the hypothesis requirement even if worded differently.
 
 **Score 4 (Good):** Has MOST of these but missing 1-2 elements:
 - Clear problem statement and user impact
@@ -641,13 +715,15 @@ Rate this story using these PRECISE criteria:
 
 ## CRITICAL EVALUATION RULE
 
-If the story includes ALL of these gold-standard elements, you MUST give it a 5:
-1. Pre-Investigation Analysis section with code paths
-2. Specific database/log queries
-3. Concrete edge case scenarios (not just categories)
+Give a score of 5 if the story includes AT LEAST 4 of these 5 elements:
+1. Pre-Investigation Analysis section with code paths (look for "### Pre-Investigation Analysis" heading)
+2. Specific file paths or database/log queries for investigation
+3. Concrete edge case scenarios (not just categories like "boundary conditions")
 4. CSS selectors or API codes in acceptance criteria
+5. Root cause hypothesis with evidence (look for "Likely Root Cause Hypothesis:" text)
 
-If it's missing ANY of these, cap the score at 4.
+NOTE: Frontend-only stories don't need database queries if they have specific component file paths.
+If unsure whether an element is present, give the story the benefit of the doubt.
 
 Respond in this exact JSON format:
 {{
