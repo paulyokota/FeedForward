@@ -10,6 +10,21 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Ralph V2 Pipeline Optimization Session (2026-01-13)**:
+
+- Ran 7-iteration autonomous loop optimizing Feed Forward story generation
+- Achieved gestalt 5.0 (all sources 5/5), scoping plateaued at 3.5
+- Key improvements to `scripts/ralph/run_pipeline_test.py`:
+  - Fixed file path patterns to actual Tailwind codebase structure
+  - Fixed service architecture (aero → brandy2 → ghostwriter, not ghostwriter → brandy2)
+  - Excluded gandalf from Pinterest OAuth chain
+  - Added Ghostwriter-specific scoping rules (brand voice ≠ context retention)
+- Bug fix: MAX_ITERATIONS enforcement
+  - `scripts/ralph/PROMPT_V2.md` - Added HARD CAP CHECK to iteration work gate
+  - `scripts/ralph/ralph_v2.sh` - Write MAXIMUM ITERATIONS to progress.txt
+  - Ralph now stops at configured max instead of continuing indefinitely
+- Commits: d56a986, 103a351
+
 **Ralph Wiggum Autonomous Loop Infrastructure (2026-01-13)**:
 
 - Complete autonomous story generation loop for Feed Forward

@@ -12,59 +12,80 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Ralph Wiggum Autonomous Loop Infrastructure (2026-01-13)
+## Latest: Ralph V2 Pipeline Optimization Session (2026-01-13)
 
 ### Session Summary
 
-Set up complete Ralph Wiggum autonomous loop infrastructure for automated story generation and refinement. Created all required files so Ralph can run immediately after setup completes.
+Ran Ralph V2 autonomous pipeline optimization loop (7 iterations) to improve Feed Forward story generation quality. Achieved gestalt 5.0 (all sources 5/5), but scoping validation plateaued at 3.5. Fixed MAX_ITERATIONS enforcement bug.
 
-### What Was Built
+### Results
 
-**scripts/ralph/ directory with 4 files**:
+**Final Metrics (Iteration 6)**:
 
-- `ralph.sh` (177 lines) - Executable bash loop script that runs Claude Code iteratively with completion detection, progress tracking, and colored output
-- `PROMPT.md` (1,264 lines) - Complete hardened workflow with 5 phases, validation criteria, guardrails, and error handling
-- `prd.json` (79 lines) - Task tracking initialized with 2 database stories
-- `progress.txt` (129 lines) - Cross-iteration memory system initialized
+| Metric          | Value | Threshold | Status  |
+| --------------- | ----- | --------- | ------- |
+| Average Gestalt | 5.0   | >= 4.8    | ✅ PASS |
+| Intercom        | 5.0   | >= 4.5    | ✅ PASS |
+| Coda Tables     | 5.0   | >= 4.5    | ✅ PASS |
+| Coda Pages      | 5.0   | >= 4.5    | ✅ PASS |
+| Scoping         | 3.5   | >= 4.5    | ❌ FAIL |
 
-**Quality thresholds configured**:
+**Progress Made**:
 
-- Gestalt >= 4.0/5.0 (holistic quality)
-- Dimensional Average >= 3.5/5.0 (per-INVEST scoring)
-- Playwright Validation >= 85% (URL verification)
+- Gestalt: 4.5 → 5.0 (+0.5, +11%)
+- Scoping: 3.25 → 3.5 (+0.25, +8%)
 
-**Stories loaded**:
+### Key Fixes Applied
 
-1. story-001: [4] Investigate AI Copilot Integration Friction (confidence: 0.85)
-2. story-002: [7] Fix Pinterest OAuth Failure (confidence: 0.92)
+1. **File Path Accuracy** - Updated to actual codebase structure:
+   - `aero/packages/tailwindapp/app/dashboard/v3/api/[endpoint]/route.ts`
+   - `tack/service/lib/handlers/api/[endpoint]/[endpoint]-handler.ts`
 
-### Process Gates Passed
+2. **Service Architecture** - Fixed incorrect service ownership:
+   - Brand voice lives in `aero/packages/core/src/ghostwriter-labs/`, NOT standalone ghostwriter
+   - aero → brandy2 → ghostwriter (not ghostwriter → brandy2)
 
-- Verification: All files exist and are properly formatted
-- JSON validation: prd.json is valid
-- Permissions: ralph.sh is executable
-- Database: Connection verified (2 stories)
-- Knowledge files: All 3 required files accessible
-- Git: All files committed (1fff2be)
+3. **gandalf Exclusion** - Removed gandalf from Pinterest OAuth chain (should be: Pinterest API → tack → aero)
 
-### Running Ralph
+4. **Scoping Rules** - Added explicit guidance:
+   - "Brand voice" and "context retention" are SEPARATE stories
+   - Don't bundle quick fixes with architectural changes
 
-```bash
-cd /Users/paulyokota/Documents/GitHub/FeedForward
-./scripts/ralph/ralph.sh 15
-```
+### Bug Fixed: MAX_ITERATIONS Enforcement
 
-Ralph will autonomously:
+Ralph was exceeding the configured max iterations (set to 4, went to 7). Fixed by:
 
-1. Read memory files (progress.txt, prd.json)
-2. Load knowledge bases
-3. Select stories to refine
-4. Apply INVEST criteria
-5. Validate with Playwright
-6. Update prd.json and progress.txt
-7. Continue until completion or max iterations
+1. **PROMPT_V2.md**: Added HARD CAP CHECK to iteration work gate
+   - Check MAX_ITERATIONS before starting any iteration
+   - Output FORCED COMPLETION if at/past cap
+
+2. **ralph_v2.sh**: Added line to write MAXIMUM ITERATIONS to progress.txt
+
+3. **progress.txt**: Added MAXIMUM ITERATIONS: 4 to configuration
+
+### Scoping Plateau Analysis
+
+**Why scoping stayed at 3.5 (below 4.5 threshold)**:
+
+The core issue is that stories still bundle unrelated issues:
+
+- Brand voice (missing function call - quick fix) grouped with session context (token limit - architectural)
+- LLM variability causes gestalt scores to fluctuate ±0.25 between runs
+
+**Potential fixes for future work**:
+
+- Give story generator direct codebase access to verify file paths
+- Add explicit code search before referencing endpoints
+- More aggressive story splitting criteria
+
+### Commits This Session
+
+- d56a986: Ralph V2 Iteration 1 - Initial prompt improvements
+- 103a351: Ralph V2 Iteration 3 - Improve technical accuracy and scoping guidance
 
 ---
+
+## Previous: Ralph Wiggum Autonomous Loop Infrastructure (2026-01-13)
 
 ## Previous: Unified Research Search with Vector Embeddings (2026-01-13)
 
