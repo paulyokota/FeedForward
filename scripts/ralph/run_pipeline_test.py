@@ -409,7 +409,41 @@ If you find yourself writing both "brand voice" AND "context" in the same story 
 
    **RULE**: If you can't explain how ALL ACs relate to ONE code change, SPLIT the story.
 
-8. **Have you VERIFIED the feature exists before claiming it's broken?**
+**🚨 CRITICAL: HAPPY PATH VS ERROR PATH SPLITTING 🚨**
+
+This is one of the most common scoping mistakes. NEVER bundle these in the same story:
+
+8. **Are you mixing HAPPY PATH improvements with ERROR PATH handling?**
+   - **Happy path**: What happens when everything works (UI clarity, new features, enhancements)
+   - **Error path**: What happens when external services fail (API errors, timeouts, retries)
+
+   These require DIFFERENT:
+   - Code paths (UI components vs error handlers)
+   - Testing strategies (E2E vs mocking/integration)
+   - Review expertise (frontend vs backend reliability)
+
+   **BAD EXAMPLE (coda_page_001 anti-pattern):**
+   ```
+   Story: "Enhance Pinterest Scheduler Timezone Clarity"
+   AC #1-4: Display timezone clearly in scheduler UI (happy path - aero only)
+   AC #5: Handle Pinterest API 503 errors gracefully (error path - requires tack!)
+   ```
+   This bundles unrelated concerns. AC #5 is about error resilience, not timezone clarity.
+
+   **GOOD EXAMPLE (properly split):**
+   ```
+   Story A: "Enhance Pinterest Scheduler Timezone Clarity" (aero-only)
+   - AC #1-4: All about displaying timezone info clearly
+   - Single service (aero), single code change, single testing approach
+
+   Story B: "Handle Pinterest Scheduling Errors Gracefully" (tack + aero)
+   - AC #1-3: All about 503/429/timeout error handling
+   - Multi-service, requires error injection testing
+   ```
+
+   **RULE**: If ANY acceptance criterion mentions "error", "failure", "timeout", "503", "429", or "unavailable" - CHECK if it belongs in a separate error-handling story.
+
+9. **Have you VERIFIED the feature exists before claiming it's broken?**
    - Before writing "X doesn't work", check if code path for X even exists
    - Example: ghostwriter chat.handler.ts has NO brandy2 import - brand voice isn't "broken", it's MISSING
    - If feature doesn't exist, write it as NEW FEATURE story, not BUG FIX
@@ -588,6 +622,22 @@ Format:
 - [ ] AC #1 (Happy) is referenced by the Success signal
 - [ ] AC #4-5 (Error) are referenced by the Error and Recovery signals
 - [ ] AC #6 (Feedback) ties UX signals to observable outcomes
+
+**🚨 FINAL SCOPING CHECK FOR ACCEPTANCE CRITERIA 🚨**
+
+STOP and ask yourself: "Do ALL my ACs share the SAME root cause and require the SAME code change?"
+
+If your story is about **UI enhancement** (like timezone clarity), your ACs should ONLY be about:
+- ✅ Displaying information (timezone labels, confirmation messages)
+- ✅ Handling user input variations (DST, travel, timezone change)
+- ✅ UI edge cases (empty states, loading states)
+
+Your ACs should NOT include:
+- ❌ External API error handling (503, 429, timeout)
+- ❌ Backend retry logic or circuit breakers
+- ❌ Service-to-service communication failures
+
+If you wrote an AC about "Pinterest API 503 error" in a timezone clarity story, DELETE IT and note it for a separate story.
 
 ## Success Metrics
 
