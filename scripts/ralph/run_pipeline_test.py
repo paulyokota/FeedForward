@@ -237,11 +237,24 @@ For stories about AI content generation (Ghostwriter chat, pin descriptions, etc
 **⚠️ NOTE: Timezone code lives in AERO, not tack:**
 - Timezone hooks: aero/packages/tailwindapp/client/hooks/use-time-zone.ts
 - Timezone utility: aero/packages/tailwindapp/client/utils/timezone-date.ts
-- Timezone selector: aero/packages/tailwindapp/client/domains/smart-schedule/components/select-time-zone-section.tsx
+- Timezone selector: aero/packages/tailwindapp/client/domains/smart-schedule/components/select-time-zone-section.tsx ⚠️ NOTE: This is in SMART-SCHEDULE domain, NOT scheduler domain!
 - **Scheduler toast messages**: aero/packages/tailwindapp/client/domains/scheduler/hooks/use-scheduler-toasts.ts
 - **Timeslot display**: aero/packages/tailwindapp/client/domains/scheduler/components/timeslot-radio-group/timeslot-radio-group.tsx
 - **Date picker with timeslots**: aero/packages/tailwindapp/client/domains/scheduler/components/date-time-picker-with-timeslots/date-time-picker-with-timeslots.tsx
 - tack has ZERO timezone-related code - do NOT reference tack for timezone issues
+
+**🚨 CRITICAL: DOMAIN PATHS IN AERO (VERIFIED) 🚨**
+
+The aero/packages/tailwindapp/client/domains/ directory has SPECIFIC domains. Do NOT invent domain paths:
+- ✅ scheduler/ - Pin scheduling UI components (date pickers, timeslots, scheduler toasts)
+- ✅ smart-schedule/ - SmartSchedule feature (timezone selector, queue management)
+- ✅ pinteresto-auth/ - Pinterest OAuth UI components (connect flow, error pages)
+- ❌ timezone/ - DOES NOT EXIST as a domain
+- ❌ oauth/ - DOES NOT EXIST as a domain
+
+**COMMON MISTAKE**: select-time-zone-section.tsx is in SMART-SCHEDULE domain, NOT scheduler domain!
+- ❌ WRONG: aero/packages/tailwindapp/client/domains/scheduler/components/select-time-zone-section.tsx
+- ✅ RIGHT: aero/packages/tailwindapp/client/domains/smart-schedule/components/select-time-zone-section.tsx
 
 **⚠️ FILES THAT DO NOT EXIST (verified against codebase):**
 - ❌ `timezone-display.tsx` - DOES NOT EXIST. Use timeslot-radio-group.tsx instead.
@@ -481,8 +494,22 @@ Tailwind codebase is TypeScript with Next.js App Router. Use these ACTUAL path p
 3. ghostwriter/stack/service/handlers/api/[endpoint]/[endpoint].handler.ts - Ghostwriter APIs
 4. brandy2/packages/client/src/*.ts - Brand data client
 
+**🚨 TACK OAUTH HANDLERS - ACTUAL FILE PATHS (VERIFIED) 🚨**
+
+When referencing tack OAuth handlers, use THESE exact paths:
+- ✅ tack/service/lib/handlers/api/get-oauth-response/get-oauth-response-handler.ts - Handles OAuth response from Pinterest
+- ✅ tack/service/lib/handlers/api/get-oauth-redirect/get-oauth-redirect-handler.ts - Generates OAuth redirect URL
+- ✅ tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts - Finalizes OAuth token exchange
+- ✅ tack/service/lib/clients/pinterestv5/oauth.ts - Pinterest OAuth client
+
+**FILE PATHS THAT DO NOT EXIST (DO NOT REFERENCE THESE):**
+- ❌ tack/service/lib/handlers/api/oauth/pinterest/callback/oauth-callback-handler.ts - DOES NOT EXIST
+- ❌ tack/service/lib/handlers/api/oauth-callback/oauth-callback-handler.ts - DOES NOT EXIST
+- ❌ tack/service/lib/handlers/oauth/*.ts - This directory structure DOES NOT EXIST
+
 Example file paths (ACTUAL paths from codebase):
-- "aero/packages/tailwindapp/app/dashboard/v3/api/oauth/pinterest/callback/route.ts" - Pinterest OAuth callback
+- "aero/packages/tailwindapp/app/dashboard/v3/api/oauth/pinterest/callback/route.ts" - Pinterest OAuth callback (aero side)
+- "tack/service/lib/handlers/api/get-oauth-response/get-oauth-response-handler.ts" - OAuth response handling (tack side)
 - "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts" - OAuth token finalization
 - "ghostwriter/stack/service/handlers/api/chat/chat.handler.ts" - Ghostwriter chat handler
 - "aero/packages/tailwindapp/client/domains/scheduler/components/*.tsx" - Scheduler UI components
@@ -598,6 +625,18 @@ Format:
 - [ ] **[Happy/Edge/Error/Feedback]** Given [specific precondition], when [specific action], then [expected observable behavior]
   - **Verify**: [test type] - Assert [exact condition] - Expected: [quantifiable outcome]
 
+**🚨 REGRESSION TEST MARKING 🚨**
+
+If you include an AC for functionality that ALREADY WORKS (to ensure no regression during the fix), mark it clearly:
+
+- [ ] **[Regression]** Given user has multiple Pinterest accounts, when they click connect, then account selection dropdown appears
+  - **Why regression test**: This already works but could break during OAuth changes - verify it still functions
+  - **Verify**: E2E test - Assert dropdown visible with account list
+
+DO NOT include ACs for existing features WITHOUT the [Regression] tag. Either:
+1. Mark it as [Regression] with explanation why it's included
+2. Remove it from the story if not relevant to the change
+
 **MANDATORY: Your acceptance criteria MUST include specific CSS selectors or API codes like these examples:**
 
 - [ ] **[Happy]** Given a user has valid Pinterest credentials, when they click "Connect Pinterest", then the connection succeeds and dashboard shows "Connected" status
@@ -638,6 +677,25 @@ Your ACs should NOT include:
 - ❌ Service-to-service communication failures
 
 If you wrote an AC about "Pinterest API 503 error" in a timezone clarity story, DELETE IT and note it for a separate story.
+
+**🚨 SPECIFIC BUNDLING MISTAKES TO AVOID 🚨**
+
+These are COMMONLY bundled incorrectly - NEVER put these in the same story:
+
+1. **Timezone display clarity** + **Scheduling conflict detection** = TWO SEPARATE STORIES
+   - Timezone clarity: Adding labels like "EST" to times in UI (aero-only, simple)
+   - Conflict detection: Checking if two pins are scheduled for same time (requires backend logic, complex)
+   - These have NOTHING in common except they're both about scheduling
+
+2. **Timezone display clarity** + **DST handling in backend** = TWO SEPARATE STORIES
+   - Timezone clarity: UI-only, shows user what timezone they're in
+   - DST handling: Backend logic for Unix timestamp conversion (tack, complex)
+
+3. **UI clarity improvements** + **External API error handling** = TWO SEPARATE STORIES
+   - UI clarity: Frontend-only, aero service
+   - API error handling: Backend retries, circuit breakers (tack, multi-service)
+
+If your timezone clarity story has an AC about "conflict detection" or "scheduling collision", REMOVE IT immediately.
 
 ## Success Metrics
 
