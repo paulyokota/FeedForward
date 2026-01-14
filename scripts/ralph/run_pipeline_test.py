@@ -168,11 +168,21 @@ Generate a story in this EXACT format:
 
 For Tailwind products, map to these services with their dependencies:
 
-**Service Architecture (dependencies flow left-to-right):**
-- **OAuth/Integrations:** Pinterest API → gandalf (auth validation) → tack (token storage) → aero (UI display)
+**Service Architecture (VERIFIED against actual codebase):**
+
+IMPORTANT: Verify service responsibilities before referencing them!
+- **gandalf**: Handles INTERNAL Tailwind authentication (Google OAuth for employees), NOT Pinterest/Facebook
+- **tack**: Pinterest integration - handles Pinterest OAuth, token storage, scheduling
+- **zuck**: Facebook/Instagram integration - handles Meta OAuth, token storage
+- **aero**: Main monorepo - frontend UI, API routes, shared services
+- **ghostwriter**: AI text generation, uses brandy2 for brand voice
+- **brandy2**: Brand voice/settings data provider
+
+**Dependency chains:**
+- **Pinterest OAuth:** aero UI → tack (OAuth handlers) → Pinterest API
+- **Facebook OAuth:** aero UI → zuck (OAuth handlers) → Meta Graph API
 - **AI/Ghostwriter:** User input → ghostwriter (LLM orchestration) → brandy2 (brand voice data) → content delivery
-- **Scheduling:** User selection → tack (scheduler service) → Pinterest API (post submission)
-- **Analytics:** Pinterest API → analytics (data collection) → tack (display)
+- **Scheduling:** aero UI → tack (Pinterest scheduler) → Pinterest API
 
 **CRITICAL: Distinguish Greenfield vs Existing Code**
 
@@ -200,31 +210,56 @@ You MUST explicitly classify this story as one of:
 
 - **Primary Service:** [specific service from list above, e.g., "tailwind/tack"]
 - **Dependency Chain:** [upstream service] → [this service] → [downstream service]
-  - Example: "Pinterest OAuth → gandalf (token validation) → tack (token storage)"
+  - Example: "aero UI → tack (Pinterest OAuth handlers) → Pinterest API"
 - **Affected Endpoints/URLs:** [specific API paths or UI routes - mark NEW ones as "TO BE CREATED"]
   - Example (bug): "/api/v1/pinterest/oauth/callback" (EXISTING)
   - Example (new): "/api/v1/support/availability" (TO BE CREATED)
-- **Related Components:** [specific files/modules - mark NEW ones as "TO BE CREATED"]
-  - Example (bug): "auth/pinterest_handler.py (EXISTING - token refresh logic)"
-  - Example (new): "support/availability_handler.py (TO BE CREATED)"
+- **Related Components:** [specific .ts/.tsx files - mark NEW ones as "TO BE CREATED"]
+  - Example (bug): "aero/src/pages/api/pinterest/oauth/callback.ts (EXISTING - token handling)"
+  - Example (new): "tack/src/services/timezone-handler.ts (TO BE CREATED)"
 - **Inter-Service Communication:** [how services talk to each other]
   - Example: "REST API call from gandalf to tack via internal endpoint /api/internal/tokens"
 - **Error Patterns to Search:** [specific error codes, log patterns, exceptions]
-  - Example: "Look for 'invalid_grant' in gandalf logs, 'ECONNREFUSED' in tack→Pinterest calls"
+  - Example: "Look for 'invalid_grant' in tack logs, 'ECONNREFUSED' in tack→Pinterest API calls"
+
+**STORY SCOPING RULES (Learned from Validation)**
+
+When grouping themes into a story, follow these rules:
+
+DO bundle themes that:
+- Share the same root cause (would be fixed by same code change)
+- Operate in the same request lifecycle within one service
+- Are variations of the same user flow (edge cases of happy path)
+
+DO NOT bundle:
+- Unrelated LLM features (brand voice + caption generation + hashtags)
+- Features from different data flows (session-based vs per-request)
+- Net-new features with bug fixes to existing features
+- Conflict detection with timezone display (different features)
 
 **CRITICAL FOR HIGH-QUALITY STORIES: Add Pre-Investigation Analysis**
 
 To reach GOLD STANDARD quality (4.8+/5.0), you MUST include this section:
 
-### Pre-Investigation Analysis (Required for Gold Standard)
+### Pre-Investigation Analysis (MANDATORY - DO NOT SKIP)
 
-**Likely Root Cause Hypothesis:** [Your educated guess based on the symptoms]
-- Evidence supporting this hypothesis: [Specific observations from user feedback]
+**Likely Root Cause Hypothesis:** [Your educated guess based on the symptoms - BE SPECIFIC]
+- Evidence supporting this hypothesis: [Specific observations from user feedback - CITE QUOTES]
 - Counter-evidence to consider: [What might disprove this hypothesis]
+- Confidence level: [HIGH/MEDIUM/LOW] based on evidence strength
 
-**Code Paths to Examine (Specific Files):**
-1. [service_name]/[path/to/file.py]:[function_name]() - [why this is relevant]
-2. [service_name]/[path/to/file.py]:[function_name]() - [why this is relevant]
+**Code Paths to Examine (IMPORTANT: Tailwind uses TypeScript/Next.js):**
+
+Tailwind codebase is TypeScript, NOT Python. Use these path patterns:
+1. aero/src/pages/api/[endpoint].ts - API routes
+2. aero/src/components/[component-name].tsx - React components
+3. aero/src/services/[service-name].ts - Service layer
+4. [service-name]/src/[module].ts - Backend services
+
+Example file paths (TypeScript):
+- "aero/src/pages/api/pinterest/oauth/callback.ts" - OAuth callback handler
+- "ghostwriter/src/services/chat-handler.ts" - Ghostwriter chat logic
+- "tack/src/services/scheduler.ts" - Pinterest scheduler
 
 **Database/State to Check:**
 - Table/Collection: [specific table name]
@@ -400,7 +435,7 @@ Generate a single, well-structured story based on the feedback above. Be specifi
                 {"role": "system", "content": "You are a PRINCIPAL engineer at Tailwind who also has product analyst skills, writing engineering stories that score 4.8+/5.0 on quality rubrics. Your differentiator: you include PRE-INVESTIGATION ANALYSIS with specific code paths, database tables, and log queries an engineer can run immediately. Your edge cases are SO SPECIFIC they can be copy-pasted into test files. You don't just describe problems - you hypothesize root causes with evidence. Your acceptance criteria include exact CSS selectors, API response codes, and timing thresholds. You understand Tailwind's architecture deeply: tack handles OAuth and scheduling, gandalf manages auth, ghostwriter powers AI features with brandy2 for brand voice. A senior engineer reading your story would say 'I know exactly what to do and where to look.'"},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3,
+            temperature=0.2,
             max_tokens=3500
         )
 
