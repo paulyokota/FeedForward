@@ -12,7 +12,53 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Knowledge Cache Learning System (2026-01-13)
+## Latest: VDD Codebase Search System (2026-01-15)
+
+### Session Summary
+
+Built complete VDD (Validation-Driven Development) harness for optimizing codebase search quality. Refactored from Anthropic SDK tool-use to Claude CLI for faster execution.
+
+### What Was Built
+
+**VDD Loop Infrastructure** (`scripts/codebase-search-vdd/`):
+
+- `run_vdd_loop.sh` - Bash orchestrator with options: `--baseline`, `--dry-run`, `--manual`
+- `fetch_conversations.py` - Fetch Intercom conversations for testing
+- `run_search.py` - Execute codebase search using CodebaseContextProvider
+- `evaluate_results_v2.py` - CLI-based evaluation with dual exploration pattern
+- `apply_learnings.py` - Apply learnings from evaluation to improve search
+- `config.json` - Configurable thresholds and parameters
+
+**CLI-Based Evaluation (v2)**:
+
+- Uses `claude --print --model <model>` instead of Anthropic SDK
+- Dual exploration pattern: Two independent Claude explorations build ground truth
+- Model validation whitelist prevents command injection
+- No separate API key required (uses Claude Code's auth)
+- ~25x fewer API round-trips than SDK tool-use approach
+
+**Voice Mode Improvements**:
+
+- Added `metrics_level: "minimal"` as default for cleaner output
+- Documented multi-sentence response pattern for better readability
+- Added experimental PostToolUse hook for voice output formatting
+
+### Commits This Session
+
+- 0e47b09: feat: VDD harness for codebase search optimization
+- 12e026c: feat: Add autonomous learning phase to VDD loop
+- 2576808: feat: Refactor VDD evaluation to Claude CLI for faster execution
+- 2d4b87b: feat: Improve voice mode output with minimal metrics
+
+### Next Steps
+
+- Test v2 VDD loop end-to-end: `./scripts/codebase-search-vdd/run_vdd_loop.sh --baseline`
+- Clean up iteration_0 outputs and restart fresh
+- Compare performance metrics (SDK vs CLI approach)
+
+---
+
+## Previous: Knowledge Cache Learning System (2026-01-13)
 
 ### Session Summary
 

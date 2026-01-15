@@ -10,6 +10,35 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**VDD Codebase Search System (2026-01-15)**:
+
+- Complete VDD (Validation-Driven Development) harness for codebase search optimization
+  - `scripts/codebase-search-vdd/` - Full VDD loop infrastructure
+  - `run_vdd_loop.sh` - Bash orchestrator with convergence detection
+  - `fetch_conversations.py` - Fetch conversations from Intercom for testing
+  - `run_search.py` - Run codebase search using CodebaseContextProvider
+  - `evaluate_results_v2.py` - CLI-based evaluation using dual exploration pattern
+  - `apply_learnings.py` - Apply learnings from evaluation to improve search
+  - `config.json` - Configurable thresholds and parameters
+- CLI-based evaluation approach (v2):
+  - Uses `claude --print` for explorations instead of Anthropic SDK
+  - Dual exploration pattern: Two independent Claude explorations build ground truth
+  - Model validation to prevent command injection
+  - No separate API key required (uses Claude Code's auth)
+  - Significantly faster than SDK tool-use approach (~1 call vs ~25+ round-trips)
+- Architecture documentation: `docs/architecture/codebase-search-vdd.md`
+- Tests: `tests/test_fetch_conversations_vdd.py`
+- Commits: 0e47b09, 12e026c, 2576808
+
+**Voice Mode Improvements (2026-01-15)**:
+
+- Improved voice mode defaults in `.claude/skills/voice-mode/SKILL.md`:
+  - Added `metrics_level: "minimal"` as default for cleaner output
+  - Documented multi-sentence response pattern for better readability
+  - Queue messages with `wait_for_response=false` except final message
+- Added experimental PostToolUse hook for voice output formatting
+- Commit: 2d4b87b
+
 **Knowledge Cache Learning System (2026-01-13)**:
 
 - Learning system for story generation with codebase context
