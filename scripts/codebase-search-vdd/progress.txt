@@ -13,3 +13,45 @@ Each iteration records:
 
 ## Baseline (Iteration 0)
 Status: Not started
+
+## Iteration 1
+Date: 2026-01-15 16:06:59
+Batch size: 18
+Precision: 
+Recall: 
+Gestalt: 
+
+## Iteration 0
+Date: 2026-01-15 16:33:47
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 0
+Date: 2026-01-15 16:49:59
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 2
+Date: 2026-01-15 17:23:14
+Batch size: 3
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 0
+Date: 2026-01-15 17:53:07
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 1
+Date: 2026-01-15 17:53:32
+Batch size: 3
+Precision: 0
+Recall: 0
+Gestalt: 0

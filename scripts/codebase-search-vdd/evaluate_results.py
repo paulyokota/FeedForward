@@ -1,29 +1,36 @@
 #!/usr/bin/env python3
 """
-Codebase Search VDD - Dual Exploration Evaluator
+Codebase Search VDD - Dual Exploration Evaluator with Tool Use
 
-Orchestrates the dual exploration evaluation process:
-1. Launch two independent Claude Code explorations (Opus + Sonnet during calibration)
-2. Construct ground truth from union of files found by both runs
-3. Compare our search results against ground truth
-4. Judge "Our Unique" files for relevance using judge model
-5. Calculate precision/recall metrics
-6. Track calibration data for model selection
+Orchestrates the dual exploration evaluation process using Claude with actual
+tool access to explore codebases:
+
+1. Launch two independent Claude explorations (Opus + Sonnet during calibration)
+2. Claude uses glob/grep/read tools to actually search the codebases
+3. Construct ground truth from union of files found by both runs
+4. Compare our search results against ground truth
+5. Judge "Our Unique" files for relevance using judge model
+6. Calculate precision/recall metrics
+7. Track calibration data for model selection
 
 Architecture:
 - Reads search results JSON from stdin (output of run_search.py)
-- For each conversation, launches TWO independent explorations
+- For each conversation, launches TWO independent tool-use explorations
 - Explorations only see issue summary, NOT our search results
-- Uses Anthropic API for programmatic Claude Code invocations
+- Uses Anthropic Messages API with tool_use for real codebase access
 - Outputs comprehensive evaluation results with per-conversation metrics
 """
 
 import asyncio
+import glob as glob_lib
 import json
 import os
+import re
+import subprocess
 import sys
 from collections import defaultdict
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +42,7 @@ CONFIG_PATH = Path(__file__).parent / "config.json"
 with open(CONFIG_PATH) as f:
     CONFIG = json.load(f)
 
-REPOS_PATH = CONFIG["repos_path"]
+REPOS_PATH = Path(CONFIG["repos_path"])
 APPROVED_REPOS = CONFIG["approved_repos"]
 MODELS = CONFIG["models"]
 CALIBRATION_ITERATIONS = CONFIG["calibration_iterations"]
@@ -46,6 +53,203 @@ if not ANTHROPIC_API_KEY:
     print("Error: ANTHROPIC_API_KEY environment variable must be set", file=sys.stderr)
     sys.exit(1)
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
+# Tool definitions for codebase exploration
+EXPLORATION_TOOLS = [
+    {
+        "name": "glob_files",
+        "description": "Find files matching glob patterns in a repository. Use patterns like '**/*.py', 'src/**/*.ts', or '**/test*.js'. Returns list of matching file paths.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": f"Repository name. Must be one of: {', '.join(APPROVED_REPOS)}",
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Glob pattern to match files (e.g., '**/*.py', 'src/**/*.ts')",
+                },
+            },
+            "required": ["repo", "pattern"],
+        },
+    },
+    {
+        "name": "grep_files",
+        "description": "Search for text or regex patterns in files within a repository. Returns list of files containing matches with line numbers.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": f"Repository name. Must be one of: {', '.join(APPROVED_REPOS)}",
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Search pattern (text or regex)",
+                },
+                "file_pattern": {
+                    "type": "string",
+                    "description": "Optional file pattern to limit search (e.g., '*.py', '*.ts')",
+                    "default": "*",
+                },
+            },
+            "required": ["repo", "pattern"],
+        },
+    },
+    {
+        "name": "read_file",
+        "description": "Read the contents of a specific file. Returns file content (first 500 lines).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": f"Repository name. Must be one of: {', '.join(APPROVED_REPOS)}",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "File path relative to repo root (e.g., 'src/services/auth.py')",
+                },
+            },
+            "required": ["repo", "path"],
+        },
+    },
+    {
+        "name": "report_files",
+        "description": "Report the list of relevant files you've found. Call this when you've completed your exploration.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of relevant file paths in format 'repo/path/to/file.ext'",
+                },
+            },
+            "required": ["files"],
+        },
+    },
+]
+
+
+def execute_glob(repo: str, pattern: str) -> dict:
+    """Execute glob pattern search in a repository."""
+    if repo not in APPROVED_REPOS:
+        return {"error": f"Repository '{repo}' not in approved list"}
+
+    repo_path = REPOS_PATH / repo
+    if not repo_path.exists():
+        return {"error": f"Repository path does not exist: {repo_path}"}
+
+    try:
+        full_pattern = str(repo_path / pattern)
+        matches = glob_lib.glob(full_pattern, recursive=True)
+
+        # Convert to relative paths and limit results
+        relative_paths = []
+        for match in matches[:100]:  # Limit to 100 files
+            rel_path = Path(match).relative_to(repo_path)
+            relative_paths.append(str(rel_path))
+
+        return {
+            "files": relative_paths,
+            "count": len(relative_paths),
+            "truncated": len(matches) > 100,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def execute_grep(repo: str, pattern: str, file_pattern: str = "*") -> dict:
+    """Execute grep search in a repository using ripgrep or grep."""
+    if repo not in APPROVED_REPOS:
+        return {"error": f"Repository '{repo}' not in approved list"}
+
+    repo_path = REPOS_PATH / repo
+    if not repo_path.exists():
+        return {"error": f"Repository path does not exist: {repo_path}"}
+
+    try:
+        # Try ripgrep first, fall back to grep
+        try:
+            cmd = ["rg", "--files-with-matches", "--glob", file_pattern, pattern, str(repo_path)]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            output = result.stdout
+        except FileNotFoundError:
+            # Fall back to grep
+            cmd = ["grep", "-rl", pattern, str(repo_path)]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            output = result.stdout
+
+        matches = [line.strip() for line in output.split("\n") if line.strip()]
+
+        # Convert to relative paths and limit results
+        relative_paths = []
+        for match in matches[:50]:  # Limit to 50 files
+            try:
+                rel_path = Path(match).relative_to(repo_path)
+                relative_paths.append(str(rel_path))
+            except ValueError:
+                continue
+
+        return {
+            "files": relative_paths,
+            "count": len(relative_paths),
+            "truncated": len(matches) > 50,
+        }
+    except subprocess.TimeoutExpired:
+        return {"error": "Search timed out"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def execute_read(repo: str, path: str) -> dict:
+    """Read a file from a repository."""
+    if repo not in APPROVED_REPOS:
+        return {"error": f"Repository '{repo}' not in approved list"}
+
+    file_path = REPOS_PATH / repo / path
+    if not file_path.exists():
+        return {"error": f"File does not exist: {path}"}
+
+    # Security: ensure path doesn't escape repo
+    try:
+        file_path.relative_to(REPOS_PATH / repo)
+    except ValueError:
+        return {"error": "Invalid path: attempts to escape repository"}
+
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()[:500]  # First 500 lines only
+        return {
+            "content": "".join(lines),
+            "lines": len(lines),
+            "truncated": len(lines) == 500,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_tool_call(tool_name: str, tool_input: dict) -> str:
+    """Handle a tool call and return the result as JSON string."""
+    if tool_name == "glob_files":
+        result = execute_glob(tool_input.get("repo", ""), tool_input.get("pattern", ""))
+    elif tool_name == "grep_files":
+        result = execute_grep(
+            tool_input.get("repo", ""),
+            tool_input.get("pattern", ""),
+            tool_input.get("file_pattern", "*"),
+        )
+    elif tool_name == "read_file":
+        result = execute_read(tool_input.get("repo", ""), tool_input.get("path", ""))
+    elif tool_name == "report_files":
+        # This is the final report - just acknowledge it
+        result = {"status": "Files reported successfully", "files": tool_input.get("files", [])}
+    else:
+        result = {"error": f"Unknown tool: {tool_name}"}
+
+    return json.dumps(result)
 
 
 @dataclass
@@ -74,6 +278,7 @@ class ExplorationResult:
     model_used: str
     files_found: list[FileReference]
     exploration_log: str
+    tool_calls_made: int
     error: str | None = None
 
 
@@ -144,12 +349,15 @@ async def explore_codebase(
     run_label: str,
 ) -> ExplorationResult:
     """
-    Launch an independent Claude Code exploration.
+    Launch an independent Claude exploration with tool access.
 
-    The exploration prompt instructs Claude Code to:
-    - Search the Tailwind codebases for ALL relevant code
-    - Report file paths with repo prefix
-    - NOT see our search results (independent ground truth)
+    The exploration gives Claude actual tools to search the codebases:
+    - glob_files: Find files by pattern
+    - grep_files: Search file contents
+    - read_file: Read file contents
+    - report_files: Report final list of relevant files
+
+    Uses the Anthropic Messages API with tool_use for real codebase access.
     """
     exploration_prompt = f"""Given this customer issue from Intercom conversation {conversation_id}:
 
@@ -157,73 +365,150 @@ async def explore_codebase(
 
 Your task: Explore the Tailwind codebases to find ALL code relevant to investigating or fixing this customer issue.
 
-Available codebases (located at {REPOS_PATH}):
-{', '.join(APPROVED_REPOS)}
+Available codebases: {', '.join(APPROVED_REPOS)}
+
+You have access to these tools:
+1. glob_files - Find files matching patterns (e.g., '**/*.py', 'src/**/*.ts')
+2. grep_files - Search for text/regex in files
+3. read_file - Read file contents
+4. report_files - Report your final list of relevant files
 
 Search strategy:
-- Use Grep, Glob, and Read tools to explore code
-- Look for feature implementations related to symptoms
-- Find API handlers, services, data models
-- Locate configuration, constants, and test files
-- Consider multiple product areas if issue is ambiguous
+1. Start with grep_files to find keywords related to the issue
+2. Use glob_files to find files in relevant directories
+3. Use read_file to verify files are relevant
+4. Call report_files with your final list when done
 
-Output format:
-For each relevant file found, report the path with repo prefix:
-Example: "aero/app/services/pins_service.rb"
+Be thorough but efficient. Focus on:
+- Feature implementations related to symptoms
+- API handlers, services, data models
+- Configuration and constants
+- Test files that show expected behavior
 
-Report ALL files you find as a JSON list at the end:
-{{"files": ["repo/path/file1", "repo/path/file2", ...]}}
+When you've found all relevant files, call report_files with the complete list.
+File paths should be in format: 'repo/path/to/file.ext' (e.g., 'aero/src/services/auth.py')
 
 BEGIN EXPLORATION.
 """
 
+    messages = [{"role": "user", "content": exploration_prompt}]
+    exploration_log_parts = []
+    tool_calls_count = 0
+    files_found = []
+    files_from_greps = []  # Track files found via grep as fallback
+    max_turns = 15  # Increased limit for exploration depth
+
     try:
-        # Use Anthropic Messages API to simulate Claude Code exploration
-        # In production, this would integrate with actual Claude Code runtime
-        # For now, use the API with extended thinking for codebase reasoning
-        response = client.messages.create(
-            model=model,
-            max_tokens=4096,
-            temperature=0.0,
-            system=(
-                "You are a software engineer analyzing a customer support issue. "
-                "You have access to multiple codebases and need to find ALL relevant code files. "
-                "Be thorough and systematic in your exploration."
-            ),
-            messages=[{"role": "user", "content": exploration_prompt}],
-        )
-
-        # Parse response for file references
-        content = response.content[0].text if response.content else ""
-
-        # Extract JSON file list from response
-        files_found = []
-        try:
-            # Look for JSON block in response
-            import re
-
-            json_match = re.search(r'\{"files":\s*\[(.*?)\]\}', content, re.DOTALL)
-            if json_match:
-                files_json = json.loads(f'{{"files": [{json_match.group(1)}]}}')
-                files_found = parse_file_references(files_json["files"])
-        except (json.JSONDecodeError, KeyError) as e:
-            print(
-                f"Warning: Could not parse file list from {run_label}: {e}",
-                file=sys.stderr,
+        for turn in range(max_turns):
+            # After 10 turns, add urgency to finish
+            if turn == 10:
+                messages.append({
+                    "role": "user",
+                    "content": "You have made many tool calls. Please call report_files NOW with your findings. List all relevant files you've found so far."
+                })
+            response = client.messages.create(
+                model=model,
+                max_tokens=4096,
+                temperature=0.0,
+                system=(
+                    "You are a software engineer analyzing a customer support issue. "
+                    "You have access to tools to explore codebases and find relevant code files. "
+                    "Be thorough and systematic in your exploration. "
+                    "When you've found all relevant files, call report_files."
+                ),
+                tools=EXPLORATION_TOOLS,
+                messages=messages,
             )
+
+            # Process response content
+            assistant_content = []
+            for block in response.content:
+                if hasattr(block, "text"):
+                    exploration_log_parts.append(block.text)
+                    assistant_content.append({"type": "text", "text": block.text})
+                elif block.type == "tool_use":
+                    tool_calls_count += 1
+                    tool_name = block.name
+                    tool_input = block.input
+
+                    exploration_log_parts.append(f"\n[Tool: {tool_name}({json.dumps(tool_input)[:200]})]")
+
+                    # Execute tool
+                    tool_result = handle_tool_call(tool_name, tool_input)
+                    exploration_log_parts.append(f"[Result: {tool_result[:500]}...]")
+
+                    # Track files from grep/glob results as fallback
+                    if tool_name in ("grep_files", "glob_files"):
+                        try:
+                            result_data = json.loads(tool_result)
+                            repo = tool_input.get("repo", "")
+                            for file_path in result_data.get("files", [])[:20]:  # Limit per call
+                                files_from_greps.append(f"{repo}/{file_path}")
+                        except (json.JSONDecodeError, KeyError):
+                            pass
+
+                    assistant_content.append({
+                        "type": "tool_use",
+                        "id": block.id,
+                        "name": tool_name,
+                        "input": tool_input,
+                    })
+
+                    # Check if this was the final report_files call
+                    if tool_name == "report_files":
+                        files_found = parse_file_references(tool_input.get("files", []))
+                        # Return early - exploration complete
+                        return ExplorationResult(
+                            model_used=model,
+                            files_found=files_found,
+                            exploration_log="\n".join(exploration_log_parts),
+                            tool_calls_made=tool_calls_count,
+                            error=None,
+                        )
+
+                    # Add tool result to continue conversation
+                    messages.append({"role": "assistant", "content": assistant_content})
+                    messages.append({
+                        "role": "user",
+                        "content": [{
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": tool_result,
+                        }],
+                    })
+                    # Reset for next response
+                    assistant_content = []
+                    break  # Process next response
+
+            # Check if we should stop (no tool calls, or stop_reason is end_turn)
+            if response.stop_reason == "end_turn" and not any(
+                block.type == "tool_use" for block in response.content
+            ):
+                break
+
+        # If we got here without report_files, use files from greps as fallback
+        exploration_log_parts.append("\n[Warning: Exploration ended without report_files call]")
+
+        # Use grep/glob discovered files as fallback (deduplicated)
+        if not files_found and files_from_greps:
+            unique_files = list(dict.fromkeys(files_from_greps))[:50]  # Limit to 50
+            files_found = parse_file_references(unique_files)
+            exploration_log_parts.append(f"[Fallback: Using {len(files_found)} files discovered via grep/glob]")
 
         return ExplorationResult(
             model_used=model,
             files_found=files_found,
-            exploration_log=content,
-            error=None,
+            exploration_log="\n".join(exploration_log_parts),
+            tool_calls_made=tool_calls_count,
+            error="Exploration ended without report_files call (used fallback)" if files_found else "Exploration ended without report_files call",
         )
 
     except Exception as e:
         return ExplorationResult(
             model_used=model,
             files_found=[],
-            exploration_log="",
+            exploration_log="\n".join(exploration_log_parts) + f"\n[Error: {e}]",
+            tool_calls_made=tool_calls_count,
             error=str(e),
         )
 
@@ -253,7 +538,7 @@ async def judge_our_unique_files(
 {issue_summary}
 
 Ground Truth Files (found by independent exploration):
-{chr(10).join(str(f) for f in ground_truth)}
+{chr(10).join(str(f) for f in ground_truth) if ground_truth else "(none found)"}
 
 Additional Files (found by our search logic):
 {chr(10).join(str(f) for f in our_unique)}
@@ -288,8 +573,6 @@ Output format:
         content = response.content[0].text if response.content else ""
 
         # Parse JSON response
-        import re
-
         json_match = re.search(r'\{.*"judgments".*\}', content, re.DOTALL)
         if json_match:
             judgments_data = json.loads(json_match.group(0))
@@ -369,6 +652,9 @@ async def evaluate_conversation(
     run_b_task = explore_codebase(conversation_id, issue_summary, model_b, "Run B")
 
     run_a, run_b = await asyncio.gather(run_a_task, run_b_task)
+
+    print(f"  Run A ({model_a}): {len(run_a.files_found)} files, {run_a.tool_calls_made} tool calls", file=sys.stderr)
+    print(f"  Run B ({model_b}): {len(run_b.files_found)} files, {run_b.tool_calls_made} tool calls", file=sys.stderr)
 
     # Construct ground truth from union
     ground_truth_set = set(run_a.files_found) | set(run_b.files_found)
@@ -518,11 +804,13 @@ def serialize_analysis(analysis: GroundTruthAnalysis) -> dict[str, Any]:
         "run_a": {
             "model": analysis.run_a.model_used,
             "files_found": [str(f) for f in analysis.run_a.files_found],
+            "tool_calls": analysis.run_a.tool_calls_made,
             "error": analysis.run_a.error,
         },
         "run_b": {
             "model": analysis.run_b.model_used,
             "files_found": [str(f) for f in analysis.run_b.files_found],
+            "tool_calls": analysis.run_b.tool_calls_made,
             "error": analysis.run_b.error,
         },
         "ground_truth_files": [str(f) for f in analysis.ground_truth_files],
@@ -572,7 +860,7 @@ async def main():
         print("Error: No conversations to evaluate", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Evaluating {len(conversations)} conversations...", file=sys.stderr)
+    print(f"Evaluating {len(conversations)} conversations with tool-use exploration...", file=sys.stderr)
 
     # Evaluate all conversations
     analyses = []
@@ -580,6 +868,7 @@ async def main():
         try:
             analysis = await evaluate_conversation(conversation, iteration_number)
             analyses.append(analysis)
+            print(f"  -> Precision: {analysis.precision:.2f}, Recall: {analysis.recall:.2f}", file=sys.stderr)
         except Exception as e:
             print(
                 f"Error evaluating conversation {conversation.get('conversation_id')}: {e}",
@@ -592,7 +881,7 @@ async def main():
     # Output results
     output = {
         "iteration_number": iteration_number,
-        "timestamp": search_results.get("timestamp"),
+        "timestamp": datetime.utcnow().isoformat(),
         "metrics": metrics,
         "conversations": [serialize_analysis(a) for a in analyses],
     }

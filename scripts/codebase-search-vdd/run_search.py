@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from story_tracking.services.codebase_context_provider import CodebaseContextProvider
-from story_tracking.services.codebase_security import APPROVED_REPOS, REPO_BASE_PATH
+from story_tracking.services.codebase_security import APPROVED_REPOS, get_repo_path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,6 +61,7 @@ def run_search_for_conversation(
     # The existing logic expects theme_data with component, symptoms, user_intent
     theme_data = {
         "component": product_area,
+        "product_area": product_area,
         "symptoms": [issue_summary],
         "user_intent": issue_summary,
     }
@@ -73,77 +74,54 @@ def run_search_for_conversation(
     # Run search across all approved repos
     for repo_name in config.get("approved_repos", APPROVED_REPOS):
         try:
-            # Get keywords from theme data
-            keywords = provider._extract_keywords(theme_data)
-            search_terms_used.extend(keywords)
+            # Use the provider's main exploration method
+            result = provider.explore_for_theme(theme_data, repo_name)
 
+            # Log exploration details
             exploration_log.append({
-                "action": "extract_keywords",
+                "action": "explore",
                 "repo": repo_name,
-                "keywords": keywords,
+                "success": result.success,
+                "files_found": len(result.relevant_files),
+                "snippets_found": len(result.code_snippets),
+                "duration_ms": result.exploration_duration_ms,
+                "error": result.error,
             })
 
-            # Build search patterns
-            patterns = provider._build_search_patterns(theme_data, repo_name)
+            if result.success:
+                # Add files with repo prefix
+                for ref in result.relevant_files:
+                    files_found.append({
+                        "repo": repo_name,
+                        "path": f"{repo_name}/{ref.path}",
+                        "line_start": ref.line_start,
+                        "relevance": ref.relevance,
+                    })
+
+                # Add snippets with repo prefix
+                for snippet in result.code_snippets:
+                    snippets.append({
+                        "repo": repo_name,
+                        "file_path": f"{repo_name}/{snippet.file_path}",
+                        "line_start": snippet.line_start,
+                        "line_end": snippet.line_end,
+                        "content": snippet.content[:500],  # Truncate for output size
+                        "language": snippet.language,
+                        "context": snippet.context,
+                    })
+
+                # Track queries used
+                search_terms_used.extend(result.investigation_queries)
+            else:
+                logger.warning(f"Exploration failed for {repo_name}: {result.error}")
+
+        except ValueError as e:
+            # Repo not in approved list
             exploration_log.append({
-                "action": "build_patterns",
+                "action": "skip_repo",
                 "repo": repo_name,
-                "patterns": patterns,
+                "reason": str(e),
             })
-
-            # Glob for files
-            repo_path = provider._get_repo_path(repo_name)
-            if not repo_path:
-                exploration_log.append({
-                    "action": "skip_repo",
-                    "repo": repo_name,
-                    "reason": "repo not found",
-                })
-                continue
-
-            matched_files = provider._glob_for_files(repo_path, patterns)
-            exploration_log.append({
-                "action": "glob_files",
-                "repo": repo_name,
-                "files_found": len(matched_files),
-            })
-
-            # Search for keywords in files
-            file_refs = provider._search_for_keywords(
-                repo_path,
-                matched_files,
-                keywords,
-                max_results=20
-            )
-
-            # Add repo prefix to paths for cross-repo comparison
-            for ref in file_refs:
-                files_found.append({
-                    "repo": repo_name,
-                    "path": f"{repo_name}/{ref.path}",
-                    "line_start": ref.line_start,
-                    "relevance": ref.relevance,
-                })
-
-            exploration_log.append({
-                "action": "search_keywords",
-                "repo": repo_name,
-                "files_matched": len(file_refs),
-            })
-
-            # Extract snippets from top files
-            repo_snippets = provider._extract_snippets(file_refs)
-            for snippet in repo_snippets:
-                snippets.append({
-                    "repo": repo_name,
-                    "file_path": f"{repo_name}/{snippet.file_path}",
-                    "line_start": snippet.line_start,
-                    "line_end": snippet.line_end,
-                    "content": snippet.content[:500],  # Truncate for output size
-                    "language": snippet.language,
-                    "context": snippet.context,
-                })
-
         except Exception as e:
             exploration_log.append({
                 "action": "error",

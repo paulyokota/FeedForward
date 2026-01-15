@@ -162,13 +162,20 @@ class ConversationFetcher:
         self,
         batch_size: int,
         days_back: int = 30,
+        max_api_pages: int = 10,
     ) -> list[FetchedConversation]:
         """
-        Fetch recent conversations with diversity across product areas.
+        Fetch recent conversations with lightweight diversity sampling.
+
+        Optimized for speed:
+        - Limits API pagination to avoid long waits
+        - Simplified diversity: only light balancing, no strict enforcement
+        - Early exit when batch is full
 
         Args:
             batch_size: Number of conversations to fetch
             days_back: How far back to look for conversations
+            max_api_pages: Maximum API pages to fetch (avoids infinite pagination)
 
         Returns:
             List of FetchedConversation objects
@@ -179,14 +186,22 @@ class ConversationFetcher:
         area_counts = {area["name"]: 0 for area in self.config["product_areas"]}
         area_counts["uncertain"] = 0
 
-        # Target: roughly equal distribution across areas
-        num_areas = len(self.config["product_areas"]) + 1  # +1 for uncertain
-        target_per_area = max(1, batch_size // num_areas)
+        # Soft target for diversity (not enforced strictly)
+        num_areas = len(self.config["product_areas"]) + 1
+        soft_cap_per_area = max(3, (batch_size * 2) // num_areas)
 
-        # Fetch conversations
-        print(f"Fetching conversations from last {days_back} days...", file=sys.stderr)
+        print(f"Fetching up to {batch_size} conversations from last {days_back} days...", file=sys.stderr)
+        print(f"  (max {max_api_pages} API pages, soft cap {soft_cap_per_area}/area)", file=sys.stderr)
 
-        for parsed, _ in self.client.fetch_quality_conversations(since=since):
+        # Fetch with pagination limit for speed
+        conversations_seen = 0
+        for parsed, _ in self.client.fetch_quality_conversations(
+            since=since,
+            max_pages=max_api_pages
+        ):
+            conversations_seen += 1
+
+            # Early exit when we have enough
             if len(fetched) >= batch_size:
                 break
 
@@ -195,15 +210,14 @@ class ConversationFetcher:
 
             # Classify
             classification = self.classifier.classify(parsed.source_body)
-
-            # Diversity sampling: prefer areas that are under-represented
-            # Only skip if we have enough samples AND this area is over-represented
             area = classification.product_area
-            if len(fetched) >= batch_size * 0.3:  # Only filter after we have some samples
-                if area_counts[area] >= target_per_area * 1.5:
-                    # This area is over-represented, skip unless we're running low
-                    if len(fetched) < batch_size * 0.8:
-                        continue
+
+            # Light diversity: only skip if an area is heavily over-represented
+            # AND we still have room to be picky
+            if area_counts[area] >= soft_cap_per_area and len(fetched) < batch_size * 0.9:
+                # Skip this one, but don't be too strict - keep 1 in 3
+                if conversations_seen % 3 != 0:
+                    continue
 
             # Add conversation
             conv = FetchedConversation(
@@ -220,15 +234,16 @@ class ConversationFetcher:
             area_counts[area] += 1
 
             # Progress indicator
-            if len(fetched) % 10 == 0:
-                print(f"Fetched {len(fetched)}/{batch_size}...", file=sys.stderr)
+            if len(fetched) % 5 == 0:
+                print(f"  Fetched {len(fetched)}/{batch_size}...", file=sys.stderr)
 
-        # Log distribution
-        print(f"\nFetched {len(fetched)} conversations", file=sys.stderr)
+        # Log results
+        print(f"\nFetched {len(fetched)} conversations (saw {conversations_seen})", file=sys.stderr)
         print("Distribution by product area:", file=sys.stderr)
         for area, count in sorted(area_counts.items(), key=lambda x: -x[1]):
             if count > 0:
-                print(f"  {area}: {count}", file=sys.stderr)
+                pct = count / len(fetched) * 100 if fetched else 0
+                print(f"  {area}: {count} ({pct:.0f}%)", file=sys.stderr)
 
         return fetched
 

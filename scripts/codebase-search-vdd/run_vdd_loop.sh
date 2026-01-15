@@ -26,6 +26,22 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Load environment variables from .env if it exists
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    set -a  # Auto-export all variables
+    source "$PROJECT_ROOT/.env"
+    set +a
+fi
+
+# Verify required environment variables
+if [ -z "$INTERCOM_ACCESS_TOKEN" ]; then
+    echo "Error: INTERCOM_ACCESS_TOKEN not set. Add it to .env or export it."
+    exit 1
+fi
+
+# Note: ANTHROPIC_API_KEY is no longer required - we use Claude CLI directly
 OUTPUT_DIR="$SCRIPT_DIR/outputs"
 CONFIG_FILE="$SCRIPT_DIR/config.json"
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
@@ -109,12 +125,12 @@ run_iteration() {
         > "$iteration_dir/search_results.json" \
         2> "$iteration_dir/search.log"
 
-    # Step 3: Evaluate results
-    echo "[3/4] Evaluating with dual exploration..."
+    # Step 3: Evaluate results using CLI-based evaluation (v2)
+    echo "[3/4] Evaluating with dual CLI exploration..."
 
-    # Note: evaluate_results.py determines calibration mode internally
-    # based on iteration_number in the JSON input
-    python3 "$SCRIPT_DIR/evaluate_results.py" \
+    # Note: evaluate_results_v2.py uses Claude CLI for all API calls
+    # No SDK/API key required - runs through Claude Code
+    python3 "$SCRIPT_DIR/evaluate_results_v2.py" \
         < "$iteration_dir/search_results.json" \
         > "$iteration_dir/evaluation.json" \
         2> "$iteration_dir/evaluation.log"
