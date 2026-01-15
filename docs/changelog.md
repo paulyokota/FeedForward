@@ -10,6 +10,117 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Knowledge Cache Learning System (2026-01-13)**:
+
+- Learning system for story generation with codebase context
+  - `scripts/ralph/knowledge_cache.py` - Two-phase learning module
+    - `load_knowledge_for_generation()` - Loads codebase map, patterns, rules, insights
+    - `update_knowledge_from_scoping()` - Captures good/bad patterns from validation
+  - `scripts/ralph/learned_patterns.json` - Cached patterns from scoping validation
+  - Bounded growth (max 50 insights per service), error handling, configuration constants
+- Pipeline integration in `scripts/ralph/run_pipeline_test.py`:
+  - Loads knowledge context before story generation (~16K chars)
+  - Auto-updates cache after each scoping validation run
+  - Automatic learning loop: generate → validate → learn → generate better
+- Updated `scripts/ralph/PROMPT_V2.md`:
+  - Added knowledge cache to Required Reading (Phase 0, section 5)
+  - Added `knowledge_cache.py` to Modifiable Components table
+  - Updated Phase 1 steps to show learning loop
+- Renamed `scripts/ralph/PROMPT.md` → `scripts/ralph/PROMPT_V1.md` (for history)
+- Commits: dc8107c, 8d6bf93
+
+**Ralph V2 Pipeline Optimization Session (2026-01-13)**:
+
+- Ran 7-iteration autonomous loop optimizing Feed Forward story generation
+- Achieved gestalt 5.0 (all sources 5/5), scoping plateaued at 3.5
+- Key improvements to `scripts/ralph/run_pipeline_test.py`:
+  - Fixed file path patterns to actual Tailwind codebase structure
+  - Fixed service architecture (aero → brandy2 → ghostwriter, not ghostwriter → brandy2)
+  - Excluded gandalf from Pinterest OAuth chain
+  - Added Ghostwriter-specific scoping rules (brand voice ≠ context retention)
+- Bug fix: MAX_ITERATIONS enforcement
+  - `scripts/ralph/PROMPT_V2.md` - Added HARD CAP CHECK to iteration work gate
+  - `scripts/ralph/ralph_v2.sh` - Write MAXIMUM ITERATIONS to progress.txt
+  - Ralph now stops at configured max instead of continuing indefinitely
+- Commits: d56a986, 103a351
+
+**Ralph Wiggum Autonomous Loop Infrastructure (2026-01-13)**:
+
+- Complete autonomous story generation loop for Feed Forward
+  - `scripts/ralph/ralph.sh` - Bash loop script with completion detection
+  - `scripts/ralph/PROMPT.md` - Hardened 5-phase workflow (1,264 lines)
+  - `scripts/ralph/prd.json` - Task tracking with database stories
+  - `scripts/ralph/progress.txt` - Cross-iteration memory system
+- Quality thresholds: Gestalt >= 4.0, Dimensional >= 3.5, Playwright >= 85%
+- Initialized with 2 stories from database
+- Ready to run: `./scripts/ralph/ralph.sh 15`
+
+**Unified Research Search with Vector Embeddings (2026-01-13)**:
+
+- Semantic search across Coda research and Intercom support data
+  - `src/research/` module with adapters, unified search, embedding pipeline
+  - pgvector with HNSW index for approximate nearest neighbor search
+  - OpenAI text-embedding-3-large (3072 dimensions)
+  - Content hash-based change detection for incremental reindexing
+- Source adapter pattern (`src/research/adapters/`):
+  - `base.py` - Abstract base with content hashing, snippet creation
+  - `coda_adapter.py` - Coda pages and themes adapter
+  - `intercom_adapter.py` - Intercom support conversations adapter
+- UnifiedSearchService (`src/research/unified_search.py`):
+  - `search()` - Query-based semantic search with source filtering
+  - `search_similar()` - "More like this" similarity search
+  - `suggest_evidence()` - Evidence suggestions for stories (Coda-only)
+  - `get_stats()` - Embedding statistics
+- EmbeddingPipeline (`src/research/embedding_pipeline.py`):
+  - Batch embedding with OpenAI API
+  - Graceful degradation on embedding service failures
+  - Configurable via `config/research_search.yaml`
+- Research API router (`src/api/routers/research.py`):
+  - `GET /api/research/search` - Semantic search
+  - `GET /api/research/similar/{source_type}/{source_id}` - Similar content
+  - `GET /api/research/stats` - Embedding statistics
+  - `POST /api/research/reindex` - Trigger re-embedding (admin)
+  - `GET /api/research/stories/{id}/suggested-evidence` - Story evidence
+- Frontend `/research` page (`webapp/src/app/research/page.tsx`):
+  - Multi-source search UI with source filtering
+  - Search results with similarity scores and source badges
+  - Debounced search input
+- Frontend components:
+  - `ResearchSearch.tsx` - Search input with suggestions
+  - `SearchResults.tsx` - Results display with metadata
+  - `SourceFilter.tsx` - Filter by Coda Pages, Themes, Intercom
+  - `SuggestedEvidence.tsx` - Evidence suggestions for story detail
+- Research search types (`webapp/src/lib/types.ts`):
+  - ResearchSourceType, SearchResult, SuggestedEvidence
+  - SOURCE_TYPE_CONFIG with display labels and colors
+- Database migration: `src/db/migrations/001_add_research_embeddings.sql`
+- Test suite: 32 tests in `tests/test_research.py`
+- Architecture documentation: `docs/search-rag-architecture.md`
+- Configuration: `config/research_search.yaml`
+
+**Tailwind Codebase Map (2026-01-13)**:
+
+- Comprehensive URL → Service mapping for Intercom ticket routing (`docs/tailwind-codebase-map.md`)
+  - 24 validated components with 99% confidence scores
+  - Page Title → Path lookup table for feature name vocabulary
+  - URL Path gotchas (legacy vs v2 routes) documented via Playwright verification
+  - Service detection decision tree with regex patterns
+  - Backend service inventory (bach, aero, otto, tack, charlotte, etc.)
+  - Database schema patterns (Jarvis, Cockroach, Supabase)
+- Verified against live Tailwind app using Playwright browser automation
+- Confidentiality marker added for internal use
+
+**Coda Standalone Extraction Script (2026-01-12)**:
+
+- Standalone Node.js extraction script (`scripts/coda_full_extract.js`)
+  - Launches Chromium with persistent profile for one-time auth
+  - Recursively discovers pages from navigation and content links
+  - Scroll-to-load for lazy content extraction
+  - Resumable via manifest (skips already-extracted pages)
+  - Logs to console and `data/coda_raw/extraction.log`
+- Webapp extraction controls at `/tools/extraction`
+- Updated `docs/coda-extraction/coda-extraction-doc.md` with standalone script documentation
+
 **Coda JSON Extraction System (2026-01-12)**:
 
 - High-speed Coda content extraction via direct JSON parsing

@@ -19,6 +19,21 @@ from ..models import (
 from .orphan_service import OrphanService
 from .story_service import StoryService
 
+# Optional dual-format components (graceful degradation if unavailable)
+try:
+    from src.story_formatter import DualStoryFormatter, DualFormatOutput
+    from src.story_tracking.services.codebase_context_provider import (
+        CodebaseContextProvider,
+        ExplorationResult,
+    )
+    DUAL_FORMAT_AVAILABLE = True
+except ImportError:
+    DualStoryFormatter = None
+    DualFormatOutput = None
+    CodebaseContextProvider = None
+    ExplorationResult = None
+    DUAL_FORMAT_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Constants for data limits (used in theme data building and story generation)
@@ -105,15 +120,50 @@ class StoryCreationService:
     - Create stories for "split" sub-groups with ≥MIN_GROUP_SIZE conversations
     - Create orphans for "split" sub-groups with <MIN_GROUP_SIZE conversations
     - Accumulate conversations into existing orphans by signature
+    - Optionally generate dual-format stories with codebase context (v2)
     """
 
     def __init__(
         self,
         story_service: StoryService,
         orphan_service: OrphanService,
+        dual_format_enabled: bool = False,
+        target_repo: Optional[str] = None,
     ):
+        """
+        Initialize the story creation service.
+
+        Args:
+            story_service: Service for story CRUD operations
+            orphan_service: Service for orphan CRUD operations
+            dual_format_enabled: If True, generate dual-format stories (v2) with
+                                codebase context. Default False for backward compatibility.
+            target_repo: Repository name for codebase exploration (required if dual_format_enabled)
+        """
         self.story_service = story_service
         self.orphan_service = orphan_service
+        self.dual_format_enabled = dual_format_enabled
+        self.target_repo = target_repo
+
+        # Initialize optional dual-format components
+        if dual_format_enabled:
+            if not DUAL_FORMAT_AVAILABLE:
+                logger.warning(
+                    "Dual format requested but dependencies not available. "
+                    "Falling back to simple format."
+                )
+                self.dual_format_enabled = False
+                self.dual_formatter = None
+                self.codebase_provider = None
+            else:
+                self.dual_formatter = DualStoryFormatter()
+                self.codebase_provider = CodebaseContextProvider()
+                logger.info(
+                    f"Dual format enabled with target repo: {target_repo or 'none'}"
+                )
+        else:
+            self.dual_formatter = None
+            self.codebase_provider = None
 
     def process_pm_review_results(
         self,
@@ -456,7 +506,87 @@ class StoryCreationService:
         reasoning: str,
         original_signature: Optional[str] = None,
     ) -> str:
-        """Generate a story description from theme data."""
+        """
+        Generate story description, optionally with dual format.
+
+        Routes to either dual-format (v2) or simple format (v1) based on
+        dual_format_enabled flag.
+
+        Args:
+            signature: Issue signature
+            theme_data: Aggregated theme data from conversations
+            reasoning: PM review reasoning
+            original_signature: Original signature if split from a larger group
+
+        Returns:
+            Formatted story description (markdown)
+        """
+        if not self.dual_format_enabled:
+            # Use existing simple format (v1)
+            return self._generate_simple_description(
+                signature, theme_data, reasoning, original_signature
+            )
+
+        # Use DualStoryFormatter for v2 format
+        exploration_result = None
+        if self.target_repo and self.codebase_provider:
+            try:
+                logger.debug(f"Exploring codebase for {signature}")
+                exploration_result = self.codebase_provider.explore_for_theme(
+                    theme_data,
+                    self.target_repo,
+                )
+                logger.info(
+                    f"Codebase exploration complete for {signature}: "
+                    f"{len(exploration_result.relevant_files)} files, "
+                    f"{len(exploration_result.code_snippets)} snippets"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Codebase exploration failed for {signature}: {e}",
+                    exc_info=True,
+                )
+                # Continue with None exploration_result
+
+        # Build formatter-compatible theme data
+        formatter_theme_data = self._build_formatter_theme_data(
+            signature, theme_data, reasoning, original_signature
+        )
+
+        # Generate dual-format output
+        dual_output = self.dual_formatter.format_story(
+            theme_data=formatter_theme_data,
+            exploration_result=exploration_result,
+        )
+
+        logger.info(
+            f"Generated dual-format story for {signature} "
+            f"(format_version: {dual_output.format_version})"
+        )
+
+        return dual_output.combined
+
+    def _generate_simple_description(
+        self,
+        signature: str,
+        theme_data: Dict[str, Any],
+        reasoning: str,
+        original_signature: Optional[str] = None,
+    ) -> str:
+        """
+        Generate simple story description (v1 format).
+
+        This is the original format used before dual-format support.
+
+        Args:
+            signature: Issue signature
+            theme_data: Aggregated theme data
+            reasoning: PM review reasoning
+            original_signature: Original signature if split
+
+        Returns:
+            Formatted markdown description
+        """
         parts = []
 
         if user_intent := theme_data.get("user_intent"):
@@ -486,3 +616,55 @@ class StoryCreationService:
             parts.append(f"*Split from*: `{original_signature}`")
 
         return "\n\n".join(parts)
+
+    def _build_formatter_theme_data(
+        self,
+        signature: str,
+        theme_data: Dict[str, Any],
+        reasoning: str,
+        original_signature: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Transform internal theme data to DualStoryFormatter format.
+
+        Bridges the gap between our internal theme data structure and
+        the format expected by DualStoryFormatter.
+
+        Args:
+            signature: Issue signature
+            theme_data: Internal theme data dict
+            reasoning: PM review reasoning
+            original_signature: Original signature if split
+
+        Returns:
+            Theme data dict compatible with DualStoryFormatter.format_story()
+        """
+        # Extract excerpts for evidence
+        excerpts_data = theme_data.get("excerpts", [])
+
+        # Build customer messages from excerpts
+        customer_messages = []
+        for excerpt in excerpts_data[:5]:  # Top 5
+            if isinstance(excerpt, dict) and "text" in excerpt:
+                customer_messages.append(excerpt["text"])
+            elif isinstance(excerpt, str):
+                customer_messages.append(excerpt)
+
+        return {
+            "title": theme_data.get("user_intent") or signature.replace("_", " ").title(),
+            "issue_signature": signature,
+            "product_area": theme_data.get("product_area") or "Unknown",
+            "component": theme_data.get("component") or "Unknown",
+            "user_intent": theme_data.get("user_intent", ""),
+            "symptoms": theme_data.get("symptoms", []),
+            "root_cause_hypothesis": theme_data.get("root_cause_hypothesis", ""),
+            "affected_flow": theme_data.get("affected_flow"),
+            "pm_reasoning": reasoning,
+            "occurrences": len(excerpts_data),
+            "excerpts": excerpts_data,
+            # Additional fields for dual format
+            "original_signature": original_signature,
+            "customer_messages": customer_messages,
+            # Repository for codebase exploration
+            "target_repo": self.target_repo,
+        }

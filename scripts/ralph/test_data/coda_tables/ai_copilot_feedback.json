@@ -1,0 +1,46 @@
+{
+  "id": "coda_table_001",
+  "type": "coda_table",
+  "table_name": "AI Copilot User Research - Theme Summary",
+  "rows": [
+    {
+      "theme_name": "Brand Voice Disconnect",
+      "participant_count": 4,
+      "verbatims": [
+        "It writes like a robot, not like my brand",
+        "I set up my brand preferences but it ignores them",
+        "The tone is always wrong - too salesy",
+        "Why doesn't it remember my style?"
+      ],
+      "synthesis_notes": "Users have clear brand voice expectations set in their profiles/settings, but Ghostwriter output doesn't reflect these preferences. This creates a perception that the AI doesn't 'know' them despite onboarding efforts.",
+      "severity": "high",
+      "frequency": "mentioned in 4/6 interviews"
+    },
+    {
+      "theme_name": "Session Context Loss",
+      "participant_count": 3,
+      "verbatims": [
+        "I say 'make it shorter' and it starts over",
+        "It doesn't remember what we were working on",
+        "Every message feels like starting from scratch"
+      ],
+      "synthesis_notes": "Within a single content creation session, users expect Ghostwriter to maintain context of the conversation (previous suggestions, feedback given). Currently, each request appears to be processed independently.",
+      "severity": "high",
+      "frequency": "mentioned in 3/6 interviews"
+    },
+    {
+      "theme_name": "Learning Over Time",
+      "participant_count": 2,
+      "verbatims": [
+        "After months of using it, shouldn't it know what I like?",
+        "I wish it would learn from my edits"
+      ],
+      "synthesis_notes": "Some users expect Ghostwriter to improve over time based on their editing patterns and accepted/rejected suggestions. This represents a more advanced personalization expectation that may require significant architecture work.",
+      "severity": "medium",
+      "frequency": "mentioned in 2/6 interviews"
+    }
+  ],
+  "study_date": "2026-01-05",
+  "researcher": "Product Research Team",
+  "methodology": "1:1 user interviews, 45 minutes each"
+}

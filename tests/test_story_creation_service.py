@@ -595,3 +595,296 @@ class TestPMResultModels:
         assert result.stories_created == 0
         assert result.orphans_created == 0
         assert result.errors == []
+
+
+# -----------------------------------------------------------------------------
+# Dual-Format Story Tests (Phase 3.3)
+# -----------------------------------------------------------------------------
+
+
+class TestDualFormatIntegration:
+    """Tests for dual-format story generation integration."""
+
+    def test_dual_format_disabled_by_default(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that dual format is disabled by default (backward compatibility)."""
+        service = StoryCreationService(mock_story_service, mock_orphan_service)
+
+        assert service.dual_format_enabled is False
+        assert service.dual_formatter is None
+        assert service.codebase_provider is None
+
+    def test_dual_format_enabled_without_dependencies(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that dual format degrades gracefully when dependencies unavailable."""
+        # Patch DUAL_FORMAT_AVAILABLE to simulate missing dependencies
+        with patch('story_tracking.services.story_creation_service.DUAL_FORMAT_AVAILABLE', False):
+            service = StoryCreationService(
+                mock_story_service,
+                mock_orphan_service,
+                dual_format_enabled=True,
+                target_repo="aero",
+            )
+
+            # Should fall back to simple format
+            assert service.dual_format_enabled is False
+            assert service.dual_formatter is None
+
+    @patch('story_tracking.services.story_creation_service.DUAL_FORMAT_AVAILABLE', True)
+    @patch('story_tracking.services.story_creation_service.DualStoryFormatter')
+    @patch('story_tracking.services.story_creation_service.CodebaseContextProvider')
+    def test_dual_format_enabled_with_dependencies(
+        self,
+        mock_codebase_provider_class,
+        mock_dual_formatter_class,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that dual format is properly initialized when enabled."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            dual_format_enabled=True,
+            target_repo="aero",
+        )
+
+        assert service.dual_format_enabled is True
+        assert service.target_repo == "aero"
+        mock_dual_formatter_class.assert_called_once()
+        mock_codebase_provider_class.assert_called_once()
+
+    @patch('story_tracking.services.story_creation_service.DUAL_FORMAT_AVAILABLE', True)
+    @patch('story_tracking.services.story_creation_service.DualStoryFormatter')
+    @patch('story_tracking.services.story_creation_service.CodebaseContextProvider')
+    def test_dual_format_generates_v2_description(
+        self,
+        mock_codebase_provider_class,
+        mock_dual_formatter_class,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that dual format generates v2 description with exploration."""
+        # Setup mock exploration result
+        mock_exploration = Mock()
+        mock_exploration.relevant_files = [Mock(path="file1.py", line_start=10)]
+        mock_exploration.code_snippets = []
+
+        mock_codebase_provider = Mock()
+        mock_codebase_provider.explore_for_theme.return_value = mock_exploration
+        mock_codebase_provider_class.return_value = mock_codebase_provider
+
+        # Setup mock dual output
+        mock_dual_output = Mock()
+        mock_dual_output.combined = "# Dual Format Story\n\nSection 1: Human\n\n---\n\nSection 2: AI"
+        mock_dual_output.format_version = "v2"
+
+        mock_formatter = Mock()
+        mock_formatter.format_story.return_value = mock_dual_output
+        mock_dual_formatter_class.return_value = mock_formatter
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            dual_format_enabled=True,
+            target_repo="aero",
+        )
+
+        # Generate description
+        theme_data = {
+            "user_intent": "Test issue",
+            "product_area": "billing",
+            "component": "subscription",
+            "symptoms": ["error occurs"],
+        }
+
+        description = service._generate_description(
+            "test_signature",
+            theme_data,
+            "PM reasoning",
+        )
+
+        # Verify dual format was used
+        assert "Dual Format Story" in description
+        assert "Section 1: Human" in description
+        assert "Section 2: AI" in description
+        mock_codebase_provider.explore_for_theme.assert_called_once()
+        mock_formatter.format_story.assert_called_once()
+
+    @patch('story_tracking.services.story_creation_service.DUAL_FORMAT_AVAILABLE', True)
+    @patch('story_tracking.services.story_creation_service.DualStoryFormatter')
+    @patch('story_tracking.services.story_creation_service.CodebaseContextProvider')
+    def test_dual_format_handles_exploration_failure(
+        self,
+        mock_codebase_provider_class,
+        mock_dual_formatter_class,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that dual format gracefully handles exploration failures."""
+        # Setup mock to raise exception
+        mock_codebase_provider = Mock()
+        mock_codebase_provider.explore_for_theme.side_effect = Exception("Exploration failed")
+        mock_codebase_provider_class.return_value = mock_codebase_provider
+
+        # Setup mock dual output (should still work without exploration)
+        mock_dual_output = Mock()
+        mock_dual_output.combined = "# Story without codebase context"
+        mock_dual_output.format_version = "v2"
+
+        mock_formatter = Mock()
+        mock_formatter.format_story.return_value = mock_dual_output
+        mock_dual_formatter_class.return_value = mock_formatter
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            dual_format_enabled=True,
+            target_repo="aero",
+        )
+
+        # Generate description - should not raise
+        theme_data = {"user_intent": "Test issue"}
+        description = service._generate_description(
+            "test_signature",
+            theme_data,
+            "PM reasoning",
+        )
+
+        # Verify dual format was still used (without exploration)
+        assert description == "# Story without codebase context"
+        # format_story should be called with None exploration_result
+        call_args = mock_formatter.format_story.call_args
+        assert call_args[1]['exploration_result'] is None
+
+    def test_simple_format_still_works(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that simple format (v1) still works when dual format disabled."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            dual_format_enabled=False,
+        )
+
+        theme_data = {
+            "user_intent": "Cancel subscription",
+            "symptoms": ["wants to cancel", "billing issue"],
+            "product_area": "billing",
+            "component": "subscription",
+        }
+
+        description = service._generate_description(
+            "billing_cancellation",
+            theme_data,
+            "Test reasoning",
+        )
+
+        # Verify simple format structure
+        assert "**User Intent**: Cancel subscription" in description
+        assert "**Symptoms**: wants to cancel, billing issue" in description
+        assert "**Product Area**: billing" in description
+        assert "`billing_cancellation`" in description
+
+    def test_build_formatter_theme_data_transformation(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that internal theme data is correctly transformed for formatter."""
+        service = StoryCreationService(mock_story_service, mock_orphan_service)
+
+        theme_data = {
+            "user_intent": "Fix login issue",
+            "product_area": "auth",
+            "component": "login",
+            "symptoms": ["error message", "timeout"],
+            "root_cause_hypothesis": "Database connection",
+            "excerpts": [
+                {"text": "I can't login", "conversation_id": "conv1"},
+                {"text": "Login fails", "conversation_id": "conv2"},
+            ],
+        }
+
+        formatter_data = service._build_formatter_theme_data(
+            "login_failure",
+            theme_data,
+            "PM says fix this",
+            "original_sig",
+        )
+
+        # Verify transformation
+        assert formatter_data["issue_signature"] == "login_failure"
+        assert formatter_data["product_area"] == "auth"
+        assert formatter_data["component"] == "login"
+        assert formatter_data["pm_reasoning"] == "PM says fix this"
+        assert formatter_data["original_signature"] == "original_sig"
+        assert formatter_data["occurrences"] == 2
+        assert len(formatter_data["customer_messages"]) == 2
+        assert "I can't login" in formatter_data["customer_messages"]
+
+    @patch('story_tracking.services.story_creation_service.DUAL_FORMAT_AVAILABLE', True)
+    @patch('story_tracking.services.story_creation_service.DualStoryFormatter')
+    @patch('story_tracking.services.story_creation_service.CodebaseContextProvider')
+    def test_end_to_end_dual_format_story_creation(
+        self,
+        mock_codebase_provider_class,
+        mock_dual_formatter_class,
+        mock_story_service,
+        mock_orphan_service,
+        sample_pm_results_keep,
+        sample_extraction_data,
+    ):
+        """Test end-to-end dual format story creation from PM results."""
+        # Setup mocks
+        mock_codebase_provider = Mock()
+        mock_codebase_provider.explore_for_theme.return_value = Mock(
+            relevant_files=[],
+            code_snippets=[],
+            success=True,
+        )
+        mock_codebase_provider_class.return_value = mock_codebase_provider
+
+        mock_dual_output = Mock()
+        mock_dual_output.combined = "# Dual Format Story"
+        mock_dual_output.format_version = "v2"
+
+        mock_formatter = Mock()
+        mock_formatter.format_story.return_value = mock_dual_output
+        mock_dual_formatter_class.return_value = mock_formatter
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Write PM results
+            pm_path = Path(tmpdir) / "pm_results.json"
+            with open(pm_path, "w") as f:
+                json.dump(sample_pm_results_keep, f)
+
+            # Write extraction data
+            extraction_path = Path(tmpdir) / "extraction.jsonl"
+            with open(extraction_path, "w") as f:
+                for item in sample_extraction_data:
+                    f.write(json.dumps(item) + "\n")
+
+            service = StoryCreationService(
+                mock_story_service,
+                mock_orphan_service,
+                dual_format_enabled=True,
+                target_repo="aero",
+            )
+
+            result = service.process_pm_review_results(pm_path, extraction_path)
+
+            # Verify story was created with dual format
+            assert result.stories_created == 1
+            mock_story_service.create.assert_called_once()
+
+            # Check that description passed to create includes dual format
+            create_call = mock_story_service.create.call_args[0][0]
+            assert "Dual Format Story" in create_call.description

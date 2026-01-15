@@ -12,7 +12,232 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Coda JSON Extraction Complete (2026-01-12)
+## Latest: Knowledge Cache Learning System (2026-01-13)
+
+### Session Summary
+
+Added a learning system to give the story generator indirect codebase access via cached knowledge. This addresses the scoping validation plateau (3.5) by capturing patterns from validation runs and loading relevant codebase context into story generation.
+
+### What Was Built
+
+**Knowledge Cache Module** (`scripts/ralph/knowledge_cache.py`):
+
+- `load_knowledge_for_generation()` - Loads codebase map, learned patterns, scoping rules, service insights
+- `update_knowledge_from_scoping()` - Captures good/bad patterns from scoping validation
+- Bounded growth (max 50 insights per service), error handling, configuration constants
+- Loads from `docs/tailwind-codebase-map.md` and `learned_patterns.json`
+
+**Pipeline Integration** (`scripts/ralph/run_pipeline_test.py`):
+
+- Loads knowledge context before story generation (~16K chars)
+- Auto-updates cache after each scoping validation run
+- Forms automatic learning loop: generate → validate → learn → generate better
+
+**Documentation Updates** (`scripts/ralph/PROMPT_V2.md`):
+
+- Added knowledge cache to Required Reading (Phase 0, section 5)
+- Added `knowledge_cache.py` to Modifiable Components table
+- Updated Phase 1 steps to show learning loop
+- Noted patterns are now auto-captured from scoping validation
+
+### Commits This Session
+
+- dc8107c: feat: Add knowledge cache learning system for story generation
+- 8d6bf93: docs: Update PROMPT_V2.md with knowledge cache learning system
+
+### Next Steps
+
+- Run full Ralph V2 session to validate knowledge cache improves scoping scores
+- Monitor `learned_patterns.json` growth and pattern quality
+- Consider expanding codebase map with discovered service insights
+
+---
+
+## Previous: Ralph V2 Pipeline Optimization Session (2026-01-13)
+
+### Session Summary
+
+Ran Ralph V2 autonomous pipeline optimization loop (7 iterations) to improve Feed Forward story generation quality. Achieved gestalt 5.0 (all sources 5/5), but scoping validation plateaued at 3.5. Fixed MAX_ITERATIONS enforcement bug.
+
+### Results
+
+**Final Metrics (Iteration 6)**:
+
+| Metric          | Value | Threshold | Status  |
+| --------------- | ----- | --------- | ------- |
+| Average Gestalt | 5.0   | >= 4.8    | ✅ PASS |
+| Intercom        | 5.0   | >= 4.5    | ✅ PASS |
+| Coda Tables     | 5.0   | >= 4.5    | ✅ PASS |
+| Coda Pages      | 5.0   | >= 4.5    | ✅ PASS |
+| Scoping         | 3.5   | >= 4.5    | ❌ FAIL |
+
+**Progress Made**:
+
+- Gestalt: 4.5 → 5.0 (+0.5, +11%)
+- Scoping: 3.25 → 3.5 (+0.25, +8%)
+
+### Key Fixes Applied
+
+1. **File Path Accuracy** - Updated to actual codebase structure:
+   - `aero/packages/tailwindapp/app/dashboard/v3/api/[endpoint]/route.ts`
+   - `tack/service/lib/handlers/api/[endpoint]/[endpoint]-handler.ts`
+
+2. **Service Architecture** - Fixed incorrect service ownership:
+   - Brand voice lives in `aero/packages/core/src/ghostwriter-labs/`, NOT standalone ghostwriter
+   - aero → brandy2 → ghostwriter (not ghostwriter → brandy2)
+
+3. **gandalf Exclusion** - Removed gandalf from Pinterest OAuth chain (should be: Pinterest API → tack → aero)
+
+4. **Scoping Rules** - Added explicit guidance:
+   - "Brand voice" and "context retention" are SEPARATE stories
+   - Don't bundle quick fixes with architectural changes
+
+### Bug Fixed: MAX_ITERATIONS Enforcement
+
+Ralph was exceeding the configured max iterations (set to 4, went to 7). Fixed by:
+
+1. **PROMPT_V2.md**: Added HARD CAP CHECK to iteration work gate
+   - Check MAX_ITERATIONS before starting any iteration
+   - Output FORCED COMPLETION if at/past cap
+
+2. **ralph_v2.sh**: Added line to write MAXIMUM ITERATIONS to progress.txt
+
+3. **progress.txt**: Added MAXIMUM ITERATIONS: 4 to configuration
+
+### Scoping Plateau Analysis
+
+**Why scoping stayed at 3.5 (below 4.5 threshold)**:
+
+The core issue is that stories still bundle unrelated issues:
+
+- Brand voice (missing function call - quick fix) grouped with session context (token limit - architectural)
+- LLM variability causes gestalt scores to fluctuate ±0.25 between runs
+
+**Potential fixes for future work**:
+
+- Give story generator direct codebase access to verify file paths
+- Add explicit code search before referencing endpoints
+- More aggressive story splitting criteria
+
+### Commits This Session
+
+- d56a986: Ralph V2 Iteration 1 - Initial prompt improvements
+- 103a351: Ralph V2 Iteration 3 - Improve technical accuracy and scoping guidance
+
+---
+
+## Previous: Ralph Wiggum Autonomous Loop Infrastructure (2026-01-13)
+
+## Previous: Unified Research Search with Vector Embeddings (2026-01-13)
+
+### Session Summary
+
+Implemented Phase 2 (Vector Search) from `docs/search-rag-architecture.md`. Added semantic search across Coda research and Intercom support data using pgvector and OpenAI embeddings.
+
+### What Was Built
+
+**Backend (`src/research/`)**:
+
+- Source adapter pattern for extensible multi-source search
+  - `adapters/base.py` - Abstract base with content hashing and snippet creation
+  - `adapters/coda_adapter.py` - Coda pages and themes (274 lines)
+  - `adapters/intercom_adapter.py` - Intercom support conversations (163 lines)
+- `unified_search.py` - UnifiedSearchService with semantic search (474 lines)
+  - `search()` - Query-based similarity search with source filtering
+  - `search_similar()` - "More like this" similarity search
+  - `suggest_evidence()` - Story evidence suggestions (Coda-only)
+  - `get_stats()` - Embedding statistics
+- `embedding_pipeline.py` - Content ingestion and embedding (445 lines)
+  - Batch embedding with OpenAI text-embedding-3-large (3072 dimensions)
+  - Content hash-based change detection (skip unchanged content)
+  - pgvector storage with HNSW index
+- `models.py` - Pydantic models (190 lines)
+  - SearchableContent, UnifiedSearchResult, SuggestedEvidence
+  - Request/response models with validation
+- Database migration: `src/db/migrations/001_add_research_embeddings.sql`
+
+**Frontend (`webapp/`)**:
+
+- `/research` page with multi-source search UI (464 lines)
+- `ResearchSearch.tsx` - Search input with debounced queries (196 lines)
+- `SearchResults.tsx` - Results with similarity scores and source badges (454 lines)
+- `SourceFilter.tsx` - Filter by Coda Pages, Themes, Intercom (139 lines)
+- `SuggestedEvidence.tsx` - Evidence suggestions for story detail (442 lines)
+- Updated `types.ts` with search types and source config (57 new lines)
+- Updated `api.ts` with search API calls (62 new lines)
+
+**API Endpoints** (`src/api/routers/research.py`):
+
+- `GET /api/research/search` - Semantic search with source filtering
+- `GET /api/research/similar/{source_type}/{source_id}` - Similar content
+- `GET /api/research/stats` - Embedding statistics
+- `POST /api/research/reindex` - Trigger re-embedding (admin)
+- `GET /api/research/stories/{id}/suggested-evidence` - Story evidence
+
+**Tests**: 32 tests in `tests/test_research.py` covering models, adapters, services
+
+### Process Gates Passed
+
+- Test Gate: 32 tests passing
+- Build: pytest + npm build pass
+- Review: 5-personality code review CONVERGED (3 rounds)
+- PR: #34 created
+
+### Activation Steps (Post-Merge)
+
+```bash
+psql $DATABASE_URL < src/db/migrations/001_add_research_embeddings.sql
+python -m src.research.embedding_pipeline --limit 100
+```
+
+---
+
+## Previous: Tailwind Codebase Map Added (2026-01-13)
+
+### Session Summary
+
+Created comprehensive Tailwind codebase map for routing Intercom support tickets to the correct codebase locations. Verified all URL mappings against live app using Playwright browser automation.
+
+### What Was Done
+
+**Tailwind Codebase Map** (PR #33):
+
+- Created `docs/tailwind-codebase-map.md` (2,395 lines)
+  - 24 validated components with 99% confidence scores
+  - URL Path → Service mapping for Intercom ticket triage
+  - Page Title → Path vocabulary for feature name lookup
+  - Service detection decision tree with regex patterns
+  - Backend service inventory (bach, aero, otto, tack, charlotte, scooby)
+  - Database schema patterns (Jarvis PostgreSQL, Cockroach, Supabase)
+
+**Playwright Verification**:
+
+- Verified actual URLs from live Tailwind app navigation
+- Discovered URL path gotchas (legacy vs v2 routes):
+  - `/dashboard/smartbio` NOT `/dashboard/v2/smartbio`
+  - `/dashboard/tribes` NOT `/dashboard/v2/tribes`
+  - `/dashboard/profile` NOT `/dashboard/v2/profile`
+
+**5-Personality Code Review** (3 rounds):
+
+- Round 1: Fixed Smart.Bio path inconsistencies, Blogs service mapping, added confidentiality marker
+- Round 2: Fixed Smart.Bio backend from `bach/bachv3` to `aero/api`
+- Round 3: All 5 reviewers CONVERGED
+
+**Merge Conflict Resolution**:
+
+- Resolved conflicts with main branch in DEPRECATED.md, changelog.md, coda-extraction-doc.md
+- PR #33 ready for merge
+
+### Process Gates Passed
+
+- Build: Passes (docs only)
+- Review: CONVERGED (3 rounds, 5-personality)
+- Backlog Hygiene: No outstanding issues
+
+---
+
+## Previous: Coda JSON Extraction Complete (2026-01-12)
 
 ### Session Summary
 

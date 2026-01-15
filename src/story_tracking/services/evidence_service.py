@@ -6,13 +6,17 @@ Evidence bundles, conversation links, and source statistics.
 
 import json
 import logging
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from uuid import UUID
 
 from ..models import (
     StoryEvidence,
     EvidenceExcerpt,
 )
+
+if TYPE_CHECKING:
+    from src.research.unified_search import UnifiedSearchService
+    from src.research.models import SuggestedEvidence
 
 logger = logging.getLogger(__name__)
 
@@ -332,3 +336,82 @@ class EvidenceService:
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
+
+    def suggest_research_evidence(
+        self,
+        story_id: UUID,
+        search_service: "UnifiedSearchService",
+        min_similarity: float = 0.7,
+        max_suggestions: int = 5,
+    ) -> List["SuggestedEvidence"]:
+        """
+        Find research that supports this story's theme.
+
+        Uses semantic search to find Coda research pages and themes
+        that are relevant to the story's title and description.
+
+        Args:
+            story_id: The story to find evidence for
+            search_service: UnifiedSearchService instance
+            min_similarity: Minimum similarity threshold (default 0.7)
+            max_suggestions: Maximum suggestions to return (default 5)
+
+        Returns:
+            List of SuggestedEvidence with research matches
+        """
+        from research.models import SuggestedEvidence
+
+        # Get story title and description
+        with self.db.cursor() as cur:
+            cur.execute("""
+                SELECT title, description
+                FROM stories
+                WHERE id = %s
+            """, (str(story_id),))
+            row = cur.fetchone()
+
+            if not row:
+                logger.warning(f"Story {story_id} not found")
+                return []
+
+            title = row.get("title", "") or ""
+            description = row.get("description", "") or ""
+
+        # Build search query from story content
+        query = f"{title} {description}".strip()
+        if not query:
+            logger.debug(f"Story {story_id} has no title or description for search")
+            return []
+
+        try:
+            # Search for matching research (Coda only)
+            results = search_service.suggest_evidence(
+                query=query,
+                min_similarity=min_similarity,
+                max_suggestions=max_suggestions,
+            )
+
+            # Convert to SuggestedEvidence format
+            suggestions = [
+                SuggestedEvidence(
+                    id=f"{r.source_type}:{r.source_id}",
+                    source_type=r.source_type,
+                    source_id=r.source_id,
+                    title=r.title,
+                    snippet=r.snippet,
+                    url=r.url,
+                    similarity=r.similarity,
+                    metadata=r.metadata,
+                    status="suggested",
+                )
+                for r in results
+            ]
+
+            logger.info(
+                f"Found {len(suggestions)} research suggestions for story {story_id}"
+            )
+            return suggestions
+
+        except Exception as e:
+            logger.error(f"Failed to suggest research evidence for {story_id}: {e}")
+            return []

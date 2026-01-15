@@ -1,0 +1,79 @@
+{
+  "version": "1.0",
+  "description": "Test data manifest for Ralph V2 pipeline optimization",
+  "created_at": "2026-01-13",
+  "sources": [
+    {
+      "id": "intercom_001",
+      "type": "intercom",
+      "path": "intercom/pinterest_oauth_issue.json",
+      "description": "Pinterest OAuth authorization failure - customer can't reconnect account",
+      "expected_themes": [
+        "oauth",
+        "pinterest",
+        "authentication",
+        "integration"
+      ],
+      "expected_technical_area": "tailwind/tack",
+      "complexity": "medium",
+      "priority": "high"
+    },
+    {
+      "id": "intercom_002",
+      "type": "intercom",
+      "path": "intercom/ghostwriter_context_issue.json",
+      "description": "Ghostwriter AI not remembering context or brand preferences",
+      "expected_themes": [
+        "ai",
+        "ghostwriter",
+        "brand-voice",
+        "context",
+        "memory"
+      ],
+      "expected_technical_area": "tailwind/ghostwriter",
+      "complexity": "high",
+      "priority": "high"
+    },
+    {
+      "id": "coda_table_001",
+      "type": "coda_table",
+      "path": "coda_tables/ai_copilot_feedback.json",
+      "description": "Structured research themes from AI Copilot user study",
+      "expected_themes": [
+        "ai",
+        "learning",
+        "preferences",
+        "personalization",
+        "brand-voice"
+      ],
+      "expected_technical_area": "tailwind/ghostwriter",
+      "complexity": "high",
+      "priority": "high"
+    },
+    {
+      "id": "coda_page_001",
+      "type": "coda_page",
+      "path": "coda_pages/scheduler_research.md",
+      "description": "Full research page on Pinterest scheduler usability issues",
+      "expected_themes": [
+        "scheduler",
+        "timezone",
+        "notifications",
+        "pinterest"
+      ],
+      "expected_technical_area": "tailwind/tack",
+      "complexity": "medium",
+      "priority": "medium"
+    }
+  ],
+  "quality_thresholds": {
+    "gestalt_min": 4.0,
+    "playwright_accuracy_min": 85,
+    "per_source_gestalt_min": 3.5
+  },
+  "evaluation_config": {
+    "gestalt_model": "gpt-4o-mini",
+    "gold_standard_path": "docs/story_knowledge_base.md",
+    "max_retries": 3
+  }
+}

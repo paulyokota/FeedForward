@@ -20,6 +20,9 @@ import type {
   SourceDistributionResponse,
   EvidenceSummaryResponse,
   SyncMetricsResponse,
+  SearchResult,
+  SuggestedEvidence,
+  ResearchSourceType,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -212,6 +215,65 @@ export const api = {
 
     getSyncMetrics: async (): Promise<SyncMetricsResponse> => {
       return fetcher("/api/analytics/sync");
+    },
+  },
+
+  // Research search endpoints
+  research: {
+    search: async (
+      query: string,
+      sourceTypes?: ResearchSourceType[],
+      limit = 20,
+    ): Promise<SearchResult[]> => {
+      const params = new URLSearchParams();
+      params.set("q", query);
+      params.set("limit", limit.toString());
+      if (sourceTypes && sourceTypes.length > 0) {
+        sourceTypes.forEach((type) => params.append("source_types", type));
+      }
+      return fetcher(`/api/research/search?${params}`);
+    },
+
+    getSimilar: async (
+      sourceType: ResearchSourceType,
+      sourceId: string,
+      limit = 10,
+    ): Promise<SearchResult[]> => {
+      const params = new URLSearchParams();
+      params.set("limit", limit.toString());
+      return fetcher(
+        `/api/research/similar/${sourceType}/${encodeURIComponent(sourceId)}?${params}`,
+      );
+    },
+
+    getSuggestedEvidence: async (
+      storyId: string,
+    ): Promise<SuggestedEvidence[]> => {
+      return fetcher(`/api/stories/${storyId}/suggested-evidence`);
+    },
+
+    acceptEvidence: async (
+      storyId: string,
+      evidenceId: string,
+    ): Promise<{ success: boolean }> => {
+      return fetcher(
+        `/api/stories/${storyId}/suggested-evidence/${evidenceId}/accept`,
+        {
+          method: "POST",
+        },
+      );
+    },
+
+    rejectEvidence: async (
+      storyId: string,
+      evidenceId: string,
+    ): Promise<{ success: boolean }> => {
+      return fetcher(
+        `/api/stories/${storyId}/suggested-evidence/${evidenceId}/reject`,
+        {
+          method: "POST",
+        },
+      );
     },
   },
 };

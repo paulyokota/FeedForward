@@ -251,6 +251,8 @@ pytest tests/ -v
 | `/session-end [summary]`      | End-of-session cleanup, status update, and commit  |
 | `/create-issues [source]`     | Generate GitHub Issues from spec, file, or prompt  |
 | `/prompt-iteration [version]` | Log new classification prompt version with metrics |
+| `/voice [message]`            | Start voice mode with relaxed silence detection    |
+| `/voice-stop`                 | End voice mode and return to text                  |
 
 ---
 
@@ -299,6 +301,7 @@ Use these for general development tasks. Our custom subagents above are FeedForw
 | `docs/changelog.md`                   | What's shipped                          |
 | `docs/story-grouping-architecture.md` | Story grouping pipeline design          |
 | `docs/story-granularity-standard.md`  | INVEST-based grouping criteria          |
+| `docs/tailwind-codebase-map.md`       | URL → Service mapping for ticket triage |
 | `docs/process-playbook/`              | Process gates and coordination patterns |
 
 ---

@@ -1,0 +1,79 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-01-13T14:08:00Z",
+  "total_stories": 2,
+  "stories": [
+    {
+      "id": "story-001",
+      "db_id": "c5ab78aa-efd8-436e-8573-9fb3667c0f08",
+      "title": "[4] Investigate AI Copilot Integration Friction",
+      "description": "## Theme Summary\n\n**Theme**: AI Copilot Integration Friction\n**Type**: Pain Point\n**Participants**: 4\n\n### Source Breakdown\n- Coda: 4\n\n---\n\n## Representative Quotes\n\n### Quote 1\n[P1](https://coda.io/d/dQP2YrnN6d)\n> The AI assistant doesn't understand context from previous messages. I have to repeat myself constantly.\n\n### Quote 2\n[P3](https://coda.io/d/dQP2YrnN6d)\n> Copilot suggestions feel random. It doesn't learn from what I accept or reject.\n\n### Quote 3\n[P7](https://coda.io/d/dQP2YrnN6d)\n> I want the AI to remember my brand voice and style preferences between sessions.\n\n---\n\n## Suggested Investigation\n\n- What user needs does this theme reveal?\n- How does this align with product strategy?\n- What additional validation is needed?\n- What are the potential solutions?",
+      "acceptanceCriteria": [
+        "Theme validated with additional user research",
+        "Product opportunity sized and prioritized",
+        "Solution approach defined",
+        "Next steps identified"
+      ],
+      "priority": 1,
+      "status": "candidate",
+      "confidence_score": 0.85,
+      "passes": false,
+      "gestalt_score": null,
+      "dimensional_avg": null,
+      "dimensional_scores": {
+        "independent": null,
+        "negotiable": null,
+        "valuable": null,
+        "estimable": null,
+        "small": null,
+        "testable": null
+      },
+      "playwright_valid": null,
+      "playwright_urls_tested": [],
+      "validation_date": null,
+      "refinement_history": [],
+      "notes": "Initial import from database. Low confidence score indicates this story needs significant refinement."
+    },
+    {
+      "id": "story-002",
+      "db_id": "9a6cb194-7048-44a6-a3c0-5af807527288",
+      "title": "[7] Fix Pinterest OAuth Failure",
+      "description": "## Problem Statement\n\nUsers trying to **restore pinterest posting capability** are getting authorization failed error.\n\n| Metric | Value |\n|--------|-------|\n| **Occurrences** | 7 reports (4.7% of analyzed) |\n| **Product Area** | Integrations |\n| **Component** | OAuth |\n| **Trigger Context** | Pinterest OAuth connection flow, Pinterest reconnection flow, Pinterest API authentication |\n\n---\n\n## Investigation Paths\n\nStart here to diagnose:\n\n- [ ] Check: OAuth token not being refreshed properly\n- [ ] Check: Pinterest app permissions changed or revoked\n- [ ] Check: Pinterest API rate limiting or token refresh issue\n- [ ] Review logs for: Authorization failed error, Connection timeout, invalid_grant error\n- [ ] Inspect `OAuth` component\n\n---\n\n## Symptoms\n\n**What users report:**\n- Infinite loading spinner\n- Token expired\n- 401 Unauthorized\n- Re-auth not working\n\n**Technical indicators:**\n- Authorization failed error\n- Connection timeout\n- invalid_grant error\n- Scheduled posts failing\n- API rejection\n\n---\n\n## Evidence (3 samples)\n\n### Report 1\n> I keep getting 'Authorization failed' when trying to connect my Pinterest account. I've tried multiple times but it just spins and fails.\n\n**Flow**: Pinterest OAuth connection flow\n\n### Report 2\n> Pinterest integration worked yesterday but now shows 'invalid_grant' error. My clients are waiting on scheduled posts.\n\n**Flow**: Pinterest reconnection flow\n\n### Report 3\n> Getting 401 Unauthorized from Pinterest API. Tried revoking and re-adding but same issue.\n\n**Flow**: Pinterest API authentication",
+      "acceptanceCriteria": [
+        "Error no longer occurs for reported scenarios",
+        "Verified with at least one affected user/account",
+        "No regression in related functionality"
+      ],
+      "priority": 2,
+      "status": "candidate",
+      "confidence_score": 0.92,
+      "passes": false,
+      "gestalt_score": null,
+      "dimensional_avg": null,
+      "dimensional_scores": {
+        "independent": null,
+        "negotiable": null,
+        "valuable": null,
+        "estimable": null,
+        "small": null,
+        "testable": null
+      },
+      "playwright_valid": null,
+      "playwright_urls_tested": [],
+      "validation_date": null,
+      "refinement_history": [],
+      "notes": "Initial import from database. Higher confidence score than story-001. Good starting point for refinement - has technical context and symptoms."
+    }
+  ],
+  "metadata": {
+    "source": "feedforward_database",
+    "query_filter": "status IN ('candidate', 'draft')",
+    "ordering": "confidence_score ASC",
+    "quality_thresholds": {
+      "gestalt_min": 4.0,
+      "dimensional_avg_min": 3.5,
+      "dimensional_single_min": 3.0,
+      "playwright_accuracy_min": 85
+    }
+  }
+}
