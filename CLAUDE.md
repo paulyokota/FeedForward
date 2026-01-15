@@ -251,6 +251,8 @@ pytest tests/ -v
 | `/session-end [summary]`      | End-of-session cleanup, status update, and commit  |
 | `/create-issues [source]`     | Generate GitHub Issues from spec, file, or prompt  |
 | `/prompt-iteration [version]` | Log new classification prompt version with metrics |
+| `/voice [message]`            | Start voice mode with relaxed silence detection    |
+| `/voice-stop`                 | End voice mode and return to text                  |
 
 ---
 
