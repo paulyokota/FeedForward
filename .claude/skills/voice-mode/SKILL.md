@@ -34,12 +34,13 @@ Invoke with `/voice` or `/voice [message]`
 
 ## Default Settings
 
-| Setting               | Value | Reason                                              |
-| --------------------- | ----- | --------------------------------------------------- |
-| `vad_aggressiveness`  | 0     | Least aggressive - won't cut off speech prematurely |
-| `listen_duration_min` | 4     | Wait at least 4 seconds before considering silence  |
-| `listen_duration_max` | 120   | Allow up to 2 minutes of speaking                   |
-| `wait_for_response`   | true  | Listen for user response after speaking             |
+| Setting               | Value     | Reason                                              |
+| --------------------- | --------- | --------------------------------------------------- |
+| `vad_aggressiveness`  | 0         | Least aggressive - won't cut off speech prematurely |
+| `listen_duration_min` | 4         | Wait at least 4 seconds before considering silence  |
+| `listen_duration_max` | 120       | Allow up to 2 minutes of speaking                   |
+| `wait_for_response`   | true      | Listen for user response after speaking             |
+| `metrics_level`       | "minimal" | Clean output - just response text, saves tokens     |
 
 ## Workflow
 
@@ -76,8 +77,27 @@ mcp__voice-mode__converse(
     vad_aggressiveness=0,
     listen_duration_min=4,
     listen_duration_max=120,
+    metrics_level="minimal",
 )
 ```
+
+### Multi-Sentence Responses (Preferred)
+
+For longer responses, **break them into multiple sequential tool calls**. This provides better readability and a more natural conversation flow:
+
+```python
+# For multi-sentence responses, queue them up like this:
+mcp__voice-mode__converse(message="First sentence.", wait_for_response=False, ...)
+mcp__voice-mode__converse(message="Second sentence.", wait_for_response=False, ...)
+mcp__voice-mode__converse(message="Final sentence. Now listening.", wait_for_response=True, ...)
+```
+
+**Guidelines:**
+
+- Set `wait_for_response=False` for all messages except the last one
+- Only the final message should have `wait_for_response=True`
+- Keep each message to 1-2 sentences for natural pacing
+- Queue all messages in a single tool call block so they play sequentially
 
 ## Adjusting Settings
 
