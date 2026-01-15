@@ -233,7 +233,8 @@ class TestFormatStory:
 
         # Check AI section content
         assert "This card is for a **senior backend engineer**" in result.ai_section
-        assert "tailwind-app" in result.ai_section
+        # Repository is now configurable via target_repo field (defaults to TBD)
+        assert "**Repository**:" in result.ai_section
         assert "Instructions (Step-by-Step)" in result.ai_section
         assert "Guardrails & Constraints" in result.ai_section
 
@@ -392,10 +393,20 @@ class TestFormatAISection:
         """Test role and context section."""
         section = formatter.format_ai_section(complete_theme_data)
 
-        assert "**Repository**: tailwind-app" in section
+        # Repository is now configurable via target_repo field (defaults to TBD)
+        assert "**Repository**:" in section
         assert "**Task Type**: bug-fix" in section
         assert "**Related Story**: See Human-Facing Section above" in section
         assert "**Priority**:" in section
+
+    def test_role_context_with_target_repo(self, formatter):
+        """Test role context when target_repo is specified."""
+        theme_data = {
+            "issue_signature": "test_issue",
+            "target_repo": "aero",
+        }
+        section = formatter.format_ai_section(theme_data)
+        assert "**Repository**: aero" in section
 
     def test_priority_levels(self, formatter):
         """Test priority determination based on occurrences."""

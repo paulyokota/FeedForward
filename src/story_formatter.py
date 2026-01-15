@@ -799,12 +799,16 @@ class DualStoryFormatter:
         occurrences = theme_data.get("occurrences", 0)
 
         # Role & Context (third-person)
+        # Repository comes from theme_data or defaults to "TBD"
+        target_repo = theme_data.get("target_repo", "TBD (requires codebase mapping)")
+        engineer_type = theme_data.get("engineer_type", "senior backend engineer")
+
         role_section = f"""## Role & Context
 
-This card is for a **senior backend engineer** working in the Tailwind codebase.
+This card is for a **{engineer_type}** working in the target codebase.
 Follow project conventions in `CLAUDE.md` and established patterns.
 
-**Repository**: tailwind-app
+**Repository**: {target_repo}
 **Task Type**: {theme_data.get('task_type', 'bug-fix')}
 **Related Story**: See Human-Facing Section above
 **Priority**: {self._determine_priority(occurrences)}"""

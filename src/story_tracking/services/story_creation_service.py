@@ -665,4 +665,6 @@ class StoryCreationService:
             # Additional fields for dual format
             "original_signature": original_signature,
             "customer_messages": customer_messages,
+            # Repository for codebase exploration
+            "target_repo": self.target_repo,
         }

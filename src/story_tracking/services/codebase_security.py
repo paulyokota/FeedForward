@@ -18,7 +18,7 @@ from typing import List, Set
 logger = logging.getLogger(__name__)
 
 # Configuration from environment variables with secure defaults
-REPO_BASE_PATH = Path(os.environ.get("FEEDFORWARD_REPOS_PATH", "/Users/paulyokota/repos"))
+REPO_BASE_PATH = Path(os.environ.get("FEEDFORWARD_REPOS_PATH", "/Users/paulyokota/Documents/GitHub"))
 APPROVED_REPOS: Set[str] = {
     repo.strip()
     for repo in os.environ.get("FEEDFORWARD_APPROVED_REPOS", "aero,tack,charlotte,ghostwriter,zuck").split(",")
