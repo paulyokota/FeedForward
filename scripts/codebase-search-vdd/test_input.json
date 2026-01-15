@@ -1,0 +1,21 @@
+{
+  "iteration_number": 1,
+  "timestamp": "2026-01-15T15:30:00Z",
+  "conversations": [
+    {
+      "conversation_id": "12345",
+      "issue_summary": "User reports that pins are not showing up in their community feed after publishing. The pin appears in the scheduler but doesn't display in the community view.",
+      "product_area": "communities",
+      "classification_confidence": 0.85,
+      "search_results": {
+        "files_found": [
+          "aero/app/services/pins_service.rb",
+          "aero/app/controllers/communities_controller.rb",
+          "aero/app/models/pin.rb"
+        ],
+        "search_terms_used": ["pins", "community", "feed", "publish"],
+        "exploration_log": []
+      }
+    }
+  ]
+}

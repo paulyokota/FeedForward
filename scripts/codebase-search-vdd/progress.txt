@@ -1,0 +1,15 @@
+# Codebase Search VDD - Progress Log
+
+## Format
+Each iteration records:
+- Date/time
+- Batch statistics
+- Metrics (aggregate and per-product-area)
+- Model calibration data (iterations 1-2)
+- Changes made
+- Learnings
+
+---
+
+## Baseline (Iteration 0)
+Status: Not started
