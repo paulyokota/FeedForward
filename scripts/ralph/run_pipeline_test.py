@@ -273,8 +273,13 @@ def load_test_data(source: Dict[str, Any], test_data_dir: Path) -> Dict[str, Any
             "metadata": source.get("metadata", {})
         }
 
-    # Static file format
-    path = test_data_dir / source["path"]
+    # Static file format - validate path doesn't escape test_data_dir
+    if "path" not in source:
+        raise ValueError(f"Source must have either 'content' or 'path': {source.get('id', 'unknown')}")
+
+    path = (test_data_dir / source["path"]).resolve()
+    if not path.is_relative_to(test_data_dir.resolve()):
+        raise ValueError(f"Path traversal detected: {source['path']}")
 
     if path.suffix == ".json":
         with open(path) as f:

@@ -67,9 +67,9 @@
     }
   ],
   "quality_thresholds": {
-    "gestalt_min": 4.0,
-    "playwright_accuracy_min": 85,
-    "per_source_gestalt_min": 3.5
+    "gestalt_min": 4.8,
+    "per_source_gestalt_min": 4.5,
+    "scoping_min": 4.5
   },
   "evaluation_config": {
     "gestalt_model": "gpt-4o-mini",

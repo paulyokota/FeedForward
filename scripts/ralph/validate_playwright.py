@@ -5,15 +5,27 @@ Ralph Wiggum Playwright Validation Script
 REAL browser automation that:
 - Opens actual browser window (not headless)
 - Navigates to GitHub repos
-- Pauses for manual login if needed (60 second timeout)
+- Pauses for manual login if needed (120 second timeout)
 - Verifies code files are actually findable
 - Reports validation with timestamped evidence
+- Supports session persistence to skip login on subsequent runs
 
 Usage:
-    python3 validate_playwright.py '<json_stories_data>'
+    python3 validate_playwright.py '<json_stories_data>' [options]
 
-Example:
+Examples:
+    # Basic usage (will prompt for login if needed)
     python3 validate_playwright.py '[{"id":"story-001","technical_area":"tailwind/aero","description":"Fix auth issue"}]'
+
+    # With session persistence (skips login)
+    python3 validate_playwright.py '<stories>' --storage-state outputs/playwright_state.json
+
+    # Initialize session first (one-time setup)
+    python3 init_playwright_session.py
+
+Options:
+    --headless              Run browser in headless mode (no visible window)
+    --storage-state PATH    Path to storage state JSON for session persistence
 
 Exit codes:
     0 - Success (>= 85% validation pass rate)
@@ -261,7 +273,7 @@ async def ensure_github_login(page, headless=False):
         return True  # Proceed anyway
 
 
-async def validate_stories_batch(stories_data, headless=False):
+async def validate_stories_batch(stories_data, headless=False, storage_state_path=None):
     """
     Validate all stories in a batch using real Playwright browser automation.
     Opens actual browser window for interactive testing.
@@ -269,6 +281,7 @@ async def validate_stories_batch(stories_data, headless=False):
     Args:
         stories_data: List of story dicts with id, technical_area, description
         headless: If True, run headless (for CI). Default False for interactive.
+        storage_state_path: Optional path to Playwright storage state JSON for session persistence
     """
     timestamp = datetime.now().isoformat()
 
@@ -276,6 +289,8 @@ async def validate_stories_batch(stories_data, headless=False):
     print(f"PLAYWRIGHT VALIDATION RUN - {timestamp}")
     print(f"{'='*60}")
     print(f"   Starting browser automation ({'HEADLESS' if headless else 'VISIBLE WINDOW'})...")
+    if storage_state_path:
+        print(f"   Using storage state: {storage_state_path}")
     print(f"   Will check GitHub login before validating private repos")
     print(f"   Each validation takes 15-60 seconds")
 
@@ -285,14 +300,28 @@ async def validate_stories_batch(stories_data, headless=False):
     async with async_playwright() as p:
         # Launch browser with UI visible (not headless) for interactive login
         browser = await p.chromium.launch(headless=headless)
-        context = await browser.new_context(
-            viewport={"width": 1280, "height": 720},
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-        )
+
+        # Load storage state if it exists
+        context_kwargs = {
+            "viewport": {"width": 1280, "height": 720},
+            "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+        }
+
+        if storage_state_path and Path(storage_state_path).exists():
+            print(f"   Loading existing session from {storage_state_path}")
+            context_kwargs["storage_state"] = storage_state_path
+
+        context = await browser.new_context(**context_kwargs)
         page = await context.new_page()
 
         # FIRST: Ensure logged in to GitHub for private repo access
         logged_in = await ensure_github_login(page, headless)
+
+        # Save storage state after successful login
+        if logged_in and storage_state_path:
+            print(f"   Saving session state to {storage_state_path}")
+            await context.storage_state(path=storage_state_path)
+
         if not logged_in and not headless:
             print(f"   WARNING: Not logged in - private repos will show as 404")
             print(f"   Continuing anyway, but validation may fail...\n")
@@ -429,22 +458,35 @@ async def validate_stories_batch(stories_data, headless=False):
 
 
 async def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 validate_playwright.py '<json_stories_data>' [--headless]")
+    # Show help if requested
+    if "--help" in sys.argv or "-h" in sys.argv or len(sys.argv) < 2:
+        print("Usage: python3 validate_playwright.py '<json_stories_data>' [options]")
         print("")
         print("Example:")
         print('  python3 validate_playwright.py \'[{"id":"story-001","technical_area":"tailwind/aero","description":"Fix auth issue"}]\'')
         print("")
         print("Options:")
-        print("  --headless    Run browser in headless mode (no visible window)")
+        print("  --headless              Run browser in headless mode (no visible window)")
+        print("  --storage-state PATH    Path to storage state JSON for session persistence")
         print("")
         print("Exit codes:")
         print("  0 - Success (>= 85% validation pass rate)")
         print("  1 - Failure (< 85% validation pass rate or error)")
-        sys.exit(1)
+        sys.exit(0 if "--help" in sys.argv or "-h" in sys.argv else 1)
 
     # Parse arguments
     headless = "--headless" in sys.argv
+    storage_state_path = None
+
+    # Parse --storage-state argument
+    if "--storage-state" in sys.argv:
+        storage_state_idx = sys.argv.index("--storage-state")
+        if storage_state_idx + 1 < len(sys.argv):
+            storage_state_path = sys.argv[storage_state_idx + 1]
+        else:
+            print("ERROR: --storage-state requires a path argument")
+            sys.exit(1)
+
     stories_json = sys.argv[1]
 
     try:
@@ -463,7 +505,11 @@ async def main():
         print("No validation to perform")
         sys.exit(0)
 
-    success, results, summary = await validate_stories_batch(stories, headless=headless)
+    success, results, summary = await validate_stories_batch(
+        stories,
+        headless=headless,
+        storage_state_path=storage_state_path
+    )
     sys.exit(0 if success else 1)
 
 
