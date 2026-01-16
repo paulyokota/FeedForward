@@ -18,10 +18,12 @@ MIN_ITERATIONS=${2:-3}   # Default 3 minimum iterations before completion allowe
 ITERATION=0
 COMPLETION_PROMISE="<promise>LOOP_COMPLETE</promise>"
 PLATEAU_PROMISE="<promise>PLATEAU_REACHED</promise>"
+CONVERGENCE_PROMISE="<promise>GAP_CONVERGED</promise>"  # Dual-mode gap within target
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="${SCRIPT_DIR}/outputs"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 PROMPT_FILE="PROMPT_V2.md"
+GAP_TARGET=0.5  # Target gap between expensive and cheap modes
 
 # Colors for output
 RED='\033[0;31m'
@@ -75,6 +77,33 @@ echo -e "${GREEN}  ✓ ${PROMPT_FILE}${NC}"
 echo -e "${GREEN}  ✓ progress.txt${NC}"
 echo -e "${GREEN}  ✓ test_data/manifest.json${NC}"
 echo -e "${GREEN}  ✓ run_pipeline_test.py${NC}"
+
+# Check dual-mode components
+DUAL_MODE_STATUS="DISABLED"
+PATTERN_COUNT=0
+
+# Helper function to safely count patterns in a JSON file
+count_patterns() {
+    local file="$1"
+    python3 -c "import json, sys; print(len(json.load(open(sys.argv[1])).get('patterns', [])))" "$file" 2>/dev/null || echo "0"
+}
+
+if [ -f "${SCRIPT_DIR}/cheap_mode_evaluator.py" ] && [ -f "${SCRIPT_DIR}/models.py" ]; then
+    if [ -f "${SCRIPT_DIR}/learned_patterns_v2.json" ]; then
+        PATTERN_COUNT=$(count_patterns "${SCRIPT_DIR}/learned_patterns_v2.json")
+        DUAL_MODE_STATUS="ENABLED (v2, ${PATTERN_COUNT} patterns)"
+        echo -e "${GREEN}  ✓ Dual-mode: ${DUAL_MODE_STATUS}${NC}"
+    elif [ -f "${SCRIPT_DIR}/learned_patterns.json" ]; then
+        PATTERN_COUNT=$(count_patterns "${SCRIPT_DIR}/learned_patterns.json")
+        DUAL_MODE_STATUS="ENABLED (v1 needs migration, ${PATTERN_COUNT} patterns)"
+        echo -e "${YELLOW}  ⚠ Dual-mode: ${DUAL_MODE_STATUS}${NC}"
+    else
+        DUAL_MODE_STATUS="ENABLED (no patterns yet)"
+        echo -e "${YELLOW}  ⚠ Dual-mode: ${DUAL_MODE_STATUS}${NC}"
+    fi
+else
+    echo -e "${YELLOW}  ⚠ Dual-mode: ${DUAL_MODE_STATUS}${NC}"
+fi
 echo ""
 
 # Log start time
@@ -89,6 +118,8 @@ echo "Ralph must make pipeline changes before declaring completion." >> "${SCRIP
 echo "MINIMUM ITERATIONS: $MIN_ITERATIONS (completion blocked before this)" >> "${SCRIPT_DIR}/progress.txt"
 echo "MAXIMUM ITERATIONS: $MAX_ITERATIONS (HARD CAP - must stop at this iteration)" >> "${SCRIPT_DIR}/progress.txt"
 echo "SCOPING VALIDATION: Uses local codebase access via Read/Glob tools" >> "${SCRIPT_DIR}/progress.txt"
+echo "DUAL-MODE: ${DUAL_MODE_STATUS}" >> "${SCRIPT_DIR}/progress.txt"
+echo "GAP TARGET: ${GAP_TARGET} (expensive - cheap gestalt)" >> "${SCRIPT_DIR}/progress.txt"
 echo "" >> "${SCRIPT_DIR}/progress.txt"
 
 # Invalidate previous test results (force re-evaluation)
@@ -181,6 +212,18 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
         echo "---"
 
         exit 0
+    fi
+
+    # Check for gap convergence promise (dual-mode)
+    if grep -q "$CONVERGENCE_PROMISE" "${ITERATION_OUTPUT}"; then
+        echo ""
+        echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${CYAN}║     DUAL-MODE GAP CONVERGED                              ║${NC}"
+        echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}Gap between expensive and cheap modes is within target (${GAP_TARGET})${NC}"
+
+        echo "Status: GAP_CONVERGED - Dual-mode calibration successful" >> "${SCRIPT_DIR}/progress.txt"
     fi
 
     # Check for errors
