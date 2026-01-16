@@ -14,6 +14,8 @@
 #   --max-iterations N Override max iterations from config
 #   --dry-run          Analyze and propose changes but don't modify code
 #   --manual           Pause after each iteration for manual review (legacy mode)
+#   --from-db          Use pre-fetched conversations from database (offline mode)
+#   --intercom-only    With --from-db, exclude Coda imports (use real Intercom only)
 #
 # Examples:
 #   ./run_vdd_loop.sh                      # Full autonomous run
@@ -21,6 +23,8 @@
 #   ./run_vdd_loop.sh --dry-run            # See what changes would be made
 #   ./run_vdd_loop.sh --max-iterations 5   # Run up to 5 iterations
 #   ./run_vdd_loop.sh --manual             # Human-in-the-loop mode
+#   ./run_vdd_loop.sh --from-db            # Offline mode using database
+#   ./run_vdd_loop.sh --from-db --intercom-only  # Offline with real Intercom only
 #
 
 set -e
@@ -35,13 +39,14 @@ if [ -f "$PROJECT_ROOT/.env" ]; then
     set +a
 fi
 
-# Verify required environment variables
-if [ -z "$INTERCOM_ACCESS_TOKEN" ]; then
-    echo "Error: INTERCOM_ACCESS_TOKEN not set. Add it to .env or export it."
-    exit 1
-fi
+# Verify required environment variables (skip Intercom token check if using --from-db)
+# Note: We check this after parsing args, but need to defer the check
+# For now, the check happens inside run_iteration based on FROM_DB
 
-# Note: ANTHROPIC_API_KEY is no longer required - we use Claude CLI directly
+# Note: ANTHROPIC_API_KEY is needed for apply_learnings.py (uses SDK)
+# but NOT for evaluate_results_v2.py (uses Claude CLI subscription)
+# We'll selectively unset it only for the evaluation step
+
 OUTPUT_DIR="$SCRIPT_DIR/outputs"
 CONFIG_FILE="$SCRIPT_DIR/config.json"
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
@@ -52,6 +57,8 @@ START_ITERATION=""
 MAX_ITERATIONS=""
 DRY_RUN=false
 MANUAL_MODE=false
+FROM_DB=false
+INTERCOM_ONLY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -75,6 +82,14 @@ while [[ $# -gt 0 ]]; do
             MANUAL_MODE=true
             shift
             ;;
+        --from-db)
+            FROM_DB=true
+            shift
+            ;;
+        --intercom-only)
+            INTERCOM_ONLY=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
             exit 1
@@ -93,10 +108,26 @@ CALIBRATION_ITERATIONS=$(jq -r '.calibration_iterations' "$CONFIG_FILE")
 
 MAX_ITERATIONS="${MAX_ITERATIONS:-$CONFIG_MAX_ITERATIONS}"
 
+# Check for Intercom token if not using database mode
+if [ "$FROM_DB" = false ] && [ -z "$INTERCOM_ACCESS_TOKEN" ]; then
+    echo "Error: INTERCOM_ACCESS_TOKEN not set. Add it to .env or export it."
+    echo "Hint: Use --from-db to run in offline mode with database conversations."
+    exit 1
+fi
+
 echo "=== Codebase Search VDD Loop ==="
 echo "Config: $CONFIG_FILE"
 echo "Output: $OUTPUT_DIR"
 echo "Max iterations: $MAX_ITERATIONS"
+if [ "$FROM_DB" = true ]; then
+    if [ "$INTERCOM_ONLY" = true ]; then
+        echo "Mode: Database (offline, real Intercom only)"
+    else
+        echo "Mode: Database (offline)"
+    fi
+else
+    echo "Mode: Intercom API"
+fi
 echo ""
 
 # Function to run a single iteration
@@ -110,8 +141,17 @@ run_iteration() {
 
     # Step 1: Fetch conversations
     echo "[1/4] Fetching $batch_size conversations..."
+
+    fetch_flags="--batch-size $batch_size"
+    if [ "$FROM_DB" = true ]; then
+        fetch_flags="$fetch_flags --from-db"
+        if [ "$INTERCOM_ONLY" = true ]; then
+            fetch_flags="$fetch_flags --intercom-only"
+        fi
+    fi
+
     python3 "$SCRIPT_DIR/fetch_conversations.py" \
-        --batch-size "$batch_size" \
+        $fetch_flags \
         > "$iteration_dir/conversations.json" \
         2> "$iteration_dir/fetch.log"
 
@@ -129,17 +169,17 @@ run_iteration() {
     echo "[3/4] Evaluating with dual CLI exploration..."
 
     # Note: evaluate_results_v2.py uses Claude CLI for all API calls
-    # No SDK/API key required - runs through Claude Code
-    python3 "$SCRIPT_DIR/evaluate_results_v2.py" \
+    # Unset ANTHROPIC_API_KEY for this step only to force CLI subscription mode
+    env -u ANTHROPIC_API_KEY python3 "$SCRIPT_DIR/evaluate_results_v2.py" \
         < "$iteration_dir/search_results.json" \
         > "$iteration_dir/evaluation.json" \
         2> "$iteration_dir/evaluation.log"
 
     # Step 4: Calculate metrics
     echo "[4/4] Calculating metrics..."
-    local precision=$(jq -r '.aggregate.precision // 0' "$iteration_dir/evaluation.json")
-    local recall=$(jq -r '.aggregate.recall // 0' "$iteration_dir/evaluation.json")
-    local gestalt=$(jq -r '.aggregate.gestalt // 0' "$iteration_dir/evaluation.json")
+    local precision=$(jq -r '.metrics.aggregate.precision // 0' "$iteration_dir/evaluation.json")
+    local recall=$(jq -r '.metrics.aggregate.recall // 0' "$iteration_dir/evaluation.json")
+    local gestalt=$(jq -r '.metrics.aggregate.gestalt // 0' "$iteration_dir/evaluation.json")
 
     echo ""
     echo "Results for iteration $iteration_num:"
@@ -239,7 +279,8 @@ while [ "$current_iteration" -le "$MAX_ITERATIONS" ]; do
             echo "      (dry-run mode - no code changes will be made)"
         fi
 
-        python3 "$SCRIPT_DIR/apply_learnings.py" \
+        # Unset ANTHROPIC_API_KEY to force CLI subscription mode (not API credits)
+        env -u ANTHROPIC_API_KEY python3 "$SCRIPT_DIR/apply_learnings.py" \
             $dry_run_flag \
             < "$iteration_dir/evaluation.json" \
             > "$iteration_dir/learnings.json" \

@@ -26,15 +26,13 @@ Usage:
 
 import argparse
 import json
-import os
 import re
 import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-
-from anthropic import Anthropic
 
 # Paths
 SCRIPT_DIR = Path(__file__).parent
@@ -48,12 +46,15 @@ CONFIG_PATH = SCRIPT_DIR / "config.json"
 with open(CONFIG_PATH) as f:
     CONFIG = json.load(f)
 
-# Anthropic client
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-if not ANTHROPIC_API_KEY:
-    print("Error: ANTHROPIC_API_KEY environment variable must be set", file=sys.stderr)
-    sys.exit(1)
-client = Anthropic(api_key=ANTHROPIC_API_KEY)
+# Valid model names (for command injection prevention)
+VALID_MODELS = frozenset(CONFIG.get("models", {}).values())
+
+
+def validate_model(model: str) -> str:
+    """Validate model string against known safe values to prevent command injection."""
+    if model not in VALID_MODELS:
+        raise ValueError(f"Invalid model: {model}. Must be one of {VALID_MODELS}")
+    return model
 
 
 def load_search_provider_code() -> str:
@@ -253,14 +254,55 @@ Respond with a JSON object:
 Focus on the MOST IMPACTFUL changes first. If precision is low, prioritize filtering. If recall is low, prioritize new patterns.
 """
 
-    response = client.messages.create(
-        model=CONFIG["models"]["judge"],  # Use Opus for high-quality analysis
-        max_tokens=4000,
-        messages=[{"role": "user", "content": prompt}]
-    )
+    # Use Claude CLI instead of SDK to avoid API credit usage
+    # Validate model to prevent command injection
+    model = validate_model(CONFIG["models"]["judge"])
 
-    # Parse the response
-    response_text = response.content[0].text
+    # Build claude command - use interactive mode via stdin (subscription, not API credits)
+    cmd = [
+        "claude",
+        "--model", model,
+        "--dangerously-skip-permissions",
+    ]
+
+    try:
+        # Run claude CLI with timeout, passing prompt via stdin
+        result = subprocess.run(
+            cmd,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minute timeout for analysis
+        )
+
+        response_text = result.stdout + result.stderr
+
+        # Log if command failed
+        if result.returncode != 0:
+            print(f"  Warning: Claude CLI returned exit code {result.returncode}", file=sys.stderr)
+            if "Credit balance" in response_text:
+                print("  Note: If you see credit errors, ensure ANTHROPIC_API_KEY is unset", file=sys.stderr)
+
+    except subprocess.TimeoutExpired:
+        print("  Error: Claude CLI timed out", file=sys.stderr)
+        return {
+            "diagnosis": "Analysis timed out",
+            "changes": [],
+            "expected_precision_delta": 0,
+            "expected_recall_delta": 0,
+            "confidence": "LOW",
+            "reasoning": "Claude CLI timed out after 5 minutes"
+        }
+    except Exception as e:
+        print(f"  Error running Claude CLI: {e}", file=sys.stderr)
+        return {
+            "diagnosis": f"CLI error: {e}",
+            "changes": [],
+            "expected_precision_delta": 0,
+            "expected_recall_delta": 0,
+            "confidence": "LOW",
+            "reasoning": str(e)
+        }
 
     # Extract JSON from response
     json_match = re.search(r'\{[\s\S]*\}', response_text)
@@ -277,7 +319,7 @@ Focus on the MOST IMPACTFUL changes first. If precision is low, prioritize filte
         "expected_precision_delta": 0,
         "expected_recall_delta": 0,
         "confidence": "LOW",
-        "reasoning": response_text[:500]
+        "reasoning": response_text[:500] if response_text else "No response from Claude CLI"
     }
 
 

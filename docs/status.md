@@ -12,7 +12,66 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: VDD Codebase Search System (2026-01-15)
+## Latest: VDD Offline Mode & Recent Data Sync (2026-01-16)
+
+### Session Summary
+
+Extended VDD system with offline capabilities (database-backed conversation fetching) and synced recent Intercom conversations to fill the data gap.
+
+### What Was Built
+
+**Database-Backed Conversation Fetching**:
+
+- Added `--from-db` flag to `fetch_conversations.py` for offline VDD testing
+- New `DatabaseConversationFetcher` class queries PostgreSQL instead of Intercom API
+- Maps `stage1_type` to VDD product areas automatically
+- Falls back to keyword classification if no `stage1_type` is set
+- Maintains diversity sampling across product areas
+
+**Intercom-Only Filter**:
+
+- Added `--intercom-only` flag to exclude Coda imports (research data)
+- Filters out `coda_*` prefixed IDs to only use real support conversations
+- Database breakdown: 9,364 Coda imports vs 680 real Intercom conversations
+
+**CLI Conversion for Learning Phase**:
+
+- Converted `apply_learnings.py` from Anthropic SDK to Claude CLI
+- Uses `env -u ANTHROPIC_API_KEY` to force CLI subscription mode (no API credits)
+- Model validation whitelist prevents command injection
+- Successfully applies code changes to `codebase_context_provider.py`
+
+**Recent Data Sync**:
+
+- Fetched 50 new Intercom conversations (Jan 13-16)
+- Database now has 680 real Intercom conversations (was 630)
+- Recent distribution: Jan 16 (6), Jan 15 (33), Jan 14 (8), Jan 13 (3)
+
+### Usage
+
+```bash
+# Full autonomous run (requires Intercom API)
+./scripts/codebase-search-vdd/run_vdd_loop.sh
+
+# Offline mode using database
+./scripts/codebase-search-vdd/run_vdd_loop.sh --from-db
+
+# Offline with real Intercom only (excludes Coda research data)
+./scripts/codebase-search-vdd/run_vdd_loop.sh --from-db --intercom-only
+
+# Dry-run to see what changes would be made
+./scripts/codebase-search-vdd/run_vdd_loop.sh --from-db --intercom-only --dry-run
+```
+
+### Next Steps
+
+- Run full VDD loop with `--from-db --intercom-only` to test with real support data
+- Monitor learning phase effectiveness with CLI-based approach
+- Consider adding more recent conversations periodically
+
+---
+
+## Previous: VDD Codebase Search System (2026-01-15)
 
 ### Session Summary
 
@@ -49,12 +108,6 @@ Built complete VDD (Validation-Driven Development) harness for optimizing codeba
 - 12e026c: feat: Add autonomous learning phase to VDD loop
 - 2576808: feat: Refactor VDD evaluation to Claude CLI for faster execution
 - 2d4b87b: feat: Improve voice mode output with minimal metrics
-
-### Next Steps
-
-- Test v2 VDD loop end-to-end: `./scripts/codebase-search-vdd/run_vdd_loop.sh --baseline`
-- Clean up iteration_0 outputs and restart fresh
-- Compare performance metrics (SDK vs CLI approach)
 
 ---
 

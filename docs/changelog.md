@@ -10,6 +10,22 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**VDD Offline Mode & Data Improvements (2026-01-16)**:
+
+- Database-backed conversation fetching for offline VDD testing
+  - `--from-db` flag in `fetch_conversations.py` queries PostgreSQL instead of Intercom API
+  - `DatabaseConversationFetcher` class with `stage1_type` to product area mapping
+  - Diversity sampling maintained across product areas
+- `--intercom-only` flag to filter out Coda imports (research data)
+  - Excludes `coda_*` prefixed IDs to only use real support conversations
+  - Database: 9,364 Coda imports vs 680 real Intercom conversations
+- CLI conversion for `apply_learnings.py`:
+  - Converted from Anthropic SDK to Claude CLI subprocess
+  - Uses `env -u ANTHROPIC_API_KEY` to force CLI subscription mode
+  - Model validation whitelist prevents command injection
+- Updated `run_vdd_loop.sh` with new flags: `--from-db`, `--intercom-only`
+- Fetched 50 new Intercom conversations (Jan 13-16) to fill data gap
+
 **VDD Codebase Search System (2026-01-15)**:
 
 - Complete VDD (Validation-Driven Development) harness for codebase search optimization

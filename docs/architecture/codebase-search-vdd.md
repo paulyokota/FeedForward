@@ -362,20 +362,55 @@ Even if scores are good, if iteration < MIN_ITERATIONS:
 
 ```
 scripts/codebase-search-vdd/
-├── run_vdd_loop.sh              # Main orchestrator (like ralph.sh)
+├── run_vdd_loop.sh              # Main orchestrator with convergence detection
 ├── PROMPT.md                    # Instructions for iteration agent
 ├── progress.txt                 # Cross-iteration memory
 ├── config.json                  # Iteration parameters
-├── fetch_conversations.py       # Pull diverse conversation batch
+├── fetch_conversations.py       # Pull conversations (Intercom API or database)
 ├── run_search.py                # Execute search logic on batch
-├── evaluate_results.py          # Two-step evaluation orchestrator
+├── evaluate_results_v2.py       # CLI-based evaluation with dual exploration
+├── apply_learnings.py           # Autonomous learning phase (CLI-based)
+├── backups/                     # Pre-modification code backups
 └── outputs/
+    ├── iteration_0/             # Baseline measurement
     ├── iteration_1/
+    │   ├── conversations.json
     │   ├── search_results.json
     │   ├── evaluation.json
-    │   └── changes_made.md
+    │   └── learnings.json
     └── ...
 ```
+
+### Conversation Sources
+
+The VDD system supports multiple conversation sources:
+
+| Mode                     | Flag                        | Source                | Use Case                         |
+| ------------------------ | --------------------------- | --------------------- | -------------------------------- |
+| Intercom API             | (default)                   | Live Intercom API     | Fresh, diverse conversations     |
+| Database (all)           | `--from-db`                 | PostgreSQL            | Offline testing, reproducibility |
+| Database (Intercom only) | `--from-db --intercom-only` | PostgreSQL (filtered) | Real support data only           |
+
+**Database Breakdown** (as of 2026-01-16):
+
+- **Coda imports**: 9,364 conversations (research/interview data)
+- **Real Intercom**: 680 conversations (actual support tickets)
+
+For VDD testing with representative support data, use `--from-db --intercom-only`.
+
+### CLI-Based Execution
+
+All LLM calls use Claude CLI instead of Anthropic SDK:
+
+```bash
+# Evaluation uses Claude CLI for dual exploration
+env -u ANTHROPIC_API_KEY python3 evaluate_results_v2.py < search_results.json
+
+# Learning phase also uses Claude CLI
+env -u ANTHROPIC_API_KEY python3 apply_learnings.py < evaluation.json
+```
+
+**Why CLI?** Uses Claude Code's subscription billing instead of separate API credits.
 
 ---
 

@@ -166,8 +166,8 @@ def extract_files_from_output(output: str) -> list[str]:
             if '/' in item and any(item.startswith(r + '/') for r in APPROVED_REPOS):
                 files.add(item)
 
-    # Pattern 3: Markdown bullet points with file paths
-    bullet_pattern = r'[-*]\s+`?([a-z]+/[\w\-./]+\.\w+)`?'
+    # Pattern 3: Markdown bullet points with file paths (including • bullet character)
+    bullet_pattern = r'[-*•]\s+`?([a-z]+/[\w\-./]+\.\w+)`?'
     for match in re.findall(bullet_pattern, output, re.IGNORECASE):
         if any(match.startswith(r + '/') for r in APPROVED_REPOS):
             files.add(match)
@@ -184,8 +184,8 @@ async def explore_codebase_cli(
     """
     Launch a Claude CLI process for codebase exploration.
 
-    Uses `claude` command with --print to get output, exploring the
-    Tailwind codebases to find relevant files for the issue.
+    Uses `claude` command in interactive mode (via stdin) to explore the
+    Tailwind codebases. This uses the subscription, not API credits.
     """
     # Validate model to prevent command injection
     model = validate_model(model)
@@ -218,23 +218,23 @@ BEGIN EXPLORATION.
     start_time = datetime.now()
 
     # Build claude command
-    # Using --print for non-interactive mode, --model for model selection
+    # Using interactive mode via stdin (no --print) to use subscription, not API credits
+    # --model still works to select the model
     cmd = [
         "claude",
-        "--print",
         "--model", model,
         "--dangerously-skip-permissions",
-        "-p", exploration_prompt,
     ]
 
     try:
-        # Run claude CLI with timeout
-        # Claude CLI handles API key from its own config, no need to pass env
+        # Run claude CLI with timeout, passing prompt via stdin
+        # This runs an interactive session that uses the subscription
         result = subprocess.run(
             cmd,
+            input=exploration_prompt,
             capture_output=True,
             text=True,
-            timeout=300,  # 5 minute timeout
+            timeout=600,  # 10 minute timeout for interactive exploration
             cwd=str(REPOS_PATH),  # Run from repos directory
         )
 
@@ -244,6 +244,12 @@ BEGIN EXPLORATION.
         # Extract files from output
         files_list = extract_files_from_output(output)
         files_found = parse_file_references(files_list)
+
+        # Log error output if command failed
+        if result.returncode != 0:
+            print(f"    ERROR in {run_label}: Exit code {result.returncode}", file=sys.stderr)
+            print(f"    stdout: {result.stdout[:500] if result.stdout else 'empty'}", file=sys.stderr)
+            print(f"    stderr: {result.stderr[:500] if result.stderr else 'empty'}", file=sys.stderr)
 
         return ExplorationResult(
             model_used=model,
@@ -401,11 +407,10 @@ async def evaluate_conversation(
         else MODELS["exploration_opus"]
     )
 
-    # Launch dual CLI exploration in parallel
-    run_a_task = explore_codebase_cli(conversation_id, issue_summary, model_a, "Run A")
-    run_b_task = explore_codebase_cli(conversation_id, issue_summary, model_b, "Run B")
-
-    run_a, run_b = await asyncio.gather(run_a_task, run_b_task)
+    # Launch dual CLI exploration sequentially (parallel was causing issues)
+    # TODO: Investigate if parallel execution can be restored
+    run_a = await explore_codebase_cli(conversation_id, issue_summary, model_a, "Run A")
+    run_b = await explore_codebase_cli(conversation_id, issue_summary, model_b, "Run B")
 
     print(f"  Run A ({model_a}): {len(run_a.files_found)} files in {run_a.duration_seconds:.1f}s", file=sys.stderr)
     print(f"  Run B ({model_b}): {len(run_b.files_found)} files in {run_b.duration_seconds:.1f}s", file=sys.stderr)
