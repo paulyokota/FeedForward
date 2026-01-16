@@ -12,7 +12,52 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Session Cleanup (2026-01-16)
+## Latest: VDD Codebase Search Run & Timing Analysis (2026-01-16)
+
+### Session Summary
+
+Refreshed context on VDD codebase search system, analyzed timing from past runs, investigated parallelization history, and ran a partial VDD iteration.
+
+### What Was Done
+
+**VDD Timing Analysis**:
+
+- Calculated per-stage timing from historical runs
+- Fetch: <1 sec, Search: ~6 sec/conv, Evaluation: ~7-10 min/conv (bottleneck), Learnings: <1 min
+- Full loop estimate: Baseline ~45-50 min, each iteration ~27-30 min
+
+**Parallelization Investigation**:
+
+- Discovered parallel execution was backed out in commit c97536a
+- Original: `asyncio.gather(run_a_task, run_b_task)` for dual CLI exploration
+- Changed to sequential due to issues with stdin-based CLI invocation
+- Root cause: Switch from `--print -p` (API credits) to stdin mode (subscription) likely caused session conflicts
+- Decision: Not worth investigating further (low-confidence time sink)
+
+**VDD Run (Partial)**:
+
+- Ran iteration 2 with `--from-db --intercom-only`
+- Fixed initial run that wasn't passing `--from-db` flag correctly
+- Completed 2 of 3 conversations before graceful termination:
+  - Conv 1: Precision 0.19, Recall 0.20 (Opus 59 files/6.8m, Sonnet 27 files/3.9m)
+  - Conv 2: Precision 0.00, Recall 0.00 (Opus timed out at 10m limit)
+  - Conv 3: Interrupted during Run A
+
+### Key Observations
+
+- Opus timeouts (10 min limit) causing 0-file results on some conversations
+- Sequential execution adds ~3-4 min per conversation vs parallel
+- Database mode working correctly with 680 real Intercom conversations available
+
+### Next Steps
+
+- Consider increasing timeout or investigating Opus timeout causes
+- Complete full VDD iteration to get aggregate metrics
+- Monitor if precision/recall improve with learned patterns
+
+---
+
+## Previous: Session Cleanup (2026-01-16)
 
 ### Session Summary
 
