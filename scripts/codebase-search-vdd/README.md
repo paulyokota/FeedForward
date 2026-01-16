@@ -1,6 +1,95 @@
 # Codebase Search VDD - Dual Exploration Evaluator
 
-This script orchestrates the dual exploration evaluation process for measuring codebase search quality using Validation-Driven Development (VDD) principles.
+This system measures and improves codebase search quality using Validation-Driven Development (VDD) principles.
+
+## Quick Start
+
+```bash
+# Full pipeline (offline mode, dry-run)
+python fetch_conversations.py --batch-size 3 --from-db --intercom-only \
+  | VDD_ITERATION=1 python run_search.py \
+  | python evaluate_results_v2.py \
+  | python apply_learnings.py --dry-run
+```
+
+## Pipeline Scripts
+
+### 1. fetch_conversations.py
+
+Fetches test conversations from Intercom API or local database.
+
+```bash
+python fetch_conversations.py --batch-size 5 --from-db --intercom-only
+```
+
+| Flag              | Required | Description                                     |
+| ----------------- | -------- | ----------------------------------------------- |
+| `--batch-size N`  | Yes      | Number of conversations to fetch                |
+| `--from-db`       | No       | Use local PostgreSQL instead of Intercom API    |
+| `--intercom-only` | No       | With `--from-db`, exclude Coda research imports |
+| `--days-back N`   | No       | Look back N days (default: 30)                  |
+
+### 2. run_search.py
+
+Runs codebase search logic on conversations.
+
+```bash
+VDD_ITERATION=1 python run_search.py < conversations.json > search_results.json
+```
+
+| Flag            | Description   |
+| --------------- | ------------- |
+| `-v, --verbose` | Debug logging |
+
+Environment: `VDD_ITERATION` sets iteration number (default: 1)
+
+### 3. evaluate_results_v2.py
+
+Compares search results against Claude CLI exploration (ground truth).
+
+```bash
+python evaluate_results_v2.py < search_results.json > evaluation.json
+```
+
+No flags. Spawns Claude CLI processes (~10 min/conversation).
+
+### 4. apply_learnings.py
+
+Analyzes failures and proposes code improvements.
+
+```bash
+python apply_learnings.py --dry-run < evaluation.json > learnings.json
+```
+
+| Flag            | Description                      |
+| --------------- | -------------------------------- |
+| `--dry-run`     | Preview changes without applying |
+| `-i PATH`       | Input file (instead of stdin)    |
+| `-o PATH`       | Output file (instead of stdout)  |
+| `-v, --verbose` | Debug logging                    |
+
+## Tailwind Repo Structures
+
+The search patterns in `codebase_context_provider.py` are configured for Tailwind's actual repo structures:
+
+| Repo        | Structure                      | Language            |
+| ----------- | ------------------------------ | ------------------- |
+| aero        | `packages/**/*`                | TypeScript monorepo |
+| tack, zuck  | `service/**/*`, `client/**/*`  | Python + TypeScript |
+| charlotte   | `packages/**/*`, `stacks/**/*` | TypeScript          |
+| ghostwriter | `stack/**/*`, `client/**/*`    | Python + TypeScript |
+
+If search returns 0 files, check that `_build_search_patterns()` includes patterns matching the target repo structure.
+
+## Key Files
+
+| File                    | Purpose                                 |
+| ----------------------- | --------------------------------------- |
+| `config.json`           | Thresholds, models, approved repos      |
+| `learned_patterns.json` | Accumulated learnings across iterations |
+| `backups/`              | Auto-backups before code changes        |
+
+---
 
 ## Overview
 

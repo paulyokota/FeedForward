@@ -338,16 +338,47 @@ class CodebaseContextProvider:
         """
         patterns = []
 
-        # Focus on source directories first (exclude tests/docs)
+        # Tailwind-specific repo structures:
+        # - aero: packages/**/*.ts (TypeScript monorepo)
+        # - tack/zuck: service/**/*.py, client/**/*.ts
+        # - charlotte: packages/**/*.ts, stacks/**/*
+        # - ghostwriter: stack/**/*.py, client/**/*.ts
+
+        # Monorepo patterns (aero, charlotte)
+        patterns.extend([
+            "packages/**/*.ts",
+            "packages/**/*.tsx",
+            "packages/**/*.js",
+            "packages/**/*.jsx",
+            "packages/**/src/**/*",
+            "packages/**/services/**/*",
+            "packages/**/api/**/*",
+            "stacks/**/*.ts",
+            "stacks/**/*.py",
+        ])
+
+        # Service/client patterns (tack, zuck, ghostwriter)
+        patterns.extend([
+            "service/**/*.py",
+            "service/**/*.ts",
+            "service/**/*.rb",
+            "client/**/*.ts",
+            "client/**/*.tsx",
+            "client/**/*.js",
+            "stack/**/*.py",
+            "stack/**/*.ts",
+        ])
+
+        # Standard directory patterns (fallback)
         source_dirs = ["src", "app", "lib", "core", "components", "services", "api"]
         for dir_name in source_dirs:
             patterns.extend([
                 f"{dir_name}/**/*.py",
-                f"{dir_name}/**/*.js", 
+                f"{dir_name}/**/*.js",
                 f"{dir_name}/**/*.ts",
                 f"{dir_name}/**/*.tsx",
             ])
-        
+
         # Add backend/frontend specific patterns
         patterns.extend([
             "backend/**/*.py",

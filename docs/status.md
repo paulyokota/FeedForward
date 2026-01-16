@@ -12,7 +12,50 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: VDD Offline Mode & Recent Data Sync (2026-01-16)
+## Latest: VDD Search Pattern Fix (2026-01-16)
+
+### Session Summary
+
+Fixed critical bug in VDD codebase search - was finding 0 files because search patterns didn't match Tailwind's actual repo structures.
+
+### What Was Fixed
+
+**Root Cause**: `_build_search_patterns()` in `codebase_context_provider.py:323` generated patterns like `src/**/*.py`, `app/**/*.py` but Tailwind repos use:
+
+- `aero`: `packages/**/*.ts` (TypeScript monorepo)
+- `tack/zuck`: `service/**/*.py`, `client/**/*.ts`
+- `charlotte`: `packages/**/*.ts`, `stacks/**/*`
+- `ghostwriter`: `stack/**/*.py`, `client/**/*.ts`
+
+**Fix Applied**: Added Tailwind-specific patterns:
+
+- `packages/**/*.ts`, `packages/**/*.tsx`
+- `service/**/*.py`, `client/**/*.ts`
+- `stack/**/*.py`, `stacks/**/*.ts`
+
+### Results After Fix
+
+| Conversation    | Files Found |
+| --------------- | ----------- |
+| 215472506147209 | 100 files   |
+| 215472624644716 | 60 files    |
+| 215472507735654 | 87 files    |
+
+Learning phase proposed 3 changes with HIGH confidence (+5% precision, +20% recall expected).
+
+### Documentation Updated
+
+- `docs/session/last-session.md` - Full context for next session
+- `scripts/codebase-search-vdd/README.md` - Added Quick Start, CLI reference, repo structure table
+
+### Next Steps
+
+- Run full VDD loop (2-3 iterations) to validate learning phase improvements
+- Consider adding repo structure detection to auto-discover patterns
+
+---
+
+## Previous: VDD Offline Mode & Recent Data Sync (2026-01-16)
 
 ### Session Summary
 

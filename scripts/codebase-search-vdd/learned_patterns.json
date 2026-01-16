@@ -30,6 +30,21 @@
         "precision_delta": 0.2,
         "recall_delta": 0.1
       }
+    },
+    {
+      "iteration": 1,
+      "timestamp": "2026-01-16T12:17:47.714141",
+      "metrics_before": {
+        "precision": 0.45,
+        "recall": 0.55
+      },
+      "diagnosis": "The search is missing service-layer files because: 1) Service patterns are buried among too many generic patterns, 2) Keyword extraction ignores the actual issue content which contains important domain terms like 'pins', 'bill', 'subscription', and 3) Path prioritization doesn't rank service files high enough.",
+      "changes_attempted": 3,
+      "changes_applied": 0,
+      "expected_impact": {
+        "precision_delta": 0.05,
+        "recall_delta": 0.2
+      }
     }
   ],
   "patterns_tried": [
@@ -62,6 +77,21 @@
       "iteration": 1,
       "description": "Prioritize files based on path importance (src > lib > tests) and filter obvious non-source files",
       "status": "applied"
+    },
+    {
+      "iteration": 1,
+      "description": "Move service-specific patterns to the beginning for higher priority",
+      "status": "unknown"
+    },
+    {
+      "iteration": 1,
+      "description": "Add extraction of domain terms from issue content if available",
+      "status": "unknown"
+    },
+    {
+      "iteration": 1,
+      "description": "Increase priority for service and api directories in path scoring",
+      "status": "unknown"
     }
   ],
   "patterns_effective": []
