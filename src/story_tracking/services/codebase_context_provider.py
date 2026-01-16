@@ -338,12 +338,22 @@ class CodebaseContextProvider:
         """
         patterns = []
 
-        # Always include common Python files
+        # Focus on source directories first (exclude tests/docs)
+        source_dirs = ["src", "app", "lib", "core", "components", "services", "api"]
+        for dir_name in source_dirs:
+            patterns.extend([
+                f"{dir_name}/**/*.py",
+                f"{dir_name}/**/*.js", 
+                f"{dir_name}/**/*.ts",
+                f"{dir_name}/**/*.tsx",
+            ])
+        
+        # Add backend/frontend specific patterns
         patterns.extend([
-            "**/*.py",
-            "**/*.js",
-            "**/*.ts",
-            "**/*.tsx",
+            "backend/**/*.py",
+            "frontend/**/*.js",
+            "frontend/**/*.ts",
+            "frontend/**/*.tsx",
         ])
 
         # Add product area patterns (sanitized)
@@ -511,8 +521,26 @@ class CodebaseContextProvider:
                 logger.debug(f"Could not read file {file_path}: {e}")
                 continue
 
-        # Sort by match count (descending)
-        file_matches.sort(key=lambda x: x['match_count'], reverse=True)
+        # Sort by match count AND path priority
+        def get_path_priority(path):
+            """Higher score = higher priority"""
+            path_lower = path.lower()
+            if '/test' in path_lower or '/tests' in path_lower:
+                return 0  # Lowest priority
+            if '/docs' in path_lower or '/doc' in path_lower:
+                return 1
+            if '/examples' in path_lower or '/sample' in path_lower:
+                return 2
+            if '/src/' in path_lower or '/app/' in path_lower:
+                return 10  # Highest priority
+            if '/lib/' in path_lower or '/core/' in path_lower:
+                return 9
+            if '/api/' in path_lower or '/services/' in path_lower:
+                return 8
+            return 5  # Default priority
+        
+        # Sort by priority first, then match count
+        file_matches.sort(key=lambda x: (get_path_priority(x['rel_path']), x['match_count']), reverse=True)
 
         # Convert to FileReference objects
         references = []
