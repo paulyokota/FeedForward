@@ -37,6 +37,7 @@ REPOS_PATH = Path(CONFIG["repos_path"])
 APPROVED_REPOS = CONFIG["approved_repos"]
 MODELS = CONFIG["models"]
 CALIBRATION_ITERATIONS = CONFIG["calibration_iterations"]
+OUTPUT_DIR = Path(__file__).parent / "outputs"
 
 # Valid model names (for command injection prevention)
 VALID_MODELS = frozenset(MODELS.values())
@@ -139,40 +140,125 @@ def parse_file_references(files_list: list[str]) -> list[FileReference]:
     return refs
 
 
+def extract_files_from_output_with_diagnostics(output: str) -> tuple[list[str], dict[str, list[str]]]:
+    """
+    Extract file paths from Claude CLI output WITH diagnostic info.
+
+    Prioritizes JSON extraction (more reliable), falls back to regex patterns.
+
+    Returns:
+        tuple: (list of files, dict of pattern_name -> matches for debugging)
+    """
+    files = set()
+    diagnostics = {
+        "json_structured": [],
+        "pattern1_relative": [],
+        "pattern2_absolute": [],
+        "pattern3_json_array": [],
+        "pattern4_bullets": [],
+        "pattern5_backticks": [],
+    }
+
+    # Priority 1: Try to extract structured JSON with "relevant_files" key
+    # Use a more targeted approach to avoid regex backtracking issues:
+    # First check if the key exists, then extract a bounded substring
+    if '"relevant_files"' in output:
+        # Find the start of the JSON object containing relevant_files
+        key_idx = output.find('"relevant_files"')
+        # Look for opening brace before the key (bounded search)
+        start_idx = output.rfind('{', max(0, key_idx - 100), key_idx)
+        if start_idx != -1:
+            # Extract a reasonable chunk and try to parse
+            # Limit to 50KB to prevent DoS on huge outputs
+            chunk = output[start_idx:start_idx + 50000]
+            # Find matching closing brace (simple counter approach)
+            brace_count = 0
+            end_idx = 0
+            for i, c in enumerate(chunk):
+                if c == '{':
+                    brace_count += 1
+                elif c == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_idx = i + 1
+                        break
+            if end_idx > 0:
+                json_str = chunk[:end_idx]
+                try:
+                    data = json.loads(json_str)
+                    json_files = data.get("relevant_files", [])
+                    if json_files:
+                        for f in json_files:
+                            if isinstance(f, str) and '/' in f:
+                                # Validate it starts with approved repo
+                                if any(f.startswith(r + '/') for r in APPROVED_REPOS):
+                                    diagnostics["json_structured"].append(f)
+                                    files.add(f)
+                        # If we got JSON files, return early - no need for regex fallback
+                        if files:
+                            return list(files), diagnostics
+                except json.JSONDecodeError:
+                    pass  # Fall through to regex patterns
+
+    # Fallback: Regex patterns for backward compatibility and edge cases
+
+    # Pattern 1: Look for file paths with known repo prefixes (relative paths)
+    for repo in APPROVED_REPOS:
+        pattern = rf'\b{repo}/[\w\-./]+\.\w+'
+        matches = re.findall(pattern, output)
+        diagnostics["pattern1_relative"].extend(matches)
+        files.update(matches)
+
+    # Pattern 2: Look for ABSOLUTE paths and extract repo-relative portion
+    for repo in APPROVED_REPOS:
+        pattern = rf'[`\s](/[^\s`]*/{repo}/[\w\-./]+\.\w+)'
+        matches = re.findall(pattern, output)
+        for match in matches:
+            idx = match.find(f'/{repo}/')
+            if idx != -1:
+                relative_path = match[idx + 1:]
+                diagnostics["pattern2_absolute"].append(f"{match} -> {relative_path}")
+                files.add(relative_path)
+
+    # Pattern 3: Look for JSON-like arrays of files (legacy format)
+    json_pattern = r'\[([^\]]+)\]'
+    for match in re.findall(json_pattern, output):
+        items = re.findall(r'"([^"]+)"', match)
+        for item in items:
+            if '/' in item and any(item.startswith(r + '/') for r in APPROVED_REPOS):
+                diagnostics["pattern3_json_array"].append(item)
+                files.add(item)
+
+    # Pattern 4: Markdown bullet points with file paths
+    bullet_pattern = r'[-*•]\s+`?([a-z]+/[\w\-./]+\.\w+)`?'
+    for match in re.findall(bullet_pattern, output, re.IGNORECASE):
+        if any(match.startswith(r + '/') for r in APPROVED_REPOS):
+            diagnostics["pattern4_bullets"].append(match)
+            files.add(match)
+
+    # Pattern 5: Backtick-wrapped paths (for edge cases)
+    backtick_pattern = r'`([a-z]+/[\w\-./]+\.\w+)`'
+    for match in re.findall(backtick_pattern, output, re.IGNORECASE):
+        if any(match.startswith(r + '/') for r in APPROVED_REPOS):
+            diagnostics["pattern5_backticks"].append(match)
+            files.add(match)
+
+    return list(files), diagnostics
+
+
 def extract_files_from_output(output: str) -> list[str]:
     """
     Extract file paths from Claude CLI output.
 
     Looks for patterns like:
-    - repo/path/to/file.ext
+    - repo/path/to/file.ext (relative)
+    - /full/path/to/repo/path/to/file.ext (absolute)
     - Bullet points with file paths
     - JSON arrays of files
+    - Backtick-wrapped paths
     """
-    files = set()
-
-    # Pattern 1: Look for file paths with known repo prefixes
-    for repo in APPROVED_REPOS:
-        # Match repo/path patterns
-        pattern = rf'\b{repo}/[\w\-./]+\.\w+'
-        matches = re.findall(pattern, output)
-        files.update(matches)
-
-    # Pattern 2: Look for JSON-like arrays of files
-    json_pattern = r'\[([^\]]+)\]'
-    for match in re.findall(json_pattern, output):
-        # Try to parse as file list
-        items = re.findall(r'"([^"]+)"', match)
-        for item in items:
-            if '/' in item and any(item.startswith(r + '/') for r in APPROVED_REPOS):
-                files.add(item)
-
-    # Pattern 3: Markdown bullet points with file paths (including • bullet character)
-    bullet_pattern = r'[-*•]\s+`?([a-z]+/[\w\-./]+\.\w+)`?'
-    for match in re.findall(bullet_pattern, output, re.IGNORECASE):
-        if any(match.startswith(r + '/') for r in APPROVED_REPOS):
-            files.add(match)
-
-    return list(files)
+    files, _ = extract_files_from_output_with_diagnostics(output)
+    return files
 
 
 async def explore_codebase_cli(
@@ -204,8 +290,6 @@ Search strategy:
 3. Read key files to verify relevance
 4. Focus on feature implementations, API handlers, services, data models
 
-When done, output a final summary section titled "RELEVANT FILES:" with a bullet list of all relevant files in format: repo/path/to/file.ext
-
 Be thorough but efficient. Include:
 - Feature implementations related to symptoms
 - API handlers, services, data models
@@ -213,6 +297,23 @@ Be thorough but efficient. Include:
 - Test files that show expected behavior
 
 BEGIN EXPLORATION.
+
+═══════════════════════════════════════════════════════════════
+CRITICAL OUTPUT REQUIREMENT (DO NOT SKIP)
+═══════════════════════════════════════════════════════════════
+
+Your FINAL message MUST end with a JSON object containing the files you found.
+Use repo-relative paths (NOT absolute paths like /Users/...).
+
+Output format - a JSON object with "relevant_files" array:
+{{"relevant_files": ["repo/path/to/file.ext", "repo/path/to/other.ext"]}}
+
+Example:
+{{"relevant_files": ["aero/packages/tailwindapp/client/components/example.tsx", "tack/service/lib/handlers/api/example-handler.ts"]}}
+
+DO NOT output a summary statement instead of JSON.
+DO NOT wrap JSON in markdown code blocks.
+If valid JSON is not present, your exploration will be DISCARDED.
 """
 
     start_time = datetime.now()
@@ -241,9 +342,60 @@ BEGIN EXPLORATION.
         duration = (datetime.now() - start_time).total_seconds()
         output = result.stdout + result.stderr
 
-        # Extract files from output
-        files_list = extract_files_from_output(output)
+        # IMMEDIATE LOG: Write raw output to file for debugging (even if process is killed later)
+        log_dir = OUTPUT_DIR / f"iteration_{CONFIG.get('current_iteration', 0)}" / "exploration_logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / f"{conversation_id}_{run_label}_{model.replace('/', '_')}.txt"
+        with open(log_file, 'w') as f:
+            f.write(f"=== Exploration Log ===\n")
+            f.write(f"Conversation: {conversation_id}\n")
+            f.write(f"Model: {model}\n")
+            f.write(f"Duration: {duration:.1f}s\n")
+            f.write(f"Exit code: {result.returncode}\n")
+            f.write(f"\n=== Raw Output ({len(output)} chars) ===\n")
+            f.write(output)
+            f.write(f"\n\n=== Extraction Diagnostics ===\n")
+
+        # Extract files from output with diagnostics
+        files_list, extraction_diagnostics = extract_files_from_output_with_diagnostics(output)
         files_found = parse_file_references(files_list)
+
+        # Append diagnostics to log
+        with open(log_file, 'a') as f:
+            f.write(f"Files extracted: {len(files_list)}\n")
+            for pattern_name, matches in extraction_diagnostics.items():
+                f.write(f"  {pattern_name}: {len(matches)} matches\n")
+                for m in matches[:5]:  # Show first 5
+                    f.write(f"    - {m}\n")
+            if not files_list:
+                f.write("\n=== NO FILES EXTRACTED - Showing output sample ===\n")
+                f.write(output[:3000])
+
+        # WARN if 0 files extracted - check for format compliance issue
+        if not files_list:
+            has_json_format = '"relevant_files"' in output.lower()
+            has_legacy_format = bool(re.search(r'relevant\s*files\s*:?', output, re.IGNORECASE))
+            if not has_json_format and not has_legacy_format and duration > 60:
+                # Model explored but didn't output in required format
+                print(f"    ⚠️  FORMAT ERROR: Model did not output required JSON format!", file=sys.stderr)
+                print(f"    Output was {len(output)} chars after {duration:.0f}s exploration.", file=sys.stderr)
+                print(f"    Expected: {{\"relevant_files\": [...]}}", file=sys.stderr)
+                print(f"    Check log: {log_file}", file=sys.stderr)
+                # Mark as format error in log
+                with open(log_file, 'a') as f:
+                    f.write("\n=== FORMAT ERROR ===\n")
+                    f.write("Model did not output required JSON format.\n")
+                    f.write("Expected: {\"relevant_files\": [...]}\n")
+                    f.write("This run will be marked as FORMAT_ERROR.\n")
+            elif len(output) > 100:
+                # Has some output but still no files - could be parsing issue
+                print(f"    WARNING: 0 files extracted from {len(output)} chars of output!", file=sys.stderr)
+                print(f"    Check log: {log_file}", file=sys.stderr)
+                # Look for common file path patterns that we might be missing
+                potential_paths = re.findall(r'[\w\-./]+\.\w{2,4}', output)
+                path_sample = [p for p in potential_paths if '/' in p][:10]
+                if path_sample:
+                    print(f"    Potential paths found but not matched: {path_sample}", file=sys.stderr)
 
         # Log error output if command failed
         if result.returncode != 0:
@@ -334,7 +486,7 @@ Output ONLY valid JSON in this exact format (no other text):
             cmd,
             capture_output=True,
             text=True,
-            timeout=120,  # 2 minute timeout for judge
+            timeout=300,  # 5 minute timeout for judge (needs time for 100+ files)
         )
 
         content = result.stdout
@@ -561,12 +713,14 @@ def serialize_analysis(analysis: GroundTruthAnalysis) -> dict[str, Any]:
             "files_found": [str(f) for f in analysis.run_a.files_found],
             "duration_seconds": analysis.run_a.duration_seconds,
             "error": analysis.run_a.error,
+            "exploration_log": analysis.run_a.exploration_log[:2000] if analysis.run_a.exploration_log else None,
         },
         "run_b": {
             "model": analysis.run_b.model_used,
             "files_found": [str(f) for f in analysis.run_b.files_found],
             "duration_seconds": analysis.run_b.duration_seconds,
             "error": analysis.run_b.error,
+            "exploration_log": analysis.run_b.exploration_log[:2000] if analysis.run_b.exploration_log else None,
         },
         "ground_truth_files": [str(f) for f in analysis.ground_truth_files],
         "our_files": [str(f) for f in analysis.our_files],
