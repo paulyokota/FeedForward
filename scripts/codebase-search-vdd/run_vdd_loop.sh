@@ -9,6 +9,7 @@
 #   ./run_vdd_loop.sh [OPTIONS]
 #
 # Options:
+#   --fresh            Archive existing outputs and start fresh (enables re-running)
 #   --baseline         Run baseline (iteration 0) only, then exit
 #   --iteration N      Start from iteration N instead of auto-detecting
 #   --max-iterations N Override max iterations from config
@@ -19,12 +20,14 @@
 #
 # Examples:
 #   ./run_vdd_loop.sh                      # Full autonomous run
+#   ./run_vdd_loop.sh --fresh              # Archive old outputs, start fresh
 #   ./run_vdd_loop.sh --baseline           # Just run baseline measurement
 #   ./run_vdd_loop.sh --dry-run            # See what changes would be made
 #   ./run_vdd_loop.sh --max-iterations 5   # Run up to 5 iterations
 #   ./run_vdd_loop.sh --manual             # Human-in-the-loop mode
 #   ./run_vdd_loop.sh --from-db            # Offline mode using database
 #   ./run_vdd_loop.sh --from-db --intercom-only  # Offline with real Intercom only
+#   ./run_vdd_loop.sh --fresh --from-db    # Fresh run in offline mode
 #
 
 set -e
@@ -52,6 +55,7 @@ CONFIG_FILE="$SCRIPT_DIR/config.json"
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
 
 # Parse arguments
+FRESH=false
 BASELINE_ONLY=false
 START_ITERATION=""
 MAX_ITERATIONS=""
@@ -62,6 +66,10 @@ INTERCOM_ONLY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --fresh)
+            FRESH=true
+            shift
+            ;;
         --baseline)
             BASELINE_ONLY=true
             shift
@@ -113,6 +121,37 @@ if [ "$FROM_DB" = false ] && [ -z "$INTERCOM_ACCESS_TOKEN" ]; then
     echo "Error: INTERCOM_ACCESS_TOKEN not set. Add it to .env or export it."
     echo "Hint: Use --from-db to run in offline mode with database conversations."
     exit 1
+fi
+
+# Handle --fresh: archive existing outputs and progress file
+if [ "$FRESH" = true ]; then
+    if [ -d "$OUTPUT_DIR" ] && [ "$(ls -A "$OUTPUT_DIR" 2>/dev/null)" ]; then
+        ARCHIVE_NAME="outputs_$(date '+%Y%m%d_%H%M%S')"
+        echo "Archiving existing outputs to $ARCHIVE_NAME..."
+        mv "$OUTPUT_DIR" "$SCRIPT_DIR/$ARCHIVE_NAME"
+        mkdir -p "$OUTPUT_DIR"
+    fi
+    if [ -f "$PROGRESS_FILE" ]; then
+        PROGRESS_ARCHIVE="progress_$(date '+%Y%m%d_%H%M%S').txt"
+        mv "$PROGRESS_FILE" "$SCRIPT_DIR/$PROGRESS_ARCHIVE"
+        echo "Archived progress file to $PROGRESS_ARCHIVE"
+    fi
+    # Reset progress file with header
+    cat > "$PROGRESS_FILE" << 'EOF'
+# Codebase Search VDD - Progress Log
+
+## Format
+Each iteration records:
+- Date/time
+- Batch statistics
+- Metrics (aggregate and per-product-area)
+- Model calibration data (iterations 1-2)
+- Changes made
+- Learnings
+
+---
+EOF
+    echo ""
 fi
 
 echo "=== Codebase Search VDD Loop ==="
