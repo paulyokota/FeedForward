@@ -10,6 +10,50 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Test Configuration (2026-01-16)**:
+
+- Added `tests/conftest.py` to configure PYTHONPATH for pytest
+- Fixes import errors in `test_codebase_context_provider.py`, `test_codebase_security.py`, `test_dual_story_formatter.py`
+
+**Ralph V2 Dual-Mode Evaluation System (2026-01-16)**:
+
+- Complete dual-mode evaluation system for story quality assessment
+  - `scripts/ralph/` - Full implementation (4,589 lines across 14 files)
+  - Expensive mode: LLM-based evaluation (gestalt scoring)
+  - Cheap mode: Pattern-based evaluation (keyword matching)
+  - Gap tracking: Measures calibration between modes (target: ≤0.5)
+- Pattern learning loop:
+  - Provisional patterns proposed from expensive mode feedback
+  - Commit patterns at ≥70% accuracy over 10+ stories
+  - Reject patterns at <30% accuracy over 5+ stories
+- Convergence monitoring:
+  - Divergence detection with diagnostics
+  - Self-healing action recommendations
+  - Convergence proof (stable gap within target)
+- Configuration consolidated in `ralph_config.py`
+- 38 unit tests (all passing)
+- 5-personality code review converged in 2 rounds
+- Commit: 3000d3b
+
+### Fixed
+
+**VDD Codebase Search - JSON Output Format (2026-01-16)**:
+
+- Switched from bullet list to JSON output format for file extraction
+  - New format: `{"relevant_files": ["repo/path/file.ext", ...]}`
+  - Moved format instructions to END of prompt (recency effect)
+  - Stronger compliance language ("will be DISCARDED")
+- Fixed prompt compliance issue causing "0 files extracted"
+  - Root cause: Sonnet sometimes output summary instead of file list
+  - JSON format is more reliable for structured output
+- Improved extraction logic:
+  - Priority 1: JSON parsing with "relevant_files" key
+  - Fallback: Regex patterns for backward compatibility
+- Fixed ReDoS vulnerability (replaced regex with linear brace counting)
+- Added FORMAT_ERROR detection vs parsing issues
+- Added `--fresh` flag to archive outputs and start fresh run
+- Commits: 9f2ead7, 2c39475
+
 **VDD Offline Mode & Data Improvements (2026-01-16)**:
 
 - Database-backed conversation fetching for offline VDD testing
