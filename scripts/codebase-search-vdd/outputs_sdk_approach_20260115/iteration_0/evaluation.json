@@ -1,0 +1,3452 @@
+{
+  "iteration_number": 1,
+  "timestamp": "2026-01-15T22:53:07.288261",
+  "metrics": {
+    "aggregate": {
+      "precision": 0.016,
+      "recall": 0.012,
+      "conversations_evaluated": 5
+    },
+    "by_product_area": {
+      "uncertain": {
+        "precision": 0.016,
+        "recall": 0.012,
+        "count": 5
+      }
+    },
+    "calibration": {
+      "opus_only_files": 56,
+      "sonnet_only_files": 78,
+      "both_models_files": 8,
+      "overlap_rate": 0.125,
+      "recommendation": "Keep Opus-Sonnet hybrid or Opus-only"
+    }
+  },
+  "conversations": [
+    {
+      "conversation_id": "215472665406236",
+      "issue_summary": "How do I get my pin in the turbo feed",
+      "product_area": "uncertain",
+      "run_a": {
+        "model": "claude-opus-4-20250514",
+        "files_found": [
+          "aero/packages/core/src/turbo/feed/get-feed.ts",
+          "aero/packages/core/src/turbo/feed/types.ts",
+          "aero/packages/core/src/turbo/feed/query-all-feed.ts",
+          "aero/packages/core/src/turbo/feed/query-friends-feed.ts",
+          "aero/packages/core/src/turbo/feed/query-relevant-feed.ts",
+          "aero/packages/core/src/turbo/feed/rankings.ts",
+          "aero/packages/core/src/turbo/feed/record-impressions.ts",
+          "aero/packages/core/src/turbo/types.ts",
+          "aero/packages/core/src/turbo/turbo-pin/process-lifecycle/queue-handler.ts",
+          "aero/packages/core/src/turbo/turbo-pin/process-lifecycle/cron-processor.ts",
+          "aero/packages/core/src/turbo/turbo-slot/get-turbo-slot-counts.ts",
+          "aero/packages/core/src/turbo/turbo-slot/on-slot-granted.ts",
+          "aero/packages/core/src/turbo/pinterest-analytics/pin-analytics-service.ts",
+          "aero/packages/core/src/turbo/pinterest-analytics/cumulative-pin-analytics-service.ts",
+          "aero/packages/core/src/turbo/engagement/record-engagement.ts",
+          "aero/packages/core/src/turbo/categories.ts",
+          "aero/packages/core/src/turbo/friends.ts",
+          "aero/infra/turbo/process-turbo-pin-lifecycle.ts",
+          "aero/infra/turbo/turbo-pin-click.ts",
+          "aero/infra/turbo/index.ts",
+          "aero/infra/turbo/send-turbo-invitation-email.ts",
+          "aero/infra/turbo/process-xp-cycle.ts",
+          "aero/packages/database/lib/schemas/postgres/turbo.sql.ts",
+          "aero/packages/database/lib/schemas/postgres/migrations/0004_add_turbo.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/0005_add_missing_interaction_fields.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/0008_add_type_to_turbo_pinterest_metrics.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/0009_fix_turbo_action_id.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/0011_add_pinId_index_turbo.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/0012_turbo_add_max_xp.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/20251106124235_add_turbo_slots_table.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/20251109114657_add_total_credit_cost_to_boosted_pins.sql"
+        ],
+        "tool_calls": 11,
+        "error": null
+      },
+      "run_b": {
+        "model": "claude-sonnet-4-20250514",
+        "files_found": [
+          "aero/packages/tailwindapp/client/domains/turbo/hooks/use-turbo-feed.ts",
+          "aero/packages/e2e/turbo/turboNavigation.playwright.ts",
+          "aero/infra/turbo/process-turbo-pin-lifecycle.ts",
+          "aero/infra/turbo/turbo-pin-click.ts",
+          "aero/infra/turbo/index.ts",
+          "aero/packages/database/lib/schemas/postgres/migrations/0004_add_turbo.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/0012_turbo_add_max_xp.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/20251106124235_add_turbo_slots_table.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/20251109114657_add_total_credit_cost_to_boosted_pins.sql",
+          "tack/service/lib/clients/pinterestv5/get-pin.ts",
+          "tack/service/lib/clients/pinterestv5/create-pin.ts",
+          "tack/service/lib/clients/pinterestv5/save-pin.ts",
+          "tack/service/lib/clients/pinterestv5/get-pins.ts",
+          "tack/service/lib/facets/pin.ts",
+          "tack/service/lib/facets/pin-clone.ts"
+        ],
+        "tool_calls": 11,
+        "error": null
+      },
+      "ground_truth_files": [
+        "aero/infra/turbo/index.ts",
+        "aero/infra/turbo/process-turbo-pin-lifecycle.ts",
+        "aero/infra/turbo/process-xp-cycle.ts",
+        "aero/infra/turbo/send-turbo-invitation-email.ts",
+        "aero/infra/turbo/turbo-pin-click.ts",
+        "aero/packages/core/src/turbo/categories.ts",
+        "aero/packages/core/src/turbo/engagement/record-engagement.ts",
+        "aero/packages/core/src/turbo/feed/get-feed.ts",
+        "aero/packages/core/src/turbo/feed/query-all-feed.ts",
+        "aero/packages/core/src/turbo/feed/query-friends-feed.ts",
+        "aero/packages/core/src/turbo/feed/query-relevant-feed.ts",
+        "aero/packages/core/src/turbo/feed/rankings.ts",
+        "aero/packages/core/src/turbo/feed/record-impressions.ts",
+        "aero/packages/core/src/turbo/feed/types.ts",
+        "aero/packages/core/src/turbo/friends.ts",
+        "aero/packages/core/src/turbo/pinterest-analytics/cumulative-pin-analytics-service.ts",
+        "aero/packages/core/src/turbo/pinterest-analytics/pin-analytics-service.ts",
+        "aero/packages/core/src/turbo/turbo-pin/process-lifecycle/cron-processor.ts",
+        "aero/packages/core/src/turbo/turbo-pin/process-lifecycle/queue-handler.ts",
+        "aero/packages/core/src/turbo/turbo-slot/get-turbo-slot-counts.ts",
+        "aero/packages/core/src/turbo/turbo-slot/on-slot-granted.ts",
+        "aero/packages/core/src/turbo/types.ts",
+        "aero/packages/database/lib/schemas/postgres/migrations/0004_add_turbo.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/0005_add_missing_interaction_fields.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/0008_add_type_to_turbo_pinterest_metrics.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/0009_fix_turbo_action_id.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/0011_add_pinId_index_turbo.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/0012_turbo_add_max_xp.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/20251106124235_add_turbo_slots_table.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/20251109114657_add_total_credit_cost_to_boosted_pins.sql",
+        "aero/packages/database/lib/schemas/postgres/turbo.sql.ts",
+        "aero/packages/e2e/turbo/turboNavigation.playwright.ts",
+        "aero/packages/tailwindapp/client/domains/turbo/hooks/use-turbo-feed.ts",
+        "tack/service/lib/clients/pinterestv5/create-pin.ts",
+        "tack/service/lib/clients/pinterestv5/get-pin.ts",
+        "tack/service/lib/clients/pinterestv5/get-pins.ts",
+        "tack/service/lib/clients/pinterestv5/save-pin.ts",
+        "tack/service/lib/facets/pin-clone.ts",
+        "tack/service/lib/facets/pin.ts"
+      ],
+      "our_files": [
+        "aero/packages/core/src/turbo/user-event/turbo-events.ts",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-pins/feed_layout_updater.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/tribe-content/skip-tribe-content-reducer.js",
+        "aero/packages/bachv2/service/draft-generation/queue/made-for-you/generation/instagram.ts",
+        "aero/packages/e2e/quickSchedule/drafts/saveChangesIG.playwright.ts",
+        "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-boards.ts",
+        "ghostwriter/stack/service/use-cases/new-product-social-posts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+        "zuck/client/src/types/models/ad.ts"
+      ],
+      "intersection": [],
+      "our_unique": [
+        "aero/packages/bachv2/service/draft-generation/queue/made-for-you/generation/instagram.ts",
+        "aero/packages/core/src/turbo/user-event/turbo-events.ts",
+        "aero/packages/e2e/quickSchedule/drafts/saveChangesIG.playwright.ts",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-pins/feed_layout_updater.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/tribe-content/skip-tribe-content-reducer.js",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+        "ghostwriter/stack/service/use-cases/new-product-social-posts.ts",
+        "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-boards.ts",
+        "zuck/client/src/types/models/ad.ts"
+      ],
+      "ground_truth_unique": [
+        "aero/infra/turbo/index.ts",
+        "aero/infra/turbo/process-turbo-pin-lifecycle.ts",
+        "aero/infra/turbo/process-xp-cycle.ts",
+        "aero/infra/turbo/send-turbo-invitation-email.ts",
+        "aero/infra/turbo/turbo-pin-click.ts",
+        "aero/packages/core/src/turbo/categories.ts",
+        "aero/packages/core/src/turbo/engagement/record-engagement.ts",
+        "aero/packages/core/src/turbo/feed/get-feed.ts",
+        "aero/packages/core/src/turbo/feed/query-all-feed.ts",
+        "aero/packages/core/src/turbo/feed/query-friends-feed.ts",
+        "aero/packages/core/src/turbo/feed/query-relevant-feed.ts",
+        "aero/packages/core/src/turbo/feed/rankings.ts",
+        "aero/packages/core/src/turbo/feed/record-impressions.ts",
+        "aero/packages/core/src/turbo/feed/types.ts",
+        "aero/packages/core/src/turbo/friends.ts",
+        "aero/packages/core/src/turbo/pinterest-analytics/cumulative-pin-analytics-service.ts",
+        "aero/packages/core/src/turbo/pinterest-analytics/pin-analytics-service.ts",
+        "aero/packages/core/src/turbo/turbo-pin/process-lifecycle/cron-processor.ts",
+        "aero/packages/core/src/turbo/turbo-pin/process-lifecycle/queue-handler.ts",
+        "aero/packages/core/src/turbo/turbo-slot/get-turbo-slot-counts.ts",
+        "aero/packages/core/src/turbo/turbo-slot/on-slot-granted.ts",
+        "aero/packages/core/src/turbo/types.ts",
+        "aero/packages/database/lib/schemas/postgres/migrations/0004_add_turbo.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/0005_add_missing_interaction_fields.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/0008_add_type_to_turbo_pinterest_metrics.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/0009_fix_turbo_action_id.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/0011_add_pinId_index_turbo.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/0012_turbo_add_max_xp.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/20251106124235_add_turbo_slots_table.sql",
+        "aero/packages/database/lib/schemas/postgres/migrations/20251109114657_add_total_credit_cost_to_boosted_pins.sql",
+        "aero/packages/database/lib/schemas/postgres/turbo.sql.ts",
+        "aero/packages/e2e/turbo/turboNavigation.playwright.ts",
+        "aero/packages/tailwindapp/client/domains/turbo/hooks/use-turbo-feed.ts",
+        "tack/service/lib/clients/pinterestv5/create-pin.ts",
+        "tack/service/lib/clients/pinterestv5/get-pin.ts",
+        "tack/service/lib/clients/pinterestv5/get-pins.ts",
+        "tack/service/lib/clients/pinterestv5/save-pin.ts",
+        "tack/service/lib/facets/pin-clone.ts",
+        "tack/service/lib/facets/pin.ts"
+      ],
+      "our_unique_judgments": [
+        {
+          "file": "aero/packages/bachv2/service/draft-generation/queue/made-for-you/generation/instagram.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This file is about Instagram draft generation, not related to getting pins into the turbo feed."
+        },
+        {
+          "file": "aero/packages/core/src/turbo/user-event/turbo-events.ts",
+          "relevant": true,
+          "actionable": "maybe",
+          "reasoning": "This file likely handles turbo-related user events which could be relevant to understanding how pins interact with the turbo feed system."
+        },
+        {
+          "file": "aero/packages/e2e/quickSchedule/drafts/saveChangesIG.playwright.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is an E2E test for Instagram draft saving, unrelated to turbo feed functionality."
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-pins/feed_layout_updater.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is a legacy publisher pins feed layout file, not related to the turbo feed system."
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is a Hootsuite integration file, not related to turbo feed functionality."
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is a minified Hootsuite integration file, not related to turbo feed functionality."
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/tribe-content/skip-tribe-content-reducer.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is a legacy tribes content reducer, not related to turbo feed functionality."
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is a UI component for scheduled posts, not directly related to getting pins into the turbo feed."
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is an Instagram smart bio field component, not related to turbo feed functionality."
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is for generating Instagram captions from blog content, not related to turbo feed."
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is for generating tweets from blog content, not related to turbo feed."
+        },
+        {
+          "file": "ghostwriter/stack/service/use-cases/new-product-social-posts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is for generating social posts for new products, not related to turbo feed functionality."
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-boards.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is for fetching Pinterest user boards via API, not directly related to getting pins into the turbo feed."
+        },
+        {
+          "file": "zuck/client/src/types/models/ad.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "This is an ad model type definition, not related to turbo feed functionality."
+        }
+      ],
+      "precision": 0.071,
+      "recall": 0.025,
+      "calibration_data": {
+        "opus_only": [
+          "aero/infra/turbo/process-xp-cycle.ts",
+          "aero/infra/turbo/send-turbo-invitation-email.ts",
+          "aero/packages/core/src/turbo/categories.ts",
+          "aero/packages/core/src/turbo/engagement/record-engagement.ts",
+          "aero/packages/core/src/turbo/feed/get-feed.ts",
+          "aero/packages/core/src/turbo/feed/query-all-feed.ts",
+          "aero/packages/core/src/turbo/feed/query-friends-feed.ts",
+          "aero/packages/core/src/turbo/feed/query-relevant-feed.ts",
+          "aero/packages/core/src/turbo/feed/rankings.ts",
+          "aero/packages/core/src/turbo/feed/record-impressions.ts",
+          "aero/packages/core/src/turbo/feed/types.ts",
+          "aero/packages/core/src/turbo/friends.ts",
+          "aero/packages/core/src/turbo/pinterest-analytics/cumulative-pin-analytics-service.ts",
+          "aero/packages/core/src/turbo/pinterest-analytics/pin-analytics-service.ts",
+          "aero/packages/core/src/turbo/turbo-pin/process-lifecycle/cron-processor.ts",
+          "aero/packages/core/src/turbo/turbo-pin/process-lifecycle/queue-handler.ts",
+          "aero/packages/core/src/turbo/turbo-slot/get-turbo-slot-counts.ts",
+          "aero/packages/core/src/turbo/turbo-slot/on-slot-granted.ts",
+          "aero/packages/core/src/turbo/types.ts",
+          "aero/packages/database/lib/schemas/postgres/migrations/0005_add_missing_interaction_fields.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/0008_add_type_to_turbo_pinterest_metrics.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/0009_fix_turbo_action_id.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/0011_add_pinId_index_turbo.sql",
+          "aero/packages/database/lib/schemas/postgres/turbo.sql.ts"
+        ],
+        "sonnet_only": [
+          "aero/packages/e2e/turbo/turboNavigation.playwright.ts",
+          "aero/packages/tailwindapp/client/domains/turbo/hooks/use-turbo-feed.ts",
+          "tack/service/lib/clients/pinterestv5/create-pin.ts",
+          "tack/service/lib/clients/pinterestv5/get-pin.ts",
+          "tack/service/lib/clients/pinterestv5/get-pins.ts",
+          "tack/service/lib/clients/pinterestv5/save-pin.ts",
+          "tack/service/lib/facets/pin-clone.ts",
+          "tack/service/lib/facets/pin.ts"
+        ],
+        "both_models": [
+          "aero/infra/turbo/index.ts",
+          "aero/infra/turbo/process-turbo-pin-lifecycle.ts",
+          "aero/infra/turbo/turbo-pin-click.ts",
+          "aero/packages/database/lib/schemas/postgres/migrations/0004_add_turbo.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/0012_turbo_add_max_xp.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/20251106124235_add_turbo_slots_table.sql",
+          "aero/packages/database/lib/schemas/postgres/migrations/20251109114657_add_total_credit_cost_to_boosted_pins.sql"
+        ]
+      }
+    },
+    {
+      "conversation_id": "215472696121836",
+      "issue_summary": "I would like to downgrade to the free version",
+      "product_area": "uncertain",
+      "run_a": {
+        "model": "claude-opus-4-20250514",
+        "files_found": [],
+        "tool_calls": 11,
+        "error": null
+      },
+      "run_b": {
+        "model": "claude-sonnet-4-20250514",
+        "files_found": [
+          "aero/infra/tailwindapp/bach/routes/billing-routes.ts",
+          "aero/infra/tailwindapp/billing/queues/organization-billing-subscription-migration.ts",
+          "aero/infra/tailwindapp/billing/index.ts",
+          "aero/packages/database/lib/schemas/seed/plan-features.sql",
+          "aero/packages/database/lib/schemas/seed/v151_plan_features.sql",
+          "aero/packages/database/lib/schemas/datastore/migrations/0018_add_user_organization_billing_version_history_table.sql",
+          "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+          "aero/packages/tailwind-api-sdk/src/types/billing.ts",
+          "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-upgrade-data.ts",
+          "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-upgrade-preview.ts",
+          "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/change-plan.ts",
+          "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-shopify-upgrade-preview.ts",
+          "aero/packages/core/src/credits/purchase/subscription-credit-purchaser.ts",
+          "aero/packages/core/src/credits/purchase/purchase-credits.ts",
+          "aero/packages/core/src/billing/organization/chargify-subscription-creator.test.ts"
+        ],
+        "tool_calls": 11,
+        "error": null
+      },
+      "ground_truth_files": [
+        "aero/infra/tailwindapp/bach/routes/billing-routes.ts",
+        "aero/infra/tailwindapp/billing/index.ts",
+        "aero/infra/tailwindapp/billing/queues/organization-billing-subscription-migration.ts",
+        "aero/packages/core/src/billing/organization/chargify-subscription-creator.test.ts",
+        "aero/packages/core/src/credits/purchase/purchase-credits.ts",
+        "aero/packages/core/src/credits/purchase/subscription-credit-purchaser.ts",
+        "aero/packages/database/lib/schemas/datastore/migrations/0018_add_user_organization_billing_version_history_table.sql",
+        "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+        "aero/packages/database/lib/schemas/seed/plan-features.sql",
+        "aero/packages/database/lib/schemas/seed/v151_plan_features.sql",
+        "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/change-plan.ts",
+        "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-shopify-upgrade-preview.ts",
+        "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-upgrade-data.ts",
+        "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-upgrade-preview.ts",
+        "aero/packages/tailwind-api-sdk/src/types/billing.ts"
+      ],
+      "our_files": [
+        "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/components/downgrade-context-selector-modal/downgrade-context-selector-modal.tsx",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment-timezone/builds/moment-timezone-with-data-2010-2020.min.js",
+        "aero/packages/core/src/ghostwriter/use-cases/smart-pin-title-and-description.ts",
+        "aero/packages/jarvis/src/client/domains/billing/components/billing-registry/version-details-view.tsx",
+        "aero/packages/core/src/user/user-repository.ts",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/unit_testing/tests_onhold/5_ajax_objects/aoColumns.sTitle.js",
+        "aero/packages/tailwindapp-legacy/app/react/webpack.prod.js",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+        "aero/packages/core/src/turbo/user-event/turbo-events.ts",
+        "aero/packages/tailwindapp/app/(catalog)/_components/page-sections/gray-swirly-sign-up-panel.tsx",
+        "aero/packages/core/src/pinterest-scraper/board/scrape-board.ts",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/app/upgrade_modal.js",
+        "aero/packages/tailwindapp/client/domains/upgrade/hooks/use-view-upgrade-page-event.ts",
+        "aero/packages/core/src/pagination/cursor.test.ts",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+        "aero/packages/tailwindapp-legacy/app/public/www/js/foundation/foundation.tooltips.js",
+        "aero/packages/tailwindapp/client/runway/number-input/number-input.tsx",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+        "tack/client/src/types/user.ts",
+        "tack/service/lib/types/board.ts",
+        "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+        "tack/service/lib/facets/post-meta.ts",
+        "tack/service/lib/token/deauthorize-token.test.ts",
+        "tack/service/lib/handlers/sqs/publish-post/v5/handle-publish-post-results.ts",
+        "tack/service/lib/handlers/sqs/oauth-complete/oauth-complete-handler.ts",
+        "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+        "tack/service/lib/handlers/sqs/scrape-url-meta/enqueue-scrape-url-meta-job.ts",
+        "tack/service/lib/handlers/api/get-pins/get-pins.ts",
+        "tack/service/lib/__mocks__/user-snapshot-mocker.ts",
+        "tack/service/lib/__mocks__/top-pin-mocker.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "charlotte/packages/core/src/tracing.ts",
+        "charlotte/packages/database/src/db-tools/migration-checker-job.ts",
+        "charlotte/packages/repositories/src/detect-site-platform.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+        "ghostwriter/stack/service/utils/sanitize-json-string.ts",
+        "ghostwriter/stack/service/llm/llama2/requests/stream-completion.ts",
+        "ghostwriter/stack/service/handlers/api/generate-hashtag/get-hashtag.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-field-builder.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-make-request.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-types.ts",
+        "zuck/service/lib/shared/authenticate-request.ts",
+        "zuck/service/lib/handlers/cron/verify-user-tokens/verify-user-tokens-handler.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-request.ts",
+        "zuck/service/lib/handlers/cron/queue-posts/queue-posts-by-shard.ts"
+      ],
+      "intersection": [],
+      "our_unique": [
+        "aero/packages/core/src/ghostwriter/use-cases/smart-pin-title-and-description.ts",
+        "aero/packages/core/src/pagination/cursor.test.ts",
+        "aero/packages/core/src/pinterest-scraper/board/scrape-board.ts",
+        "aero/packages/core/src/turbo/user-event/turbo-events.ts",
+        "aero/packages/core/src/user/user-repository.ts",
+        "aero/packages/jarvis/src/client/domains/billing/components/billing-registry/version-details-view.tsx",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/app/upgrade_modal.js",
+        "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/unit_testing/tests_onhold/5_ajax_objects/aoColumns.sTitle.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment-timezone/builds/moment-timezone-with-data-2010-2020.min.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/js/foundation/foundation.tooltips.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/components/downgrade-context-selector-modal/downgrade-context-selector-modal.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/webpack.prod.js",
+        "aero/packages/tailwindapp/app/(catalog)/_components/page-sections/gray-swirly-sign-up-panel.tsx",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+        "aero/packages/tailwindapp/client/domains/upgrade/hooks/use-view-upgrade-page-event.ts",
+        "aero/packages/tailwindapp/client/runway/number-input/number-input.tsx",
+        "charlotte/packages/core/src/tracing.ts",
+        "charlotte/packages/database/src/db-tools/migration-checker-job.ts",
+        "charlotte/packages/repositories/src/detect-site-platform.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-hashtag/get-hashtag.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+        "ghostwriter/stack/service/llm/llama2/requests/stream-completion.ts",
+        "ghostwriter/stack/service/utils/sanitize-json-string.ts",
+        "tack/client/src/types/user.ts",
+        "tack/service/lib/__mocks__/top-pin-mocker.ts",
+        "tack/service/lib/__mocks__/user-snapshot-mocker.ts",
+        "tack/service/lib/facets/post-meta.ts",
+        "tack/service/lib/handlers/api/get-pins/get-pins.ts",
+        "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+        "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+        "tack/service/lib/handlers/sqs/oauth-complete/oauth-complete-handler.ts",
+        "tack/service/lib/handlers/sqs/publish-post/v5/handle-publish-post-results.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+        "tack/service/lib/handlers/sqs/scrape-url-meta/enqueue-scrape-url-meta-job.ts",
+        "tack/service/lib/token/deauthorize-token.test.ts",
+        "tack/service/lib/types/board.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-field-builder.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-make-request.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-request.ts",
+        "zuck/service/lib/handlers/cron/queue-posts/queue-posts-by-shard.ts",
+        "zuck/service/lib/handlers/cron/verify-user-tokens/verify-user-tokens-handler.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-types.ts",
+        "zuck/service/lib/shared/authenticate-request.ts"
+      ],
+      "ground_truth_unique": [
+        "aero/infra/tailwindapp/bach/routes/billing-routes.ts",
+        "aero/infra/tailwindapp/billing/index.ts",
+        "aero/infra/tailwindapp/billing/queues/organization-billing-subscription-migration.ts",
+        "aero/packages/core/src/billing/organization/chargify-subscription-creator.test.ts",
+        "aero/packages/core/src/credits/purchase/purchase-credits.ts",
+        "aero/packages/core/src/credits/purchase/subscription-credit-purchaser.ts",
+        "aero/packages/database/lib/schemas/datastore/migrations/0018_add_user_organization_billing_version_history_table.sql",
+        "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+        "aero/packages/database/lib/schemas/seed/plan-features.sql",
+        "aero/packages/database/lib/schemas/seed/v151_plan_features.sql",
+        "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/change-plan.ts",
+        "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-shopify-upgrade-preview.ts",
+        "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-upgrade-data.ts",
+        "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-upgrade-preview.ts",
+        "aero/packages/tailwind-api-sdk/src/types/billing.ts"
+      ],
+      "our_unique_judgments": [
+        {
+          "file": "aero/packages/core/src/ghostwriter/use-cases/smart-pin-title-and-description.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/pagination/cursor.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/pinterest-scraper/board/scrape-board.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/turbo/user-event/turbo-events.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/user/user-repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/jarvis/src/client/domains/billing/components/billing-registry/version-details-view.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/app/upgrade_modal.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/unit_testing/tests_onhold/5_ajax_objects/aoColumns.sTitle.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment-timezone/builds/moment-timezone-with-data-2010-2020.min.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/js/foundation/foundation.tooltips.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/components/downgrade-context-selector-modal/downgrade-context-selector-modal.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/webpack.prod.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/app/(catalog)/_components/page-sections/gray-swirly-sign-up-panel.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/upgrade/hooks/use-view-upgrade-page-event.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/runway/number-input/number-input.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/core/src/tracing.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/database/src/db-tools/migration-checker-job.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/detect-site-platform.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-hashtag/get-hashtag.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/llm/llama2/requests/stream-completion.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/sanitize-json-string.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/types/user.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/__mocks__/top-pin-mocker.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/__mocks__/user-snapshot-mocker.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/facets/post-meta.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-pins/get-pins.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/oauth-complete/oauth-complete-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/publish-post/v5/handle-publish-post-results.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/scrape-url-meta/enqueue-scrape-url-meta-job.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/token/deauthorize-token.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/types/board.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-field-builder.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-make-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/cron/queue-posts/queue-posts-by-shard.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/cron/verify-user-tokens/verify-user-tokens-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-types.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/shared/authenticate-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        }
+      ],
+      "precision": 0.0,
+      "recall": 0.0,
+      "calibration_data": {
+        "opus_only": [],
+        "sonnet_only": [
+          "aero/infra/tailwindapp/bach/routes/billing-routes.ts",
+          "aero/infra/tailwindapp/billing/index.ts",
+          "aero/infra/tailwindapp/billing/queues/organization-billing-subscription-migration.ts",
+          "aero/packages/core/src/billing/organization/chargify-subscription-creator.test.ts",
+          "aero/packages/core/src/credits/purchase/purchase-credits.ts",
+          "aero/packages/core/src/credits/purchase/subscription-credit-purchaser.ts",
+          "aero/packages/database/lib/schemas/datastore/migrations/0018_add_user_organization_billing_version_history_table.sql",
+          "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+          "aero/packages/database/lib/schemas/seed/plan-features.sql",
+          "aero/packages/database/lib/schemas/seed/v151_plan_features.sql",
+          "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/change-plan.ts",
+          "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-shopify-upgrade-preview.ts",
+          "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-upgrade-data.ts",
+          "aero/packages/tailwind-api-sdk/src/legacy/domains/billing/requests/get-upgrade-preview.ts",
+          "aero/packages/tailwind-api-sdk/src/types/billing.ts"
+        ],
+        "both_models": []
+      }
+    },
+    {
+      "conversation_id": "215472695961371",
+      "issue_summary": "How to make a smart pin",
+      "product_area": "uncertain",
+      "run_a": {
+        "model": "claude-opus-4-20250514",
+        "files_found": [
+          "aero/infra/tailwindapp/smart-pin/index.ts",
+          "aero/infra/tailwindapp/smart-pin/queues/smart-pin-new-content-notification.ts",
+          "aero/infra/tailwindapp/smart-pin/functions/enqueue-smart-pin-new-content-notification.ts",
+          "aero/infra/tailwindapp/smart-pin/cron/queue-smart-pin-notification-check-emails.ts"
+        ],
+        "tool_calls": 11,
+        "error": null
+      },
+      "run_b": {
+        "model": "claude-sonnet-4-20250514",
+        "files_found": [
+          "aero/packages/core/src/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/update-smart-pin.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/create-smart-pin.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins-by-org.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins-by-url.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/update-smart-pin-mfy-request.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/queue-smartpins-mfy.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/smartpin-generations.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/utils/get-next-event-timestamp.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/utils/get-page-title.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/repositories/smart-pin-repository.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/repositories/smart-pin-job-repository.ts",
+          "aero/packages/bachv2/service/account/handlers/cron/smart-pins/next-smartpin-generations.handler.ts",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-item.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-history-events.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-modal.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-interaction.ts",
+          "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-user-smart-pins.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-modal.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-form-wrapper.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-screen.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-input-form.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-design-modal/smart-pin-design-modal.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/pages/get-started-page.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/pages/smart-pins-dashboard-page.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/smartpin/index.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/smartpin/get-started.tsx",
+          "aero/packages/tailwindapp/app/dashboard/v3/api/organization/[orgId]/smartpin/route.ts",
+          "aero/packages/tailwindapp/app/dashboard/v3/api/organization/[orgId]/smartpin/[smartPinId]/route.ts",
+          "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/swap-design/route.ts",
+          "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/preview-design/route.tsx",
+          "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/swap-image/route.ts",
+          "aero/packages/core/src/smart-pin/index.ts",
+          "aero/packages/core/src/smart-pin/service.ts",
+          "aero/packages/core/src/smart-pin/factory.ts",
+          "aero/packages/core/src/smart-pin/types.ts",
+          "aero/packages/core/src/smart-pin/repositories/smart-pin-repository.ts",
+          "aero/packages/core/src/smart-pin/generation-methods/generation-method-factory.ts",
+          "aero/packages/core/src/smart-pin/generation-methods/template-generation-method.ts",
+          "aero/packages/core/src/smart-pin/generation-methods/gemini-manifest-generation-method.ts",
+          "aero/packages/core/src/smart-pin/slot-strategies/slot-strategy-factory.ts",
+          "aero/packages/core/src/smart-pin/slot-strategies/standard-slot-strategy.ts",
+          "aero/packages/core/src/smart-pin/slot-strategies/premium-slot-strategy.ts",
+          "aero/packages/core/src/smart-pin/queues/new-content-notification/smart-pin-new-content-notification-processor.ts",
+          "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+          "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-generation-processing-service.ts",
+          "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-post-assembler.ts",
+          "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-scrape-processor.ts",
+          "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+          "aero/infra/tailwindapp/bach/routes/account-routes.ts",
+          "aero/infra/tailwindapp/smart-pin/index.ts",
+          "aero/packages/jarvis/src/client/domains/smartpin/smartpin-debug-page.tsx",
+          "aero/packages/e2e/smartpin/smartPin.playwright.ts",
+          "aero/packages/e2e/smartpin/smartPinManage.playwright.ts"
+        ],
+        "tool_calls": 11,
+        "error": null
+      },
+      "ground_truth_files": [
+        "aero/infra/tailwindapp/bach/routes/account-routes.ts",
+        "aero/infra/tailwindapp/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+        "aero/infra/tailwindapp/smart-pin/functions/enqueue-smart-pin-new-content-notification.ts",
+        "aero/infra/tailwindapp/smart-pin/index.ts",
+        "aero/infra/tailwindapp/smart-pin/queues/smart-pin-new-content-notification.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/create-smart-pin.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins-by-org.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins-by-url.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/queue-smartpins-mfy.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/repositories/smart-pin-job-repository.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/repositories/smart-pin-repository.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/smartpin-generations.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/update-smart-pin-mfy-request.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/update-smart-pin.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/utils/get-next-event-timestamp.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/utils/get-page-title.ts",
+        "aero/packages/bachv2/service/account/handlers/cron/smart-pins/next-smartpin-generations.handler.ts",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-generation-processing-service.ts",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-post-assembler.ts",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-scrape-processor.ts",
+        "aero/packages/core/src/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+        "aero/packages/core/src/smart-pin/factory.ts",
+        "aero/packages/core/src/smart-pin/generation-methods/gemini-manifest-generation-method.ts",
+        "aero/packages/core/src/smart-pin/generation-methods/generation-method-factory.ts",
+        "aero/packages/core/src/smart-pin/generation-methods/template-generation-method.ts",
+        "aero/packages/core/src/smart-pin/index.ts",
+        "aero/packages/core/src/smart-pin/queues/new-content-notification/smart-pin-new-content-notification-processor.ts",
+        "aero/packages/core/src/smart-pin/repositories/smart-pin-repository.ts",
+        "aero/packages/core/src/smart-pin/service.ts",
+        "aero/packages/core/src/smart-pin/slot-strategies/premium-slot-strategy.ts",
+        "aero/packages/core/src/smart-pin/slot-strategies/slot-strategy-factory.ts",
+        "aero/packages/core/src/smart-pin/slot-strategies/standard-slot-strategy.ts",
+        "aero/packages/core/src/smart-pin/types.ts",
+        "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+        "aero/packages/e2e/smartpin/smartPin.playwright.ts",
+        "aero/packages/e2e/smartpin/smartPinManage.playwright.ts",
+        "aero/packages/jarvis/src/client/domains/smartpin/smartpin-debug-page.tsx",
+        "aero/packages/tailwindapp/app/dashboard/v3/api/organization/[orgId]/smartpin/[smartPinId]/route.ts",
+        "aero/packages/tailwindapp/app/dashboard/v3/api/organization/[orgId]/smartpin/route.ts",
+        "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/preview-design/route.tsx",
+        "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/swap-design/route.ts",
+        "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/swap-image/route.ts",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-design-modal/smart-pin-design-modal.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-form-wrapper.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-input-form.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-item.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-modal.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-screen.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-history-events.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-interaction.ts",
+        "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-modal.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-user-smart-pins.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/pages/get-started-page.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/pages/smart-pins-dashboard-page.tsx",
+        "aero/packages/tailwindapp/pages/dashboard/v2/smartpin/get-started.tsx",
+        "aero/packages/tailwindapp/pages/dashboard/v2/smartpin/index.tsx"
+      ],
+      "our_files": [
+        "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-evergreen-campaigns/smartloop_onboarding_tour.js",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+        "aero/packages/core/src/ghostwriter/use-cases/smart-pin-title-and-description.ts",
+        "aero/packages/bachv2/service/draft-generation/queue/made-for-you/generation/instagram.ts",
+        "aero/packages/bachv2/service/user/handlers/api/org-healthy-queue-status-get/smart-bio-pages/db-smart-bio-pages-scheme.ts",
+        "aero/packages/tailwindapp-legacy/app/react/bin/code-generator/make-component-test.js",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-pins/feed_layout_updater.js",
+        "aero/packages/e2e/quickSchedule/drafts/saveChangesIG.playwright.ts",
+        "aero/packages/tailwindapp-legacy/app/react/webpack.prod.js",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+        "aero/packages/etls/lib/clients/dewey.ts",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/unit_testing/tests_onhold/1_dom/bFilter.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/tribe-content/skip-tribe-content-reducer.js",
+        "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+        "tack/service/lib/pinterest/pinterest-api/make-request.ts",
+        "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-board-pins.ts",
+        "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+        "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-metrics.ts",
+        "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-boards.ts",
+        "tack/client/src/helpers/make-request.ts",
+        "tack/service/lib/clients/pinterestv5/schemas.ts",
+        "tack/service/lib/handlers/sqs/access-token-refresh/access-token-refresh-handler.ts",
+        "tack/client/src/requests/get-token-status.ts",
+        "tack/client/src/requests/queue-post.ts",
+        "tack/client/src/requests/get-pin.ts",
+        "tack/client/src/requests/patch-post-send-ats.ts",
+        "tack/service/lib/facets/post-meta.ts",
+        "tack/client/src/requests/get-user-publishing-status.ts",
+        "tack/client/src/requests/put-post.ts",
+        "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+        "charlotte/packages/client/src/requests/squarespace-website.ts",
+        "charlotte/packages/queue/src/import-blogs/record-blog-to-db.ts",
+        "charlotte/packages/client/src/requests/create-site.ts",
+        "charlotte/packages/client/src/requests/get-blog-post.ts",
+        "charlotte/packages/client/src/requests/get-site-products.ts",
+        "charlotte/packages/client/src/requests/woocommerce-entry.ts",
+        "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+        "charlotte/packages/client/src/requests/woocommerce-store-get-products.ts",
+        "charlotte/packages/client/src/requests/shopify-oauth-finish.ts",
+        "charlotte/packages/client/src/requests/get-user-site.ts",
+        "charlotte/packages/client/src/requests/woocommerce-store-key-status.ts",
+        "charlotte/packages/client/src/requests/get-user-sites.ts",
+        "charlotte/packages/client/src/requests/woocommerce-oauth-status.ts",
+        "charlotte/packages/client/src/requests/delete-product.ts",
+        "charlotte/packages/client/src/requests/woocommerce-disconnect.ts",
+        "charlotte/packages/client/src/requests/create-product.ts",
+        "ghostwriter/stack/service/use-cases/new-product-social-posts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/use-cases/index.ts",
+        "ghostwriter/stack/service/utils/handler-error-processor.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+        "ghostwriter/client/src/requests/get-usage-count-this-period.ts",
+        "ghostwriter/stack/infrastructure/bin/infrastructure.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/build-prompt.ts",
+        "ghostwriter/stack/service/handlers/api/generate-other-product-listing/prompts.ts",
+        "ghostwriter/client/src/requests/queue-shopify-product-listing.ts",
+        "ghostwriter/client/src/requests/queue-instagram-caption.ts",
+        "ghostwriter/client/src/requests/queue-email-subject.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+        "ghostwriter/stack/infrastructure/lib/db-stack.ts",
+        "ghostwriter/stack/service/utils/sanitize-json-string.ts",
+        "zuck/client/src/service.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-make-request.ts",
+        "zuck/service/lib/test/post-fixture.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-types.ts",
+        "zuck/service/lib/data/models/o-auth-request.ts"
+      ],
+      "intersection": [],
+      "our_unique": [
+        "aero/packages/bachv2/service/draft-generation/queue/made-for-you/generation/instagram.ts",
+        "aero/packages/bachv2/service/user/handlers/api/org-healthy-queue-status-get/smart-bio-pages/db-smart-bio-pages-scheme.ts",
+        "aero/packages/core/src/ghostwriter/use-cases/smart-pin-title-and-description.ts",
+        "aero/packages/e2e/quickSchedule/drafts/saveChangesIG.playwright.ts",
+        "aero/packages/etls/lib/clients/dewey.ts",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-evergreen-campaigns/smartloop_onboarding_tour.js",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-pins/feed_layout_updater.js",
+        "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/unit_testing/tests_onhold/1_dom/bFilter.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/tribe-content/skip-tribe-content-reducer.js",
+        "aero/packages/tailwindapp-legacy/app/react/bin/code-generator/make-component-test.js",
+        "aero/packages/tailwindapp-legacy/app/react/webpack.prod.js",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+        "charlotte/packages/client/src/requests/create-product.ts",
+        "charlotte/packages/client/src/requests/create-site.ts",
+        "charlotte/packages/client/src/requests/delete-product.ts",
+        "charlotte/packages/client/src/requests/get-blog-post.ts",
+        "charlotte/packages/client/src/requests/get-site-products.ts",
+        "charlotte/packages/client/src/requests/get-user-site.ts",
+        "charlotte/packages/client/src/requests/get-user-sites.ts",
+        "charlotte/packages/client/src/requests/shopify-oauth-finish.ts",
+        "charlotte/packages/client/src/requests/squarespace-website.ts",
+        "charlotte/packages/client/src/requests/woocommerce-disconnect.ts",
+        "charlotte/packages/client/src/requests/woocommerce-entry.ts",
+        "charlotte/packages/client/src/requests/woocommerce-oauth-status.ts",
+        "charlotte/packages/client/src/requests/woocommerce-store-get-products.ts",
+        "charlotte/packages/client/src/requests/woocommerce-store-key-status.ts",
+        "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+        "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+        "charlotte/packages/queue/src/import-blogs/record-blog-to-db.ts",
+        "ghostwriter/client/src/requests/get-usage-count-this-period.ts",
+        "ghostwriter/client/src/requests/queue-email-subject.ts",
+        "ghostwriter/client/src/requests/queue-instagram-caption.ts",
+        "ghostwriter/client/src/requests/queue-shopify-product-listing.ts",
+        "ghostwriter/stack/infrastructure/bin/infrastructure.ts",
+        "ghostwriter/stack/infrastructure/lib/db-stack.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/build-prompt.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-other-product-listing/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+        "ghostwriter/stack/service/use-cases/index.ts",
+        "ghostwriter/stack/service/use-cases/new-product-social-posts.ts",
+        "ghostwriter/stack/service/utils/handler-error-processor.ts",
+        "ghostwriter/stack/service/utils/sanitize-json-string.ts",
+        "tack/client/src/helpers/make-request.ts",
+        "tack/client/src/requests/get-pin.ts",
+        "tack/client/src/requests/get-token-status.ts",
+        "tack/client/src/requests/get-user-publishing-status.ts",
+        "tack/client/src/requests/patch-post-send-ats.ts",
+        "tack/client/src/requests/put-post.ts",
+        "tack/client/src/requests/queue-post.ts",
+        "tack/service/lib/clients/pinterestv5/schemas.ts",
+        "tack/service/lib/facets/post-meta.ts",
+        "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+        "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+        "tack/service/lib/handlers/sqs/access-token-refresh/access-token-refresh-handler.ts",
+        "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-board-pins.ts",
+        "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-boards.ts",
+        "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-metrics.ts",
+        "tack/service/lib/pinterest/pinterest-api/make-request.ts",
+        "zuck/client/src/service.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-make-request.ts",
+        "zuck/service/lib/data/models/o-auth-request.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-types.ts",
+        "zuck/service/lib/test/post-fixture.ts"
+      ],
+      "ground_truth_unique": [
+        "aero/infra/tailwindapp/bach/routes/account-routes.ts",
+        "aero/infra/tailwindapp/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+        "aero/infra/tailwindapp/smart-pin/functions/enqueue-smart-pin-new-content-notification.ts",
+        "aero/infra/tailwindapp/smart-pin/index.ts",
+        "aero/infra/tailwindapp/smart-pin/queues/smart-pin-new-content-notification.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/create-smart-pin.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins-by-org.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins-by-url.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/queue-smartpins-mfy.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/repositories/smart-pin-job-repository.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/repositories/smart-pin-repository.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/smartpin-generations.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/update-smart-pin-mfy-request.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/update-smart-pin.handler.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/utils/get-next-event-timestamp.ts",
+        "aero/packages/bachv2/service/account/handlers/api/smart-pins/utils/get-page-title.ts",
+        "aero/packages/bachv2/service/account/handlers/cron/smart-pins/next-smartpin-generations.handler.ts",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-generation-processing-service.ts",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-post-assembler.ts",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-scrape-processor.ts",
+        "aero/packages/core/src/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+        "aero/packages/core/src/smart-pin/factory.ts",
+        "aero/packages/core/src/smart-pin/generation-methods/gemini-manifest-generation-method.ts",
+        "aero/packages/core/src/smart-pin/generation-methods/generation-method-factory.ts",
+        "aero/packages/core/src/smart-pin/generation-methods/template-generation-method.ts",
+        "aero/packages/core/src/smart-pin/index.ts",
+        "aero/packages/core/src/smart-pin/queues/new-content-notification/smart-pin-new-content-notification-processor.ts",
+        "aero/packages/core/src/smart-pin/repositories/smart-pin-repository.ts",
+        "aero/packages/core/src/smart-pin/service.ts",
+        "aero/packages/core/src/smart-pin/slot-strategies/premium-slot-strategy.ts",
+        "aero/packages/core/src/smart-pin/slot-strategies/slot-strategy-factory.ts",
+        "aero/packages/core/src/smart-pin/slot-strategies/standard-slot-strategy.ts",
+        "aero/packages/core/src/smart-pin/types.ts",
+        "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+        "aero/packages/e2e/smartpin/smartPin.playwright.ts",
+        "aero/packages/e2e/smartpin/smartPinManage.playwright.ts",
+        "aero/packages/jarvis/src/client/domains/smartpin/smartpin-debug-page.tsx",
+        "aero/packages/tailwindapp/app/dashboard/v3/api/organization/[orgId]/smartpin/[smartPinId]/route.ts",
+        "aero/packages/tailwindapp/app/dashboard/v3/api/organization/[orgId]/smartpin/route.ts",
+        "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/preview-design/route.tsx",
+        "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/swap-design/route.ts",
+        "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/swap-image/route.ts",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-design-modal/smart-pin-design-modal.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-form-wrapper.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-input-form.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-item.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-modal.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-screen.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-history-events.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-interaction.ts",
+        "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-modal.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-user-smart-pins.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/pages/get-started-page.tsx",
+        "aero/packages/tailwindapp/client/domains/smartpin/pages/smart-pins-dashboard-page.tsx",
+        "aero/packages/tailwindapp/pages/dashboard/v2/smartpin/get-started.tsx",
+        "aero/packages/tailwindapp/pages/dashboard/v2/smartpin/index.tsx"
+      ],
+      "our_unique_judgments": [
+        {
+          "file": "aero/packages/bachv2/service/draft-generation/queue/made-for-you/generation/instagram.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/bachv2/service/user/handlers/api/org-healthy-queue-status-get/smart-bio-pages/db-smart-bio-pages-scheme.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/ghostwriter/use-cases/smart-pin-title-and-description.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/e2e/quickSchedule/drafts/saveChangesIG.playwright.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/etls/lib/clients/dewey.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-evergreen-campaigns/smartloop_onboarding_tour.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-pins/feed_layout_updater.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/unit_testing/tests_onhold/1_dom/bFilter.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/tribe-content/skip-tribe-content-reducer.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/bin/code-generator/make-component-test.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/webpack.prod.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/create-product.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/create-site.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/delete-product.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/get-blog-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/get-site-products.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/get-user-site.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/get-user-sites.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/shopify-oauth-finish.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/squarespace-website.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/woocommerce-disconnect.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/woocommerce-entry.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/woocommerce-oauth-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/woocommerce-store-get-products.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/woocommerce-store-key-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/import-blogs/record-blog-to-db.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/requests/get-usage-count-this-period.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/requests/queue-email-subject.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/requests/queue-instagram-caption.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/requests/queue-shopify-product-listing.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/infrastructure/bin/infrastructure.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/infrastructure/lib/db-stack.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-email-subject/build-prompt.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-other-product-listing/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/use-cases/index.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/use-cases/new-product-social-posts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/handler-error-processor.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/sanitize-json-string.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/helpers/make-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/requests/get-pin.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/requests/get-token-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/requests/get-user-publishing-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/requests/patch-post-send-ats.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/requests/put-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/requests/queue-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/clients/pinterestv5/schemas.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/facets/post-meta.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/access-token-refresh/access-token-refresh-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-board-pins.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-boards.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-metrics.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/make-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/client/src/service.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-make-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/data/models/o-auth-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-types.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/test/post-fixture.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        }
+      ],
+      "precision": 0.0,
+      "recall": 0.0,
+      "calibration_data": {
+        "opus_only": [
+          "aero/infra/tailwindapp/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+          "aero/infra/tailwindapp/smart-pin/functions/enqueue-smart-pin-new-content-notification.ts",
+          "aero/infra/tailwindapp/smart-pin/queues/smart-pin-new-content-notification.ts"
+        ],
+        "sonnet_only": [
+          "aero/infra/tailwindapp/bach/routes/account-routes.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/create-smart-pin.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins-by-org.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins-by-url.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/list-smart-pins.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/queue-smartpins-mfy.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/repositories/smart-pin-job-repository.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/repositories/smart-pin-repository.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/smartpin-generations.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/update-smart-pin-mfy-request.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/update-smart-pin.handler.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/utils/get-next-event-timestamp.ts",
+          "aero/packages/bachv2/service/account/handlers/api/smart-pins/utils/get-page-title.ts",
+          "aero/packages/bachv2/service/account/handlers/cron/smart-pins/next-smartpin-generations.handler.ts",
+          "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-generation-processing-service.ts",
+          "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-post-assembler.ts",
+          "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+          "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-scrape-processor.ts",
+          "aero/packages/core/src/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+          "aero/packages/core/src/smart-pin/factory.ts",
+          "aero/packages/core/src/smart-pin/generation-methods/gemini-manifest-generation-method.ts",
+          "aero/packages/core/src/smart-pin/generation-methods/generation-method-factory.ts",
+          "aero/packages/core/src/smart-pin/generation-methods/template-generation-method.ts",
+          "aero/packages/core/src/smart-pin/index.ts",
+          "aero/packages/core/src/smart-pin/queues/new-content-notification/smart-pin-new-content-notification-processor.ts",
+          "aero/packages/core/src/smart-pin/repositories/smart-pin-repository.ts",
+          "aero/packages/core/src/smart-pin/service.ts",
+          "aero/packages/core/src/smart-pin/slot-strategies/premium-slot-strategy.ts",
+          "aero/packages/core/src/smart-pin/slot-strategies/slot-strategy-factory.ts",
+          "aero/packages/core/src/smart-pin/slot-strategies/standard-slot-strategy.ts",
+          "aero/packages/core/src/smart-pin/types.ts",
+          "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+          "aero/packages/e2e/smartpin/smartPin.playwright.ts",
+          "aero/packages/e2e/smartpin/smartPinManage.playwright.ts",
+          "aero/packages/jarvis/src/client/domains/smartpin/smartpin-debug-page.tsx",
+          "aero/packages/tailwindapp/app/dashboard/v3/api/organization/[orgId]/smartpin/[smartPinId]/route.ts",
+          "aero/packages/tailwindapp/app/dashboard/v3/api/organization/[orgId]/smartpin/route.ts",
+          "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/preview-design/route.tsx",
+          "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/swap-design/route.ts",
+          "aero/packages/tailwindapp/app/dashboard/v3/api/smart-pin/[draftId]/swap-image/route.ts",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-design-modal/smart-pin-design-modal.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-form-wrapper.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-input-form.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-item.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-modal.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/components/smart-pin-screen.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-history-events.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-interaction.ts",
+          "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin-modal.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-smart-pin.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/hooks/use-user-smart-pins.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/pages/get-started-page.tsx",
+          "aero/packages/tailwindapp/client/domains/smartpin/pages/smart-pins-dashboard-page.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/smartpin/get-started.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/smartpin/index.tsx"
+        ],
+        "both_models": [
+          "aero/infra/tailwindapp/smart-pin/index.ts"
+        ]
+      }
+    },
+    {
+      "conversation_id": "215472695685914",
+      "issue_summary": "Hi - Is there a place I can go to see the date of the last pin sorted by a specific link?",
+      "product_area": "uncertain",
+      "run_a": {
+        "model": "claude-opus-4-20250514",
+        "files_found": [
+          "aero/infra/turbo/process-turbo-pin-lifecycle.ts",
+          "aero/infra/turbo/turbo-pin-click.ts",
+          "aero/infra/tailwindapp/scheduler/queues/pin-spacing/respace-pinterest-schedule.ts",
+          "aero/infra/tailwindapp/bach/routes/pinterest-tools-routes.ts",
+          "aero/infra/tailwindapp/smart-pin/queues/smart-pin-new-content-notification.ts",
+          "aero/infra/tailwindapp/smart-pin/functions/enqueue-smart-pin-new-content-notification.ts",
+          "aero/infra/tailwindapp/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+          "aero/packages/database/lib/schemas/datastore/migrations/0009_add_smartpin_delete_status.sql",
+          "tack/service/lib/clients/pinterestv5/get-pin.ts",
+          "tack/service/lib/clients/pinterestv5/get-pins.ts",
+          "tack/service/lib/clients/pinterestv5/get-pin-analytics.ts",
+          "tack/service/lib/clients/pinterestv5/get-pins-analytics.ts",
+          "tack/service/lib/clients/pinterestv5/save-pin.ts",
+          "tack/service/lib/clients/pinterestv5/create-pin.ts",
+          "tack/service/lib/clients/pinterestv5/get-top-pins.ts",
+          "tack/service/lib/clients/pinterestv5/pin-response.ts",
+          "tack/service/lib/facets/pin.ts",
+          "tack/service/lib/facets/pin-clone.ts",
+          "tack/service/lib/facets/post.ts",
+          "tack/service/lib/__mocks__/pin-mocker.ts",
+          "tack/service/lib/__mocks__/pin-clone-mocker.ts",
+          "tack/service/lib/__mocks__/top-pin-mocker.ts",
+          "ghostwriter/stack/service/use-cases/smart-pin-title-and-description.ts",
+          "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-pinterest-description.ts",
+          "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.ts",
+          "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-or-article/get-pinterest-title-and-description-from-blog-or-article.ts",
+          "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-content/get-pinterest-title-and-description-from-blog-content.ts",
+          "ghostwriter/client/src/requests/queue-pinterest-title-and-description.ts",
+          "ghostwriter/client/src/requests/queue-pinterest-title-and-description-from-blog-or-article.ts"
+        ],
+        "tool_calls": 11,
+        "error": null
+      },
+      "run_b": {
+        "model": "claude-sonnet-4-20250514",
+        "files_found": [],
+        "tool_calls": 5,
+        "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CX9z64taTuYG7dVArc8r3'}"
+      },
+      "ground_truth_files": [
+        "aero/infra/tailwindapp/bach/routes/pinterest-tools-routes.ts",
+        "aero/infra/tailwindapp/scheduler/queues/pin-spacing/respace-pinterest-schedule.ts",
+        "aero/infra/tailwindapp/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+        "aero/infra/tailwindapp/smart-pin/functions/enqueue-smart-pin-new-content-notification.ts",
+        "aero/infra/tailwindapp/smart-pin/queues/smart-pin-new-content-notification.ts",
+        "aero/infra/turbo/process-turbo-pin-lifecycle.ts",
+        "aero/infra/turbo/turbo-pin-click.ts",
+        "aero/packages/database/lib/schemas/datastore/migrations/0009_add_smartpin_delete_status.sql",
+        "ghostwriter/client/src/requests/queue-pinterest-title-and-description-from-blog-or-article.ts",
+        "ghostwriter/client/src/requests/queue-pinterest-title-and-description.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-content/get-pinterest-title-and-description-from-blog-content.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-or-article/get-pinterest-title-and-description-from-blog-or-article.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.ts",
+        "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-pinterest-description.ts",
+        "ghostwriter/stack/service/use-cases/smart-pin-title-and-description.ts",
+        "tack/service/lib/__mocks__/pin-clone-mocker.ts",
+        "tack/service/lib/__mocks__/pin-mocker.ts",
+        "tack/service/lib/__mocks__/top-pin-mocker.ts",
+        "tack/service/lib/clients/pinterestv5/create-pin.ts",
+        "tack/service/lib/clients/pinterestv5/get-pin-analytics.ts",
+        "tack/service/lib/clients/pinterestv5/get-pin.ts",
+        "tack/service/lib/clients/pinterestv5/get-pins-analytics.ts",
+        "tack/service/lib/clients/pinterestv5/get-pins.ts",
+        "tack/service/lib/clients/pinterestv5/get-top-pins.ts",
+        "tack/service/lib/clients/pinterestv5/pin-response.ts",
+        "tack/service/lib/clients/pinterestv5/save-pin.ts",
+        "tack/service/lib/facets/pin-clone.ts",
+        "tack/service/lib/facets/pin.ts",
+        "tack/service/lib/facets/post.ts"
+      ],
+      "our_files": [
+        "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/timezone-dropdown/timezone-dropdown.js",
+        "aero/packages/core/src/ghostwriter/use-cases/smart-pin-title-and-description.ts",
+        "aero/packages/e2e/quickSchedule/drafts/saveChangesIG.playwright.ts",
+        "aero/packages/jarvis/src/client/domains/customers/publisher-destination/components/pinterest/posts-panel/tack-posts-audit-panel/utls.ts",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-pins/feed_layout_updater.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/reshare-indicator/record-event-filtered-tribe-reducer.js",
+        "aero/packages/tailwindapp-legacy/app/react/webpack.prod.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/src/ext/ext.sorting.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+        "aero/packages/duck/app/dashboard/performance/pinterest-analytics.tsx",
+        "aero/packages/core/src/moderation/moderators/word-checker.test.ts",
+        "aero/packages/tailwindapp/client/domains/create/hooks/use-color-palettes.ts",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment-timezone/builds/moment-timezone-with-data-2010-2020.min.js",
+        "aero/packages/tailwindapp-legacy/app/react/bin/code-generator/make-component-test.js",
+        "aero/packages/bachv2/service/user/handlers/api/org-sms-put/org-sms-put-query.ts",
+        "aero/packages/core/src/pagination/cursor.test.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/tribe-content/skip-tribe-content-reducer.js",
+        "aero/packages/jarvis/src/client/domains/customers/users/hooks/use-update-user-value-by-field.ts",
+        "tack/service/lib/__mocks__/pin-mocker.ts",
+        "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+        "tack/service/lib/handlers/sqs/publish-post/mark-post-as-published.test.ts",
+        "tack/service/lib/handlers/sqs/retry-post-count/retry-post-count.ts",
+        "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-metrics.ts",
+        "tack/service/lib/handlers/sqs/access-token-refresh/access-token-refresh-handler.ts",
+        "tack/service/lib/handlers/api/get-link-stats/get-link-stats-handler.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+        "tack/service/lib/handlers/api/reset-post-status-count/reset-post-status-count.ts",
+        "tack/service/lib/pinterest/types/pinterest-domain-pin.ts",
+        "tack/service/lib/handlers/api/update-post-meta/update-post-meta-request.ts",
+        "tack/service/lib/pinterest/get-user-pins-from-pinterest.test.ts",
+        "tack/service/lib/facets/post-meta.ts",
+        "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+        "tack/service/lib/__mocks__/user-delta-mocker.ts",
+        "tack/service/lib/pinterest/get-public-pin-from-pinterest.ts",
+        "tack/service/lib/handlers/api/patch-post/patch-post-handler.ts",
+        "tack/service/lib/__mocks__/user-snapshot-mocker.ts",
+        "tack/service/lib/handlers/api/patch-post-send-ats/patch-post-send-ats-handler.ts",
+        "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+        "charlotte/packages/repositories/src/import-status-repository.ts",
+        "charlotte/packages/queue/src/import-blogs/record-blog-to-db.ts",
+        "charlotte/packages/queue/src/import-blogs/strategies/blog-import-strategy.ts",
+        "charlotte/packages/repositories/src/nonce-repository.ts",
+        "charlotte/packages/client/src/types/blog.ts",
+        "charlotte/packages/api/src/site/get-or-create-site.ts",
+        "charlotte/packages/client/src/charlotte.ts",
+        "charlotte/packages/repositories/src/squarespace-websites.repository.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "charlotte/packages/queue/src/product-details/product-details-handler.ts",
+        "charlotte/packages/api/src/blog/update-blog-post.ts",
+        "charlotte/packages/database/src/db-tools/migration-checker-job.ts",
+        "charlotte/packages/api/src/integrations/woocommerce/get-products.ts",
+        "charlotte/packages/api/src/site/get-site-products.ts",
+        "charlotte/packages/core/src/tracing.ts",
+        "charlotte/packages/repositories/src/types/core.ts",
+        "charlotte/packages/api/src/users/import-status.ts",
+        "charlotte/packages/api/src/integrations/squarespace/oauth-finish.ts",
+        "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+        "ghostwriter/stack/service/utils/sanitize-json-string.ts",
+        "ghostwriter/stack/service/handlers/lambda/stream-generation/handler.ts",
+        "ghostwriter/stack/service/llm/llama2/requests/stream-completion.ts",
+        "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-other-product-listing/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption/deprecated-prompts.ts",
+        "ghostwriter/stack/service/handlers/queue/generation/mark-jobs-as-processing.ts",
+        "ghostwriter/stack/service/handlers/queue/generation/mark-job-as-complete.ts",
+        "ghostwriter/stack/service/handlers/api/generate-seo-product-page-title-meta-description/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-blog-article-outline-from-title/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-hashtag/prompts.ts",
+        "ghostwriter/stack/service/utils/cleanup.ts",
+        "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-blog-article-conclusion-paragraph/prompts.ts",
+        "ghostwriter/stack/service/utils/record-generation.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+        "zuck/client/src/service.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+        "zuck/service/lib/shared/enable-disable-publishing.ts",
+        "zuck/service/lib/handlers/cron/queue-posts/queue-all-post-shards.test.ts",
+        "zuck/service/lib/shared/authenticate-request.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-handler.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-helper.ts",
+        "zuck/service/lib/utils/get-group-id-by-time.ts",
+        "zuck/service/lib/handlers/api/start-oauth/start-oauth-handler.ts",
+        "zuck/service/lib/data/models/page.ts",
+        "zuck/test-bed/components/app.tsx",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-types.ts",
+        "zuck/service/lib/handlers/cron/queue-posts/queue-posts-handler.ts",
+        "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-make-request.ts",
+        "zuck/service/lib/test/post-fixture.ts",
+        "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+        "zuck/service/lib/data/events/verify-token-status-event.ts",
+        "zuck/service/lib/shared/publishing-event.ts",
+        "zuck/service/lib/handlers/cron/queue-posts/queue-posts-by-shard.ts"
+      ],
+      "intersection": [
+        "tack/service/lib/__mocks__/pin-mocker.ts"
+      ],
+      "our_unique": [
+        "aero/packages/bachv2/service/user/handlers/api/org-sms-put/org-sms-put-query.ts",
+        "aero/packages/core/src/ghostwriter/use-cases/smart-pin-title-and-description.ts",
+        "aero/packages/core/src/moderation/moderators/word-checker.test.ts",
+        "aero/packages/core/src/pagination/cursor.test.ts",
+        "aero/packages/duck/app/dashboard/performance/pinterest-analytics.tsx",
+        "aero/packages/e2e/quickSchedule/drafts/saveChangesIG.playwright.ts",
+        "aero/packages/jarvis/src/client/domains/customers/publisher-destination/components/pinterest/posts-panel/tack-posts-audit-panel/utls.ts",
+        "aero/packages/jarvis/src/client/domains/customers/users/hooks/use-update-user-value-by-field.ts",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-pins/feed_layout_updater.js",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/timezone-dropdown/timezone-dropdown.js",
+        "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/src/ext/ext.sorting.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment-timezone/builds/moment-timezone-with-data-2010-2020.min.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/reshare-indicator/record-event-filtered-tribe-reducer.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/tribe-content/skip-tribe-content-reducer.js",
+        "aero/packages/tailwindapp-legacy/app/react/bin/code-generator/make-component-test.js",
+        "aero/packages/tailwindapp-legacy/app/react/webpack.prod.js",
+        "aero/packages/tailwindapp/client/domains/create/hooks/use-color-palettes.ts",
+        "charlotte/packages/api/src/blog/update-blog-post.ts",
+        "charlotte/packages/api/src/integrations/squarespace/oauth-finish.ts",
+        "charlotte/packages/api/src/integrations/woocommerce/get-products.ts",
+        "charlotte/packages/api/src/site/get-or-create-site.ts",
+        "charlotte/packages/api/src/site/get-site-products.ts",
+        "charlotte/packages/api/src/users/import-status.ts",
+        "charlotte/packages/client/src/charlotte.ts",
+        "charlotte/packages/client/src/types/blog.ts",
+        "charlotte/packages/core/src/tracing.ts",
+        "charlotte/packages/database/src/db-tools/migration-checker-job.ts",
+        "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+        "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+        "charlotte/packages/queue/src/import-blogs/record-blog-to-db.ts",
+        "charlotte/packages/queue/src/import-blogs/strategies/blog-import-strategy.ts",
+        "charlotte/packages/queue/src/product-details/product-details-handler.ts",
+        "charlotte/packages/repositories/src/import-status-repository.ts",
+        "charlotte/packages/repositories/src/nonce-repository.ts",
+        "charlotte/packages/repositories/src/squarespace-websites.repository.ts",
+        "charlotte/packages/repositories/src/types/core.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+        "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-blog-article-conclusion-paragraph/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-blog-article-outline-from-title/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-hashtag/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption/deprecated-prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-other-product-listing/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-seo-product-page-title-meta-description/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+        "ghostwriter/stack/service/handlers/lambda/stream-generation/handler.ts",
+        "ghostwriter/stack/service/handlers/queue/generation/mark-job-as-complete.ts",
+        "ghostwriter/stack/service/handlers/queue/generation/mark-jobs-as-processing.ts",
+        "ghostwriter/stack/service/llm/llama2/requests/stream-completion.ts",
+        "ghostwriter/stack/service/utils/cleanup.ts",
+        "ghostwriter/stack/service/utils/record-generation.ts",
+        "ghostwriter/stack/service/utils/sanitize-json-string.ts",
+        "tack/service/lib/__mocks__/user-delta-mocker.ts",
+        "tack/service/lib/__mocks__/user-snapshot-mocker.ts",
+        "tack/service/lib/facets/post-meta.ts",
+        "tack/service/lib/handlers/api/get-link-stats/get-link-stats-handler.ts",
+        "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+        "tack/service/lib/handlers/api/patch-post-send-ats/patch-post-send-ats-handler.ts",
+        "tack/service/lib/handlers/api/patch-post/patch-post-handler.ts",
+        "tack/service/lib/handlers/api/reset-post-status-count/reset-post-status-count.ts",
+        "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+        "tack/service/lib/handlers/api/update-post-meta/update-post-meta-request.ts",
+        "tack/service/lib/handlers/sqs/access-token-refresh/access-token-refresh-handler.ts",
+        "tack/service/lib/handlers/sqs/publish-post/mark-post-as-published.test.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+        "tack/service/lib/handlers/sqs/retry-post-count/retry-post-count.ts",
+        "tack/service/lib/pinterest/get-public-pin-from-pinterest.ts",
+        "tack/service/lib/pinterest/get-user-pins-from-pinterest.test.ts",
+        "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-metrics.ts",
+        "tack/service/lib/pinterest/types/pinterest-domain-pin.ts",
+        "zuck/client/src/service.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-make-request.ts",
+        "zuck/service/lib/data/events/verify-token-status-event.ts",
+        "zuck/service/lib/data/models/page.ts",
+        "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+        "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+        "zuck/service/lib/handlers/api/start-oauth/start-oauth-handler.ts",
+        "zuck/service/lib/handlers/cron/queue-posts/queue-all-post-shards.test.ts",
+        "zuck/service/lib/handlers/cron/queue-posts/queue-posts-by-shard.ts",
+        "zuck/service/lib/handlers/cron/queue-posts/queue-posts-handler.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-handler.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-helper.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-types.ts",
+        "zuck/service/lib/shared/authenticate-request.ts",
+        "zuck/service/lib/shared/enable-disable-publishing.ts",
+        "zuck/service/lib/shared/publishing-event.ts",
+        "zuck/service/lib/test/post-fixture.ts",
+        "zuck/service/lib/utils/get-group-id-by-time.ts",
+        "zuck/test-bed/components/app.tsx"
+      ],
+      "ground_truth_unique": [
+        "aero/infra/tailwindapp/bach/routes/pinterest-tools-routes.ts",
+        "aero/infra/tailwindapp/scheduler/queues/pin-spacing/respace-pinterest-schedule.ts",
+        "aero/infra/tailwindapp/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+        "aero/infra/tailwindapp/smart-pin/functions/enqueue-smart-pin-new-content-notification.ts",
+        "aero/infra/tailwindapp/smart-pin/queues/smart-pin-new-content-notification.ts",
+        "aero/infra/turbo/process-turbo-pin-lifecycle.ts",
+        "aero/infra/turbo/turbo-pin-click.ts",
+        "aero/packages/database/lib/schemas/datastore/migrations/0009_add_smartpin_delete_status.sql",
+        "ghostwriter/client/src/requests/queue-pinterest-title-and-description-from-blog-or-article.ts",
+        "ghostwriter/client/src/requests/queue-pinterest-title-and-description.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-content/get-pinterest-title-and-description-from-blog-content.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-or-article/get-pinterest-title-and-description-from-blog-or-article.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.ts",
+        "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-pinterest-description.ts",
+        "ghostwriter/stack/service/use-cases/smart-pin-title-and-description.ts",
+        "tack/service/lib/__mocks__/pin-clone-mocker.ts",
+        "tack/service/lib/__mocks__/top-pin-mocker.ts",
+        "tack/service/lib/clients/pinterestv5/create-pin.ts",
+        "tack/service/lib/clients/pinterestv5/get-pin-analytics.ts",
+        "tack/service/lib/clients/pinterestv5/get-pin.ts",
+        "tack/service/lib/clients/pinterestv5/get-pins-analytics.ts",
+        "tack/service/lib/clients/pinterestv5/get-pins.ts",
+        "tack/service/lib/clients/pinterestv5/get-top-pins.ts",
+        "tack/service/lib/clients/pinterestv5/pin-response.ts",
+        "tack/service/lib/clients/pinterestv5/save-pin.ts",
+        "tack/service/lib/facets/pin-clone.ts",
+        "tack/service/lib/facets/pin.ts",
+        "tack/service/lib/facets/post.ts"
+      ],
+      "our_unique_judgments": [
+        {
+          "file": "aero/packages/bachv2/service/user/handlers/api/org-sms-put/org-sms-put-query.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/ghostwriter/use-cases/smart-pin-title-and-description.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/moderation/moderators/word-checker.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/pagination/cursor.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/duck/app/dashboard/performance/pinterest-analytics.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/e2e/quickSchedule/drafts/saveChangesIG.playwright.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/jarvis/src/client/domains/customers/publisher-destination/components/pinterest/posts-panel/tack-posts-audit-panel/utls.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/jarvis/src/client/domains/customers/users/hooks/use-update-user-value-by-field.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-pins/feed_layout_updater.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/timezone-dropdown/timezone-dropdown.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/src/ext/ext.sorting.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment-timezone/builds/moment-timezone-with-data-2010-2020.min.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/reshare-indicator/record-event-filtered-tribe-reducer.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/state-changers/tribes/tribe-content/skip-tribe-content-reducer.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/bin/code-generator/make-component-test.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/webpack.prod.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/create/hooks/use-color-palettes.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/blog/update-blog-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/integrations/squarespace/oauth-finish.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/integrations/woocommerce/get-products.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/site/get-or-create-site.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/site/get-site-products.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/users/import-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/charlotte.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/types/blog.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/core/src/tracing.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/database/src/db-tools/migration-checker-job.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/import-blogs/record-blog-to-db.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/import-blogs/strategies/blog-import-strategy.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/product-details/product-details-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/import-status-repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/nonce-repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/squarespace-websites.repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/types/core.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-blog-article-conclusion-paragraph/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-blog-article-outline-from-title/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-hashtag/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption/deprecated-prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-other-product-listing/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-seo-product-page-title-meta-description/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/lambda/stream-generation/handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/queue/generation/mark-job-as-complete.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/queue/generation/mark-jobs-as-processing.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/llm/llama2/requests/stream-completion.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/cleanup.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/record-generation.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/sanitize-json-string.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/__mocks__/user-delta-mocker.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/__mocks__/user-snapshot-mocker.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/facets/post-meta.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-link-stats/get-link-stats-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/patch-post-send-ats/patch-post-send-ats-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/patch-post/patch-post-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/reset-post-status-count/reset-post-status-count.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/update-post-meta/update-post-meta-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/access-token-refresh/access-token-refresh-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/publish-post/mark-post-as-published.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/retry-post-count/retry-post-count.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/get-public-pin-from-pinterest.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/get-user-pins-from-pinterest.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/get-pinterest-user-metrics.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/types/pinterest-domain-pin.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/client/src/service.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-make-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/data/events/verify-token-status-event.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/data/models/page.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/start-oauth/start-oauth-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/cron/queue-posts/queue-all-post-shards.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/cron/queue-posts/queue-posts-by-shard.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/cron/queue-posts/queue-posts-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-helper.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-types.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/shared/authenticate-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/shared/enable-disable-publishing.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/shared/publishing-event.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/test/post-fixture.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/utils/get-group-id-by-time.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/test-bed/components/app.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        }
+      ],
+      "precision": 0.01,
+      "recall": 0.034,
+      "calibration_data": {
+        "opus_only": [
+          "aero/infra/tailwindapp/bach/routes/pinterest-tools-routes.ts",
+          "aero/infra/tailwindapp/scheduler/queues/pin-spacing/respace-pinterest-schedule.ts",
+          "aero/infra/tailwindapp/smart-pin/cron/queue-smart-pin-notification-check-emails.ts",
+          "aero/infra/tailwindapp/smart-pin/functions/enqueue-smart-pin-new-content-notification.ts",
+          "aero/infra/tailwindapp/smart-pin/queues/smart-pin-new-content-notification.ts",
+          "aero/infra/turbo/process-turbo-pin-lifecycle.ts",
+          "aero/infra/turbo/turbo-pin-click.ts",
+          "aero/packages/database/lib/schemas/datastore/migrations/0009_add_smartpin_delete_status.sql",
+          "ghostwriter/client/src/requests/queue-pinterest-title-and-description-from-blog-or-article.ts",
+          "ghostwriter/client/src/requests/queue-pinterest-title-and-description.ts",
+          "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-content/get-pinterest-title-and-description-from-blog-content.ts",
+          "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-or-article/get-pinterest-title-and-description-from-blog-or-article.ts",
+          "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.ts",
+          "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-pinterest-description.ts",
+          "ghostwriter/stack/service/use-cases/smart-pin-title-and-description.ts",
+          "tack/service/lib/__mocks__/pin-clone-mocker.ts",
+          "tack/service/lib/__mocks__/pin-mocker.ts",
+          "tack/service/lib/__mocks__/top-pin-mocker.ts",
+          "tack/service/lib/clients/pinterestv5/create-pin.ts",
+          "tack/service/lib/clients/pinterestv5/get-pin-analytics.ts",
+          "tack/service/lib/clients/pinterestv5/get-pin.ts",
+          "tack/service/lib/clients/pinterestv5/get-pins-analytics.ts",
+          "tack/service/lib/clients/pinterestv5/get-pins.ts",
+          "tack/service/lib/clients/pinterestv5/get-top-pins.ts",
+          "tack/service/lib/clients/pinterestv5/pin-response.ts",
+          "tack/service/lib/clients/pinterestv5/save-pin.ts",
+          "tack/service/lib/facets/pin-clone.ts",
+          "tack/service/lib/facets/pin.ts",
+          "tack/service/lib/facets/post.ts"
+        ],
+        "sonnet_only": [],
+        "both_models": []
+      }
+    },
+    {
+      "conversation_id": "215472694802695",
+      "issue_summary": "trying to upgrade and getting an error message",
+      "product_area": "uncertain",
+      "run_a": {
+        "model": "claude-opus-4-20250514",
+        "files_found": [],
+        "tool_calls": 0,
+        "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CX9z65LrnMNkeraJWD1aw'}"
+      },
+      "run_b": {
+        "model": "claude-sonnet-4-20250514",
+        "files_found": [],
+        "tool_calls": 0,
+        "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CX9z65bjqzn2CEAaiX5vb'}"
+      },
+      "ground_truth_files": [],
+      "our_files": [
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/app/upgrade_modal.js",
+        "aero/packages/duck/app/dashboard/performance/pinterest-analytics.tsx",
+        "aero/packages/core/src/user/user-repository.ts",
+        "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+        "aero/packages/core/src/mailchimp/client.ts",
+        "aero/packages/tailwindapp/client/domains/upgrade/hooks/use-annual-upgrade.test.ts",
+        "aero/packages/bachv2/service/common/utils/email-sending/email-send-errors.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-selection/selected-designs/select-account-for-drafts-dropdown.tsx",
+        "aero/packages/tailwindapp/client/domains/signup/pages/offers/purchase.tsx",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+        "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/instagram-caption-use-case/instagram-caption-use-case.tsx",
+        "aero/packages/jarvis/src/client/domains/customers/users/hooks/use-update-user-value-by-field.ts",
+        "aero/packages/core/src/llm/processors/prompt-injection.ts",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/timezone-dropdown/timezone-dropdown.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+        "aero/packages/etls/lib/clients/dewey.ts",
+        "aero/packages/core/src/pinterest-scraper/board/scrape-board.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/chat/preview/chat-preview-bubble-view_test.js",
+        "aero/packages/jarvis/src/client/domains/queries/components/board-export/export-board.tsx",
+        "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+        "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+        "tack/service/lib/handlers/sqs/publish-post/v5/handle-publish-post-results.ts",
+        "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.test.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+        "tack/service/lib/handlers/api/get-api-errors/get-api-errors-handler.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+        "tack/service/lib/handlers/sqs/access-token-refresh/access-token-refresh-handler.ts",
+        "tack/service/lib/pinterest/get-public-pin-from-pinterest.ts",
+        "tack/service/lib/handlers/sqs/scrape-url-meta/scrape-url-meta-handler.ts",
+        "tack/service/lib/handlers/api/reset-post-status-count/reset-post-status-count.ts",
+        "tack/service/lib/handlers/sqs/scrape-url-meta/enqueue-scrape-url-meta-job.ts",
+        "tack/service/lib/handlers/api/patch-post/patch-post-handler.ts",
+        "tack/service/lib/handlers/api/get-link-stats/get-link-stats-handler.ts",
+        "tack/service/lib/pinterest/pinterest-api/make-request.ts",
+        "tack/service/lib/handlers/sqs/retry-post-count/retry-post-count.ts",
+        "tack/service/lib/facets/user-publishing-status.ts",
+        "tack/service/lib/facets/post-meta.ts",
+        "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+        "tack/service/lib/facets/snapshot-status.ts",
+        "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+        "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+        "charlotte/packages/queue/src/product-details/product-details-handler.ts",
+        "charlotte/packages/handler-utils/utils/errors.ts",
+        "charlotte/packages/core/src/tracing.ts",
+        "charlotte/packages/repositories/src/detect-site-platform.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "charlotte/packages/core/src/timeout.ts",
+        "charlotte/packages/api/src/integrations/squarespace/oauth-finish.ts",
+        "charlotte/packages/repositories/src/platform-store-status/shopify-shop-status.ts",
+        "charlotte/packages/database/src/db-tools/run-migrations.ts",
+        "charlotte/packages/repositories/src/platform-store-status/squarespace-website-status.ts",
+        "charlotte/packages/queue/src/import-blogs/types.ts",
+        "charlotte/packages/api/src/integrations/squarespace/website.ts",
+        "charlotte/packages/queue/src/import-blogs/record-blog-to-db.ts",
+        "charlotte/packages/database/src/db-tools/run-migration-down.ts",
+        "charlotte/packages/queue/src/product-details/fetch-product-details.ts",
+        "charlotte/packages/queue/src/import-blogs/strategies/blog-import-strategy.ts",
+        "charlotte/packages/api/src/integrations/woocommerce/get-products.ts",
+        "charlotte/packages/core/src/system-events.ts",
+        "ghostwriter/stack/service/utils/handler-error-processor.ts",
+        "ghostwriter/client/src/helpers/build-response.ts",
+        "ghostwriter/stack/service/handlers/lambda/stream-generation/handler.ts",
+        "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-content/get-pinterest-title-and-description-from-blog-content.ts",
+        "ghostwriter/stack/service/llm/llama2/requests/stream-completion.ts",
+        "ghostwriter/stack/service/handlers/queue/generation/mark-jobs-as-processing.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption/queue-instagram-caption.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-hashtag/get-hashtag.ts",
+        "ghostwriter/stack/service/handlers/api/generate-image/get-images.ts",
+        "ghostwriter/stack/service/clients/gandalf.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption/queue-facebook-caption.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-copilot-suggestion/generate-copilot-suggestion.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption/queue-instagram-caption.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-etsy-product-listing/get-etsy-product-listing.ts",
+        "ghostwriter/stack/service/utils/is-completion-suspected-prompt-injection.ts",
+        "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+        "ghostwriter/stack/service/handlers/api/generate-improve-content/parse-improve-content.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+        "zuck/service/lib/handlers/api/delete-page-by-id/delete-page-by-id-handler.ts",
+        "zuck/service/lib/handlers/api/get-user-token-status/get-user-token-status-handler.ts",
+        "zuck/service/lib/handlers/api/get-ad-account-reach-estimate/get-ad-account-reach-estimate-handler.ts",
+        "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+        "zuck/service/lib/handlers/api/get-ad-account/get-ad-account-handler.ts",
+        "zuck/service/lib/handlers/api/start-oauth/start-oauth-handler.ts",
+        "zuck/service/lib/handlers/api/get-ad-account-pixels/get-ad-account-pixels-handler.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-error.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-helper.ts",
+        "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+        "zuck/service/lib/handlers/api/get-users/get-users-handler.ts",
+        "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+        "zuck/service/lib/shared/get-user.ts",
+        "zuck/service/lib/handlers/api/code-exchange-oauth/v1-code-exchange-oauth-handler.ts",
+        "zuck/service/lib/handlers/api/get-permissions-by-page-id/get-permissions-by-page-handler.ts",
+        "zuck/service/lib/handlers/api/get-pages-health/get-pages-health-handler.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/publish-posts-handler.ts",
+        "zuck/service/lib/handlers/api/get-locations/get-locations-handler.ts",
+        "zuck/service/lib/handlers/api/get-locations/v2-get-locations-handler.ts"
+      ],
+      "intersection": [],
+      "our_unique": [
+        "aero/packages/bachv2/service/common/utils/email-sending/email-send-errors.ts",
+        "aero/packages/core/src/llm/processors/prompt-injection.ts",
+        "aero/packages/core/src/mailchimp/client.ts",
+        "aero/packages/core/src/pinterest-scraper/board/scrape-board.ts",
+        "aero/packages/core/src/user/user-repository.ts",
+        "aero/packages/duck/app/dashboard/performance/pinterest-analytics.tsx",
+        "aero/packages/etls/lib/clients/dewey.ts",
+        "aero/packages/jarvis/src/client/domains/customers/users/hooks/use-update-user-value-by-field.ts",
+        "aero/packages/jarvis/src/client/domains/queries/components/board-export/export-board.tsx",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/app/upgrade_modal.js",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/timezone-dropdown/timezone-dropdown.js",
+        "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-selection/selected-designs/select-account-for-drafts-dropdown.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/chat/preview/chat-preview-bubble-view_test.js",
+        "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/instagram-caption-use-case/instagram-caption-use-case.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+        "aero/packages/tailwindapp/client/domains/signup/pages/offers/purchase.tsx",
+        "aero/packages/tailwindapp/client/domains/upgrade/hooks/use-annual-upgrade.test.ts",
+        "charlotte/packages/api/src/integrations/squarespace/oauth-finish.ts",
+        "charlotte/packages/api/src/integrations/squarespace/website.ts",
+        "charlotte/packages/api/src/integrations/woocommerce/get-products.ts",
+        "charlotte/packages/core/src/system-events.ts",
+        "charlotte/packages/core/src/timeout.ts",
+        "charlotte/packages/core/src/tracing.ts",
+        "charlotte/packages/database/src/db-tools/run-migration-down.ts",
+        "charlotte/packages/database/src/db-tools/run-migrations.ts",
+        "charlotte/packages/handler-utils/utils/errors.ts",
+        "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+        "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+        "charlotte/packages/queue/src/import-blogs/record-blog-to-db.ts",
+        "charlotte/packages/queue/src/import-blogs/strategies/blog-import-strategy.ts",
+        "charlotte/packages/queue/src/import-blogs/types.ts",
+        "charlotte/packages/queue/src/product-details/fetch-product-details.ts",
+        "charlotte/packages/queue/src/product-details/product-details-handler.ts",
+        "charlotte/packages/repositories/src/detect-site-platform.ts",
+        "charlotte/packages/repositories/src/platform-store-status/shopify-shop-status.ts",
+        "charlotte/packages/repositories/src/platform-store-status/squarespace-website-status.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "ghostwriter/client/src/helpers/build-response.ts",
+        "ghostwriter/stack/service/clients/gandalf.ts",
+        "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+        "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-copilot-suggestion/generate-copilot-suggestion.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-etsy-product-listing/get-etsy-product-listing.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption/queue-facebook-caption.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-hashtag/get-hashtag.ts",
+        "ghostwriter/stack/service/handlers/api/generate-image/get-images.ts",
+        "ghostwriter/stack/service/handlers/api/generate-improve-content/parse-improve-content.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption/queue-instagram-caption.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption/queue-instagram-caption.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-content/get-pinterest-title-and-description-from-blog-content.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.ts",
+        "ghostwriter/stack/service/handlers/lambda/stream-generation/handler.ts",
+        "ghostwriter/stack/service/handlers/queue/generation/mark-jobs-as-processing.ts",
+        "ghostwriter/stack/service/llm/llama2/requests/stream-completion.ts",
+        "ghostwriter/stack/service/utils/handler-error-processor.ts",
+        "ghostwriter/stack/service/utils/is-completion-suspected-prompt-injection.ts",
+        "tack/service/lib/facets/post-meta.ts",
+        "tack/service/lib/facets/snapshot-status.ts",
+        "tack/service/lib/facets/user-publishing-status.ts",
+        "tack/service/lib/handlers/api/get-api-errors/get-api-errors-handler.ts",
+        "tack/service/lib/handlers/api/get-link-stats/get-link-stats-handler.ts",
+        "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+        "tack/service/lib/handlers/api/patch-post/patch-post-handler.ts",
+        "tack/service/lib/handlers/api/reset-post-status-count/reset-post-status-count.ts",
+        "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+        "tack/service/lib/handlers/sqs/access-token-refresh/access-token-refresh-handler.ts",
+        "tack/service/lib/handlers/sqs/publish-post/v5/handle-publish-post-results.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+        "tack/service/lib/handlers/sqs/retry-post-count/retry-post-count.ts",
+        "tack/service/lib/handlers/sqs/scrape-url-meta/enqueue-scrape-url-meta-job.ts",
+        "tack/service/lib/handlers/sqs/scrape-url-meta/scrape-url-meta-handler.ts",
+        "tack/service/lib/pinterest/get-public-pin-from-pinterest.ts",
+        "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.test.ts",
+        "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+        "tack/service/lib/pinterest/pinterest-api/make-request.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-error.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+        "zuck/service/lib/handlers/api/code-exchange-oauth/v1-code-exchange-oauth-handler.ts",
+        "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+        "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+        "zuck/service/lib/handlers/api/delete-page-by-id/delete-page-by-id-handler.ts",
+        "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+        "zuck/service/lib/handlers/api/get-ad-account-pixels/get-ad-account-pixels-handler.ts",
+        "zuck/service/lib/handlers/api/get-ad-account-reach-estimate/get-ad-account-reach-estimate-handler.ts",
+        "zuck/service/lib/handlers/api/get-ad-account/get-ad-account-handler.ts",
+        "zuck/service/lib/handlers/api/get-locations/get-locations-handler.ts",
+        "zuck/service/lib/handlers/api/get-locations/v2-get-locations-handler.ts",
+        "zuck/service/lib/handlers/api/get-pages-health/get-pages-health-handler.ts",
+        "zuck/service/lib/handlers/api/get-permissions-by-page-id/get-permissions-by-page-handler.ts",
+        "zuck/service/lib/handlers/api/get-user-token-status/get-user-token-status-handler.ts",
+        "zuck/service/lib/handlers/api/get-users/get-users-handler.ts",
+        "zuck/service/lib/handlers/api/start-oauth/start-oauth-handler.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/publish-posts-handler.ts",
+        "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-helper.ts",
+        "zuck/service/lib/shared/get-user.ts"
+      ],
+      "ground_truth_unique": [],
+      "our_unique_judgments": [
+        {
+          "file": "aero/packages/bachv2/service/common/utils/email-sending/email-send-errors.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/llm/processors/prompt-injection.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/mailchimp/client.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/pinterest-scraper/board/scrape-board.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/user/user-repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/duck/app/dashboard/performance/pinterest-analytics.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/etls/lib/clients/dewey.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/jarvis/src/client/domains/customers/users/hooks/use-update-user-value-by-field.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/jarvis/src/client/domains/queries/components/board-export/export-board.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/app/upgrade_modal.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/timezone-dropdown/timezone-dropdown.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/admin/js/jquery.dataTables.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/hootsuite.min.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-selection/selected-designs/select-account-for-drafts-dropdown.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/chat/preview/chat-preview-bubble-view_test.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/instagram-caption-use-case/instagram-caption-use-case.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-to-smart-bio-field/add-to-smart-bio-field.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/signup/pages/offers/purchase.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/upgrade/hooks/use-annual-upgrade.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/integrations/squarespace/oauth-finish.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/integrations/squarespace/website.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/integrations/woocommerce/get-products.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/core/src/system-events.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/core/src/timeout.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/core/src/tracing.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/database/src/db-tools/run-migration-down.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/database/src/db-tools/run-migrations.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/handler-utils/utils/errors.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/import-blogs/record-blog-to-db.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/import-blogs/strategies/blog-import-strategy.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/import-blogs/types.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/product-details/fetch-product-details.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/product-details/product-details-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/detect-site-platform.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/platform-store-status/shopify-shop-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/platform-store-status/squarespace-website-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/helpers/build-response.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/clients/gandalf.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-copilot-suggestion/generate-copilot-suggestion.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-etsy-product-listing/get-etsy-product-listing.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-facebook-caption/queue-facebook-caption.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-hashtag/get-hashtag.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-image/get-images.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-improve-content/parse-improve-content.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption/queue-instagram-caption.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption/queue-instagram-caption.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-content/get-pinterest-title-and-description-from-blog-content.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/lambda/stream-generation/handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/queue/generation/mark-jobs-as-processing.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/llm/llama2/requests/stream-completion.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/handler-error-processor.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/is-completion-suspected-prompt-injection.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/facets/post-meta.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/facets/snapshot-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/facets/user-publishing-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-api-errors/get-api-errors-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-link-stats/get-link-stats-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/oauth-finalize/oauth-finalize-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/patch-post/patch-post-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/reset-post-status-count/reset-post-status-count.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/update-post-count/batchTransactPostStatusCount.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/access-token-refresh/access-token-refresh-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/publish-post/v5/handle-publish-post-results.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/retry-post-count/retry-post-count.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/scrape-url-meta/enqueue-scrape-url-meta-job.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/scrape-url-meta/scrape-url-meta-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/get-public-pin-from-pinterest.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/make-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-error.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/code-exchange-oauth/v1-code-exchange-oauth-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/delete-page-by-id/delete-page-by-id-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-ad-account-pixels/get-ad-account-pixels-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-ad-account-reach-estimate/get-ad-account-reach-estimate-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-ad-account/get-ad-account-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-locations/get-locations-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-locations/v2-get-locations-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-pages-health/get-pages-health-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-permissions-by-page-id/get-permissions-by-page-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-user-token-status/get-user-token-status-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-users/get-users-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/start-oauth/start-oauth-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/publish-posts-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/verify-token-status/verify-token-status-helper.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/shared/get-user.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        }
+      ],
+      "precision": 0.0,
+      "recall": 0.0,
+      "calibration_data": null
+    }
+  ]
+}

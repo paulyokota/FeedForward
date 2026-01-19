@@ -130,15 +130,17 @@ class TestBuildSearchPatterns:
     """Tests for _build_search_patterns() method."""
 
     def test_basic_patterns(self):
-        """Should include basic file type patterns."""
+        """Should include Tailwind-specific file type patterns."""
         provider = CodebaseContextProvider()
         theme_data = {}
         patterns = provider._build_search_patterns(theme_data)
 
-        assert "**/*.py" in patterns
-        assert "**/*.js" in patterns
-        assert "**/*.ts" in patterns
-        assert "**/*.tsx" in patterns
+        # Should include TypeScript monorepo patterns (aero, charlotte)
+        assert "packages/**/*.ts" in patterns
+        assert "packages/**/*.tsx" in patterns
+        # Should include service patterns (tack, zuck, ghostwriter)
+        assert "service/**/*.py" in patterns
+        assert "client/**/*.ts" in patterns
 
     def test_product_area_patterns(self):
         """Should add patterns for product_area."""

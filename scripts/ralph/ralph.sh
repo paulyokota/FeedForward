@@ -67,6 +67,19 @@ echo ""
 echo "=== Ralph Loop Started at $(date) ===" >> "${SCRIPT_DIR}/progress.txt"
 echo "" >> "${SCRIPT_DIR}/progress.txt"
 
+# Add fresh run marker (prevents premature completion)
+echo -e "${YELLOW}Adding fresh run marker to prevent premature completion...${NC}"
+echo "=== FRESH RUN MARKER ===" >> "${SCRIPT_DIR}/progress.txt"
+echo "This is a new run. Previous completion status is invalid." >> "${SCRIPT_DIR}/progress.txt"
+echo "Ralph must do actual work before declaring completion." >> "${SCRIPT_DIR}/progress.txt"
+echo "" >> "${SCRIPT_DIR}/progress.txt"
+
+# Invalidate previous validation token
+if [ -f "${OUTPUT_DIR}/last_validation.json" ]; then
+    echo -e "${YELLOW}Invalidating previous validation token...${NC}"
+    mv "${OUTPUT_DIR}/last_validation.json" "${OUTPUT_DIR}/last_validation.json.previous_run"
+fi
+
 # Main loop
 while [ $ITERATION -lt $MAX_ITERATIONS ]; do
     ITERATION=$((ITERATION + 1))

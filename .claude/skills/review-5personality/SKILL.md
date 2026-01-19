@@ -89,33 +89,46 @@ This skill deploys 5 separate reviewers, each with a unique focus area. Reviews 
 
 ### Phase 2: Deploy Reviewers
 
-1. **Launch in Parallel**
+1. **Create Review Directory**
 
    ```
-   Agent("Reginald", personality + code)
-   Agent("Sanjay", personality + code)
-   Agent("Quinn", personality + code)
-   Agent("Dmitri", personality + code)
-   Agent("Maya", personality + code)
+   mkdir -p .claude/reviews/PR-{N}
    ```
 
-2. **Wait for All to Complete**
+2. **Launch in Parallel**
+
+   ```
+   Agent("Reginald", personality + code + "PR #{N} Round {R}")
+   Agent("Sanjay", personality + code + "PR #{N} Round {R}")
+   Agent("Quinn", personality + code + "PR #{N} Round {R}")
+   Agent("Dmitri", personality + code + "PR #{N} Round {R}")
+   Agent("Maya", personality + code + "PR #{N} Round {R}")
+   ```
+
+3. **Wait for All to Complete**
+   - Each writes to `.claude/reviews/PR-{N}/{name}.md` and `.json`
+   - Returns short summary (5-10 lines)
    - Don't aggregate until all 5 finish
-   - Each provides independent perspective
 
 ### Phase 3: Process Findings
 
-1. **Aggregate Issues**
+1. **Read JSON Files** (context-efficient)
+   - Read `.claude/reviews/PR-{N}/*.json` (~2-5KB each)
    - HIGH/CRITICAL issues first
-   - Group similar issues
-   - Note which files affected
+   - Check `scope` field for systemic vs isolated
+   - Only read `.md` files if `see_verbose: true`
 
-2. **Route to Developers**
+2. **Validate Assumptions**
+   - Check `verify` field on each issue
+   - Tech Lead confirms or dismisses based on verification
+   - Don't fix issues with unverified assumptions
+
+3. **Route to Developers**
    - Use Session Touch Log to identify who wrote what
    - Route issues to original developer
    - Invoke Learning Loop skill
 
-3. **Dev Implements Fixes**
+4. **Dev Implements Fixes**
    - Original developer addresses their issues
    - Commits fixes
    - Notifies Tech Lead when complete
@@ -151,6 +164,65 @@ This skill deploys 5 separate reviewers, each with a unique focus area. Reviews 
 - **MUST** continue until convergence (no new issues)
 - **DO NOT** merge before convergence
 - **DO NOT** fix issues yourself (Tech Lead) - route to original dev
+
+## Review Output Format
+
+**CRITICAL**: Reviewers output in a hybrid format to preserve context while keeping outputs compact.
+
+### Output Structure
+
+Each reviewer produces THREE outputs:
+
+1. **Verbose Markdown** (`.claude/reviews/PR-{N}/{reviewer}.md`)
+   - Full analysis with code snippets, traces, and reasoning
+   - Used for deep dives when needed
+   - ~5-50KB per reviewer
+
+2. **Compact JSON** (`.claude/reviews/PR-{N}/{reviewer}.json`)
+   - Structured findings for quick triage
+   - ~2-5KB per reviewer
+   - Contains: severity, confidence, category, why, fix, verify, scope
+
+3. **Summary Message** (returned to Tech Lead)
+   - 5-10 lines summarizing verdict and issue counts
+   - Points to files for details
+
+### Directory Structure
+
+```
+.claude/reviews/
+├── SCHEMA.md           # Full format documentation
+└── PR-38/
+    ├── reginald.md     # Verbose analysis
+    ├── reginald.json   # Compact findings
+    ├── sanjay.md
+    ├── sanjay.json
+    ├── quinn.md
+    ├── quinn.json
+    ├── dmitri.md
+    ├── dmitri.json
+    ├── maya.md
+    └── maya.json
+```
+
+### Issue ID Prefixes
+
+Each reviewer uses a unique prefix for issue IDs:
+
+- **R1, R2...** - Reginald (Architect)
+- **S1, S2...** - Sanjay (Security)
+- **Q1, Q2...** - Quinn (Quality)
+- **D1, D2...** - Dmitri (Pragmatist)
+- **M1, M2...** - Maya (Maintainer)
+
+### Processing Review Output
+
+1. **Read JSON files** for quick triage (~2-5KB each)
+2. **Read MD files only if** `see_verbose: true` or need more context
+3. **Use `verify` field** to check assumptions before acting
+4. **Use `scope` field** to identify systemic vs isolated issues
+
+See `.claude/reviews/SCHEMA.md` for full field documentation.
 
 ## Reviewer Special Authorities
 

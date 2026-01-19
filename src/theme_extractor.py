@@ -11,7 +11,10 @@ import os
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .research.unified_search import UnifiedSearchService
 
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / ".env"
@@ -67,6 +70,8 @@ Your job is to extract a structured "theme" from a customer support conversation
 {product_context}
 
 {url_context_hint}
+
+{research_context}
 
 ## KNOWN THEMES
 
@@ -229,13 +234,28 @@ class Theme:
 class ThemeExtractor:
     """Extracts themes from classified conversations with signature canonicalization."""
 
-    def __init__(self, model: str = "gpt-4o-mini", use_vocabulary: bool = True):
+    def __init__(
+        self,
+        model: str = "gpt-4o-mini",
+        use_vocabulary: bool = True,
+        search_service: Optional["UnifiedSearchService"] = None,
+    ):
+        """
+        Initialize the theme extractor.
+
+        Args:
+            model: OpenAI model to use for extraction
+            use_vocabulary: Whether to use the theme vocabulary for matching
+            search_service: Optional UnifiedSearchService for context augmentation.
+                           If provided, extracts research context to enrich prompts.
+        """
         self.client = OpenAI()
         self.model = model
         self._product_context = None
         self._existing_signatures = None
         self._vocabulary = None
         self.use_vocabulary = use_vocabulary
+        self._search_service = search_service
 
     @property
     def vocabulary(self):
@@ -254,6 +274,46 @@ class ThemeExtractor:
             self._product_context = load_product_context()
             logger.info(f"Loaded {len(self._product_context)} chars of product context")
         return self._product_context
+
+    def get_research_context(self, conversation_text: str, max_results: int = 3) -> str:
+        """
+        Get research context from semantic search to augment theme extraction.
+
+        Args:
+            conversation_text: Customer message text to use as search query
+            max_results: Maximum research items to include
+
+        Returns:
+            Formatted research context string, or empty string if unavailable
+        """
+        if not self._search_service:
+            return ""
+
+        try:
+            # Search for relevant research (Coda only, not Intercom)
+            results = self._search_service.search_for_context(
+                query=conversation_text[:500],  # Limit query length
+                max_results=max_results,
+            )
+
+            if not results:
+                return ""
+
+            # Format as context for the prompt
+            context_parts = ["## Related Research Insights\n"]
+            for i, result in enumerate(results, 1):
+                context_parts.append(
+                    f"{i}. **{result.title}** ({result.source_type})\n"
+                    f"   {result.snippet}\n"
+                )
+
+            logger.info(f"Added {len(results)} research context items to theme extraction")
+            return "\n".join(context_parts)
+
+        except Exception as e:
+            # Graceful degradation - extraction continues without context
+            logger.warning(f"Research context unavailable: {e}")
+            return ""
 
     def get_existing_signatures(self, product_area: str = None) -> list[dict]:
         """
@@ -483,10 +543,14 @@ The user was on a page related to **{url_matched_product_area}** when they start
             match_instruction = "**Match first**: Strongly prefer matching to known themes. Only create new if truly different."
             new_theme_reasoning = ". If proposing new, explain why none of the known themes fit"
 
+        # Get research context for enrichment (if search service available)
+        research_context = self.get_research_context(conv.source_body or "")
+
         # Phase 1: Extract theme details (with vocabulary-aware prompt)
         prompt = THEME_EXTRACTION_PROMPT.format(
             product_context=self.product_context[:10000],  # Limit context size
             url_context_hint=url_context_hint,
+            research_context=research_context,
             known_themes=known_themes or "(No known themes yet - create new signatures as needed)",
             signature_quality_examples=signature_quality_examples,
             strict_mode_instructions=strict_mode_instructions,

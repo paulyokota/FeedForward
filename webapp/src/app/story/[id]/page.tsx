@@ -11,6 +11,7 @@ import { FeedForwardLogo } from "@/components/FeedForwardLogo";
 import { ShortcutSyncPanel } from "@/components/ShortcutSyncPanel";
 import { LabelPicker } from "@/components/LabelPicker";
 import { EvidenceBrowser } from "@/components/EvidenceBrowser";
+import { SuggestedEvidence } from "@/components/SuggestedEvidence";
 
 const SEVERITY_OPTIONS = [
   { value: "", label: "None" },
@@ -298,6 +299,15 @@ export default function StoryDetailPage() {
           {/* Evidence Section - using EvidenceBrowser component */}
           <section className="content-section">
             <EvidenceBrowser evidence={story.evidence} />
+            {/* Suggested Research Evidence */}
+            <SuggestedEvidence
+              storyId={story.id}
+              onEvidenceAccepted={async () => {
+                // Refresh story data to show newly accepted evidence
+                const data = await api.stories.get(story.id);
+                setStory(data);
+              }}
+            />
           </section>
 
           {/* Comments Section */}

@@ -1,0 +1,83 @@
+{
+  "min_iterations": 2,
+  "max_iterations": 3,
+  "baseline_batch_size": 5,
+  "iteration_batch_size": 3,
+  "precision_threshold": 0.8,
+  "recall_threshold": 0.7,
+  "gestalt_threshold": 4.0,
+  "anomaly_threshold": 0.15,
+  "regression_threshold": 0.1,
+  "classification_accuracy_threshold": 0.85,
+  "calibration_overlap_threshold": 0.9,
+  "calibration_iterations": 2,
+  "product_areas": [
+    {
+      "name": "communities",
+      "keywords": [
+        "pins",
+        "members",
+        "community feed",
+        "posts",
+        "groups",
+        "community",
+        "pin"
+      ]
+    },
+    {
+      "name": "scheduling",
+      "keywords": [
+        "calendar",
+        "schedule",
+        "publish",
+        "queue",
+        "optimal times",
+        "scheduled",
+        "posting"
+      ]
+    },
+    {
+      "name": "analytics",
+      "keywords": [
+        "metrics",
+        "insights",
+        "reports",
+        "performance",
+        "engagement",
+        "analytics",
+        "stats"
+      ]
+    },
+    {
+      "name": "integrations",
+      "keywords": [
+        "connect",
+        "disconnect",
+        "oauth",
+        "permissions",
+        "third-party",
+        "integration",
+        "authorize"
+      ]
+    },
+    {
+      "name": "onboarding",
+      "keywords": [
+        "setup",
+        "getting started",
+        "first time",
+        "trial",
+        "onboarding",
+        "new account"
+      ]
+    }
+  ],
+  "approved_repos": ["aero", "tack", "charlotte", "ghostwriter", "zuck"],
+  "repos_path": "${REPOS_PATH}",
+  "models": {
+    "exploration_opus": "claude-opus-4-20250514",
+    "exploration_sonnet": "claude-sonnet-4-20250514",
+    "judge": "claude-opus-4-20250514",
+    "classification": "claude-sonnet-4-20250514"
+  }
+}

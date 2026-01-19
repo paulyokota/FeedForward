@@ -1,0 +1,51 @@
+[
+  {
+    "conversation_id": "215472709098425",
+    "issue_summary": "How do i permanently delete my instagram from TW? I can't get past the reconnect IG popup to be able to use the app for pinterest on my phone and it's driving me crazy. I have no plans to use it for IG.",
+    "product_area": "uncertain",
+    "classification_confidence": 0.14285714285714285,
+    "created_at": "2026-01-16T12:57:24",
+    "source_url": "https://www.tailwindapp.com/dashboard/v2/advanced-scheduler/pinterest",
+    "matched_keywords": [
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "215472568721132",
+    "issue_summary": "Hello, For some reason, my Tailwind account status has been cancelled and has moved to the Free version and it\u2019s giving me an error message when I attempt to reactivate my previous plan. I assume that this is a glitch that you guys are experiencing, but I\u2019m curious if you know when you expect to ...",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-06T15:18:49",
+    "source_url": null,
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472684582963",
+    "issue_summary": "how do I cancel my subscription",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-15T02:35:51",
+    "source_url": "https://www.tailwindapp.com/dashboard/settings/billing",
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472694802695",
+    "issue_summary": "trying to upgrade and getting an error message",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-15T15:43:38",
+    "source_url": "https://www.tailwindapp.com/dashboard/settings/accounts?status=error&message=Something+went+wrong+charging+your+card",
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472593493108",
+    "issue_summary": "Dear Sir or Madam, I have a request regarding our latest invoice (731994883). Unfortunately, a few personal information are wrong. First of all, our company/organization name is 2Bild GmbH, not pennydeutschland. pennydeutschland is just the Pinterest account we are managing with Tailwind. The user ...",
+    "product_area": "uncertain",
+    "classification_confidence": 0.14285714285714285,
+    "created_at": "2026-01-08T06:29:53",
+    "source_url": null,
+    "matched_keywords": [
+      "pin"
+    ]
+  }
+]

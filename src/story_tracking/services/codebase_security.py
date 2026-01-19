@@ -108,6 +108,11 @@ def validate_path(path: str) -> bool:
         >>> validate_path("../../../etc/passwd")
         False
     """
+    # Reject empty or whitespace-only paths
+    if not path or not path.strip():
+        logger.warning("Path validation failed: empty or whitespace path")
+        return False
+
     try:
         resolved = Path(path).resolve()
         is_valid = resolved.is_relative_to(REPO_BASE_PATH)

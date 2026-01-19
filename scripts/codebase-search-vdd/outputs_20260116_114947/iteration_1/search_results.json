@@ -1,0 +1,2400 @@
+{
+  "conversations": [
+    {
+      "conversation_id": "215472698970424",
+      "issue_summary": "my post link pictures aren't loading",
+      "product_area": "uncertain",
+      "classification_confidence": 0.0,
+      "search_results": {
+        "files_found": [
+          {
+            "repo": "aero",
+            "path": "aero/packages/bachv2/service/draft-generation/request-processor/blog-post-fetcher.ts",
+            "line_start": 5,
+            "relevance": "57 matches: post"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/destination-posts/hooks/use-instagram-feed-post.ts",
+            "line_start": 3,
+            "relevance": "56 matches: post, loading"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/e2e/quickSchedule/publishing/publishPostPinterest.playwright.ts",
+            "line_start": 3,
+            "relevance": "29 matches: post, link"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/e2e/quickSchedule/scheduling/scheduleInstagramPosts.playwright.ts",
+            "line_start": 6,
+            "relevance": "28 matches: post"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/core/src/llm/prompts/definitions/facebook-post.ts",
+            "line_start": 8,
+            "relevance": "21 matches: post"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/visual-planning/post-editor/post-caption-auto-save-view_test.js",
+            "line_start": 3,
+            "relevance": "20 matches: post, loading"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+            "line_start": 27,
+            "relevance": "16 matches: post"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/pinteresto-auth/error.tsx",
+            "line_start": 37,
+            "relevance": "14 matches: aren, post, link"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/e2e/billing/planLimitTopNav.playwright.ts",
+            "line_start": 60,
+            "relevance": "12 matches: post, loading"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/caption-field/ghostwriter/use-ghostwriter-captions.ts",
+            "line_start": 30,
+            "relevance": "12 matches: loading"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/react/app/state-changers/instagram/post/update-instagram-db-hashtags-in-first-comment-reducer.js",
+            "line_start": 4,
+            "relevance": "10 matches: post"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/insights/hooks/use-active-insights-account.ts",
+            "line_start": 31,
+            "relevance": "10 matches: loading"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwind-api-sdk/src/legacy/domains/instagram/requests/stories/post-story.ts",
+            "line_start": 11,
+            "relevance": "8 matches: post"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/simplify-content-use-case.tsx",
+            "line_start": 27,
+            "relevance": "7 matches: loading"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/extension/environment/env.ts",
+            "line_start": 38,
+            "relevance": "6 matches: post"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/dialog.js",
+            "line_start": 106,
+            "relevance": "6 matches: aren"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/Snap.svg/doc/js/prism.js",
+            "line_start": 5,
+            "relevance": "5 matches: aren, post"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/visual-planning/drag-image-view_test.js",
+            "line_start": 6,
+            "relevance": "5 matches: post"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/core/src/llm/prompts/definitions/gemini-pin-quality-analysis.ts",
+            "line_start": 58,
+            "relevance": "4 matches: aren, post"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/create/hooks/use-template-filter.ts",
+            "line_start": 4,
+            "relevance": "4 matches: post, link"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+            "line_start": 2,
+            "relevance": "130 matches: post, link"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/queue-post-to-publish/get-pinterest-method-map.ts",
+            "line_start": 15,
+            "relevance": "106 matches: aren, post, link"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-handler.test.ts",
+            "line_start": 2,
+            "relevance": "100 matches: post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/facets/post.test.ts",
+            "line_start": 3,
+            "relevance": "93 matches: post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/put-batch-posts/put-batch-posts-handler.test.ts",
+            "line_start": 2,
+            "relevance": "84 matches: post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/patch-post/patch-post-handler.ts",
+            "line_start": 6,
+            "relevance": "82 matches: post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/get-link-stats/get-link-stats-handler.test.ts",
+            "line_start": 2,
+            "relevance": "72 matches: post, link"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/pabloize-media/pabloize-media.test.ts",
+            "line_start": 2,
+            "relevance": "68 matches: post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/client/src/index.ts",
+            "line_start": 5,
+            "relevance": "68 matches: post, link"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/publish-post/mark-post-as-published.test.ts",
+            "line_start": 3,
+            "relevance": "60 matches: post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/get-post-links/get-post-links-handler.ts",
+            "line_start": 6,
+            "relevance": "56 matches: post, link"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/put-batch-posts/put-batch-posts-handler.ts",
+            "line_start": 3,
+            "relevance": "56 matches: post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/client/src/types/post.ts",
+            "line_start": 142,
+            "relevance": "52 matches: aren, post, link"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+            "line_start": 105,
+            "relevance": "50 matches: aren, post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+            "line_start": 95,
+            "relevance": "47 matches: aren, post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/publish-post/publish-post-handler.ts",
+            "line_start": 2,
+            "relevance": "46 matches: post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+            "line_start": 2,
+            "relevance": "43 matches: post, link"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/put-post/queue-interval-board-pins.test.ts",
+            "line_start": 1,
+            "relevance": "37 matches: post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/facets/user-post-url-meta-scrape-job.ts",
+            "line_start": 8,
+            "relevance": "34 matches: post"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/pabloize-media/pabloize-media.ts",
+            "line_start": 3,
+            "relevance": "32 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/repositories/src/blog-post-repository.ts",
+            "line_start": 3,
+            "relevance": "237 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/types/blog.ts",
+            "line_start": 5,
+            "relevance": "53 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/charlotte.ts",
+            "line_start": 21,
+            "relevance": "36 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+            "line_start": 141,
+            "relevance": "31 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/repositories/src/types/blog-post.ts",
+            "line_start": 1,
+            "relevance": "24 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/api/src/blog/get-site-blog-posts.ts",
+            "line_start": 3,
+            "relevance": "18 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/core/src/utils.test.ts",
+            "line_start": 43,
+            "relevance": "11 matches: post, link, loading"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/database/src/db-types.d.ts",
+            "line_start": 7,
+            "relevance": "10 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/requests/get-site-blog-posts.ts",
+            "line_start": 2,
+            "relevance": "9 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/requests/create-blog-post.ts",
+            "line_start": 3,
+            "relevance": "9 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/database/src/db-tools/migrations/2024-04-30t16-54.blog-images-table.ts",
+            "line_start": 10,
+            "relevance": "8 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+            "line_start": 231,
+            "relevance": "6 matches: aren, post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/requests/get-blog-post.ts",
+            "line_start": 2,
+            "relevance": "6 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/database/src/db-tools/migrations/2024-05-09t16-45.add-missing-product-media-index.ts",
+            "line_start": 14,
+            "relevance": "5 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/stacks/modular-stacks/IntegrationModule.ts",
+            "line_start": 58,
+            "relevance": "4 matches: post, link"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/api/src/site/get-or-create-site.ts",
+            "line_start": 53,
+            "relevance": "4 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/requests/delete-blog-post.ts",
+            "line_start": 2,
+            "relevance": "4 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/queue/src/import-blogs/init-blog-import.ts",
+            "line_start": 12,
+            "relevance": "3 matches: aren, post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/core/src/s3.ts",
+            "line_start": 11,
+            "relevance": "3 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/api/src/users/get-sites.ts",
+            "line_start": 33,
+            "relevance": "2 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer-config.ts",
+            "line_start": 21,
+            "relevance": "57 matches: post, link"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+            "line_start": 25,
+            "relevance": "33 matches: aren, post, link"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+            "line_start": 43,
+            "relevance": "25 matches: aren, post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-product-title/prompts.ts",
+            "line_start": 5,
+            "relevance": "18 matches: post, link"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-facebook-post.ts",
+            "line_start": 13,
+            "relevance": "15 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/utils/code-generator/script.ts",
+            "line_start": 160,
+            "relevance": "10 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-instagram-caption/prompts.ts",
+            "line_start": 1,
+            "relevance": "10 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+            "line_start": 19,
+            "relevance": "6 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-email-subject/shots.ts",
+            "line_start": 61,
+            "relevance": "6 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/client/src/requests/queue-blog-wizard-step.ts",
+            "line_start": 59,
+            "relevance": "5 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-facebook-caption/queue-facebook-caption.handler.ts",
+            "line_start": 16,
+            "relevance": "3 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-blog-article-topic-idea/prompts.ts",
+            "line_start": 17,
+            "relevance": "3 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+            "line_start": 28,
+            "relevance": "3 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-seo-blog-posts-title-meta-description/generate-seo-blog-posts-title-meta-description-schema.ts",
+            "line_start": 3,
+            "relevance": "3 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+            "line_start": 19,
+            "relevance": "2 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-seo-product-page-title-meta-description/prompts.ts",
+            "line_start": 36,
+            "relevance": "2 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-blog-editor/prompts.ts",
+            "line_start": 11,
+            "relevance": "2 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/utils/prompts/personalizationPrompt.test.ts",
+            "line_start": 27,
+            "relevance": "1 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-conclusion-step.ts",
+            "line_start": 32,
+            "relevance": "1 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.handler.ts",
+            "line_start": 16,
+            "relevance": "1 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/handle-publish-post-results.ts",
+            "line_start": 2,
+            "relevance": "129 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/publish-post.ts",
+            "line_start": 3,
+            "relevance": "61 matches: post, link"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/data/models/post.ts",
+            "line_start": 11,
+            "relevance": "44 matches: post, link"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+            "line_start": 3,
+            "relevance": "42 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+            "line_start": 4,
+            "relevance": "36 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/test-bed/components/app.tsx",
+            "line_start": 3,
+            "relevance": "36 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/test/post-fixture.ts",
+            "line_start": 4,
+            "relevance": "22 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+            "line_start": 2,
+            "relevance": "21 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/get-post-by-status/get-post-by-status-handler.ts",
+            "line_start": 8,
+            "relevance": "20 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/utils/zuckify-media-urls.ts",
+            "line_start": 4,
+            "relevance": "16 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+            "line_start": 6,
+            "relevance": "15 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/get-post-by-only-id/get-post-by-only-id-handler.ts",
+            "line_start": 4,
+            "relevance": "14 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/get-posts-by-send-at/get-posts-by-send-at-handler.ts",
+            "line_start": 3,
+            "relevance": "14 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/delete-page-by-id/delete-page-by-id-handler.ts",
+            "line_start": 12,
+            "relevance": "12 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/cron/queue-posts/queue-posts-handler.ts",
+            "line_start": 3,
+            "relevance": "12 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/get-post-by-id/get-post-by-id-handler.ts",
+            "line_start": 4,
+            "relevance": "11 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/data/repository/s3-deleted-post-repository.ts",
+            "line_start": 3,
+            "relevance": "11 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/data/events/publish-post-event.ts",
+            "line_start": 3,
+            "relevance": "10 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/client/src/types/requests/create-page-post-request.ts",
+            "line_start": 2,
+            "relevance": "8 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/client/src/types/requests/update-page-post-request.ts",
+            "line_start": 2,
+            "relevance": "8 matches: post"
+          }
+        ],
+        "snippets": [
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/bachv2/service/draft-generation/request-processor/blog-post-fetcher.ts",
+            "line_start": 1,
+            "line_end": 15,
+            "content": "import { z } from \"zod\";\nimport { getCharlotteServerClient } from \"../../common/clients/charlotte\";\nimport { sample } from \"../../common/utils/sample\";\nimport { scoobyClient } from \"../clients/scooby\";\nimport { BlogPostError } from \"../queue/made-for-you/blog-post-error\";\n\ntype BlogPost = {\n\tid: string;\n\ttitle: string;\n\tcontent: string;\n\timageUrls: Array<string>;\n\turl: string;\n\tsourceType: \"blog\";\n\tsiteId?: string;\n};\n",
+            "language": "typescript",
+            "context": "57 matches: post"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/tailwindapp/client/domains/destination-posts/hooks/use-instagram-feed-post.ts",
+            "line_start": 1,
+            "line_end": 13,
+            "content": "import useSWR from \"swr\";\nimport { tailwindappApiClient } from \"@/client/clients/tailwindapp-api-client\";\nimport { useInstagramFeedPosts } from \"@/client/domains/destination-posts/hooks/use-instagram-feed-posts\";\nimport type { PostType } from \"@/client/domains/destination-posts/types/destination-post\";\nimport type {\n\tDeletePostOptions,\n\tUpdatePostOptions,\n\tUseDestinationPostReturnValue,\n} from \"@/client/domains/destination-posts/types/hooks\";\nimport type { InstagramFeedPost } from \"@/client/doma",
+            "language": "typescript",
+            "context": "56 matches: post, loading"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/e2e/quickSchedule/publishing/publishPostPinterest.playwright.ts",
+            "line_start": 1,
+            "line_end": 13,
+            "content": "import {\n\ttype Browser,\n\tcreateRandomPostData,\n\tenterDraftInfo,\n\texpect,\n\tgetStorageState,\n\tlaunchPage,\n\tsoftExpect,\n\ttest,\n\tuploadNewDraft,\n\tuserCredentials,\n} from \"playwright-utils/src/index\";\n\n",
+            "language": "typescript",
+            "context": "29 matches: post, link"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/e2e/quickSchedule/scheduling/scheduleInstagramPosts.playwright.ts",
+            "line_start": 1,
+            "line_end": 16,
+            "content": "import {\n\tenterDraftInfo,\n\texpect,\n\tgetCustId,\n\tgetStorageState,\n\ttype PostType,\n\tsafeGoTo,\n\tsoftExpect,\n\ttest,\n\tuploadNewDraft,\n} from \"playwright-utils/src/index\";\n\nconst instagramPostTypes: PostType[] = [\"instagramfeed\"];\n\ntest.describe.configure({ mode: \"parallel\" });\n// Test is skipped until we figure out the SMS issues on QA\n",
+            "language": "typescript",
+            "context": "28 matches: post"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/core/src/llm/prompts/definitions/facebook-post.ts",
+            "line_start": 1,
+            "line_end": 18,
+            "content": "import { z } from \"zod/v4\";\nimport { OpenAIClient } from \"../../../openai/server\";\nimport { checkForPromptInjection } from \"../../processors/prompt-injection\";\nimport { PromptConfig } from \"../prompt-config\";\nimport { compileTemplate } from \"../template\";\n\nconst template = `# Instructions\n- Write 3 unique and compelling Facebook posts about \u201c{{topic}}\u201d.\n- Always provide 3 posts.\n- If the topic provided is indicative of a blog post, article, guide, listicle, or recipe, write a brief teaser style ",
+            "language": "typescript",
+            "context": "21 matches: post"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+            "line_start": 1,
+            "line_end": 12,
+            "content": "import { getUnixTime, subDays, subHours } from 'date-fns';\nimport { PostFailureReason, Post, PostStatus, PostMediaType, ActivePost } from '../../../facets/post';\nimport { Token } from '../../../facets/token';\nimport { VideoContainerStatus } from '../../../facets/video-container';\nimport { Log } from '../../../log';\nimport { Queue } from '../../../queue';\nimport { resetTestTable } from '../../../utils/reset-test-table';\nimport { times } from '../../../utils/times';\nimport { PostMocker } from '../",
+            "language": "typescript",
+            "context": "130 matches: post, link"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/handlers/sqs/queue-post-to-publish/get-pinterest-method-map.ts",
+            "line_start": 5,
+            "line_end": 25,
+            "content": "import { Log } from '../../../log';\nimport { getPostMetaForPost, PostMetaFacet } from '../../../facets/post-meta';\nimport { PostMethodObject, PinterestMethod } from '../publish-post/publish-post-event';\nimport { getUserAccountWebsites } from '../../../clients/pinterestv5/get-user-account-websites';\nimport { TokenV5Facet } from '../../../facets/tokenv5';\n\nexport type PinterestMethodMap = { [postId: string]: PostMethodObject };\n\nexport type PinterestMethodResult = PostMethodObject & { postId: stri",
+            "language": "typescript",
+            "context": "106 matches: aren, post, link"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-handler.test.ts",
+            "line_start": 1,
+            "line_end": 12,
+            "content": "import { ApiMocker, MockEvent } from '@tailwind/mocker';\nimport { Post, PostMediaType, PostStatus } from '../../../facets/post';\nimport { PostMeta, stripIdsFromPostMeta } from '../../../facets/post-meta';\nimport { VideoContainer } from '../../../facets/video-container';\nimport { resetTestTable } from '../../../utils/reset-test-table';\nimport { times } from '../../../utils/times';\nimport { PostMetaMocker } from '../../../__mocks__/post-meta-mocker';\nimport { PostMocker } from '../../../__mocks__/",
+            "language": "typescript",
+            "context": "100 matches: post"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/facets/post.test.ts",
+            "line_start": 1,
+            "line_end": 13,
+            "content": "import { getUnixTime } from 'date-fns';\nimport { times } from '../utils/times';\nimport { PostMocker } from '../__mocks__/post-mocker';\nimport {IntervalType, PostSchema, PostStatus, shouldPabloizeMedia} from './post';\n\njest.mock('../queue');\n\ndescribe('Post', () => {\n\ttimes(10, (i) => {\n\t\ttest('Validation passes for posts', async () => {\n\t\t\tconst post = new PostMocker(i).mockPost();\n\t\t\tconst result = PostSchema.validate(post);\n\t\t\texpect(result).not.toHaveProperty('error');\n",
+            "language": "typescript",
+            "context": "93 matches: post"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/handlers/api/put-batch-posts/put-batch-posts-handler.test.ts",
+            "line_start": 1,
+            "line_end": 12,
+            "content": "import { ApiMocker } from '@tailwind/mocker';\nimport { Post, PostFacet, PostStatus } from '../../../facets/post';\nimport { resetTestTable } from '../../../utils/reset-test-table';\nimport { PostMocker } from '../../../__mocks__/post-mocker';\nimport { putBatchPostsHandler } from './put-batch-posts-handler';\nimport { addToVideoContainerCreationQueue } from '../../sqs/create-video-container/add-to-video-container-creation-queue';\nimport { PostMetaMocker } from '../../../__mocks__/post-meta-mocker';\n",
+            "language": "typescript",
+            "context": "84 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/repositories/src/blog-post-repository.ts",
+            "line_start": 1,
+            "line_end": 13,
+            "content": "import {\n\tDB,\n\tDBBlogPosts,\n\tDBBlogPostMediaInsert,\n\tDBBlogPostMedia,\n\tUpdateObject,\n\tDBReader,\n\tDBWriter,\n\tDBWriterTx,\n} from '@charlotte/database';\nimport { BlogPost, BlogPostMedia } from './types/blog-post';\nimport { ApiError } from '@charlotte/handler-utils';\nimport { bucketName, hashToString, Log, s3 } from '@charlotte/core';\n",
+            "language": "typescript",
+            "context": "237 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/client/src/types/blog.ts",
+            "line_start": 1,
+            "line_end": 15,
+            "content": "import { z } from 'zod';\nimport { StringBool } from './string-bool';\nimport { GetSiteResponse } from './site';\n\nexport const BlogPostMediaSchema = z.object({\n\tid: z.number(),\n\tmediaUrl: z.string(),\n\tpostId: z.number(),\n\tsortOrder: z.number().optional(),\n});\nexport type BlogPostMedia = z.infer<typeof BlogPostMediaSchema>;\nexport type BlogPostWithMedia = BlogPost & { media: BlogPostMedia[] };\n\nexport const BlogPostSchema = z.object({\n\tid: z.number(),\n",
+            "language": "typescript",
+            "context": "53 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/client/src/charlotte.ts",
+            "line_start": 11,
+            "line_end": 31,
+            "content": "import { woocommerceDisconnect } from './requests/woocommerce-disconnect';\nimport { createSite } from './requests/create-site';\nimport { woocommerceOauthStatus } from './requests/woocommerce-oauth-status';\nimport { wooCommerceStore } from './requests/woocommerce-store';\nimport { wooCommerceStoreKeyStatus } from './requests/woocommerce-store-key-status';\nimport { wooCommerceGetProucts } from './requests/woocommerce-store-get-products';\nimport { getUserSite } from './requests/get-user-site';\nimpor",
+            "language": "typescript",
+            "context": "36 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+            "line_start": 131,
+            "line_end": 151,
+            "content": "\t\t\t\tscroogeApi,\n\t\t\t\tscoobyApi,\n\t\t\t\twootApi,\n\t\t\t\tebenezerApi,\n\t\t\t\tsquaredApi,\n\t\t\t\tlowPriorityProductDetailsQueue.queue,\n\t\t\t],\n\t\t}),\n\t});\n\n\tconst blogPostContentsBucket = new Bucket(stack, 'BlogPostContentsBucket', {\n\t\tblockPublicACLs: false,\n\t\tcors: [\n\t\t\t{\n\t\t\t\tallowedMethods: ['GET'],\n\t\t\t\tallowedOrigins: ['https://*.tailwindapp.com', 'https://*.tailwindapp.net'],\n\t\t\t},\n\t\t],\n\t});\n\n\tconst blogImportQueue = QueueHandler.Standard({ stack, app }, 'blogImportQueue', {\n",
+            "language": "typescript",
+            "context": "31 matches: post"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/repositories/src/types/blog-post.ts",
+            "line_start": 1,
+            "line_end": 11,
+            "content": "import { DBBlogPostMedia, DBBlogPosts } from '@charlotte/database';\nimport { AddOrUpdateTimestamps, SoftDeletable } from './core';\n\nexport type BlogPost = {\n\tid: DBBlogPosts['post_id'];\n\tsiteId: DBBlogPosts['site_id'];\n\tsource: DBBlogPosts['source'];\n\tsourceBlogId: DBBlogPosts['source_blog_id'];\n\ttitle: DBBlogPosts['title'];\n\texcerpt: DBBlogPosts['excerpt'];\n\tblogPostUrl: DBBlogPosts['blog_post_url'];\n",
+            "language": "typescript",
+            "context": "24 matches: post"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer-config.ts",
+            "line_start": 11,
+            "line_end": 31,
+            "content": "import { generatePrompt as generateBlogEditorPrompt } from '../generate-blog-editor/prompts';\nimport { generatePrompt as generateEmailBodyPrompt } from '../generate-email-body/prompts';\nimport { generatePrompt as generateFacebookAdPrompt } from '../generate-facebook-ad/prompts';\nimport { generatePrompt as generateFacebookCaptionPrompt } from '../generate-facebook-caption/prompts';\nimport { generatePrompt as generateFacebookFromBlogOrArticlePrompt } from '../generate-facebook-from-blog-or-article",
+            "language": "typescript",
+            "context": "57 matches: post, link"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+            "line_start": 15,
+            "line_end": 35,
+            "content": "\nexport const generatePrompt = (\n\tbody: GenerateFacebookCaptionFromBlogContent,\n\tpersonalizationInfo?: PersonalizationInfo,\n) => hydrateInstruction(instruction, body, personalizationInfo);\n\n/**\n * You might be asking \"hey, why are we adding a space to the end of the `post.content` field??\"\n *\n * Good question! The current implementation of `sanitizeJSONString` (used during post-processing)\n * is picking up the closing parenthesis of each `content` value as an incorrect extra character and\n * rem",
+            "language": "typescript",
+            "context": "33 matches: aren, post, link"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+            "line_start": 33,
+            "line_end": 53,
+            "content": "    {\n      \"id\": 1,\n      \"caption\": \"Dive into the world of eco-friendly choices with my latest blog post on sustainable living practices. #EcoFriendly #SustainableLiving\"\n    },\n    {\n      \"id\": 2,\n      \"caption\": \"Check out my new blog post where I explore the hidden gems of our city. From quaint cafes to hidden art galleries, I'm sharing all my top picks and secret spots that make our city truly unique. Join me on this urban adventure and discover the beauty lurking in our own backyard.\"\n",
+            "language": "typescript",
+            "context": "25 matches: aren, post"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-product-title/prompts.ts",
+            "line_start": 1,
+            "line_end": 15,
+            "content": "import { PersonalizationInfo } from '../content-generation-queuer/content-generation-queuer-schema';\nimport { GenerateFacebookCaptionFromProductTitle } from './generate-facebook-caption-from-product-title-schema';\nimport { getPersonalizationPrompt } from '../../../utils/prompts/personalization-prompt';\n\nexport const BLOG_LINK_TOKEN = \"[REDACTED]\";\n\nconst hydrateInstruction = (\n\tinstruction: string,\n\tbody: GenerateFacebookCaptionFromProductTitle,\n\tpersonalizationInfo?: PersonalizationInfo,\n) =>\n\t",
+            "language": "typescript",
+            "context": "18 matches: post, link"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-facebook-post.ts",
+            "line_start": 3,
+            "line_end": 23,
+            "content": "import { getStore } from './store';\nimport {\n\tPromptInjectionError,\n\tisCompletionSuspectedPromptInjection,\n} from '../../../utils/is-completion-suspected-prompt-injection';\nimport { writeToStream } from './write-to-stream';\nimport { LlmNameSchema } from '../../../llm/llm';\nimport { PersonalizationInfoSchema } from './personalization-info-schema';\nimport { getPersonalizationPrompt } from '../../../utils/prompts/personalization-prompt';\n\nexport const StreamFacebookPostGenerationSchema = z.object({",
+            "language": "typescript",
+            "context": "15 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/handlers/sqs/publish-posts/handle-publish-post-results.ts",
+            "line_start": 1,
+            "line_end": 12,
+            "content": "import {\n\tPostStatusChangeEvent,\n\tPublishedPostEvent,\n} from '@tailwind/system-events';\nimport { getUnixTime } from 'date-fns';\nimport { systemEventsBus } from '../../../clients/system-event-bus';\nimport { MarkPageTokenFailedEvent } from '../../../data/events/mark-token-failed-event';\nimport { PublishPostEvent } from '../../../data/events/publish-post-event';\nimport { Post, PostStatus } from '../../../data/models/post';\nimport { Repository } from '../../../data/repository/repository';\nimport { L",
+            "language": "typescript",
+            "context": "129 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/handlers/sqs/publish-posts/publish-post.ts",
+            "line_start": 1,
+            "line_end": 13,
+            "content": "import { GraphApi } from '../../../clients/graph-api/graph-api';\nimport { EXCEPTION_UNHANDLED } from '../../../clients/graph-api/graph-api-exception';\nimport { PublishPostEvent } from '../../../data/events/publish-post-event';\nimport { Post, PostType } from '../../../data/models/post';\nimport { getResultForFailedPublish } from './get-status-for-failed-publish';\nimport { getPage } from './get-active-token-for-page';\nimport { markPostPending } from './mark-post-pending';\nimport { PublishPostResult",
+            "language": "typescript",
+            "context": "61 matches: post, link"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/data/models/post.ts",
+            "line_start": 1,
+            "line_end": 21,
+            "content": "import { Validator, Facet, FacetRepository } from '@tailwind/aws-utils';\nimport Joi from 'joi';\nimport { fromUnixTime } from 'date-fns';\nimport { FacetPrefix } from '../facet-prefixes';\nimport { ddb } from '../../clients/dynamodb';\nimport { tableConfig } from '../../config';\nimport { Media, MediaSchema } from './media';\n\n/**\n * How many shards the status partition\n * key for posts is split into\n */\nexport const PostStatusShards = 16;\n\nexport enum PostStatus {\n\tDraft = 'draft',\n\tQueued = 'queued'",
+            "language": "typescript",
+            "context": "44 matches: post, link"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+            "line_start": 1,
+            "line_end": 13,
+            "content": "import { Failed, InputValidator, Success } from '@tailwind/aws-utils';\nimport { ApiHandler } from '@tailwind/lambda-handlers';\nimport { PostStatusChangeEvent } from '@tailwind/system-events';\nimport { CreatePagePostResponse } from '@tailwind/zuck';\nimport { getUnixTime } from 'date-fns';\nimport { systemEventsBus } from '../../../clients/system-event-bus';\nimport { Post, PostStatus } from '../../../data/models/post';\nimport { Repository } from '../../../data/repository/repository';\nimport { Log }",
+            "language": "typescript",
+            "context": "42 matches: post"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+            "line_start": 1,
+            "line_end": 14,
+            "content": "import { Failed, Success } from '@tailwind/aws-utils';\nimport { ApiHandler } from '@tailwind/lambda-handlers';\nimport { SystemEvent } from '@tailwind/system-events';\nimport { addDays, getUnixTime } from 'date-fns';\nimport { systemEventsBus } from '../../../clients/system-events-bus';\nimport { Post, PostFacet, PostStatus } from '../../../facets/post';\nimport { isRequestAuthorized } from '../../../is-request-authorized';\nimport { Log } from '../../../log';\nimport { updatePostStatusCountOrRetry } f",
+            "language": "typescript",
+            "context": "36 matches: post"
+          }
+        ],
+        "search_terms_used": [
+          "grep -r aren service/",
+          "grep -r aren packages/",
+          "-- Search logs for uncertain errors in last 24h",
+          "grep -r aren stack/",
+          "SELECT * FROM uncertain WHERE updated_at > NOW() - INTERVAL '7 days' LIMIT 10;"
+        ],
+        "exploration_log": [
+          {
+            "action": "explore",
+            "repo": "aero",
+            "success": true,
+            "files_found": 20,
+            "snippets_found": 5,
+            "duration_ms": 6092,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "tack",
+            "success": true,
+            "files_found": 20,
+            "snippets_found": 5,
+            "duration_ms": 243,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "charlotte",
+            "success": true,
+            "files_found": 20,
+            "snippets_found": 5,
+            "duration_ms": 155,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "ghostwriter",
+            "success": true,
+            "files_found": 20,
+            "snippets_found": 5,
+            "duration_ms": 210,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "zuck",
+            "success": true,
+            "files_found": 20,
+            "snippets_found": 5,
+            "duration_ms": 135,
+            "error": null
+          }
+        ]
+      },
+      "search_duration_ms": 6839
+    },
+    {
+      "conversation_id": "215472681279516",
+      "issue_summary": "I/ve been billed again this year. I tried emailing last year to cancel and didn't hear back. I knew my card was going to expire 11/25 and assumed it wouldn't renew. It has and I would like a refund and to cancel the service. I haven't used it in years.",
+      "product_area": "uncertain",
+      "classification_confidence": 0.0,
+      "search_results": {
+        "files_found": [
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/dialog.js",
+            "line_start": 56,
+            "relevance": "216 matches: this, again"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+            "line_start": 87,
+            "relevance": "100 matches: this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-editor/side-controls/text-controls-utils.ts",
+            "line_start": 50,
+            "relevance": "11 matches: this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/keywords/hooks/user-history-events/use-keyword-history-event.ts",
+            "line_start": 16,
+            "relevance": "7 matches: been, this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/activity/tribemate-recent-activity-indicator-tooltip-view_test.js",
+            "line_start": 53,
+            "relevance": "6 matches: this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/downgrade-survey/survey.js",
+            "line_start": 4,
+            "relevance": "6 matches: this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/core/src/ghostwriter/utils/errors.ts",
+            "line_start": 13,
+            "relevance": "5 matches: this, again"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/e2e/testUtilities/prodEndpointCheck.playwright.ts",
+            "line_start": 11,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jqueryui-timepicker-addon/dist/jquery-ui-sliderAccess.js",
+            "line_start": 21,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/pages/dashboard/v2/campaigns/index.tsx",
+            "line_start": 6,
+            "relevance": "4 matches: been, this, again"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/core/src/llm/prompts/definitions/gemini-pin-quality-analysis.ts",
+            "line_start": 75,
+            "relevance": "3 matches: this, again"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/components/onboard-personalization/analyzing-personalization-modal.tsx",
+            "line_start": 44,
+            "relevance": "3 matches: this, again"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/pinteresto-auth/error.tsx",
+            "line_start": 76,
+            "relevance": "3 matches: this, again"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/caption-field/ghostwriter/use-ghostwriter-captions.ts",
+            "line_start": 38,
+            "relevance": "3 matches: this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment/locale/sv.js",
+            "line_start": 11,
+            "relevance": "2 matches: this, year"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/i18n/datepicker-bs.js",
+            "line_start": 31,
+            "relevance": "2 matches: year"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/unit_testing/tests_onhold/4_server-side/2440.js",
+            "line_start": 3,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/Snap.svg/doc/js/prism.js",
+            "line_start": 5,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/e2e/quickSchedule/publishing/publishPostPinterest.playwright.ts",
+            "line_start": 71,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment/locale/tzm.js",
+            "line_start": 11,
+            "relevance": "2 matches: this, year"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/__mocks__/user-mocker.ts",
+            "line_start": 17,
+            "relevance": "64 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+            "line_start": 65,
+            "relevance": "19 matches: been, this, again"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/__mocks__/temp-token-mocker.ts",
+            "line_start": 9,
+            "relevance": "8 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/queue-post-to-publish/get-pinterest-method-map.ts",
+            "line_start": 70,
+            "relevance": "7 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/__mocks__/post-meta-mocker.ts",
+            "line_start": 9,
+            "relevance": "7 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/client/src/types/post.ts",
+            "line_start": 47,
+            "relevance": "6 matches: been, this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/facets/user.ts",
+            "line_start": 51,
+            "relevance": "5 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+            "line_start": 141,
+            "relevance": "5 matches: been, this, again"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/is-request-authorized.ts",
+            "line_start": 80,
+            "relevance": "5 matches: been, this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/get-posts-by-link/get-posts-by-link-request.ts",
+            "line_start": 5,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+            "line_start": 40,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/legacy/publish-post-now/publish-post-now-handler.ts",
+            "line_start": 15,
+            "relevance": "4 matches: this, again"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+            "line_start": 30,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-request.ts",
+            "line_start": 5,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-handler.test.ts",
+            "line_start": 32,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/facets/user-post-url-meta-scrape-job.ts",
+            "line_start": 96,
+            "relevance": "3 matches: been, this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/pinterest/types/pinterest-user.ts",
+            "line_start": 49,
+            "relevance": "3 matches: this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/client/src/requests/get-pins.ts",
+            "line_start": 4,
+            "relevance": "3 matches: been, this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/pinterest/get-user-pin-from-pinterest.ts",
+            "line_start": 112,
+            "relevance": "3 matches: been, this"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/client/src/requests/update-fail-token-status.ts",
+            "line_start": 11,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/core/src/utils.test.ts",
+            "line_start": 41,
+            "relevance": "15 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+            "line_start": 35,
+            "relevance": "14 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/base.ts",
+            "line_start": 12,
+            "relevance": "13 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/repositories/src/blog-post-repository.ts",
+            "line_start": 17,
+            "relevance": "12 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+            "line_start": 192,
+            "relevance": "10 matches: been, this, again"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/repositories/src/product-repository.ts",
+            "line_start": 43,
+            "relevance": "10 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/database/src/database.ts",
+            "line_start": 32,
+            "relevance": "9 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+            "line_start": 31,
+            "relevance": "5 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/queue/src/inventory-events/new-products.ts",
+            "line_start": 3,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/charlotte.ts",
+            "line_start": 43,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/queue/src/find-products/get-products-from-ebenezer.ts",
+            "line_start": 43,
+            "relevance": "3 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/requests/get-user-site.ts",
+            "line_start": 10,
+            "relevance": "3 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/stacks/constructs/user-creator-fn.ts",
+            "line_start": 44,
+            "relevance": "3 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/api/src/integrations/squarespace/oauth-finish.ts",
+            "line_start": 72,
+            "relevance": "3 matches: this, again"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/requests/get-user-sites.ts",
+            "line_start": 6,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/requests/woocommerce-oauth-status.ts",
+            "line_start": 6,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/requests/get-squared-token.ts",
+            "line_start": 5,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/api/src/blog/get-site-blog-posts.ts",
+            "line_start": 32,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/database/src/db-types.d.ts",
+            "line_start": 30,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/requests/woocommerce-store-get-products.ts",
+            "line_start": 6,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/client/src/ghostwriter.ts",
+            "line_start": 7,
+            "relevance": "28 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/client/src/requests/queue-blog-wizard-step.ts",
+            "line_start": 57,
+            "relevance": "20 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/infrastructure/lib/infrastructure-stack.ts",
+            "line_start": 13,
+            "relevance": "15 matches: been, this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-email-subject/shots.ts",
+            "line_start": 77,
+            "relevance": "9 matches: this, year"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/client/src/helpers/make-request.ts",
+            "line_start": 7,
+            "relevance": "8 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-product-title/prompts.ts",
+            "line_start": 27,
+            "relevance": "6 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/get-usage-count-this-period/get-usage-count-this-period.handler.ts",
+            "line_start": 5,
+            "relevance": "5 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/utils/prompts/personalizationPrompt.test.ts",
+            "line_start": 20,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/client/src/requests/queue-email-body.ts",
+            "line_start": 18,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+            "line_start": 26,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/client/src/requests/queue-pinterest-title-and-description.ts",
+            "line_start": 21,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/client/src/requests/queue-shopify-product-listing.ts",
+            "line_start": 20,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/utils/api-error.ts",
+            "line_start": 13,
+            "relevance": "3 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/utils/code-generator/script.ts",
+            "line_start": 99,
+            "relevance": "3 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/open-ai/requests/create-chat-completion.ts",
+            "line_start": 16,
+            "relevance": "3 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/client/src/requests/stream-instagram-caption-generation.ts",
+            "line_start": 22,
+            "relevance": "3 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-facebook-post.ts",
+            "line_start": 44,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-other-product-listing/get-other-product-listing.test.ts",
+            "line_start": 9,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+            "line_start": 47,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-shopify-product-listing/get-shopify-product-listing.test.ts",
+            "line_start": 9,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+            "line_start": 171,
+            "relevance": "16 matches: been, this, again"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/callback-oauth/callback-oauth-handler.ts",
+            "line_start": 18,
+            "relevance": "9 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/data/models/post.ts",
+            "line_start": 91,
+            "relevance": "8 matches: year"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/shared/authenticate-request.ts",
+            "line_start": 141,
+            "relevance": "5 matches: been, this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+            "line_start": 112,
+            "relevance": "4 matches: this, again"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/get-active-token-for-page.ts",
+            "line_start": 17,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/infrastructure/lib/infrastructure-stack.ts",
+            "line_start": 20,
+            "relevance": "4 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/clients/graph-api/graph-api-exception-creator.test.ts",
+            "line_start": 115,
+            "relevance": "4 matches: been, this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/cron/verify-user-tokens/verify-user-tokens-handler.ts",
+            "line_start": 10,
+            "relevance": "3 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/get-post-by-only-id/get-post-by-only-id-handler.ts",
+            "line_start": 8,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/check-user-token-status/check-user-token-status-handler.ts",
+            "line_start": 51,
+            "relevance": "2 matches: been"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/data/models/o-auth-request.ts",
+            "line_start": 11,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/utils/currencies.ts",
+            "line_start": 6,
+            "relevance": "2 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+            "line_start": 38,
+            "relevance": "1 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/infrastructure/config.ts",
+            "line_start": 41,
+            "relevance": "1 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/get-ad-account-pixels/get-ad-account-pixels-handler.ts",
+            "line_start": 22,
+            "relevance": "1 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/get-locations/get-locations-handler.ts",
+            "line_start": 35,
+            "relevance": "1 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/test/post-fixture.ts",
+            "line_start": 9,
+            "relevance": "1 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/get-interests/get-interests-handler.ts",
+            "line_start": 35,
+            "relevance": "1 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+            "line_start": 13,
+            "relevance": "1 matches: this"
+          }
+        ],
+        "snippets": [
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/dialog.js",
+            "line_start": 46,
+            "line_end": 66,
+            "content": "\t\tminHeight: 150,\n\t\tminWidth: 150,\n\t\tmodal: false,\n\t\tposition: {\n\t\t\tmy: \"center\",\n\t\t\tat: \"center\",\n\t\t\tof: window,\n\t\t\tcollision: \"fit\",\n\t\t\t// Ensure the titlebar is always visible\n\t\t\tusing: function( pos ) {\n\t\t\t\tvar topOffset = $( this ).css( pos ).offset().top;\n\t\t\t\tif ( topOffset < 0 ) {\n\t\t\t\t\t$( this ).css( \"top\", pos.top - topOffset );\n\t\t\t\t}\n\t\t\t}\n\t\t},\n\t\tresizable: true,\n\t\tshow: null,\n\t\ttitle: null,\n\t\twidth: 300,\n\n",
+            "language": "javascript",
+            "context": "216 matches: this, again"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+            "line_start": 77,
+            "line_end": 97,
+            "content": "\t\t\tconst ninetyDaysInSeconds = 90 * 24 * 60 * 60;\n\n\t\t\tconst lastSmartPinInteraction =\n\t\t\t\t(\n\t\t\t\t\tawait UserPropertiesRepository.get({\n\t\t\t\t\t\tcustId,\n\t\t\t\t\t\tproperty: UserProperties.SMARTPIN_FEATURE_INTERACTED_AT,\n\t\t\t\t\t})\n\t\t\t\t)?.count ?? 0;\n\n\t\t\t// If count is 0, user has never interacted with SmartPin (or for users before this property was enabled)\n\t\t\t// At this point we set the interaction to today so that we can start the clock\n\t\t\tif (lastSmartPinInteraction === 0) {\n\t\t\t\tawait UserPropertiesRepos",
+            "language": "typescript",
+            "context": "100 matches: this"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-editor/side-controls/text-controls-utils.ts",
+            "line_start": 40,
+            "line_end": 60,
+            "content": "  const oldFontFamily = node.fontFamily;\n  /**\n   * We need to cache the individual character styles so that we can\n   * re-apply them if the user presses \"undo.\"\n   */\n  const startingStyles: StylesByCharIndex = node.getSelectionStyles(0, node.text!.length, true);\n  // Remove the individual character font family styles (if any):\n  node.removeStyle('fontFamily');\n  // Set the node's global font family:\n  node.set('fontFamily', newFontFamily);\n  // Return instructions for undoing/redoing this cha",
+            "language": "typescript",
+            "context": "11 matches: this"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/tailwindapp/client/domains/keywords/hooks/user-history-events/use-keyword-history-event.ts",
+            "line_start": 6,
+            "line_end": 26,
+            "content": "\t\"Searched keywords\": {\n\t\tquery: string;\n\t\tresultCount: number;\n\t\tresponseTime: number;\n\t\thasMore: boolean;\n\t\thasCursor: boolean;\n\t\tlimit: number;\n\t\tfilter?: string;\n\t\t/** Whether discovery was queued for this search (could be a re-queue after time window) */\n\t\tdidStartDiscovery: boolean;\n\t\t/** Whether this search phrase had never been queued for discovery before (truly fresh) */\n\t\tisFreshSearch: boolean;\n\t\t/** Category inferred for the search phrase (LLM-generated) */\n\t\tcategory?: string;\n\t\t/**",
+            "language": "typescript",
+            "context": "7 matches: been, this"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/activity/tribemate-recent-activity-indicator-tooltip-view_test.js",
+            "line_start": 43,
+            "line_end": 63,
+            "content": "\n  t.ok(\n    tribemateRecentActivityIndicatorTooltip.match(/recent-activity-share-cta/),\n    true,\n    'If you have never shared you see a sharing call to action in your tooltip'\n  );\n\n  t.end();\n};\n\n// At this time admins only see how long ago you shared / submitted, without any\n// extra CTAs\nconst testViewingAnotherTribemate = t => {\n  const state = initializeStore({}, {}, {}, {}).getState();\n\n  const activeAccountId = 30;\n  const anotherTribemateId = 900;\n\n  const activeTribeId = 4455;\n\n  sta",
+            "language": "javascript",
+            "context": "6 matches: this"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/__mocks__/user-mocker.ts",
+            "line_start": 7,
+            "line_end": 27,
+            "content": "\nexport class UserMocker extends BaseMocker {\n\tstatic static = new UserMocker(0);\n\n\t/**\n\t * Needs to be an instance variable so we use the same Date instance every time.\n\t *\n\t * Milliseconds should be ignored because Pinterest doesn't give us that information.\n\t */\n\tpublic mockCreatedAccountAt = new Date(\n\t\tthis.faker().datatype.datetime({ min: 946706400000, max: 9972050400000 }).setMilliseconds(0),\n\t);\n\n\tpublic mockId(): string {\n\t\tconst id = this.faker().datatype.number({ min: 1000000000000000",
+            "language": "typescript",
+            "context": "64 matches: this"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+            "line_start": 55,
+            "line_end": 75,
+            "content": "\t\tcase 7: // Access denied\n\t\t\tif (endpointName === 'register_media_upload') {\n\t\t\t\treturn { reason: PostFailureReason.NEEDS_BUSINESS_ACCOUNT, retryable: false };\n\t\t\t}\n\t\t\treturn { reason: PostFailureReason.NO_BOARD_ACCESS, retryable: false };\n\n\t\tcase 8: // Limit exceeded\n\t\t\treturn { reason: PostFailureReason.USER_RATE_LIMIT, retryable: false };\n\t\tcase 9: // Event blocked\n\t\t\tswitch (message) {\n\t\t\t\tcase \"There's been some strange activity on your account, so we put it in safe mode to protect your Pi",
+            "language": "typescript",
+            "context": "19 matches: been, this, again"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/__mocks__/temp-token-mocker.ts",
+            "line_start": 1,
+            "line_end": 19,
+            "content": "import { TempTokenV5, TempTokenV5Facet } from '../facets/temp-tokenv5';\nimport { BaseMocker } from './base-mocker';\n\nexport class TempTokenMocker extends BaseMocker {\n\tstatic static = new TempTokenMocker(0);\n\n\tpublic mockToken(overwrites?: Partial<TempTokenV5>): TempTokenV5 {\n\t\treturn {\n\t\t\tid: this.faker().datatype.uuid(),\n\t\t\tttl: this.faker().datatype.number(),\n\t\t\taccessToken = \"[REDACTED]\",\n\t\t\texpiresAfter: this.faker().datatype.number(),\n\t\t\trefreshToken = \"[REDACTED]\",\n\t\t\trefreshTokenExpiresA",
+            "language": "typescript",
+            "context": "8 matches: this"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/handlers/sqs/queue-post-to-publish/get-pinterest-method-map.ts",
+            "line_start": 60,
+            "line_end": 80,
+            "content": "\t\t\t\tclonePostId: clonePin.postId ?? 'none',\n\t\t\t\tuserId: post.userId,\n\t\t\t\ttoBePostedPostId: post.postId,\n\t\t\t},\n\t\t});\n\t}\n\treturn clonePin?.pinId;\n};\n\n/**\n * Why is this necessary?\n *\n * Pinterest wants Tailwind to only use their `create pin` endpoint\n * whenever we are confident that the pin belongs uniquely to the user.\n * https://docs.dev.tailwindapp.net/pinterest-api/operations/v3_create_pin_handler_PUT\n *\n * If we find evidence that the user does not own the pin, then we\n * should use the `sav",
+            "language": "typescript",
+            "context": "7 matches: this"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/__mocks__/post-meta-mocker.ts",
+            "line_start": 1,
+            "line_end": 19,
+            "content": "import { BaseMocker } from '@tailwind/mocker';\nimport { PostMeta, PostMetaFacet } from '../facets/post-meta';\nimport { PostMocker } from './post-mocker';\nimport { UserMocker } from './user-mocker';\n\nexport class PostMetaMocker extends BaseMocker {\n\tstatic static = new PostMetaMocker();\n\n\tprivate userMocker = new UserMocker(this.seed);\n\n\tprivate postMocker = new PostMocker(this.seed);\n\n\tpublic mockPostMeta(overwrites?: Partial<PostMeta>): PostMeta {\n\t\treturn {\n\t\t\tuserId: this.userMocker.mockId(),",
+            "language": "typescript",
+            "context": "7 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/core/src/utils.test.ts",
+            "line_start": 31,
+            "line_end": 51,
+            "content": "};\n\ndescribe('strip-html', () => {\n\tit.each<StripHtmlTestCase>([\n\t\t{\n\t\t\tdescription: 'there are simple tags',\n\t\t\tinput: `<a href=\"https://google.com>Link</a>`,\n\t\t\texpected: `Link`,\n\t\t},\n\t\t{\n\t\t\tdescription: 'it parses this HTML snippet from https://pondnpebble.com',\n\t\t\tinput: `<p><span style=\\\"color: #808080;\\\">\n\t\t\tHere&#8217;s a post for those looking for some pink &#038; summer-themed aesthetic \n\t\t\tdesk layout inspiration! (This post contains affiliate links, which means I may receive \n\t\t\ta com",
+            "language": "typescript",
+            "context": "15 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+            "line_start": 25,
+            "line_end": 45,
+            "content": "\t\tcdk: { eventBus: buses.systemEventsBus },\n\t});\n\n\tstack.setDefaultFunctionProps({\n\t\tenvironment: {\n\t\t\tSYSTEM_EVENT_BUS_ARN: bus.eventBusArn,\n\t\t},\n\t\tbind: [bus],\n\t});\n\tsetElasticApmConfig({ app, stack });\n\t// use this to attach functions to the VPC so they can talk to the DB\n\tconst FunctionWithDBAccess = useFnWithDbAccess({\n\t\tnetwork,\n\t\tdatabaseCredentials,\n\t});\n\n\tconst gandalfClientSecret = \"[REDACTED]\" Config.Secret(stack, 'GANDALF_CLIENT_SECRET');\n\n\tconst scoobyApi = new Config.Parameter(stac",
+            "language": "typescript",
+            "context": "14 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/client/src/base.ts",
+            "line_start": 2,
+            "line_end": 22,
+            "content": "import { axiosClient } from './helpers/axios-client';\nimport { AxiosRequestConfig } from 'axios';\nimport { CharlotteResponse, buildApiResponse } from './helpers/response';\n\nexport type CharlotteOptions = {\n\t/**\n\t * A provisioned instance of Gandalf\n\t * @see https://github.com/tailwind/gandalf\n\t */\n\tgandalf: GandalfApi;\n\t/** Retry failed requests up to this many times.\n\t *\n\t * 1 means no retries. Set it to higher than 1 to retry failed requests.\n\t *\n\t * Only 500 and 429 responses will be retried.",
+            "language": "typescript",
+            "context": "13 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/repositories/src/blog-post-repository.ts",
+            "line_start": 7,
+            "line_end": 27,
+            "content": "\tDBReader,\n\tDBWriter,\n\tDBWriterTx,\n} from '@charlotte/database';\nimport { BlogPost, BlogPostMedia } from './types/blog-post';\nimport { ApiError } from '@charlotte/handler-utils';\nimport { bucketName, hashToString, Log, s3 } from '@charlotte/core';\nimport { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';\nimport { siteRepository } from './site-repository';\n\n/** If an excerpt is not provided when creating a blog post, an excerpt of this length will be taken out of the contents autom",
+            "language": "typescript",
+            "context": "12 matches: this"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+            "line_start": 182,
+            "line_end": 202,
+            "content": "\t\t\t}\n\t\t\tmetrics.finish('detection');\n\t\t\tdetectSpan?.end();\n\t\t\tmetrics.start('check-integrations');\n\t\t\tconst integrationsSpan = tracer().startSpan('check-integrations');\n\t\t\tlet products: SomeProduct[] = [];\n\t\t\tlet provider: 'scrooge' | 'scooby' = 'scrooge';\n\t\t\tconst newCursor = undefined;\n\t\t\tconst hasIntegration = await hasIntegrationForSite(connection, { siteId, platform });\n\t\t\tif (!hasIntegration && isRecentlyIntegrated) {\n\t\t\t\tLog.critical('Import job told it has been recently integrated, but c",
+            "language": "typescript",
+            "context": "10 matches: been, this, again"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/client/src/ghostwriter.ts",
+            "line_start": 1,
+            "line_end": 17,
+            "content": "import type { GandalfApi } from '@tailwind/gandalf';\nimport { AxiosInstance } from 'axios';\nimport { makeRequest } from './helpers/make-request';\nimport { buildApiResponse } from './helpers/build-response';\nimport { isResponseSuccessful } from './helpers/is-response-successful';\nimport { generateImage } from './requests/generate-image';\nimport { getUsageCountThisPeriod } from './requests/get-usage-count-this-period';\nimport { chat } from './requests/chat';\nimport {\n\tpollGenerateShopifyProductLis",
+            "language": "typescript",
+            "context": "28 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/client/src/requests/queue-blog-wizard-step.ts",
+            "line_start": 47,
+            "line_end": 67,
+            "content": "\t| QueueBlogWizardSectionStepRequest\n\t| QueueBlogWizardConclusionStepRequest;\n\nexport type QueueBlogWizardStepResponse =\n\t| QueueBlogWizardIdeasStepResponse\n\t| QueueBlogWizardOutlineStepResponse\n\t| QueueBlogWizardIntroductionStepResponse\n\t| QueueBlogWizardSectionStepResponse\n\t| QueueBlogWizardConclusionStepResponse;\n\nexport async function queueConclusionBlogWizardStep(this: Ghostwriter, request: QueueBlogWizardConclusionStepRequest) {\n\treturn this.makeRequest<QueuedGenerationResponse>({\n\t\tmethod",
+            "language": "typescript",
+            "context": "20 matches: this"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/infrastructure/lib/infrastructure-stack.ts",
+            "line_start": 3,
+            "line_end": 23,
+            "content": "import * as tailwind from '@tailwind/cdk';\nimport * as route53 from 'aws-cdk-lib/aws-route53';\nimport * as acm from 'aws-cdk-lib/aws-certificatemanager';\nimport * as faceteer from '@faceteer/cdk/constructs';\nimport * as path from 'path';\nimport * as ddb from 'aws-cdk-lib/aws-dynamodb';\nimport * as secretsManager from 'aws-cdk-lib/aws-secretsmanager';\nimport { GhostwriterScope } from '../../service/config';\n\n/**\n * The v1 stack of ghostwriter has been deprecated and should not added to any longer",
+            "language": "typescript",
+            "context": "15 matches: been, this"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/handlers/api/generate-email-subject/shots.ts",
+            "line_start": 67,
+            "line_end": 87,
+            "content": "\t\t\t\t{ topics: 'best firework shows', output: 'Have a Blast! \ud83d\udca5 We Rank the Best Firework Shows' },\n\t\t\t],\n\t\t\t'back to school': [\n\t\t\t\t{ topics: 'tips and tricks', output: 'Class Is In Session: Back to School Tips! \ud83d\udcda\ud83c\udf92' },\n\t\t\t\t{ topics: 'new blog post', output: '\ud83d\udcdd Required Reading: New Back to School Blog Post' },\n\t\t\t\t{ topics: 'best school supplies', output: '\ud83d\udcda\ud83c\udf92\ud83d\udc69\u200d\ud83c\udfeb Must-Have School Supplies for a Successful Year!' },\n\t\t\t],\n\t\t\tthanksgiving: [\n\t\t\t\t{ topics: 'event registration', output: \"Get Tickets B",
+            "language": "typescript",
+            "context": "9 matches: this, year"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/client/src/helpers/make-request.ts",
+            "line_start": 1,
+            "line_end": 17,
+            "content": "import { AxiosRequestConfig } from 'axios';\nimport { Ghostwriter, GhostwriterResponse } from '..';\n\nconst delay = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));\n\nexport async function makeRequest<S, F = unknown>(\n\tthis: Ghostwriter,\n\tconfig: AxiosRequestConfig,\n\tattempts = 1,\n): Promise<GhostwriterResponse<S, F>> {\n\tconst authToken = \"[REDACTED]\" this.options.gandalf.getValidToken();\n\tconfig.headers = {\n\t\t...config.headers,\n\t\tAuthorization: `Bearer ${authT",
+            "language": "typescript",
+            "context": "8 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+            "line_start": 161,
+            "line_end": 181,
+            "content": "export const EXCEPTION_OAUTH = 'oauth';\n\n/**\n * Exception thrown when a graph API token is not valid due to the User who has authenticated\n * having had the password reset on their account due to security concerns (guessing this means\n * they tried to login a bunch of times and failed, or tried accessing their account from an\n * unauthorized device or something).\n *\n * ```json\n * \"error\": {\n *      \"message\":\"Error validating access token = \"[REDACTED]\" session has been invalidated because the u",
+            "language": "typescript",
+            "context": "16 matches: been, this, again"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/handlers/api/callback-oauth/callback-oauth-handler.ts",
+            "line_start": 8,
+            "line_end": 28,
+            "content": "import { User } from '../../../data/models/user';\nimport { Repository } from '../../../data/repository/repository';\nimport { Log } from '../../../log';\nimport { createGroupId } from '../../../utils/clamp';\n\nexport const callbackOAuth = ApiHandler(\n\t{\n\t\tmethod: 'GET',\n\t\troute: '/oauth/callback',\n\t\t/**\n\t\t * This endpoint can be hit by non logged in users\n\t\t * so it doesn't need a token\n\t\t */\n\t\tdisableAuth: true,\n\t\tdescription: 'Finish the Facebook OAuth flow',\n\t\ttimeout: 120,\n\t\tmemorySize: 1048,\n\t",
+            "language": "typescript",
+            "context": "9 matches: this"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/data/models/post.ts",
+            "line_start": 81,
+            "line_end": 101,
+            "content": "\t\t\t/**\n\t\t\t * Invalid dates will return NaN if you\n\t\t\t * call `getTime` on them.\n\t\t\t */\n\t\t\tif (isNaN(sendAtDate.getTime())) {\n\t\t\t\tthrow new Error('Invalid Date');\n\t\t\t}\n\n\t\t\t/**\n\t\t\t * Unix millisecond timestamps are also invalid so\n\t\t\t * we just check for a super large year\n\t\t\t */\n\t\t\tconst sendAtYear = sendAtDate.getFullYear();\n\t\t\tif (sendAtYear > 3000) {\n\t\t\t\tthrow new Error('Invalid Date');\n\t\t\t}\n\n\t\t\treturn value;\n\t\t}),\n\tsentAt: Joi.number().optional(),\n\tdeleteAt: Joi.number().optional(),\n",
+            "language": "typescript",
+            "context": "8 matches: year"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/shared/authenticate-request.ts",
+            "line_start": 131,
+            "line_end": 148,
+            "content": " *\n * You'll get a string that looks like this\n * ```js\n * \"[864128384660228893 698902573331070747 240098361292620967]\"\n * ```\n *\n * with no commas or quotes around the items. This is a simple way to parse\n * out the values and turn them back into an array.\n *\n * It will always be an array of strings, even though the input could\n * have been numbers\n * @param claim\n */\nfunction extractIdsFromClaim(claim: string): string[] {\n\tclaim = claim.replace('[', '');\n\tclaim = claim.replace(']', '');\n\tretur",
+            "language": "typescript",
+            "context": "5 matches: been, this"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+            "line_start": 102,
+            "line_end": 122,
+            "content": "\t\t\t\t\tbody: {\n\t\t\t\t\t\treason:\n\t\t\t\t\t\t\t'User does not have permission to create pixels for the requested Ad Account.',\n\t\t\t\t\t},\n\t\t\t\t});\n\t\t\t}\n\n\t\t\tif (response.exception === EXCEPTION_PIXEL_ALREADY_EXISTS) {\n\t\t\t\tLog.info(\n\t\t\t\t\t\t// eslint-disable-next-line max-len\n\t\t\t\t\t'Attempted to create a pixel for an Ad Account that may only have one. Should this Ad Account be managed by a business?',\n\t\t\t\t\t{\n\t\t\t\t\t\tdata: { userId, adAccountId, name },\n\t\t\t\t\t},\n\t\t\t\t);\n\n\t\t\t\treturn Failed({\n\t\t\t\t\tstatus: HttpFailureStatus.",
+            "language": "typescript",
+            "context": "4 matches: this, again"
+          }
+        ],
+        "search_terms_used": [
+          "grep -r been client/",
+          "grep -r been service/",
+          "-- Search logs for uncertain errors in last 24h",
+          "grep -r been packages/",
+          "SELECT * FROM uncertain WHERE updated_at > NOW() - INTERVAL '7 days' LIMIT 10;"
+        ],
+        "exploration_log": [
+          {
+            "action": "explore",
+            "repo": "aero",
+            "success": true,
+            "files_found": 20,
+            "snippets_found": 5,
+            "duration_ms": 5375,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "tack",
+            "success": true,
+            "files_found": 20,
+            "snippets_found": 5,
+            "duration_ms": 167,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "charlotte",
+            "success": true,
+            "files_found": 20,
+            "snippets_found": 5,
+            "duration_ms": 92,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "ghostwriter",
+            "success": true,
+            "files_found": 20,
+            "snippets_found": 5,
+            "duration_ms": 143,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "zuck",
+            "success": true,
+            "files_found": 20,
+            "snippets_found": 5,
+            "duration_ms": 84,
+            "error": null
+          }
+        ]
+      },
+      "search_duration_ms": 5864
+    },
+    {
+      "conversation_id": "215472670652346",
+      "issue_summary": "hello, please explain the notice. my limit resets on the 18th so why am I being told that any posts scheduled over the limit by FEB 5 will not be posted?",
+      "product_area": "uncertain",
+      "classification_confidence": 0.2857142857142857,
+      "search_results": {
+        "files_found": [
+          {
+            "repo": "aero",
+            "path": "aero/packages/e2e/billing/planLimitTopNav.playwright.ts",
+            "line_start": 11,
+            "relevance": "42 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/limit-indicators/limit-indicator-view.tsx",
+            "line_start": 2,
+            "relevance": "15 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/views/pricing-table-view/components/generic-feature-limit/generic-feature-limit.stories.tsx",
+            "line_start": 1,
+            "relevance": "12 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-editor/side-controls/text-controls-utils.ts",
+            "line_start": 17,
+            "relevance": "5 matches: hello"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/core/src/ghostwriter/utils/errors.ts",
+            "line_start": 13,
+            "relevance": "3 matches: please"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/components/onboard-personalization/analyzing-personalization-modal.tsx",
+            "line_start": 44,
+            "relevance": "3 matches: please"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/views/pricing-table-view/components/feature-limit-section/index.ts",
+            "line_start": 1,
+            "relevance": "2 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/keywords/hooks/user-history-events/use-keyword-history-event.ts",
+            "line_start": 12,
+            "relevance": "2 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/sentence-expander-use-case/sentence-expander-use-case.tsx",
+            "line_start": 92,
+            "relevance": "1 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/simplify-content-use-case.tsx",
+            "line_start": 111,
+            "relevance": "1 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/core/src/llm/prompts/definitions/facebook-post.ts",
+            "line_start": 18,
+            "relevance": "1 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/bachv2/service/draft-generation/request-processor/blog-post-fetcher.ts",
+            "line_start": 73,
+            "relevance": "1 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "path": "aero/packages/tailwindapp/client/domains/blogs/utils/initiate-site-import.ts",
+            "line_start": 46,
+            "relevance": "1 matches: please"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+            "line_start": 33,
+            "relevance": "54 matches: limit, notice"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+            "line_start": 22,
+            "relevance": "9 matches: limit"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+            "line_start": 61,
+            "relevance": "8 matches: limit, please"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/client/src/types/post.ts",
+            "line_start": 23,
+            "relevance": "4 matches: limit"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/get-posts-by-link/get-posts-by-link-request.ts",
+            "line_start": 21,
+            "relevance": "2 matches: limit"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/token/deauthorize-token.test.ts",
+            "line_start": 38,
+            "relevance": "2 matches: notice"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-request.ts",
+            "line_start": 21,
+            "relevance": "2 matches: limit"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/get-pins-analytics/get-pins-analytics.ts",
+            "line_start": 43,
+            "relevance": "1 matches: please"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/metrics/user/get-user-metrics.ts",
+            "line_start": 33,
+            "relevance": "1 matches: please"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+            "line_start": 40,
+            "relevance": "1 matches: notice"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/get-pins/get-pins.ts",
+            "line_start": 23,
+            "relevance": "1 matches: please"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/api/legacy/publish-post-now/publish-post-now-handler.ts",
+            "line_start": 78,
+            "relevance": "1 matches: please"
+          },
+          {
+            "repo": "tack",
+            "path": "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+            "line_start": 30,
+            "relevance": "1 matches: notice"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/repositories/src/product-repository.ts",
+            "line_start": 48,
+            "relevance": "13 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+            "line_start": 10,
+            "relevance": "8 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/repositories/src/blog-post-repository.ts",
+            "line_start": 341,
+            "relevance": "7 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+            "line_start": 14,
+            "relevance": "6 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/handler-utils/utils/api-handler.ts",
+            "line_start": 24,
+            "relevance": "4 matches: limit, please"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/core/src/utils.test.ts",
+            "line_start": 16,
+            "relevance": "4 matches: hello"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/requests/get-site-blog-posts.ts",
+            "line_start": 12,
+            "relevance": "4 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/charlotte.ts",
+            "line_start": 93,
+            "relevance": "3 matches: limit, please"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/database/src/database.ts",
+            "line_start": 81,
+            "relevance": "1 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/database/src/db-tools/migration-checker-job.ts",
+            "line_start": 16,
+            "relevance": "1 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "path": "charlotte/packages/client/src/types/blog.ts",
+            "line_start": 65,
+            "relevance": "1 matches: limit"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/utils/code-generator/script.ts",
+            "line_start": 248,
+            "relevance": "2 matches: please"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+            "line_start": 37,
+            "relevance": "2 matches: limit"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-instagram-caption/prompts.ts",
+            "line_start": 15,
+            "relevance": "2 matches: hello"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+            "line_start": 25,
+            "relevance": "2 matches: explain"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/open-ai/types.ts",
+            "line_start": 32,
+            "relevance": "1 matches: limit"
+          },
+          {
+            "repo": "ghostwriter",
+            "path": "ghostwriter/stack/service/handlers/api/generate-blog-article-topic-idea/prompts.ts",
+            "line_start": 25,
+            "relevance": "1 matches: explain"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+            "line_start": 338,
+            "relevance": "10 matches: limit, please"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+            "line_start": 38,
+            "relevance": "2 matches: notice"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/enable-publishing/enable-publishing-handler.ts",
+            "line_start": 3,
+            "relevance": "2 matches: limit"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+            "line_start": 6,
+            "relevance": "2 matches: limit"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/clients/graph-api/graph-api-exception-creator.ts",
+            "line_start": 15,
+            "relevance": "2 matches: limit"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/clients/graph-api/graph-api-exception-creator.test.ts",
+            "line_start": 68,
+            "relevance": "2 matches: please"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+            "line_start": 84,
+            "relevance": "1 matches: please"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/api/get-posts-by-send-at/get-posts-by-send-at-handler.ts",
+            "line_start": 32,
+            "relevance": "1 matches: notice"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/handle-publish-post-results.ts",
+            "line_start": 167,
+            "relevance": "1 matches: notice"
+          },
+          {
+            "repo": "zuck",
+            "path": "zuck/service/lib/handlers/sqs/publish-posts/get-active-token-for-page.ts",
+            "line_start": 46,
+            "relevance": "1 matches: notice"
+          }
+        ],
+        "snippets": [
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/e2e/billing/planLimitTopNav.playwright.ts",
+            "line_start": 1,
+            "line_end": 21,
+            "content": "import {\n\ttype BillingVersion,\n\tdefaultNextBillingTestVersions,\n\texpect,\n\tgetPlanInVersionByName,\n\tgetStorageState,\n\tgoToAccountSettings,\n\tlogger,\n\tnextBillingPlanProperties,\n\tsetNextBillingOptions,\n\tsetTestingPlanLimits,\n\ttest,\n\tuserCredentials,\n\twaitForSelectorToBeStable,\n} from \"playwright-utils/src/index\";\n\n// Get the correct plan IDs using the version and plan name\nconst version7 = 7 as BillingVersion;\nconst currentVersion = defaultNextBillingTestVersions[0];\n\nconst v7ProPlan = getPlanInVer",
+            "language": "typescript",
+            "context": "42 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/limit-indicators/limit-indicator-view.tsx",
+            "line_start": 1,
+            "line_end": 12,
+            "content": "import { getTimeLeft } from '../../../utils/time-utils';\nimport './limit-indicator-view-style.scss';\nimport { Tooltip } from '@tailwindapp/web-ui';\nimport cns from 'classnames';\nimport React, { FC } from 'react';\n\ninterface Props {\n  designLimit: number;\n  usedDesignCount: number;\n  planName: string;\n  resetUnixTimestamp: number;\n  showSelectedDesignCount: boolean;\n",
+            "language": "typescript",
+            "context": "15 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/views/pricing-table-view/components/generic-feature-limit/generic-feature-limit.stories.tsx",
+            "line_start": 1,
+            "line_end": 11,
+            "content": "import {GenericFeatureLimit, GenericFeatureLimitProps} from './generic-feature-limit';\nimport {Meta, Story} from '@storybook/react';\nimport React from 'react';\n\nconst Template: Story<GenericFeatureLimitProps> = (args) => (\n  <GenericFeatureLimit {...args} />\n);\n\nexport const Basic = Template.bind({});\nBasic.args = {\n  text: 'Basic feature limit'\n",
+            "language": "typescript",
+            "context": "12 matches: limit"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-editor/side-controls/text-controls-utils.ts",
+            "line_start": 7,
+            "line_end": 27,
+            "content": "\n/**\n * Returns whether or not a fabric textbox has some portion\n * of its text selected by the user.\n *\n * @param node\n */\nexport const getHasTextSelection = (node: fabric.Textbox | undefined): boolean => {\n  /**\n   * These indexes represent the start and end of a selection of text\n   * from a text node. E.g. if the text is `hello` and selectionStart === 0\n   * and selectionEnd === 3, the selection would be `hel`. If the indexes\n   * are equal, or they are undefined, then there's no active text",
+            "language": "typescript",
+            "context": "5 matches: hello"
+          },
+          {
+            "repo": "aero",
+            "file_path": "aero/packages/core/src/ghostwriter/utils/errors.ts",
+            "line_start": 3,
+            "line_end": 23,
+            "content": "\nconst notEnoughCreditsError: ApplicationErrorDefinition = {\n\tmessage: \"Not enough ai credits\",\n\tpublicMessage: \"You do not have enough Tailwind Credits remaining.\",\n\tstatusCode: HttpStatusCodes.BadRequest,\n};\n\nconst invalidContentTypeError: ApplicationErrorDefinition = {\n\tmessage: \"Invalid content type\",\n\tpublicMessage:\n\t\t\"Whoops, something went wrong with this use case. Please try again with a different one.\",\n\tstatusCode: HttpStatusCodes.BadRequest,\n};\n\nconst suspectedPromptInjectionError: Ap",
+            "language": "typescript",
+            "context": "3 matches: please"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+            "line_start": 23,
+            "line_end": 43,
+            "content": "type SuccessfulResponse = {\n\twasSuccessful: true;\n\tmaxAttempts: number;\n};\n\ntype FailureResponse = {\n\twasSuccessful: false;\n\tmaxAttempts: number;\n};\n\nconst RATE_LIMIT_REMAINING_HEADER = 'x-userendpoint-ratelimit-remaining';\nconst RATE_LIMIT_HEADER = 'x-userendpoint-ratelimit-limit';\n\nconst checkRateLimitHeaders = (response: AxiosResponse<PinterestApiResponse<unknown>>) => {\n\tconst { headers, data } = response;\n\ttry {\n\t\tif (headers && headers[RATE_LIMIT_REMAINING_HEADER] && headers[RATE_LIMIT_HEA",
+            "language": "typescript",
+            "context": "54 matches: limit, notice"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+            "line_start": 12,
+            "line_end": 32,
+            "content": "import { UserPublishingStatusMocker } from '../../../__mocks__/user-publishing-status';\nimport { VideoContainerMocker } from '../../../__mocks__/video-container-mocker';\nimport { addToVideoContainerCreationQueue } from '../create-video-container/add-to-video-container-creation-queue';\nimport {\n\tassertValidUrl,\n\tassertNotFromPinterest,\n\tassertNotSpamDomain,\n\tassertPublishingEnabled,\n\tassertTokenAuthorized,\n\tassertVideoContainerIsReady,\n\tassertWithinDailyLimit,\n\tCheckProps,\n\tDAILY_PUBLISHING_LIMIT",
+            "language": "typescript",
+            "context": "9 matches: limit"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+            "line_start": 51,
+            "line_end": 71,
+            "content": "\t\t\t}\n\t\tcase 2: // Authentication failed\n\t\tcase 3: // Authorization failed\n\t\t\treturn { reason: PostFailureReason.EXPIRED_TOKEN, retryable: false };\n\t\tcase 7: // Access denied\n\t\t\tif (endpointName === 'register_media_upload') {\n\t\t\t\treturn { reason: PostFailureReason.NEEDS_BUSINESS_ACCOUNT, retryable: false };\n\t\t\t}\n\t\t\treturn { reason: PostFailureReason.NO_BOARD_ACCESS, retryable: false };\n\n\t\tcase 8: // Limit exceeded\n\t\t\treturn { reason: PostFailureReason.USER_RATE_LIMIT, retryable: false };\n\t\tcase 9",
+            "language": "typescript",
+            "context": "8 matches: limit, please"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/client/src/types/post.ts",
+            "line_start": 13,
+            "line_end": 33,
+            "content": "\t| 'save_you_blocked_user'\n\t| 'save_failed'\n\t| 'blocked_inappropriate'\n\t| 'blocked_policy'\n\t| 'blocked_spam'\n\t| 'blocked_redirector'\n\t| 'broken_image'\n\t| 'small_image'\n\t| 'safe_mode'\n\t| 'pin_not_found'\n\t| 'max_pin_limit'\n\t| 'user_rate_limit'\n\t| 'first_hour_user_limit'\n\t| 'first_day_user_limit'\n\t| 'server_empty_reply'\n\t| 'links_to_pinterest'\n\t| 'UPLOAD_URL_EXPIRE'\n\t| 'video_container_failed'\n\t| 'video_container_processing';\n\nexport const PostStatuses = [\n",
+            "language": "typescript",
+            "context": "4 matches: limit"
+          },
+          {
+            "repo": "tack",
+            "file_path": "tack/service/lib/handlers/api/get-posts-by-link/get-posts-by-link-request.ts",
+            "line_start": 11,
+            "line_end": 31,
+            "content": "\t/**\n\t * We don't include this inside the tack client because this should only\n\t * be used for a legacy constraint. Once legacy publisher is gone, this\n\t * can be removed.\n\t */\n\tincludeUploadId?: boolean;\n\tcursor?: string;\n\tlink: string;\n\tscanForward?: boolean;\n\tstatus?: PostStatus;\n\tlimit?: number;\n}\n\nexport const GetPostsByLinkRequestSchema = Joi.object<GetPostsByLinkRequest>({\n\tincludeMeta: Joi.boolean().optional(),\n\tincludeUploadId: Joi.boolean().optional(),\n\tcursor: Joi.string().optional(),",
+            "language": "typescript",
+            "context": "2 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/repositories/src/product-repository.ts",
+            "line_start": 38,
+            "line_end": 58,
+            "content": "\t\t\t * @default false\n\t\t\t */\n\t\t\tincludeDeleted?: boolean;\n\t\t\t/** Include media for the products.\n\t\t\t *\n\t\t\t * If this is false, the `media` field will be an empty array even if the product has media.\n\t\t\t *\n\t\t\t * @default false\n\t\t\t */\n\t\t\tincludeMedia?: boolean;\n\t\t\t/** Limit the number of products fetched at a time.\n\t\t\t *\n\t\t\t * @default 50\n\t\t\t */\n\t\t\tlimit?: number | null;\n\t\t\t/** Continue fetching after this cursor. */\n\t\t\tcursor?: string;\n\t\t},\n\t): Promise<{ products: Product[]; cursor?: string }>;\n\n\t",
+            "language": "typescript",
+            "context": "13 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+            "line_start": 1,
+            "line_end": 20,
+            "content": "import { Environments, TailwindEvents, TailwindNetwork } from '@tailwind/cdk';\nimport { QueueHandler, QueueHandlerPresets } from '@tailwind/sst-queue-constructs';\nimport { Duration } from 'aws-cdk-lib';\nimport { Bucket, Config, Cron, EventBus, StackContext, dependsOn, use } from 'sst/constructs';\nimport { Core } from '../core-stacks/Core';\nimport { resolveTailwindEnv } from '../utils';\nimport { getEnvVars } from '../utils/get-env-vars';\nimport { useFnWithDbAccess } from '../utils/useFnWithDataba",
+            "language": "typescript",
+            "context": "8 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/repositories/src/blog-post-repository.ts",
+            "line_start": 331,
+            "line_end": 351,
+            "content": "\t\t);\n\t\tif (!contents) return undefined;\n\n\t\treturn contents.transformToByteArray();\n\t}\n\n\tasync getBlogPostsBySiteId(\n\t\tconnection: DBReader,\n\t\t{\n\t\t\tsiteId,\n\t\t\tlimit = 50,\n\t\t\tcursor = 0,\n\t\t\tincludeMedia,\n\t\t\tincludeDeleted,\n\t\t\tfilterBySourceBlogIds,\n\t\t\tsearchTerm,\n\t\t}: Pick<BlogPost, 'siteId'> & {\n\t\t\tlimit: number;\n\t\t\tcursor?: number;\n\t\t\tincludeMedia?: boolean;\n\t\t\tincludeDeleted?: boolean;\n",
+            "language": "typescript",
+            "context": "7 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+            "line_start": 4,
+            "line_end": 24,
+            "content": "\tpablo,\n\tscooby,\n\tScoobyAllProductsItem,\n\tScoobyAllProductsResponse,\n\tScoobyAllProductsResponseSchema,\n\tscrooge,\n\tScroogeProductDomainData,\n} from '@charlotte/core';\nimport { EcommercePlatform } from '@tailwind/charlotte';\nimport { PabloV2CreateUrlsFailedResponse, PabloV2CreateUrlsSuccessResponse } from '@tailwind/pablo';\nimport pLimit from 'p-limit';\n\ntype ScrapedProduct = ScroogeProductDomainData | ScoobyAllProductsItem;\n\ntype FetchProductsOptions = {\n\tplatform: EcommercePlatform;\n\tremoveProdu",
+            "language": "typescript",
+            "context": "6 matches: limit"
+          },
+          {
+            "repo": "charlotte",
+            "file_path": "charlotte/packages/handler-utils/utils/api-handler.ts",
+            "line_start": 14,
+            "line_end": 34,
+            "content": "\tname: string;\n\trequestId: string;\n\tcause?: unknown;\n\tcode: number;\n\tdata?: unknown;\n\tstack?: string;\n\tauth: A;\n};\n\n/** Process an error into an object that can be logged, recursively resolving wrapped errors. */\nfunction toErrorObject<A>(error: unknown, props: { requestId: string; auth: A }, recursionLimit = 5) {\n\tconst errorObject: ResponseError<A> = {\n\t\tcode: 500,\n\t\tmessage: 'Unknown error',\n\t\tname: 'Unknown',\n\t\t...props,\n\t\tcause: undefined,\n\t};\n\tif (error instanceof ApiError.Generic) {\n\t\terr",
+            "language": "typescript",
+            "context": "4 matches: limit, please"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/utils/code-generator/script.ts",
+            "line_start": 238,
+            "line_end": 258,
+            "content": "\tconst hyphenatedContentName = contentName.replace(/ /g, '-');\n\n\tconst modifiedText = clientGhostwriterIndexText.replace(\n\t\t/\\/\\/ DO NOT DELETE __CLIENT_IMPORTS__/gm,\n\t\t`export { Generate${camelCaseContentName}Request, Generate${camelCaseContentName}Response } from './requests/generate-${hyphenatedContentName}';\\n// DO NOT DELETE __CLIENT_IMPORTS__`,\n\t);\n\tfs.writeFileSync(clientGhostwriterIndexFile, modifiedText);\n};\n\nconst main = async () => {\n\tconsole.log(chalk.bgBlue('Please answer all the qu",
+            "language": "typescript",
+            "context": "2 matches: please"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+            "line_start": 27,
+            "line_end": 47,
+            "content": "1. Quote: create a philosophical quote.\n2. Multi-line: create a multi-line tweet for dramatic effect or comedic timing. Do not be salesy.\n3. Current Event: provide a structure for research that a user might want to take.\n4. Ask a Question: Ask a question to get the conversation going.\n5. Listicle: Generate a list of things someone might be interested in.\n6. Controversial: Take a controversial stance.\n7. Attention and Reward: Capture the reader's attention and then provide them with knowledge or ",
+            "language": "typescript",
+            "context": "2 matches: limit"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/handlers/api/generate-instagram-caption/prompts.ts",
+            "line_start": 5,
+            "line_end": 25,
+            "content": "export const hydrateInstruction = (instruction: string, body: GenerateInstagramCaptionByText, personalizationInfo?: PersonalizationInfo) => {\n\tlet baseInstruction: string = instruction;\n\tif (body.cta && body.cta.length > 0) {\n\t\tbaseInstruction = baseInstruction.replace(/\\[CTA\\]/g, body.cta.trim());\n\t} else if (!body.cta) {\n\t\tbaseInstruction = baseInstruction.replace(/ that ends in a call to action \"\\[CTA\\]\"/g, '');\n\t}\n\tif (body.keywords && body.keywords.length > 0) {\n\t\t// Append the double quote",
+            "language": "typescript",
+            "context": "2 matches: hello"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+            "line_start": 15,
+            "line_end": 35,
+            "content": "\thydrateInstruction(instruction, body, personalizationInfo);\n\nconst instruction: string = `[You are a renowned TED speaker known for divergent thinking. You are detail-oriented and exceptional at coming up with ideas for video content.\n\nYour primary role will be developing novel ideas for video content. Novel ideas are 1) Counter-intuitive, 2) Interesting, 3) Shocking, 4) Entertaining 5) Engaging. These ideas might include industry secrets, methods to help with a problem, tips and tricks, reacti",
+            "language": "typescript",
+            "context": "2 matches: explain"
+          },
+          {
+            "repo": "ghostwriter",
+            "file_path": "ghostwriter/stack/service/open-ai/types.ts",
+            "line_start": 22,
+            "line_end": 40,
+            "content": "\t * An object specifying the format that the model must output. Compatible with\n\t * [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-and-gpt-4-turbo) and\n\t * all GPT-3.5 Turbo models newer than `gpt-3.5-turbo-1106`.\n\t *\n\t * Setting to `{ \"type\": \"json_object\" }` enables JSON mode, which guarantees the\n\t * message the model generates is valid JSON.\n\t *\n\t * **Important:** when using JSON mode, you **must** also instruct the model to\n\t * produce JSON yourself via a system or user message",
+            "language": "typescript",
+            "context": "1 matches: limit"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+            "line_start": 328,
+            "line_end": 348,
+            "content": " *     \"Connection\":\"keep-alive\",\n *     \"Content-Length\":\"0\"\n *   }\n * }\n * ```\n *\n */\nexport const EXCEPTION_INTERNAL_SERVICE = 'internal-service';\n\n/**\n * Exception thrown when we're being rate limited\n *\n * ```json\n * {\n *   \"message\":\"(#80002) There have been too many calls to this Instagram account. Wait a bit and try again. For more info, please refer to https://developers.facebook.com/docs/graph-api/overview/rate-limiting.\",\n *   \"type\":\"OAuthException\",\n *   \"code\":80002,\n *   \"fbtrace_",
+            "language": "typescript",
+            "context": "10 matches: limit, please"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+            "line_start": 28,
+            "line_end": 48,
+            "content": "\t\t\t\tcondition: Condition('status').in([\n\t\t\t\t\tPostStatus.Retry,\n\t\t\t\t\tPostStatus.Queued,\n\t\t\t\t]),\n\t\t\t},\n\t\t);\n\n\t\treturn true;\n\t} catch (error) {\n\t\t/**\n\t\t * We only log a notice here because it's expected that this\n\t\t * will happen if a post is duplicated, but we'd like to\n\t\t * be able to track it\n\t\t */\n\t\tLog.notice('Unable to mark a post as pending', {\n\t\t\terror,\n\t\t\tdata: {\n\t\t\t\tpostId: post.id,\n\t\t\t},\n\t\t});\n\t\treturn false;\n",
+            "language": "typescript",
+            "context": "2 matches: notice"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/handlers/sqs/enable-publishing/enable-publishing-handler.ts",
+            "line_start": 1,
+            "line_end": 13,
+            "content": "import {\n\tSystemEventPayloadSchema,\n\tOrganizationsPublishingLimitResetEventSchema,\n} from '@tailwind/system-events';\nimport { QueueHandler } from '@tailwind/lambda-handlers';\nimport { Queue } from '../../../queue';\nimport { TogglePublishingEvent } from '../../../shared/publishing-event';\n\nexport const enableOrgPublishing = QueueHandler(\n\t{\n\t\tvalidator: SystemEventPayloadSchema(\n\t\t\tOrganizationsPublishingLimitResetEventSchema,\n\t\t),\n",
+            "language": "typescript",
+            "context": "2 matches: limit"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+            "line_start": 1,
+            "line_end": 16,
+            "content": "import {\n\tFailedTokenExceptions,\n\tNotRetryableExceptions,\n} from '../../../clients/graph-api/graph-api-exception';\nimport { GraphApiFailure } from '../../../clients/graph-api/graph-api-response';\nimport { publishPostRetryLimit } from '../../../config';\nimport { PublishPostEvent } from '../../../data/events/publish-post-event';\nimport { PublishPostResult, PublishPostStatus } from './publish-post-result';\n\n/**\n * Get the status for a failed publish attempt\n *\n * E.g., should we retry, is this an i",
+            "language": "typescript",
+            "context": "2 matches: limit"
+          },
+          {
+            "repo": "zuck",
+            "file_path": "zuck/service/lib/clients/graph-api/graph-api-exception-creator.ts",
+            "line_start": 5,
+            "line_end": 25,
+            "content": "\tEXCEPTION_FATAL,\n\tEXCEPTION_INVALID_TOKEN,\n\tEXCEPTION_MISSING_PERMISSION,\n\tEXCEPTION_MUST_LOG_IN,\n\tEXCEPTION_NOT_AUTHORIZED,\n\tEXCEPTION_OAUTH,\n\tEXCEPTION_PASSWORD_SECURITY,\n\tEXCEPTION_PERMISSIONS_ERROR,\n\tEXCEPTION_PIXEL_ALREADY_EXISTS,\n\tEXCEPTION_POSTED_BEFORE_BUSINESS_CONVERSION,\n\tEXCEPTION_RATE_LIMITED,\n\tEXCEPTION_SESSION_EXPIRED,\n\tEXCEPTION_TOKEN_DECRYPTION,\n\tEXCEPTION_TOO_MANY_PIXELS,\n\tEXCEPTION_UNCONFIRMED,\n\tEXCEPTION_UNEXPECTED,\n\tEXCEPTION_UNHANDLED,\n\tEXCEPTION_UNKNOWN,\n\tEXCEPTION_UNSUPPO",
+            "language": "typescript",
+            "context": "2 matches: limit"
+          }
+        ],
+        "search_terms_used": [
+          "grep -r hello packages/",
+          "grep -r hello stack/",
+          "grep -r hello service/",
+          "-- Search logs for uncertain errors in last 24h",
+          "SELECT * FROM uncertain WHERE updated_at > NOW() - INTERVAL '7 days' LIMIT 10;"
+        ],
+        "exploration_log": [
+          {
+            "action": "explore",
+            "repo": "aero",
+            "success": true,
+            "files_found": 13,
+            "snippets_found": 5,
+            "duration_ms": 4542,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "tack",
+            "success": true,
+            "files_found": 13,
+            "snippets_found": 5,
+            "duration_ms": 155,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "charlotte",
+            "success": true,
+            "files_found": 11,
+            "snippets_found": 5,
+            "duration_ms": 95,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "ghostwriter",
+            "success": true,
+            "files_found": 6,
+            "snippets_found": 5,
+            "duration_ms": 155,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "zuck",
+            "success": true,
+            "files_found": 10,
+            "snippets_found": 5,
+            "duration_ms": 85,
+            "error": null
+          }
+        ]
+      },
+      "search_duration_ms": 5035
+    }
+  ],
+  "iteration_number": 1,
+  "timestamp": "2026-01-16T02:09:46.956988"
+}

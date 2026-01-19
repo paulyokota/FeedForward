@@ -50,11 +50,204 @@ try:
 except ImportError:
     KNOWLEDGE_CACHE_AVAILABLE = False
 
+# Import cheap mode evaluator for dual-mode evaluation
+try:
+    from models import Story, DualModeResult, ExpensiveModeResult, CheapModeResult
+    from cheap_mode_evaluator import CheapModeEvaluator, compute_cheap_metrics
+    CHEAP_MODE_AVAILABLE = True
+except ImportError:
+    CHEAP_MODE_AVAILABLE = False
+
+# Import pattern learner for learning loop
+try:
+    from pattern_learner import PatternLearner, run_learning_iteration
+    PATTERN_LEARNER_AVAILABLE = True
+except ImportError:
+    PATTERN_LEARNER_AVAILABLE = False
+
+# Import convergence monitor for self-healing
+try:
+    from convergence_monitor import ConvergenceMonitor
+    CONVERGENCE_MONITOR_AVAILABLE = True
+except ImportError:
+    CONVERGENCE_MONITOR_AVAILABLE = False
+
 
 # Constants
 SCRIPT_DIR = Path(__file__).parent
 DEFAULT_MANIFEST = SCRIPT_DIR / "test_data" / "manifest.json"
 GOLD_STANDARD_PATH = PROJECT_ROOT / "docs" / "story_knowledge_base.md"
+
+# Dual-mode evaluation constants
+PATTERNS_V1_PATH = SCRIPT_DIR / "learned_patterns.json"
+PATTERNS_V2_PATH = SCRIPT_DIR / "learned_patterns_v2.json"
+CONVERGENCE_HISTORY_PATH = SCRIPT_DIR / "convergence_history.json"
+
+# Import shared configuration
+from ralph_config import GAP_TARGET
+
+
+def ensure_patterns_v2() -> Path:
+    """
+    Ensure v2 patterns file exists, migrating from v1 if needed.
+
+    Returns path to v2 patterns file.
+    """
+    if PATTERNS_V2_PATH.exists():
+        return PATTERNS_V2_PATH
+
+    if not PATTERNS_V1_PATH.exists():
+        # No patterns at all - create empty v2 file
+        from models import LearnedPatternsV2
+        empty_v2 = LearnedPatternsV2(
+            version="2.0",
+            last_updated=datetime.now(),
+            patterns=[],
+            calibration_history=[]
+        )
+        with open(PATTERNS_V2_PATH, "w") as f:
+            json.dump(empty_v2.model_dump(mode="json"), f, indent=2, default=str)
+        return PATTERNS_V2_PATH
+
+    # Migrate v1 to v2
+    from pattern_migrator import migrate_patterns_file
+    result = migrate_patterns_file(PATTERNS_V1_PATH, PATTERNS_V2_PATH, backup=True)
+    print(f"  Migrated patterns: {result}")
+    return PATTERNS_V2_PATH
+
+
+def story_dict_to_model(story_dict: Dict[str, Any], source_id: str) -> Optional["Story"]:
+    """
+    Convert a story dict (pipeline output) to Story model for cheap mode evaluation.
+
+    Extracts structured fields from the story content markdown.
+    """
+    if not CHEAP_MODE_AVAILABLE:
+        return None
+
+    content = story_dict.get("content", "")
+    if not content:
+        return None
+
+    # Extract title (first # heading)
+    import re
+    title_match = re.search(r"^#\s+(.+)$", content, re.MULTILINE)
+    title = title_match.group(1) if title_match else "Untitled Story"
+
+    # Extract acceptance criteria (lines starting with - [ ] or numbered under AC section)
+    ac_section = re.search(
+        r"##\s+Acceptance Criteria\s*([\s\S]*?)(?=##|\Z)",
+        content,
+        re.IGNORECASE
+    )
+    acceptance_criteria = []
+    if ac_section:
+        ac_text = ac_section.group(1)
+        # Match checkbox items or numbered items
+        ac_matches = re.findall(r"[-*]\s*\[.\]\s*(.+)|^\d+\.\s+(.+)", ac_text, re.MULTILINE)
+        acceptance_criteria = [m[0] or m[1] for m in ac_matches if m[0] or m[1]]
+
+    # Extract technical area (from Technical Context section)
+    tech_match = re.search(
+        r"##\s+Technical Context\s*([\s\S]*?)(?=##|\Z)",
+        content,
+        re.IGNORECASE
+    )
+    technical_area = ""
+    if tech_match:
+        technical_area = tech_match.group(1).strip()[:500]
+
+    # Use full content as description (truncated)
+    description = content[:5000]
+
+    return Story(
+        id=source_id,
+        title=title[:200],
+        description=description,
+        acceptance_criteria=acceptance_criteria[:50],
+        technical_area=technical_area if technical_area else None,
+    )
+
+
+def evaluate_cheap_mode(
+    story_dict: Dict[str, Any],
+    source_id: str,
+    evaluator: Optional["CheapModeEvaluator"] = None
+) -> Dict[str, Any]:
+    """
+    Evaluate a story using cheap (pattern-based) mode.
+
+    Returns dict with cheap_score and details.
+    """
+    if not CHEAP_MODE_AVAILABLE or evaluator is None:
+        return {
+            "cheap_score": 0,
+            "cheap_available": False,
+            "reasons": ["cheap_mode_not_available"]
+        }
+
+    story_model = story_dict_to_model(story_dict, source_id)
+    if story_model is None:
+        return {
+            "cheap_score": 0,
+            "cheap_available": True,
+            "reasons": ["story_conversion_failed"]
+        }
+
+    result = evaluator.evaluate_story(story_model)
+
+    return {
+        "cheap_score": result.gestalt,
+        "cheap_raw_score": result.raw_score,
+        "cheap_available": True,
+        "reasons": result.reasons,
+        "patterns_matched": result.patterns_matched,
+        "patterns_violated": result.patterns_violated,
+    }
+
+
+def build_dual_mode_result(
+    story_id: str,
+    expensive_eval: Dict[str, Any],
+    cheap_result: Dict[str, Any],
+) -> Optional["DualModeResult"]:
+    """
+    Build a DualModeResult from raw evaluation dicts.
+
+    Required for pattern learning loop integration.
+    """
+    if not CHEAP_MODE_AVAILABLE:
+        return None
+
+    gestalt = expensive_eval.get("gestalt_score", 0)
+    cheap_score = cheap_result.get("cheap_score", 0)
+
+    if gestalt == 0 or cheap_score == 0:
+        return None
+
+    expensive = ExpensiveModeResult(
+        story_id=story_id,
+        gestalt=gestalt,
+        reasoning=expensive_eval.get("explanation", ""),
+        strengths=expensive_eval.get("strengths", []),
+        weaknesses=expensive_eval.get("improvements", []),
+    )
+
+    cheap = CheapModeResult(
+        story_id=story_id,
+        gestalt=cheap_score,
+        raw_score=cheap_result.get("cheap_raw_score", 0),
+        reasons=cheap_result.get("reasons", []),
+        patterns_matched=cheap_result.get("patterns_matched", []),
+        patterns_violated=cheap_result.get("patterns_violated", []),
+    )
+
+    return DualModeResult(
+        story_id=story_id,
+        expensive=expensive,
+        cheap=cheap,
+        gap=round(gestalt - cheap_score, 2),
+    )
 
 
 def load_manifest(manifest_path: Path) -> Dict[str, Any]:
@@ -80,8 +273,13 @@ def load_test_data(source: Dict[str, Any], test_data_dir: Path) -> Dict[str, Any
             "metadata": source.get("metadata", {})
         }
 
-    # Static file format
-    path = test_data_dir / source["path"]
+    # Static file format - validate path doesn't escape test_data_dir
+    if "path" not in source:
+        raise ValueError(f"Source must have either 'content' or 'path': {source.get('id', 'unknown')}")
+
+    path = (test_data_dir / source["path"]).resolve()
+    if not path.is_relative_to(test_data_dir.resolve()):
+        raise ValueError(f"Path traversal detected: {source['path']}")
 
     if path.suffix == ".json":
         with open(path) as f:
@@ -1217,6 +1415,21 @@ def run_full_test(manifest_path: Path = DEFAULT_MANIFEST,
     print(f"    Scoping threshold: >= {thresholds.get('scoping_min', 3.5)}")
     print(f"    Scoping validation: {'ENABLED' if not skip_scoping else 'DISABLED'}")
 
+    # Initialize cheap mode evaluator for dual-mode evaluation
+    cheap_evaluator = None
+    if CHEAP_MODE_AVAILABLE:
+        try:
+            patterns_path = ensure_patterns_v2()
+            cheap_evaluator = CheapModeEvaluator(patterns_path)
+            health = cheap_evaluator.get_health_status()
+            print(f"    Cheap mode: ENABLED ({health.details.get('total_patterns', 0)} patterns)")
+            if not health.healthy:
+                print(f"      Warning: {health.flags}")
+        except Exception as e:
+            print(f"    Cheap mode: DISABLED (error: {e})")
+    else:
+        print(f"    Cheap mode: DISABLED (module not available)")
+
     # Process each source
     results = []
     all_stories = []
@@ -1261,20 +1474,47 @@ def run_full_test(manifest_path: Path = DEFAULT_MANIFEST,
         print(f"done")
         all_stories.append(story)
 
-        # Evaluate gestalt
-        print(f"       ⟳ Evaluating gestalt...", end=" ", flush=True)
+        # Evaluate gestalt (expensive mode - LLM judge)
+        print(f"       ⟳ Evaluating gestalt (expensive)...", end=" ", flush=True)
         evaluation = evaluate_gestalt(story, gold_standard)
         gestalt = evaluation.get("gestalt_score", 0)
         print(f"score: {gestalt}/5")
 
-        results.append({
+        # Evaluate cheap mode (pattern-based) for dual-mode gap tracking
+        cheap_result = {"cheap_score": 0, "cheap_available": False}
+        gap = 0.0
+        if cheap_evaluator is not None:
+            print(f"       ⟳ Evaluating cheap mode...", end=" ", flush=True)
+            cheap_result = evaluate_cheap_mode(story, source_id, cheap_evaluator)
+            cheap_score = cheap_result.get("cheap_score", 0)
+            gap = gestalt - cheap_score if gestalt > 0 and cheap_score > 0 else 0
+            gap_status = "✓" if abs(gap) <= GAP_TARGET else "⚠"
+            print(f"score: {cheap_score}/5 (gap: {gap:+.2f} {gap_status})")
+
+        result_entry = {
             "source_id": source_id,
             "source_type": source_type,
             "expected_technical_area": source.get("expected_technical_area"),
             "gestalt_score": gestalt,
             "evaluation": evaluation,
+            "cheap_score": cheap_result.get("cheap_score", 0),
+            "cheap_details": cheap_result,
+            "gap": round(gap, 2),
             "story_preview": story["content"][:1500]
-        })
+        }
+        results.append(result_entry)
+
+        # Build DualModeResult for learning loop (if cheap mode enabled)
+        if cheap_evaluator is not None:
+            dual_result = build_dual_mode_result(source_id, evaluation, cheap_result)
+            if dual_result:
+                result_entry["dual_mode_result"] = dual_result
+
+    # Collect dual-mode results for learning loop
+    dual_mode_results = [
+        r["dual_mode_result"] for r in results
+        if r.get("dual_mode_result") is not None
+    ]
 
     # Run scoping validation on all stories (uses Claude with Tailwind codebase access)
     scoping_result = {"skipped": True}
@@ -1309,9 +1549,113 @@ def run_full_test(manifest_path: Path = DEFAULT_MANIFEST,
             except Exception as e:
                 print(f"  Warning: Could not update knowledge cache: {e}")
 
+    # Run pattern learning loop (Phase 3 - if dual-mode enabled)
+    learning_stats = {"skipped": True}
+    if PATTERN_LEARNER_AVAILABLE and cheap_evaluator is not None and dual_mode_results:
+        print(f"\n  [PHASE 3: PATTERN LEARNING LOOP]")
+        print(f"  {'-'*50}")
+        print(f"  ⟳ Running learning iteration with {len(dual_mode_results)} dual-mode results...")
+
+        try:
+            # Extract iteration number from output file naming (or use timestamp)
+            import re
+            iteration_match = re.search(r"iteration_(\d+)", str(SCRIPT_DIR / "outputs"))
+            iteration = int(iteration_match.group(1)) if iteration_match else 1
+
+            learning_stats = run_learning_iteration(
+                patterns_path=PATTERNS_V2_PATH,
+                dual_results=dual_mode_results,
+                iteration=iteration,
+            )
+
+            print(f"  ✓ Learning iteration complete")
+            print(f"       New proposals: {learning_stats.get('new_proposals', 0)}")
+            print(f"       Patterns committed: {len(learning_stats.get('committed', []))}")
+            print(f"       Patterns rejected: {len(learning_stats.get('rejected', []))}")
+            print(f"       Still provisional: {learning_stats.get('still_provisional', 0)}")
+
+            status = learning_stats.get("status", {})
+            print(f"       Total active patterns: {status.get('active_patterns', 0)}")
+
+        except Exception as e:
+            print(f"  ⚠ Learning loop error: {e}")
+            learning_stats = {"skipped": False, "error": str(e)}
+
     # Calculate summary metrics
     gestalt_scores = [r["gestalt_score"] for r in results if r.get("gestalt_score", 0) > 0]
     avg_gestalt = mean(gestalt_scores) if gestalt_scores else 0
+
+    # Calculate cheap mode metrics (dual-mode)
+    cheap_scores = [r["cheap_score"] for r in results if r.get("cheap_score", 0) > 0]
+    avg_cheap = mean(cheap_scores) if cheap_scores else 0
+
+    # Calculate gap metrics
+    gaps = [r.get("gap", 0) for r in results if r.get("gestalt_score", 0) > 0 and r.get("cheap_score", 0) > 0]
+    avg_gap = mean(gaps) if gaps else 0
+    max_gap = max(abs(g) for g in gaps) if gaps else 0
+    gaps_within_target = sum(1 for g in gaps if abs(g) <= GAP_TARGET)
+    gap_compliance_pct = (gaps_within_target / len(gaps) * 100) if gaps else 0
+
+    # Run convergence monitoring (Phase 4 - if dual-mode enabled)
+    convergence_status = {"monitoring_enabled": False}
+    suggested_action = None
+    if CONVERGENCE_MONITOR_AVAILABLE and cheap_evaluator is not None and avg_gestalt > 0 and avg_cheap > 0:
+        print(f"\n  [PHASE 4: CONVERGENCE MONITORING]")
+        print(f"  {'-'*50}")
+
+        try:
+            monitor = ConvergenceMonitor(CONVERGENCE_HISTORY_PATH)
+
+            # Record this iteration
+            iteration = len(monitor.history) + 1
+            story_ids = [r["source_id"] for r in results]
+
+            monitor.record_iteration(
+                iteration=iteration,
+                expensive_avg=avg_gestalt,
+                cheap_avg=avg_cheap,
+                pattern_count=learning_stats.get("status", {}).get("active_patterns", 0),
+                provisional_patterns=learning_stats.get("still_provisional", 0),
+                patterns_committed=len(learning_stats.get("committed", [])),
+                patterns_rejected=len(learning_stats.get("rejected", [])),
+                story_ids=story_ids,
+            )
+
+            # Check for divergence
+            divergence = monitor.check_divergence()
+            if divergence.diverging:
+                print(f"  ⚠ DIVERGENCE DETECTED: {divergence.reason}")
+                print(f"       Diagnosis: {divergence.diagnosis}")
+                print(f"       Action: {divergence.action}")
+
+            # Check for convergence
+            convergence = monitor.check_convergence()
+            if convergence.converged:
+                print(f"  ✓ CONVERGENCE ACHIEVED!")
+                print(f"       Gap consistently within target ({GAP_TARGET})")
+                print(f"       Proof: {convergence.proof}")
+
+            # Get trend and suggested action
+            trend = monitor.get_trend()
+            suggested_action = monitor.suggest_action()
+
+            convergence_status = {
+                "monitoring_enabled": True,
+                "iteration": iteration,
+                "trend": trend,
+                "diverging": divergence.diverging,
+                "converged": convergence.converged,
+                "suggested_action": suggested_action,
+            }
+
+            print(f"  ✓ Iteration {iteration} recorded")
+            print(f"       Trend: {trend}")
+            if suggested_action:
+                print(f"       Suggested action: {suggested_action}")
+
+        except Exception as e:
+            print(f"  ⚠ Convergence monitoring error: {e}")
+            convergence_status = {"monitoring_enabled": True, "error": str(e)}
 
     # Group by source type
     by_source_type = {}
@@ -1333,6 +1677,8 @@ def run_full_test(manifest_path: Path = DEFAULT_MANIFEST,
         avg >= thresholds.get("per_source_gestalt_min", 3.5)
         for avg in source_type_avgs.values() if avg > 0
     )
+    # Gap threshold check (optional - warn if gap is too large)
+    passes_gap = avg_gap <= GAP_TARGET if gaps else True
 
     # Scoping thresholds
     scoping_threshold = thresholds.get("scoping_min", 3.5)
@@ -1353,10 +1699,30 @@ def run_full_test(manifest_path: Path = DEFAULT_MANIFEST,
         "passes_gestalt": passes_gestalt,
         "source_type_averages": source_type_avgs,
         "passes_per_source": passes_per_source,
+        # Dual-mode metrics
+        "average_cheap": round(avg_cheap, 2),
+        "average_gap": round(avg_gap, 2),
+        "max_gap": round(max_gap, 2),
+        "gap_target": GAP_TARGET,
+        "gap_compliance_pct": round(gap_compliance_pct, 1),
+        "passes_gap": passes_gap,
+        "dual_mode_enabled": cheap_evaluator is not None,
+        # Scoping
         "scoping_score": round(scoping_score_val, 2) if scoping_score_val else 0,
         "scoping_threshold": scoping_threshold,
         "passes_scoping": passes_scoping,
         "patterns_discovered": len(discovered_patterns),
+        # Learning loop
+        "learning_enabled": not learning_stats.get("skipped", True),
+        "patterns_committed": len(learning_stats.get("committed", [])),
+        "patterns_rejected": len(learning_stats.get("rejected", [])),
+        "patterns_provisional": learning_stats.get("still_provisional", 0),
+        "total_active_patterns": learning_stats.get("status", {}).get("active_patterns", 0),
+        # Convergence monitoring
+        "convergence_monitoring": convergence_status.get("monitoring_enabled", False),
+        "convergence_trend": convergence_status.get("trend"),
+        "is_diverging": convergence_status.get("diverging", False),
+        "is_converged": convergence_status.get("converged", False),
         "overall_pass": passes_gestalt and passes_per_source and passes_scoping
     }
 
@@ -1379,6 +1745,16 @@ def run_full_test(manifest_path: Path = DEFAULT_MANIFEST,
     if scoping_result.get("skipped"):
         scoping_status = "SKIP"
     print(f"  │ Scoping Score           │ {summary['scoping_score']:<7} │ >= {scoping_threshold:<5} │ {scoping_status:^6} │")
+
+    # Dual-mode metrics (if enabled)
+    if cheap_evaluator is not None:
+        print(f"  ├─────────────────────────┼─────────┼───────────┼────────┤")
+        print(f"  │ Cheap Mode Score        │ {summary['average_cheap']:<7} │   n/a     │   --   │")
+        gap_status = "PASS" if passes_gap else "WARN"
+        print(f"  │ Avg Gap (expensive-cheap)│ {summary['average_gap']:+.2f}   │ <= {GAP_TARGET:<5} │ {gap_status:^6} │")
+        print(f"  │ Max Gap                 │ {summary['max_gap']:+.2f}   │   n/a     │   --   │")
+        print(f"  │ Gap Compliance          │ {summary['gap_compliance_pct']:.0f}%    │   n/a     │   --   │")
+
     print(f"  └─────────────────────────┴─────────┴───────────┴────────┘")
 
     # Scoping patterns
@@ -1392,17 +1768,26 @@ def run_full_test(manifest_path: Path = DEFAULT_MANIFEST,
 
     # Overall result
     overall = "PASS ✓" if summary["overall_pass"] else "FAIL ✗"
+    dual_mode_str = f"Gap: {summary['average_gap']:+.2f}" if summary["dual_mode_enabled"] else "Dual-mode: OFF"
     print(f"\n  ┌─────────────────────────────────────────────────────────────────────┐")
     print(f"  │  OVERALL RESULT: {overall:^50} │")
-    print(f"  │  Duration: {duration:.1f}s | Stories: {len(all_stories)} | Patterns: {len(discovered_patterns):<17} │")
+    print(f"  │  Duration: {duration:.1f}s | Stories: {len(all_stories)} | {dual_mode_str:<26} │")
     print(f"  └─────────────────────────────────────────────────────────────────────┘")
+
+    # Clean results for JSON serialization (remove Pydantic models)
+    clean_results = []
+    for r in results:
+        clean_r = {k: v for k, v in r.items() if k != "dual_mode_result"}
+        clean_results.append(clean_r)
 
     # Full output
     output = {
         "summary": summary,
-        "results": results,
+        "results": clean_results,
         "scoping": scoping_result,
         "discovered_patterns": discovered_patterns,
+        "learning": learning_stats if not learning_stats.get("skipped") else None,
+        "convergence": convergence_status if convergence_status.get("monitoring_enabled") else None,
         "manifest_version": manifest.get("version", "unknown")
     }
 

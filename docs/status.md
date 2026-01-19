@@ -12,7 +12,225 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Knowledge Cache Learning System (2026-01-13)
+## Latest: VDD Codebase Search Run & Timing Analysis (2026-01-16)
+
+### Session Summary
+
+Refreshed context on VDD codebase search system, analyzed timing from past runs, investigated parallelization history, and ran a partial VDD iteration.
+
+### What Was Done
+
+**VDD Timing Analysis**:
+
+- Calculated per-stage timing from historical runs
+- Fetch: <1 sec, Search: ~6 sec/conv, Evaluation: ~7-10 min/conv (bottleneck), Learnings: <1 min
+- Full loop estimate: Baseline ~45-50 min, each iteration ~27-30 min
+
+**Parallelization Investigation**:
+
+- Discovered parallel execution was backed out in commit c97536a
+- Original: `asyncio.gather(run_a_task, run_b_task)` for dual CLI exploration
+- Changed to sequential due to issues with stdin-based CLI invocation
+- Root cause: Switch from `--print -p` (API credits) to stdin mode (subscription) likely caused session conflicts
+- Decision: Not worth investigating further (low-confidence time sink)
+
+**VDD Run (Partial)**:
+
+- Ran iteration 2 with `--from-db --intercom-only`
+- Fixed initial run that wasn't passing `--from-db` flag correctly
+- Completed 2 of 3 conversations before graceful termination:
+  - Conv 1: Precision 0.19, Recall 0.20 (Opus 59 files/6.8m, Sonnet 27 files/3.9m)
+  - Conv 2: Precision 0.00, Recall 0.00 (Opus timed out at 10m limit)
+  - Conv 3: Interrupted during Run A
+
+### Key Observations
+
+- Opus timeouts (10 min limit) causing 0-file results on some conversations
+- Sequential execution adds ~3-4 min per conversation vs parallel
+- Database mode working correctly with 680 real Intercom conversations available
+
+### Next Steps
+
+- Consider increasing timeout or investigating Opus timeout causes
+- Complete full VDD iteration to get aggregate metrics
+- Monitor if precision/recall improve with learned patterns
+
+---
+
+## Previous: Session Cleanup (2026-01-16)
+
+### Session Summary
+
+Recovered from lost connectivity during prior sessions. Pushed unpushed commits, fixed broken test imports, and recovered accidentally reset learned patterns.
+
+### What Was Done
+
+**Pushed 3 unpushed commits**:
+
+- `2c39475` feat: VDD loop --fresh flag and documentation
+- `9f2ead7` fix: VDD codebase search - switch to JSON output format
+- `3000d3b` feat: Ralph V2 dual-mode evaluation system
+
+**Fixed broken test imports**:
+
+- Added `tests/conftest.py` to configure PYTHONPATH for pytest
+- Fixed 3 test files: `test_codebase_context_provider.py`, `test_codebase_security.py`, `test_dual_story_formatter.py`
+
+**Recovered learned patterns**:
+
+- Accidentally reset `scripts/ralph/learned_patterns.json` (6564 lines of machine-learned patterns from hours of pipeline runs)
+- Recovered from git dangling commit after stash was dropped
+- Added `.next/` to `.gitignore` (Next.js build cache)
+
+### Lesson Learned
+
+**Do not touch files without understanding their purpose.** The `learned_patterns.json` file is intentionally tracked in git - it represents accumulated learning from many Ralph V2 pipeline runs, not throwaway generated data.
+
+---
+
+## Previous: VDD Search Pattern Fix (2026-01-16)
+
+### Session Summary
+
+Fixed critical bug in VDD codebase search - was finding 0 files because search patterns didn't match Tailwind's actual repo structures.
+
+### What Was Fixed
+
+**Root Cause**: `_build_search_patterns()` in `codebase_context_provider.py:323` generated patterns like `src/**/*.py`, `app/**/*.py` but Tailwind repos use:
+
+- `aero`: `packages/**/*.ts` (TypeScript monorepo)
+- `tack/zuck`: `service/**/*.py`, `client/**/*.ts`
+- `charlotte`: `packages/**/*.ts`, `stacks/**/*`
+- `ghostwriter`: `stack/**/*.py`, `client/**/*.ts`
+
+**Fix Applied**: Added Tailwind-specific patterns:
+
+- `packages/**/*.ts`, `packages/**/*.tsx`
+- `service/**/*.py`, `client/**/*.ts`
+- `stack/**/*.py`, `stacks/**/*.ts`
+
+### Results After Fix
+
+| Conversation    | Files Found |
+| --------------- | ----------- |
+| 215472506147209 | 100 files   |
+| 215472624644716 | 60 files    |
+| 215472507735654 | 87 files    |
+
+Learning phase proposed 3 changes with HIGH confidence (+5% precision, +20% recall expected).
+
+### Documentation Updated
+
+- `docs/session/last-session.md` - Full context for next session
+- `scripts/codebase-search-vdd/README.md` - Added Quick Start, CLI reference, repo structure table
+
+### Next Steps
+
+- Run full VDD loop (2-3 iterations) to validate learning phase improvements
+- Consider adding repo structure detection to auto-discover patterns
+
+---
+
+## Previous: VDD Offline Mode & Recent Data Sync (2026-01-16)
+
+### Session Summary
+
+Extended VDD system with offline capabilities (database-backed conversation fetching) and synced recent Intercom conversations to fill the data gap.
+
+### What Was Built
+
+**Database-Backed Conversation Fetching**:
+
+- Added `--from-db` flag to `fetch_conversations.py` for offline VDD testing
+- New `DatabaseConversationFetcher` class queries PostgreSQL instead of Intercom API
+- Maps `stage1_type` to VDD product areas automatically
+- Falls back to keyword classification if no `stage1_type` is set
+- Maintains diversity sampling across product areas
+
+**Intercom-Only Filter**:
+
+- Added `--intercom-only` flag to exclude Coda imports (research data)
+- Filters out `coda_*` prefixed IDs to only use real support conversations
+- Database breakdown: 9,364 Coda imports vs 680 real Intercom conversations
+
+**CLI Conversion for Learning Phase**:
+
+- Converted `apply_learnings.py` from Anthropic SDK to Claude CLI
+- Uses `env -u ANTHROPIC_API_KEY` to force CLI subscription mode (no API credits)
+- Model validation whitelist prevents command injection
+- Successfully applies code changes to `codebase_context_provider.py`
+
+**Recent Data Sync**:
+
+- Fetched 50 new Intercom conversations (Jan 13-16)
+- Database now has 680 real Intercom conversations (was 630)
+- Recent distribution: Jan 16 (6), Jan 15 (33), Jan 14 (8), Jan 13 (3)
+
+### Usage
+
+```bash
+# Full autonomous run (requires Intercom API)
+./scripts/codebase-search-vdd/run_vdd_loop.sh
+
+# Offline mode using database
+./scripts/codebase-search-vdd/run_vdd_loop.sh --from-db
+
+# Offline with real Intercom only (excludes Coda research data)
+./scripts/codebase-search-vdd/run_vdd_loop.sh --from-db --intercom-only
+
+# Dry-run to see what changes would be made
+./scripts/codebase-search-vdd/run_vdd_loop.sh --from-db --intercom-only --dry-run
+```
+
+### Next Steps
+
+- Run full VDD loop with `--from-db --intercom-only` to test with real support data
+- Monitor learning phase effectiveness with CLI-based approach
+- Consider adding more recent conversations periodically
+
+---
+
+## Previous: VDD Codebase Search System (2026-01-15)
+
+### Session Summary
+
+Built complete VDD (Validation-Driven Development) harness for optimizing codebase search quality. Refactored from Anthropic SDK tool-use to Claude CLI for faster execution.
+
+### What Was Built
+
+**VDD Loop Infrastructure** (`scripts/codebase-search-vdd/`):
+
+- `run_vdd_loop.sh` - Bash orchestrator with options: `--baseline`, `--dry-run`, `--manual`
+- `fetch_conversations.py` - Fetch Intercom conversations for testing
+- `run_search.py` - Execute codebase search using CodebaseContextProvider
+- `evaluate_results_v2.py` - CLI-based evaluation with dual exploration pattern
+- `apply_learnings.py` - Apply learnings from evaluation to improve search
+- `config.json` - Configurable thresholds and parameters
+
+**CLI-Based Evaluation (v2)**:
+
+- Uses `claude --print --model <model>` instead of Anthropic SDK
+- Dual exploration pattern: Two independent Claude explorations build ground truth
+- Model validation whitelist prevents command injection
+- No separate API key required (uses Claude Code's auth)
+- ~25x fewer API round-trips than SDK tool-use approach
+
+**Voice Mode Improvements**:
+
+- Added `metrics_level: "minimal"` as default for cleaner output
+- Documented multi-sentence response pattern for better readability
+- Added experimental PostToolUse hook for voice output formatting
+
+### Commits This Session
+
+- 0e47b09: feat: VDD harness for codebase search optimization
+- 12e026c: feat: Add autonomous learning phase to VDD loop
+- 2576808: feat: Refactor VDD evaluation to Claude CLI for faster execution
+- 2d4b87b: feat: Improve voice mode output with minimal metrics
+
+---
+
+## Previous: Knowledge Cache Learning System (2026-01-13)
 
 ### Session Summary
 

@@ -41,6 +41,15 @@
             "command": ".claude/hooks/test-gate.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__voice-mode__converse",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/format-voice-output.sh"
+          }
+        ]
       }
     ]
   }

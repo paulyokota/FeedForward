@@ -10,6 +10,95 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Test Configuration (2026-01-16)**:
+
+- Added `tests/conftest.py` to configure PYTHONPATH for pytest
+- Fixes import errors in `test_codebase_context_provider.py`, `test_codebase_security.py`, `test_dual_story_formatter.py`
+
+**Ralph V2 Dual-Mode Evaluation System (2026-01-16)**:
+
+- Complete dual-mode evaluation system for story quality assessment
+  - `scripts/ralph/` - Full implementation (4,589 lines across 14 files)
+  - Expensive mode: LLM-based evaluation (gestalt scoring)
+  - Cheap mode: Pattern-based evaluation (keyword matching)
+  - Gap tracking: Measures calibration between modes (target: ≤0.5)
+- Pattern learning loop:
+  - Provisional patterns proposed from expensive mode feedback
+  - Commit patterns at ≥70% accuracy over 10+ stories
+  - Reject patterns at <30% accuracy over 5+ stories
+- Convergence monitoring:
+  - Divergence detection with diagnostics
+  - Self-healing action recommendations
+  - Convergence proof (stable gap within target)
+- Configuration consolidated in `ralph_config.py`
+- 38 unit tests (all passing)
+- 5-personality code review converged in 2 rounds
+- Commit: 3000d3b
+
+### Fixed
+
+**VDD Codebase Search - JSON Output Format (2026-01-16)**:
+
+- Switched from bullet list to JSON output format for file extraction
+  - New format: `{"relevant_files": ["repo/path/file.ext", ...]}`
+  - Moved format instructions to END of prompt (recency effect)
+  - Stronger compliance language ("will be DISCARDED")
+- Fixed prompt compliance issue causing "0 files extracted"
+  - Root cause: Sonnet sometimes output summary instead of file list
+  - JSON format is more reliable for structured output
+- Improved extraction logic:
+  - Priority 1: JSON parsing with "relevant_files" key
+  - Fallback: Regex patterns for backward compatibility
+- Fixed ReDoS vulnerability (replaced regex with linear brace counting)
+- Added FORMAT_ERROR detection vs parsing issues
+- Added `--fresh` flag to archive outputs and start fresh run
+- Commits: 9f2ead7, 2c39475
+
+**VDD Offline Mode & Data Improvements (2026-01-16)**:
+
+- Database-backed conversation fetching for offline VDD testing
+  - `--from-db` flag in `fetch_conversations.py` queries PostgreSQL instead of Intercom API
+  - `DatabaseConversationFetcher` class with `stage1_type` to product area mapping
+  - Diversity sampling maintained across product areas
+- `--intercom-only` flag to filter out Coda imports (research data)
+  - Excludes `coda_*` prefixed IDs to only use real support conversations
+  - Database: 9,364 Coda imports vs 680 real Intercom conversations
+- CLI conversion for `apply_learnings.py`:
+  - Converted from Anthropic SDK to Claude CLI subprocess
+  - Uses `env -u ANTHROPIC_API_KEY` to force CLI subscription mode
+  - Model validation whitelist prevents command injection
+- Updated `run_vdd_loop.sh` with new flags: `--from-db`, `--intercom-only`
+- Fetched 50 new Intercom conversations (Jan 13-16) to fill data gap
+
+**VDD Codebase Search System (2026-01-15)**:
+
+- Complete VDD (Validation-Driven Development) harness for codebase search optimization
+  - `scripts/codebase-search-vdd/` - Full VDD loop infrastructure
+  - `run_vdd_loop.sh` - Bash orchestrator with convergence detection
+  - `fetch_conversations.py` - Fetch conversations from Intercom for testing
+  - `run_search.py` - Run codebase search using CodebaseContextProvider
+  - `evaluate_results_v2.py` - CLI-based evaluation using dual exploration pattern
+  - `apply_learnings.py` - Apply learnings from evaluation to improve search
+  - `config.json` - Configurable thresholds and parameters
+- CLI-based evaluation approach (v2):
+  - Uses `claude --print` for explorations instead of Anthropic SDK
+  - Dual exploration pattern: Two independent Claude explorations build ground truth
+  - Model validation to prevent command injection
+  - No separate API key required (uses Claude Code's auth)
+  - Significantly faster than SDK tool-use approach (~1 call vs ~25+ round-trips)
+- Architecture documentation: `docs/architecture/codebase-search-vdd.md`
+- Tests: `tests/test_fetch_conversations_vdd.py`
+- Commits: 0e47b09, 12e026c, 2576808
+
+**Voice Mode Improvements (2026-01-15)**:
+
+- Improved voice mode defaults in `.claude/skills/voice-mode/SKILL.md`:
+  - Added `metrics_level: "minimal"` as default for cleaner output
+  - Documented multi-sentence response pattern for better readability
+  - Queue messages with `wait_for_response=false` except final message
+- Added experimental PostToolUse hook for voice output formatting
+- Commit: 2d4b87b
+
 **Knowledge Cache Learning System (2026-01-13)**:
 
 - Learning system for story generation with codebase context

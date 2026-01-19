@@ -1,0 +1,33 @@
+[
+  {
+    "conversation_id": "215472695961371",
+    "issue_summary": "How to make a smart pin",
+    "product_area": "uncertain",
+    "classification_confidence": 0.14285714285714285,
+    "created_at": "2026-01-15T16:49:38",
+    "source_url": "https://www.tailwindapp.com/dashboard/v2/home?referer=quick_schedule&jumpToDate=1774926900&postId=67527b7bfvGkWZVg6kPPk&destination=pinterest-account",
+    "matched_keywords": [
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "215472665406236",
+    "issue_summary": "How do I get my pin in the turbo feed",
+    "product_area": "uncertain",
+    "classification_confidence": 0.14285714285714285,
+    "created_at": "2026-01-13T16:15:20",
+    "source_url": "https://www.tailwindapp.com/dashboard/v2/turbo/queue",
+    "matched_keywords": [
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "215472696121836",
+    "issue_summary": "I would like to downgrade to the free version",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-15T17:06:50",
+    "source_url": "https://www.tailwindapp.com/dashboard/v2/settings/upgrade",
+    "matched_keywords": []
+  }
+]

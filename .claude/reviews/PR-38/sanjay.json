@@ -1,0 +1,80 @@
+{
+  "reviewer": "sanjay",
+  "pr_number": 38,
+  "review_round": 1,
+  "timestamp": "2026-01-19T00:00:00Z",
+  "verdict": "BLOCK",
+  "summary": "1 HIGH (command injection), 1 HIGH (path traversal), 2 MEDIUM (exposure), 1 LOW (ReDoS)",
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "injection",
+      "file": "scripts/codebase-search-vdd/run_vdd_loop.sh",
+      "lines": [192, 195],
+      "title": "Shell script argument injection via unquoted variables",
+      "why": "Unquoted $fetch_flags variable expansion allows word splitting. If values came from untrusted sources, shell metacharacters could execute arbitrary commands.",
+      "fix": "Use bash arrays for argument handling: fetch_flags=(\"--batch-size\" \"$batch_size\") and expand with \"${fetch_flags[@]}\"",
+      "verify": null,
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "S2",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "category": "validation",
+      "file": "scripts/codebase-search-vdd/evaluate_results.py",
+      "lines": [207, 231],
+      "title": "Path traversal in read_file function",
+      "why": "Path traversal check occurs after path construction. Symlinks in repos could bypass the relative_to check and access files outside approved directories.",
+      "fix": "Use .resolve() on both paths before comparison, reject paths containing '..' components, and validate path normalization.",
+      "verify": "Check if any symlinks exist in approved repos that point outside the repo root",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S3",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "exposure",
+      "file": "scripts/codebase-search-vdd/config.json",
+      "lines": [76, 76],
+      "title": "Hardcoded system path leaks user directory structure",
+      "why": "Config contains hardcoded /Users/paulyokota path revealing username and system layout. If committed to public repo, aids targeted attacks.",
+      "fix": "Use environment variable REPOS_PATH or relative path. Consider adding config.json to .gitignore with config.json.example template.",
+      "verify": "Confirm if config.json should be committed or added to .gitignore",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S4",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "category": "validation",
+      "file": "scripts/ralph/live_data_loader.py",
+      "lines": [64, 71],
+      "title": "Database connection string not validated",
+      "why": "DATABASE_URL from environment passed directly to psycopg2.connect without format validation. Malicious URL could point to attacker-controlled server.",
+      "fix": "Validate URL scheme is postgres/postgresql and hostname is present before connecting.",
+      "verify": "Verify database is trusted local/internal server only",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S5",
+      "severity": "LOW",
+      "confidence": "low",
+      "category": "validation",
+      "file": "scripts/codebase-search-vdd/evaluate_results_v2.py",
+      "lines": [375, 396],
+      "title": "Potential ReDoS in regex patterns on untrusted input",
+      "why": "Multiple regex patterns run on Claude CLI output which could be crafted. Pattern with re.DOTALL on large input could cause excessive backtracking.",
+      "fix": "Add input size limits before regex operations or implement regex timeout. The bounded string search at lines 165-200 is a good pattern to follow.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

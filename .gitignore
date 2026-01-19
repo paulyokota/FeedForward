@@ -52,6 +52,10 @@ data/
 .playwright-mcp/
 .playwright-profile/
 
+# Ralph script outputs (contains session state with auth tokens)
+scripts/ralph/outputs/
+
 # Root-level npm (webapp has its own)
 /package.json
 /package-lock.json
+.next/

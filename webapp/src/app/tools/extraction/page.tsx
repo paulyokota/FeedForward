@@ -342,7 +342,7 @@ export default function ExtractionPage() {
             </div>
           )}
 
-          {(status?.runningCost > 0 || status?.costs) && (
+          {((status?.runningCost ?? 0) > 0 || status?.costs) && (
             <div className="cost-section">
               <h3>Cost Tracking</h3>
               <div className="cost-display">

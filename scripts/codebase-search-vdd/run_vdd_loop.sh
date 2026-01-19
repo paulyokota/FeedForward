@@ -1,0 +1,452 @@
+#!/bin/bash
+#
+# Codebase Search VDD Loop Orchestrator
+#
+# Runs the iterative VDD loop for improving codebase search quality.
+# Follows the architecture in docs/architecture/codebase-search-vdd.md
+#
+# Usage:
+#   ./run_vdd_loop.sh [OPTIONS]
+#
+# Options:
+#   --fresh            Archive existing outputs and start fresh (enables re-running)
+#   --baseline         Run baseline (iteration 0) only, then exit
+#   --iteration N      Start from iteration N instead of auto-detecting
+#   --max-iterations N Override max iterations from config
+#   --dry-run          Analyze and propose changes but don't modify code
+#   --manual           Pause after each iteration for manual review (legacy mode)
+#   --from-db          Use pre-fetched conversations from database (offline mode)
+#   --intercom-only    With --from-db, exclude Coda imports (use real Intercom only)
+#
+# Examples:
+#   ./run_vdd_loop.sh                      # Full autonomous run
+#   ./run_vdd_loop.sh --fresh              # Archive old outputs, start fresh
+#   ./run_vdd_loop.sh --baseline           # Just run baseline measurement
+#   ./run_vdd_loop.sh --dry-run            # See what changes would be made
+#   ./run_vdd_loop.sh --max-iterations 5   # Run up to 5 iterations
+#   ./run_vdd_loop.sh --manual             # Human-in-the-loop mode
+#   ./run_vdd_loop.sh --from-db            # Offline mode using database
+#   ./run_vdd_loop.sh --from-db --intercom-only  # Offline with real Intercom only
+#   ./run_vdd_loop.sh --fresh --from-db    # Fresh run in offline mode
+#
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Load environment variables from .env if it exists
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    set -a  # Auto-export all variables
+    source "$PROJECT_ROOT/.env"
+    set +a
+fi
+
+# Verify required environment variables (skip Intercom token check if using --from-db)
+# Note: We check this after parsing args, but need to defer the check
+# For now, the check happens inside run_iteration based on FROM_DB
+
+# Note: ANTHROPIC_API_KEY is needed for apply_learnings.py (uses SDK)
+# but NOT for evaluate_results_v2.py (uses Claude CLI subscription)
+# We'll selectively unset it only for the evaluation step
+
+OUTPUT_DIR="$SCRIPT_DIR/outputs"
+CONFIG_FILE="$SCRIPT_DIR/config.json"
+PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
+
+# Parse arguments
+FRESH=false
+BASELINE_ONLY=false
+START_ITERATION=""
+MAX_ITERATIONS=""
+DRY_RUN=false
+MANUAL_MODE=false
+FROM_DB=false
+INTERCOM_ONLY=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --fresh)
+            FRESH=true
+            shift
+            ;;
+        --baseline)
+            BASELINE_ONLY=true
+            shift
+            ;;
+        --iteration)
+            START_ITERATION="$2"
+            shift 2
+            ;;
+        --max-iterations)
+            MAX_ITERATIONS="$2"
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --manual)
+            MANUAL_MODE=true
+            shift
+            ;;
+        --from-db)
+            FROM_DB=true
+            shift
+            ;;
+        --intercom-only)
+            INTERCOM_ONLY=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# Load config values
+BASELINE_BATCH_SIZE=$(jq -r '.baseline_batch_size' "$CONFIG_FILE")
+ITERATION_BATCH_SIZE=$(jq -r '.iteration_batch_size' "$CONFIG_FILE")
+CONFIG_MAX_ITERATIONS=$(jq -r '.max_iterations' "$CONFIG_FILE")
+MIN_ITERATIONS=$(jq -r '.min_iterations' "$CONFIG_FILE")
+PRECISION_THRESHOLD=$(jq -r '.precision_threshold' "$CONFIG_FILE")
+RECALL_THRESHOLD=$(jq -r '.recall_threshold' "$CONFIG_FILE")
+CALIBRATION_ITERATIONS=$(jq -r '.calibration_iterations' "$CONFIG_FILE")
+
+MAX_ITERATIONS="${MAX_ITERATIONS:-$CONFIG_MAX_ITERATIONS}"
+
+# Check for Intercom token if not using database mode
+if [ "$FROM_DB" = false ] && [ -z "$INTERCOM_ACCESS_TOKEN" ]; then
+    echo "Error: INTERCOM_ACCESS_TOKEN not set. Add it to .env or export it."
+    echo "Hint: Use --from-db to run in offline mode with database conversations."
+    exit 1
+fi
+
+# Handle --fresh: archive existing outputs and progress file
+if [ "$FRESH" = true ]; then
+    if [ -d "$OUTPUT_DIR" ] && [ "$(ls -A "$OUTPUT_DIR" 2>/dev/null)" ]; then
+        ARCHIVE_NAME="outputs_$(date '+%Y%m%d_%H%M%S')"
+        echo "Archiving existing outputs to $ARCHIVE_NAME..."
+        mv "$OUTPUT_DIR" "$SCRIPT_DIR/$ARCHIVE_NAME"
+        mkdir -p "$OUTPUT_DIR"
+    fi
+    if [ -f "$PROGRESS_FILE" ]; then
+        PROGRESS_ARCHIVE="progress_$(date '+%Y%m%d_%H%M%S').txt"
+        mv "$PROGRESS_FILE" "$SCRIPT_DIR/$PROGRESS_ARCHIVE"
+        echo "Archived progress file to $PROGRESS_ARCHIVE"
+    fi
+    # Reset progress file with header
+    cat > "$PROGRESS_FILE" << 'EOF'
+# Codebase Search VDD - Progress Log
+
+## Format
+Each iteration records:
+- Date/time
+- Batch statistics
+- Metrics (aggregate and per-product-area)
+- Model calibration data (iterations 1-2)
+- Changes made
+- Learnings
+
+---
+EOF
+    echo ""
+fi
+
+echo "=== Codebase Search VDD Loop ==="
+echo "Config: $CONFIG_FILE"
+echo "Output: $OUTPUT_DIR"
+echo "Max iterations: $MAX_ITERATIONS"
+if [ "$FROM_DB" = true ]; then
+    if [ "$INTERCOM_ONLY" = true ]; then
+        echo "Mode: Database (offline, real Intercom only)"
+    else
+        echo "Mode: Database (offline)"
+    fi
+else
+    echo "Mode: Intercom API"
+fi
+echo ""
+
+# Function to run a single iteration
+run_iteration() {
+    local iteration_num=$1
+    local batch_size=$2
+    local iteration_dir="$OUTPUT_DIR/iteration_$iteration_num"
+
+    echo "--- Iteration $iteration_num ---"
+    mkdir -p "$iteration_dir"
+
+    # Step 1: Fetch conversations
+    echo "[1/4] Fetching $batch_size conversations..."
+
+    # Use array for safe argument handling (prevents word splitting injection)
+    fetch_flags=("--batch-size" "$batch_size")
+    if [ "$FROM_DB" = true ]; then
+        fetch_flags+=("--from-db")
+        if [ "$INTERCOM_ONLY" = true ]; then
+            fetch_flags+=("--intercom-only")
+        fi
+    fi
+
+    python3 "$SCRIPT_DIR/fetch_conversations.py" \
+        "${fetch_flags[@]}" \
+        > "$iteration_dir/conversations.json" \
+        2> "$iteration_dir/fetch.log"
+
+    local conv_count=$(jq 'length' "$iteration_dir/conversations.json")
+    echo "      Fetched $conv_count conversations"
+
+    # Step 2: Run search
+    echo "[2/4] Running codebase search..."
+    python3 "$SCRIPT_DIR/run_search.py" \
+        < "$iteration_dir/conversations.json" \
+        > "$iteration_dir/search_results.json" \
+        2> "$iteration_dir/search.log"
+
+    # Step 3: Evaluate results using CLI-based evaluation (v2)
+    echo "[3/4] Evaluating with dual CLI exploration..."
+
+    # Note: evaluate_results_v2.py uses Claude CLI for all API calls
+    # Unset ANTHROPIC_API_KEY for this step only to force CLI subscription mode
+    env -u ANTHROPIC_API_KEY python3 "$SCRIPT_DIR/evaluate_results_v2.py" \
+        < "$iteration_dir/search_results.json" \
+        > "$iteration_dir/evaluation.json" \
+        2> "$iteration_dir/evaluation.log"
+
+    # Step 4: Calculate metrics
+    echo "[4/4] Calculating metrics..."
+    local precision=$(jq -r '.metrics.aggregate.precision // 0' "$iteration_dir/evaluation.json")
+    local recall=$(jq -r '.metrics.aggregate.recall // 0' "$iteration_dir/evaluation.json")
+    local gestalt=$(jq -r '.metrics.aggregate.gestalt // 0' "$iteration_dir/evaluation.json")
+
+    echo ""
+    echo "Results for iteration $iteration_num:"
+    echo "  Precision: $precision"
+    echo "  Recall:    $recall"
+    echo "  Gestalt:   $gestalt"
+
+    # Update progress file
+    cat >> "$PROGRESS_FILE" << EOF
+
+## Iteration $iteration_num
+Date: $(date '+%Y-%m-%d %H:%M:%S')
+Batch size: $batch_size
+Precision: $precision
+Recall: $recall
+Gestalt: $gestalt
+EOF
+
+    # Return metrics for convergence check
+    echo "$precision $recall $gestalt"
+}
+
+# Run baseline (iteration 0) if needed
+baseline_dir="$OUTPUT_DIR/iteration_0"
+if [ ! -f "$baseline_dir/evaluation.json" ]; then
+    echo "Running baseline (iteration 0) with $BASELINE_BATCH_SIZE conversations..."
+    run_iteration 0 "$BASELINE_BATCH_SIZE"
+    echo ""
+fi
+
+if [ "$BASELINE_ONLY" = true ]; then
+    echo "Baseline complete. Exiting."
+    exit 0
+fi
+
+# Determine starting iteration
+current_iteration=${START_ITERATION:-1}
+
+# Find the last completed iteration if not specified
+if [ -z "$START_ITERATION" ]; then
+    for i in $(seq 1 $MAX_ITERATIONS); do
+        if [ -f "$OUTPUT_DIR/iteration_$i/evaluation.json" ]; then
+            current_iteration=$((i + 1))
+        fi
+    done
+fi
+
+echo "Starting from iteration $current_iteration"
+echo ""
+
+# Main iteration loop
+while [ "$current_iteration" -le "$MAX_ITERATIONS" ]; do
+    metrics=$(run_iteration "$current_iteration" "$ITERATION_BATCH_SIZE")
+    precision=$(echo "$metrics" | awk '{print $1}')
+    recall=$(echo "$metrics" | awk '{print $2}')
+    gestalt=$(echo "$metrics" | awk '{print $3}')
+
+    # Check convergence (only after minimum iterations)
+    if [ "$current_iteration" -ge "$MIN_ITERATIONS" ]; then
+        # Compare against thresholds
+        precision_met=$(echo "$precision >= $PRECISION_THRESHOLD" | bc -l)
+        recall_met=$(echo "$recall >= $RECALL_THRESHOLD" | bc -l)
+
+        if [ "$precision_met" -eq 1 ] && [ "$recall_met" -eq 1 ]; then
+            echo ""
+            echo "=== CONVERGED ==="
+            echo "Precision ($precision) >= $PRECISION_THRESHOLD"
+            echo "Recall ($recall) >= $RECALL_THRESHOLD"
+            echo "Completed after $current_iteration iterations"
+            break
+        fi
+    fi
+
+    # If in calibration phase (iterations 1-2), run model comparison
+    if [ "$current_iteration" -le "$CALIBRATION_ITERATIONS" ]; then
+        echo ""
+        echo "Calibration data recorded for iteration $current_iteration"
+    fi
+
+    # Learning phase: Apply improvements to search logic
+    iteration_dir="$OUTPUT_DIR/iteration_$current_iteration"
+
+    if [ "$MANUAL_MODE" = true ]; then
+        # Manual mode: Pause for human review
+        echo ""
+        echo "Learning phase: Review $iteration_dir/ and propose changes"
+        echo "Press Enter to continue to next iteration..."
+        read -r
+    else
+        # Autonomous mode: Run apply_learnings.py
+        echo ""
+        echo "[5/5] Applying learnings (autonomous mode)..."
+
+        dry_run_flag=""
+        if [ "$DRY_RUN" = true ]; then
+            dry_run_flag="--dry-run"
+            echo "      (dry-run mode - no code changes will be made)"
+        fi
+
+        # Unset ANTHROPIC_API_KEY to force CLI subscription mode (not API credits)
+        env -u ANTHROPIC_API_KEY python3 "$SCRIPT_DIR/apply_learnings.py" \
+            $dry_run_flag \
+            < "$iteration_dir/evaluation.json" \
+            > "$iteration_dir/learnings.json" \
+            2> "$iteration_dir/learnings.log"
+
+        # Log the changes made
+        changes_applied=$(jq -r '.application.changes_applied // 0' "$iteration_dir/learnings.json")
+        expected_precision=$(jq -r '.proposal.expected_precision_delta // 0' "$iteration_dir/learnings.json")
+        expected_recall=$(jq -r '.proposal.expected_recall_delta // 0' "$iteration_dir/learnings.json")
+
+        echo "      Changes applied: $changes_applied"
+        echo "      Expected precision delta: +$expected_precision"
+        echo "      Expected recall delta: +$expected_recall"
+
+        # Update progress file with learnings
+        cat >> "$PROGRESS_FILE" << EOF
+Changes applied: $changes_applied
+Expected precision delta: +$expected_precision
+Expected recall delta: +$expected_recall
+EOF
+    fi
+
+    current_iteration=$((current_iteration + 1))
+done
+
+# Final validation gate: verify the modified code is valid
+echo ""
+echo "=== Final Validation Gate ==="
+echo ""
+
+SEARCH_PROVIDER="$SCRIPT_DIR/../../src/story_tracking/services/codebase_context_provider.py"
+
+# Check 1: Syntax validation (AST parsing)
+VALIDATION_FAILED=false
+FAILURE_TYPE=""
+
+echo "[1/3] Checking Python syntax..."
+if python3 -m py_compile "$SEARCH_PROVIDER" 2>/dev/null; then
+    echo "      ✓ Syntax valid"
+else
+    echo "      ✗ SYNTAX ERROR - Code cannot be parsed"
+    VALIDATION_FAILED=true
+    FAILURE_TYPE="syntax"
+fi
+
+# Check 2: Import validation (can the module be imported)
+echo "[2/3] Checking module import..."
+if [ "$VALIDATION_FAILED" = false ]; then
+    if python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR/../../src'); from story_tracking.services.codebase_context_provider import CodebaseContextProvider" 2>/dev/null; then
+        echo "      ✓ Module imports successfully"
+    else
+        echo "      ✗ IMPORT ERROR - Module has runtime errors"
+        VALIDATION_FAILED=true
+        FAILURE_TYPE="import"
+    fi
+else
+    echo "      - Skipped (syntax error)"
+fi
+
+# Check 3: Basic sanity check (required methods exist)
+echo "[3/3] Checking required methods exist..."
+if [ "$VALIDATION_FAILED" = false ]; then
+    if python3 -c "
+import sys
+sys.path.insert(0, '$SCRIPT_DIR/../../src')
+from story_tracking.services.codebase_context_provider import CodebaseContextProvider
+p = CodebaseContextProvider()
+assert hasattr(p, 'explore_for_theme')
+assert hasattr(p, '_extract_keywords')
+assert hasattr(p, '_build_search_patterns')
+print('OK')
+" 2>/dev/null; then
+        echo "      ✓ Required methods present"
+    else
+        echo "      ✗ MISSING METHODS - Key methods were removed"
+        VALIDATION_FAILED=true
+        FAILURE_TYPE="methods"
+    fi
+else
+    echo "      - Skipped (prior error)"
+fi
+
+# Handle validation failure
+if [ "$VALIDATION_FAILED" = true ]; then
+    echo ""
+    echo "=== VALIDATION FAILED ==="
+    echo ""
+    echo "The VDD loop made changes that broke the search provider."
+    echo ""
+    echo "To investigate and fix, run from Claude Code CLI:"
+    echo "   Review the error: python3 -m py_compile $SEARCH_PROVIDER"
+    echo "   View the changes: git diff $SEARCH_PROVIDER"
+    echo "   Backups available: ls $SCRIPT_DIR/backups/"
+    echo ""
+    echo "Options:"
+    echo "   1. Fix the issues manually and re-run validation"
+    echo "   2. Restore from backup: cp $SCRIPT_DIR/backups/[latest].py $SEARCH_PROVIDER"
+    echo "   3. Ask Claude Code to diagnose: 'Investigate the $FAILURE_TYPE error in $SEARCH_PROVIDER'"
+    echo ""
+    exit 1
+fi
+
+echo ""
+echo "=== VDD Loop Complete ==="
+echo ""
+echo "Summary:"
+echo "  Total iterations: $((current_iteration - 1))"
+echo "  Progress log: $PROGRESS_FILE"
+echo "  Modified file: $SEARCH_PROVIDER"
+echo "  Backups: $SCRIPT_DIR/backups/"
+echo ""
+echo "=== Suggested Next Steps ==="
+echo ""
+echo "The codebase search logic has been modified. Before committing, run:"
+echo ""
+echo "1. Run existing tests to check for regressions:"
+echo "   pytest tests/ -v -k codebase"
+echo ""
+echo "2. Run a five-personality code review on the changes:"
+echo "   # From Claude Code CLI:"
+echo "   /developer-kit:code-review src/story_tracking/services/codebase_context_provider.py"
+echo ""
+echo "3. If tests pass and review approves, commit the changes:"
+echo "   git add src/story_tracking/services/codebase_context_provider.py"
+echo "   git commit -m 'feat: VDD-optimized codebase search patterns'"
+echo ""
+echo "4. Optional: Create a PR with the VDD metrics:"
+echo "   cat $PROGRESS_FILE"
+echo ""

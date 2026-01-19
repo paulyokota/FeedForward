@@ -1,0 +1,113 @@
+# Codebase Search VDD - Progress Log
+
+## Format
+Each iteration records:
+- Date/time
+- Batch statistics
+- Metrics (aggregate and per-product-area)
+- Model calibration data (iterations 1-2)
+- Changes made
+- Learnings
+
+---
+
+## Baseline (Iteration 0)
+Status: Not started
+
+## Iteration 1
+Date: 2026-01-15 16:06:59
+Batch size: 18
+Precision: 
+Recall: 
+Gestalt: 
+
+## Iteration 0
+Date: 2026-01-15 16:33:47
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 0
+Date: 2026-01-15 16:49:59
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 2
+Date: 2026-01-15 17:23:14
+Batch size: 3
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 0
+Date: 2026-01-15 17:53:07
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 1
+Date: 2026-01-15 17:53:32
+Batch size: 3
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 0
+Date: 2026-01-15 18:37:30
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 0
+Date: 2026-01-15 19:06:38
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 0
+Date: 2026-01-15 19:28:51
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 0
+Date: 2026-01-15 19:58:19
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 0
+Date: 2026-01-15 20:48:21
+Batch size: 5
+Precision: 0
+Recall: 0
+Gestalt: 0
+
+## Iteration 1
+Date: 2026-01-15 21:39:48
+Batch size: 3
+Precision: 0.079
+Recall: 0.09
+Gestalt: 0
+
+## Iteration 2
+Date: 2026-01-15 22:12:50
+Batch size: 3
+Precision: 0.028
+Recall: 0.045
+Gestalt: 0
+
+## Iteration 3
+Date: 2026-01-15 22:43:58
+Batch size: 3
+Precision: 0.01
+Recall: 0.02
+Gestalt: 0
