@@ -30,10 +30,26 @@ from typing import Any
 
 # Configuration
 CONFIG_PATH = Path(__file__).parent / "config.json"
+if not CONFIG_PATH.exists():
+    print(f"ERROR: Config file not found: {CONFIG_PATH}", file=sys.stderr)
+    print("Copy config.json.example to config.json and set REPOS_PATH env var", file=sys.stderr)
+    sys.exit(1)
+
 with open(CONFIG_PATH) as f:
     CONFIG = json.load(f)
 
-REPOS_PATH = Path(CONFIG["repos_path"])
+# Expand env var in repos_path (supports ${REPOS_PATH} syntax)
+_repos_path_config = CONFIG["repos_path"]
+if _repos_path_config.startswith("${") and _repos_path_config.endswith("}"):
+    _env_var = _repos_path_config[2:-1]
+    _repos_path_value = os.environ.get(_env_var)
+    if not _repos_path_value:
+        print(f"ERROR: Environment variable {_env_var} not set", file=sys.stderr)
+        print(f"Set it to your repos directory: export {_env_var}=/path/to/repos", file=sys.stderr)
+        sys.exit(1)
+    REPOS_PATH = Path(_repos_path_value)
+else:
+    REPOS_PATH = Path(_repos_path_config)
 APPROVED_REPOS = CONFIG["approved_repos"]
 MODELS = CONFIG["models"]
 CALIBRATION_ITERATIONS = CONFIG["calibration_iterations"]

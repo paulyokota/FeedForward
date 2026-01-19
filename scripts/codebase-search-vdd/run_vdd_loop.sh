@@ -181,16 +181,17 @@ run_iteration() {
     # Step 1: Fetch conversations
     echo "[1/4] Fetching $batch_size conversations..."
 
-    fetch_flags="--batch-size $batch_size"
+    # Use array for safe argument handling (prevents word splitting injection)
+    fetch_flags=("--batch-size" "$batch_size")
     if [ "$FROM_DB" = true ]; then
-        fetch_flags="$fetch_flags --from-db"
+        fetch_flags+=("--from-db")
         if [ "$INTERCOM_ONLY" = true ]; then
-            fetch_flags="$fetch_flags --intercom-only"
+            fetch_flags+=("--intercom-only")
         fi
     fi
 
     python3 "$SCRIPT_DIR/fetch_conversations.py" \
-        $fetch_flags \
+        "${fetch_flags[@]}" \
         > "$iteration_dir/conversations.json" \
         2> "$iteration_dir/fetch.log"
 

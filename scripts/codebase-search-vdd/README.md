@@ -109,7 +109,7 @@ The evaluation process:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│              evaluate_results.py                         │
+│              evaluate_results_v2.py                      │
 │                                                          │
 │  ┌─────────────┐                                        │
 │  │ Read stdin  │ ← search_results.json                  │
@@ -171,7 +171,7 @@ Configuration is read from `config.json`:
 
 ```json
 {
-  "repos_path": "/Users/paulyokota/Documents/GitHub",
+  "repos_path": "${REPOS_PATH}",
   "approved_repos": ["aero", "tack", "charlotte", "ghostwriter", "zuck"],
   "calibration_iterations": 2,
   "calibration_overlap_threshold": 0.9,
@@ -181,6 +181,12 @@ Configuration is read from `config.json`:
     "judge": "claude-opus-4-20250514"
   }
 }
+```
+
+**Note**: Set the `REPOS_PATH` environment variable before running:
+
+```bash
+export REPOS_PATH=/path/to/your/repos
 ```
 
 ## Input Format

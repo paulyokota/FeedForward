@@ -8,10 +8,14 @@ Implements:
 """
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from statistics import mean, stdev
 from typing import Optional
+
+# Add ralph dir to path for imports (allows running from any directory)
+sys.path.insert(0, str(Path(__file__).parent))
 
 from models import (
     ConvergenceCheck,

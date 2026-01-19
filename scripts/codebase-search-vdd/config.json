@@ -73,7 +73,7 @@
     }
   ],
   "approved_repos": ["aero", "tack", "charlotte", "ghostwriter", "zuck"],
-  "repos_path": "/Users/paulyokota/Documents/GitHub",
+  "repos_path": "${REPOS_PATH}",
   "models": {
     "exploration_opus": "claude-opus-4-20250514",
     "exploration_sonnet": "claude-sonnet-4-20250514",

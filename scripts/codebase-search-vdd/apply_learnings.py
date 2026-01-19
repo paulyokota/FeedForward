@@ -43,11 +43,27 @@ LEARNINGS_PATH = SCRIPT_DIR / "learned_patterns.json"
 CONFIG_PATH = SCRIPT_DIR / "config.json"
 
 # Load config
+if not CONFIG_PATH.exists():
+    print(f"ERROR: Config file not found: {CONFIG_PATH}", file=sys.stderr)
+    print("Copy config.json.example to config.json and configure settings", file=sys.stderr)
+    sys.exit(1)
+
 with open(CONFIG_PATH) as f:
     CONFIG = json.load(f)
 
+# Validate required config keys
+_required_keys = ["models"]
+for _key in _required_keys:
+    if _key not in CONFIG:
+        print(f"ERROR: Missing required config key: {_key}", file=sys.stderr)
+        sys.exit(1)
+
+if "judge" not in CONFIG.get("models", {}):
+    print("ERROR: Missing required config key: models.judge", file=sys.stderr)
+    sys.exit(1)
+
 # Valid model names (for command injection prevention)
-VALID_MODELS = frozenset(CONFIG.get("models", {}).values())
+VALID_MODELS = frozenset(CONFIG["models"].values())
 
 
 def validate_model(model: str) -> str:
@@ -304,13 +320,35 @@ Focus on the MOST IMPACTFUL changes first. If precision is low, prioritize filte
             "reasoning": str(e)
         }
 
-    # Extract JSON from response
-    json_match = re.search(r'\{[\s\S]*\}', response_text)
-    if json_match:
-        try:
-            return json.loads(json_match.group())
-        except json.JSONDecodeError:
-            pass
+    # Extract JSON from response using brace-counting (greedy regex is unsafe)
+    # Look for JSON object starting with expected keys
+    json_start = -1
+    for key in ['"diagnosis"', '"changes"', '"expected_precision_delta"']:
+        idx = response_text.find(key)
+        if idx != -1:
+            # Find the opening brace before this key
+            start = response_text.rfind('{', max(0, idx - 100), idx)
+            if start != -1:
+                json_start = start
+                break
+
+    if json_start != -1:
+        # Use brace counting to find matching close brace
+        brace_count = 0
+        json_end = -1
+        for i, c in enumerate(response_text[json_start:json_start + 10000]):
+            if c == '{':
+                brace_count += 1
+            elif c == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    json_end = json_start + i + 1
+                    break
+        if json_end != -1:
+            try:
+                return json.loads(response_text[json_start:json_end])
+            except json.JSONDecodeError:
+                pass
 
     # Fallback if JSON parsing fails
     return {

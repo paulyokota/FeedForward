@@ -17,7 +17,11 @@ Example usage:
 
 import json
 import re
+import sys
 from pathlib import Path
+
+# Add ralph dir to path for imports (allows running from any directory)
+sys.path.insert(0, str(Path(__file__).parent))
 
 from models import (
     CheapModeResult,
@@ -363,12 +367,12 @@ class CheapModeEvaluator:
         violated = []
         score_adjustment = 0.0
 
-        # Combine all story text for matching
+        # Combine all story text for matching (guard against None values)
         story_text = " ".join(
             [
-                story.title,
-                story.description,
-                " ".join(story.acceptance_criteria),
+                story.title or "",
+                story.description or "",
+                " ".join(story.acceptance_criteria or []),
                 story.technical_area or "",
             ]
         ).lower()
