@@ -4,6 +4,31 @@
 >
 > Feeling tempted to skip a step? Don't. The Critical Path Checklist and Tech Lead Gates exist because we learned the hard way. Check the boxes. Every time.
 
+---
+
+## Communication Standards (MUST follow)
+
+**User messages ALWAYS take priority.** If the user sends a message, respond to it before doing anything else. Never ignore user messages to "continue working."
+
+**Never claim what you haven't verified:**
+
+- Do NOT claim to have "key findings" from truncated data
+- Do NOT claim to "repeat" something when you're actually summarizing
+- Do NOT claim to know file contents without reading the full file
+- If data is truncated, say so explicitly
+
+**After context compaction:**
+
+- You likely lost important context. Acknowledge this.
+- Re-read files before making claims about them
+- Ask the user what they want before resuming work
+- Do NOT auto-continue with the previous task
+- Run `/post-compact` to recover context if needed
+
+**When uncertain, ask.** Don't take shortcuts to appear productive. One clear question is better than wrong assumptions.
+
+---
+
 LLM-powered Intercom conversation analysis pipeline for extracting product insights.
 
 **Start here**: Read `PLAN.md` for full project context, methodology, and phased implementation plan.
@@ -247,6 +272,7 @@ pytest tests/ -v
 
 | Command                       | Purpose                                            |
 | ----------------------------- | -------------------------------------------------- |
+| `/post-compact`               | Recover context after auto-compaction              |
 | `/update-docs`                | Update all project docs after making changes       |
 | `/session-end [summary]`      | End-of-session cleanup, status update, and commit  |
 | `/create-issues [source]`     | Generate GitHub Issues from spec, file, or prompt  |
