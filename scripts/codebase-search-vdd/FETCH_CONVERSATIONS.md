@@ -122,7 +122,7 @@ This fetcher is part of the VDD (Validation-Driven Development) system:
 
 1. **fetch_conversations.py** (this script) - Fetch diverse test cases
 2. **run_search.py** - Execute codebase searches
-3. **evaluate_results.py** - Dual exploration evaluation
+3. **evaluate_results_v2.py** - Dual exploration evaluation (CLI-based)
 4. **analyze_and_learn.py** - Extract learnings
 
 See `progress.txt` for current iteration status.

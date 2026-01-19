@@ -298,17 +298,17 @@ The script outputs JSON to stdout with comprehensive evaluation results:
 
 ```bash
 # Read search results from stdin, output evaluation to stdout
-cat search_results.json | python evaluate_results.py > evaluation.json
+cat search_results.json | python evaluate_results_v2.py > evaluation.json
 
 # Or use with run_search.py in a pipeline (when implemented)
-python run_search.py < conversations.json | python evaluate_results.py > evaluation.json
+python run_search.py < conversations.json | python evaluate_results_v2.py > evaluation.json
 ```
 
 ### Test Run
 
 ```bash
 # Test with sample input
-cat test_input.json | python evaluate_results.py
+cat test_input.json | python evaluate_results_v2.py
 ```
 
 ### Environment Setup
@@ -400,7 +400,7 @@ This prevents confirmation bias where the evaluator just validates whatever we f
 This script is Phase 2 (Evaluation) of the VDD iteration loop:
 
 ```
-run_search.py → evaluate_results.py → analyze_and_learn.py → (next iteration)
+run_search.py → evaluate_results_v2.py → analyze_and_learn.py → (next iteration)
 ```
 
 See `docs/architecture/codebase-search-vdd.md` for full VDD architecture.

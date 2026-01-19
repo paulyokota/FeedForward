@@ -180,7 +180,7 @@ def main():
         result = run_search_for_conversation(provider, conv, config)
         results.append(result)
 
-    # Output results in envelope format expected by evaluate_results.py
+    # Output results in envelope format expected by evaluate_results_v2.py
     # Parse iteration number from environment or default to 1
     iteration_number = int(os.environ.get("VDD_ITERATION", 1))
     output = {

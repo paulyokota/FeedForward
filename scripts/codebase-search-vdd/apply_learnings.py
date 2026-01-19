@@ -11,7 +11,7 @@ This script is the "brain" of the autonomous VDD loop, using Claude to:
 4. Track learnings for future iterations
 
 Architecture:
-- Reads evaluation results JSON (output of evaluate_results.py)
+- Reads evaluation results JSON (output of evaluate_results_v2.py)
 - Analyzes precision/recall failures per product area
 - Uses Claude to propose targeted code fixes
 - Applies fixes to the search logic
@@ -521,7 +521,7 @@ def run_learning_phase(evaluation: dict, dry_run: bool = False) -> dict:
     Run the complete autonomous learning phase.
 
     Args:
-        evaluation: Output from evaluate_results.py
+        evaluation: Output from evaluate_results_v2.py
         dry_run: If True, don't actually modify files
 
     Returns:
