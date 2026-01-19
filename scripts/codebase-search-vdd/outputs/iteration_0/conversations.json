@@ -1,0 +1,52 @@
+[
+  {
+    "conversation_id": "215472709332205",
+    "issue_summary": "email confirmation link is not coming into my gmail inbox. it is not in junk/spam",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-16T13:15:03",
+    "source_url": "https://www.tailwindapp.com/dashboard/settings/email-change?resend=1",
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472709098425",
+    "issue_summary": "How do i permanently delete my instagram from TW? I can't get past the reconnect IG popup to be able to use the app for pinterest on my phone and it's driving me crazy. I have no plans to use it for IG.",
+    "product_area": "uncertain",
+    "classification_confidence": 0.14285714285714285,
+    "created_at": "2026-01-16T12:57:24",
+    "source_url": "https://www.tailwindapp.com/dashboard/v2/advanced-scheduler/pinterest",
+    "matched_keywords": [
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "215472568721132",
+    "issue_summary": "Hello, For some reason, my Tailwind account status has been cancelled and has moved to the Free version and it\u2019s giving me an error message when I attempt to reactivate my previous plan. I assume that this is a glitch that you guys are experiencing, but I\u2019m curious if you know when you expect to ...",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-06T15:18:49",
+    "source_url": null,
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472683875982",
+    "issue_summary": "Our video Pins keep failing to publish. The only reasoning being that \"this sometimes happens when servers temporarily go down.\"",
+    "product_area": "uncertain",
+    "classification_confidence": 0.2857142857142857,
+    "created_at": "2026-01-14T23:47:57",
+    "source_url": "https://www.tailwindapp.com/dashboard/publisher/queue",
+    "matched_keywords": [
+      "pins",
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "215472608280085",
+    "issue_summary": "I would like to talk to your team.",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-09T03:14:23",
+    "source_url": "https://www.tailwindapp.com/dashboard/publisher/queue",
+    "matched_keywords": []
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "conversation_id": "215472698970424",
+    "issue_summary": "my post link pictures aren't loading",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-15T21:01:41",
+    "source_url": "https://www.tailwindapp.com/dashboard/smartbio",
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472681279516",
+    "issue_summary": "I/ve been billed again this year. I tried emailing last year to cancel and didn't hear back. I knew my card was going to expire 11/25 and assumed it wouldn't renew. It has and I would like a refund and to cancel the service. I haven't used it in years.",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-14T19:13:22",
+    "source_url": "https://www.tailwindapp.com/dashboard/settings/billing",
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472670652346",
+    "issue_summary": "hello, please explain the notice. my limit resets on the 18th so why am I being told that any posts scheduled over the limit by FEB 5 will not be posted?",
+    "product_area": "uncertain",
+    "classification_confidence": 0.2857142857142857,
+    "created_at": "2026-01-14T05:11:52",
+    "source_url": "https://www.tailwindapp.com/dashboard/v2/advanced-scheduler/pinterest?referer=login",
+    "matched_keywords": [
+      "schedule",
+      "scheduled"
+    ]
+  }
+]

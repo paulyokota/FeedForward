@@ -1,0 +1,60 @@
+[
+  {
+    "conversation_id": "coda_row_coding_examples_for__i-lucva5IYK5",
+    "issue_summary": "[Note] Parent - child\n\n[Open Response] It says I should post at least 5 pins per day but only give mostly 3 slots per day. I paid to only get 3 -4 slots per day?",
+    "product_area": "uncertain",
+    "classification_confidence": 0.2857142857142857,
+    "created_at": "2026-01-12T10:43:55.716903-05:00",
+    "source_url": null,
+    "matched_keywords": [
+      "pins",
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "coda_row_ux_issues/feature_re_i-Rctm3jQfqA",
+    "issue_summary": "[Theme] Unclear Value\n\n[Insight/Suggestion] Some members may not fully understand what they can expect from the blog dashboard, so they don\u2019t engage with it. \nAdd better illustration or copy | add more CTAs to funnel members into blog dashboard\n\n[Member comments] I haven\u2019t checked out Blogs yet. I ...",
+    "product_area": "uncertain",
+    "classification_confidence": 0.14285714285714285,
+    "created_at": "2026-01-12T10:43:55.035686-05:00",
+    "source_url": null,
+    "matched_keywords": [
+      "members"
+    ]
+  },
+  {
+    "conversation_id": "coda_i-018774a177acdf6cb4e1d3b6f28fa7e084936228c04cf56f042b793170f687e7",
+    "issue_summary": "[AttendeesDetailed] Stephen Siu,cash@tailwindapp.com,brian@tailwindapp.com\n\n[Attendees detailed] Stephen Siu,cash@tailwindapp.com,brian@tailwindapp.com\n\n[Event] TMWTD Beta Follow-Up with: Stefeee25@hotmail.com (light usage)",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-10T15:38:08.573659-05:00",
+    "source_url": null,
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "coda_row_2020-2024_interviews_i-0np9rSS7kx",
+    "issue_summary": "[Quotes] \u201cI just create, walk away, and never come back again [to TW].\u201d\n\u201cI can\u2019t hire a VA...[TW] was worth the money.\u201d \nI don\u2019t use your full features, only a few. \n\u201cJust be where my customers are, talk my customers language, and show them photos that make them comfortable buying from me.\u201d\nI know ...",
+    "product_area": "uncertain",
+    "classification_confidence": 0.2857142857142857,
+    "created_at": "2026-01-12T10:43:55.310366-05:00",
+    "source_url": null,
+    "matched_keywords": [
+      "posts",
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "coda_i-vA6W7i_phN",
+    "issue_summary": "[Quotes] 1. On Bulk Scheduling:\n\u201cIf I could say, \u2018Okay, this one Monday, next week, this one Monday, two weeks from now,\u2019 that would be cool.\u201d\n\n2. On Ghostwriter:\n\u201cSometimes when I do use the Ghostwriter, it just gives me gibberish \u2026 I wouldn\u2019t use \u2018look no further.\u2019\u201d\n\n3. On Pinterest Growth:\n\u201cI ...",
+    "product_area": "analytics",
+    "classification_confidence": 0.5714285714285714,
+    "created_at": "2026-01-10T15:38:09.871679-05:00",
+    "source_url": null,
+    "matched_keywords": [
+      "metrics",
+      "insights",
+      "performance",
+      "analytics"
+    ]
+  }
+]

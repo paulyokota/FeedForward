@@ -1,0 +1,436 @@
+{
+  "judgments": [
+    {
+      "file": "aero/packages/bachv2/service/auth/api/queries/setupUserModels.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Auth setup and user models - not related to content generation or voice matching"
+    },
+    {
+      "file": "aero/packages/bachv2/service/draft-generation/request-processor/blog-post-draft-creator.test.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Blog post draft tests - not directly related to voice/personalization in social posts"
+    },
+    {
+      "file": "aero/packages/core/src/turbo/friends/accept-friend-invitation.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Friend invitation functionality - unrelated to content generation"
+    },
+    {
+      "file": "aero/packages/jarvis/src/client/domains/queries/hooks/use-download-user-events.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "User event download hook - not related to content personalization"
+    },
+    {
+      "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/board-selector/board_selector.js",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Pinterest board selector UI - not related to content generation"
+    },
+    {
+      "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/publisher-pins/drafts_done.js",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Pin publishing workflow UI - not directly related to voice matching"
+    },
+    {
+      "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/extras/KeyTable/js/KeyTable.js",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "DataTable keyboard navigation library - unrelated to content generation"
+    },
+    {
+      "file": "aero/packages/tailwindapp-legacy/app/react/app/state-changers/ui/set-load-spinner-reducer.js",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "UI loading spinner state management - unrelated to content generation"
+    },
+    {
+      "file": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/visual-planning/shared/visual-planning-suggested-hashtag.tsx",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Hashtag suggestion UI component - not related to voice personalization"
+    },
+    {
+      "file": "aero/packages/tailwindapp-legacy/app/react/bin/reducer/lint-reducer-usage/parse-file.js",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Build tool for parsing reducer usage - unrelated to content generation"
+    },
+    {
+      "file": "aero/packages/tailwindapp/client/components/image-crop/image-crop-component.tsx",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Image cropping component - not related to text content generation"
+    },
+    {
+      "file": "aero/packages/tailwindapp/client/components/multi-select/multi-select.tsx",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Generic multi-select UI component - unrelated to content generation"
+    },
+    {
+      "file": "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/pin-spacing/pin-spacing-input.tsx",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Pin scheduling UI component - not related to content creation"
+    },
+    {
+      "file": "aero/packages/tailwindapp/client/domains/copilot/hooks/use-set-right-rail-action-from-query-param.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "UI navigation hook - unrelated to content generation features"
+    },
+    {
+      "file": "aero/packages/tailwindapp/client/domains/copilot/types/events.ts",
+      "relevant": false,
+      "actionable": "maybe",
+      "reasoning": "Copilot event types - might track content generation events but not clear if voice-related"
+    },
+    {
+      "file": "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/add-instagram-location-field/add-location-field.tsx",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Location field for Instagram posts - not related to voice/content generation"
+    },
+    {
+      "file": "aero/packages/tailwindapp/client/domains/smartpin-v2/hooks/use-smartpins.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "SmartPin feature hook - appears to be pin management, not content generation"
+    },
+    {
+      "file": "aero/packages/tailwindapp/client/domains/upgrade/utils/grandfathered-plan-utils.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Billing/upgrade utilities - unrelated to content generation features"
+    },
+    {
+      "file": "charlotte/packages/api/src/integrations/shopify/oauth-finish.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Shopify OAuth integration - unrelated to social media content generation"
+    },
+    {
+      "file": "charlotte/packages/api/src/integrations/woocommerce/callback.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "WooCommerce integration callback - unrelated to content generation"
+    },
+    {
+      "file": "charlotte/packages/client/src/charlotte.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Charlotte API client setup - e-commerce focused, not social content"
+    },
+    {
+      "file": "charlotte/packages/core/src/time-metrics.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Performance metrics utility - not related to content generation"
+    },
+    {
+      "file": "charlotte/packages/core/src/timeout.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Timeout utility function - infrastructure code unrelated to features"
+    },
+    {
+      "file": "charlotte/packages/core/src/utils.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "General utility functions - not specific to content generation"
+    },
+    {
+      "file": "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Product scraping for e-commerce - unrelated to social content generation"
+    },
+    {
+      "file": "charlotte/packages/queue/src/import-blogs/import-blogs.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Blog import functionality - not directly related to voice matching in posts"
+    },
+    {
+      "file": "charlotte/packages/queue/src/product-details/fetch-product-details.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "E-commerce product details fetching - unrelated to social content"
+    },
+    {
+      "file": "charlotte/packages/queue/src/product-details/get-product-images.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Product image fetching - not related to text content generation"
+    },
+    {
+      "file": "charlotte/packages/repositories/src/ecommerce-site-event-history.repository.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "E-commerce event history repository - unrelated to content generation"
+    },
+    {
+      "file": "charlotte/packages/repositories/src/import-status-repository.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Import status tracking - not related to content generation features"
+    },
+    {
+      "file": "charlotte/packages/repositories/src/nonce-repository.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Security nonce repository - infrastructure code unrelated to features"
+    },
+    {
+      "file": "charlotte/packages/repositories/src/site-repository.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "E-commerce site repository - unrelated to social content generation"
+    },
+    {
+      "file": "charlotte/packages/repositories/src/squarespace-websites.repository.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Squarespace integration repository - unrelated to content generation"
+    },
+    {
+      "file": "charlotte/packages/repositories/src/user-repository.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "User data repository - general user management, not content-specific"
+    },
+    {
+      "file": "charlotte/packages/repositories/src/utils/has-authorized-token-for-platform.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Authorization utility - not related to content generation features"
+    },
+    {
+      "file": "charlotte/packages/repositories/src/woo-commerce-stores.repository.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "WooCommerce store repository - e-commerce focused, not social content"
+    },
+    {
+      "file": "charlotte/stacks/constructs/user-creator-fn.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Infrastructure construct for user creation - unrelated to content"
+    },
+    {
+      "file": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "E-commerce infrastructure module - not related to content generation"
+    },
+    {
+      "file": "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+      "relevant": false,
+      "actionable": "maybe",
+      "reasoning": "Blog outline generation - uses personalization but for blogs not social posts"
+    },
+    {
+      "file": "ghostwriter/stack/service/handlers/api/generate-blog-article-outline-from-title/prompts.ts",
+      "relevant": false,
+      "actionable": "maybe",
+      "reasoning": "Blog outline prompts - shows personalization pattern but for blogs not posts"
+    },
+    {
+      "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+      "relevant": false,
+      "actionable": "maybe",
+      "reasoning": "Generates Instagram captions from blogs - different flow than direct post creation"
+    },
+    {
+      "file": "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description-from-blog-content/prompts.ts",
+      "relevant": false,
+      "actionable": "maybe",
+      "reasoning": "Pinterest content from blogs - similar pattern but different source than direct creation"
+    },
+    {
+      "file": "ghostwriter/stack/service/handlers/api/generate-video-script-outline/prompts.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Video script generation - different content type than social posts"
+    },
+    {
+      "file": "ghostwriter/stack/service/handlers/queue/generation/process-generation-job.ts",
+      "relevant": false,
+      "actionable": "maybe",
+      "reasoning": "Queue processor for content generation - might handle voice personalization"
+    },
+    {
+      "file": "ghostwriter/stack/service/utils/code-generator/script.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Code generation utility - not related to content generation"
+    },
+    {
+      "file": "ghostwriter/stack/service/utils/trigger-words/trigger-word-set.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Trigger word definitions - appears to be for different feature"
+    },
+    {
+      "file": "tack/client/src/requests/put-post-bulk.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Bulk post creation API - handles publishing not content generation"
+    },
+    {
+      "file": "tack/client/src/types/general-types.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "General TypeScript type utilities - not feature-specific"
+    },
+    {
+      "file": "tack/service/lib/clients/pinterestv5/create-pin.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Pinterest API client for creating pins - publishing not generation"
+    },
+    {
+      "file": "tack/service/lib/facets/post.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Post data model - defines structure but not generation logic"
+    },
+    {
+      "file": "tack/service/lib/facets/tokenv5.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Token management - authentication not content generation"
+    },
+    {
+      "file": "tack/service/lib/facets/user.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "User data model - general user info not personalization specifics"
+    },
+    {
+      "file": "tack/service/lib/handlers/api/batch-fix-failed-video-posts/batch-fix-failed-video-posts-handler.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Video post error recovery - not related to content generation"
+    },
+    {
+      "file": "tack/service/lib/handlers/api/create-posts/generate-post-id.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Post ID generation utility - infrastructure not content creation"
+    },
+    {
+      "file": "tack/service/lib/handlers/api/get-posts-by-link/get-posts-by-link-handler.test.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Test file for post retrieval - not related to content generation"
+    },
+    {
+      "file": "tack/service/lib/handlers/api/patch-post-bulk/patch-post-bulk-handler.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Bulk post update handler - modifies existing posts not generation"
+    },
+    {
+      "file": "tack/service/lib/handlers/api/put-post-bulk/put-post-bulk-handler.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Bulk post creation handler - handles storage not content generation"
+    },
+    {
+      "file": "tack/service/lib/handlers/cron/fail-posts-stuck-in-queue/fail-posts-stuck-in-queue.test.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Test for failed post cleanup - not related to content generation"
+    },
+    {
+      "file": "tack/service/lib/handlers/sqs/check-video-container-status/check-video-container-status-results.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Video container status checking - video processing not generation"
+    },
+    {
+      "file": "tack/service/lib/handlers/sqs/publish-post/mark-post-as-published.test.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Test for post publishing - not related to content creation"
+    },
+    {
+      "file": "tack/service/lib/handlers/sqs/publish-post/publish-post-for-all.test.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Test for post publishing workflow - not content generation"
+    },
+    {
+      "file": "tack/service/lib/handlers/sqs/scrape-url-meta/scrape-url-meta-handler.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "URL metadata scraping - for link posts not content generation"
+    },
+    {
+      "file": "tack/service/lib/pinterest/get-public-pin-from-pinterest.test.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Test for Pinterest pin retrieval - not content generation"
+    },
+    {
+      "file": "tack/service/lib/pinterest/get-user-id-from-pinterest.test.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Test for Pinterest user ID retrieval - not content related"
+    },
+    {
+      "file": "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.test.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Pinterest API response handler tests - infrastructure not features"
+    },
+    {
+      "file": "tack/service/lib/pinterest/pinterest-api/join-fields.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Pinterest API field utility - not related to content generation"
+    },
+    {
+      "file": "zuck/client/src/types/models/ad.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Facebook ad model types - advertising not organic content generation"
+    },
+    {
+      "file": "zuck/service/lib/clients/graph-api/graph-api-exception-creator.test.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Facebook API exception tests - error handling not features"
+    },
+    {
+      "file": "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Facebook API exception definitions - error handling infrastructure"
+    },
+    {
+      "file": "zuck/service/lib/clients/graph-api/graph-api-field-builder.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Facebook API field builder - query construction not content"
+    },
+    {
+      "file": "zuck/service/lib/handlers/api/get-ad-accounts/get-ad-accounts-handler.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Facebook ad account retrieval - advertising not organic content"
+    },
+    {
+      "file": "zuck/service/lib/handlers/sqs/publish-posts/handle-publish-post-results.ts",
+      "relevant": false,
+      "actionable": "no",
+      "reasoning": "Facebook post publishing results - handles publishing not generation"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+[
+  {
+    "conversation_id": "215472646393365",
+    "name": "Nicole",
+    "classification": {
+      "issue_type": "bug_report",
+      "sentiment": "neutral",
+      "churn_risk": false,
+      "priority": "high"
+    },
+    "theme": {
+      "product_area": "communities",
+      "component": "tailwind_communities",
+      "issue_signature": "community_content_not_appearing",
+      "user_intent": "The user wants their pins to appear in Tailwind Communities as intended.",
+      "symptoms": [
+        "Pins are published on Pinterest but not visible in communities",
+        "Issue has persisted for two months",
+        "All English pins assigned to communities"
+      ],
+      "affected_flow": "Pin Scheduler \u2192 Tailwind Communities",
+      "root_cause_hypothesis": "Possible synchronization issue between published pins and community visibility settings."
+    }
+  },
+  {
+    "conversation_id": "215472620832941",
+    "name": "Katie",
+    "classification": {
+      "issue_type": "bug_report",
+      "sentiment": "neutral",
+      "churn_risk": false,
+      "priority": "normal"
+    },
+    "theme": {
+      "product_area": "communities",
+      "component": "tailwind_communities",
+      "issue_signature": "community_posts_not_visible",
+      "user_intent": "The user wants to see their published posts in the communities they are part of.",
+      "symptoms": [
+        "Pins are published",
+        "Posts not appearing in the 'yours' tab"
+      ],
+      "affected_flow": "Communities \u2192 Viewing published posts",
+      "root_cause_hypothesis": "Possible issue with the visibility settings of the posts within the communities or a bug in the display of published content."
+    }
+  },
+  {
+    "conversation_id": "215472406229172",
+    "name": "Chili to Choc",
+    "classification": {
+      "issue_type": "bug_report",
+      "sentiment": "frustrated",
+      "churn_risk": false,
+      "priority": "high"
+    },
+    "theme": {
+      "product_area": "communities",
+      "component": "tailwind_communities",
+      "issue_signature": "community_pin_not_displaying",
+      "user_intent": "The user wants their scheduled pins to automatically appear in the Communities without manual intervention.",
+      "symptoms": [
+        "Pins not showing up in Communities after being published on Pinterest",
+        "User has checked the 'Yours' tab with no results",
+        "Issue has persisted for around two weeks",
+        "User has to manually add each pin after posting"
+      ],
+      "affected_flow": "Pin Scheduler \u2192 Tailwind Communities",
+      "root_cause_hypothesis": "There may be a synchronization issue between the scheduled pins and the Communities feature, preventing the pins from being displayed correctly."
+    }
+  }
+]

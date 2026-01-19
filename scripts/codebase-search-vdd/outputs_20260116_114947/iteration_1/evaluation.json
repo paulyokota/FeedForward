@@ -1,0 +1,2812 @@
+{
+  "iteration_number": 1,
+  "timestamp": "2026-01-16T02:39:48.307292",
+  "evaluator_version": "v2-cli",
+  "metrics": {
+    "aggregate": {
+      "precision": 0.079,
+      "recall": 0.09,
+      "conversations_evaluated": 3,
+      "total_exploration_seconds": 1453.1
+    },
+    "by_product_area": {
+      "uncertain": {
+        "precision": 0.079,
+        "recall": 0.09,
+        "count": 3
+      }
+    },
+    "calibration": {
+      "opus_only_files": 57,
+      "sonnet_only_files": 80,
+      "both_models_files": 23,
+      "overlap_rate": 0.287,
+      "recommendation": "Keep Opus-Sonnet hybrid or Opus-only"
+    }
+  },
+  "conversations": [
+    {
+      "conversation_id": "215472698970424",
+      "issue_summary": "my post link pictures aren't loading",
+      "product_area": "uncertain",
+      "run_a": {
+        "model": "claude-opus-4-20250514",
+        "files_found": [],
+        "duration_seconds": 229.108088,
+        "error": null
+      },
+      "run_b": {
+        "model": "claude-sonnet-4-20250514",
+        "files_found": [
+          "tack/client/src/requests/get-posts-by-link.ts",
+          "aero/packages/tailwindapp/client/store/destination-posts/thunks/create-network-post.ts",
+          "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/sent-post-preview.tsx",
+          "zuck/service/lib/handlers/api/update-post/update-post-handler.ts",
+          "aero/packages/tailwindapp/client/utils/media/image-file-from-url.ts",
+          "aero/packages/tailwindapp/client/types/pablo-upload.ts",
+          "tack/service/lib/pinterest/pinterest-api/create-pinterest-pin-request.ts",
+          "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/scheduled-post-preview.tsx",
+          "charlotte/packages/queue/src/product-details/get-product-images.ts",
+          "tack/service/lib/clients/pablo.ts",
+          "aero/packages/tailwindapp/client/domains/destination-posts/types/destination-post.ts",
+          "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+          "aero/packages/tailwindapp/client/clients/services/pablo/client.ts",
+          "zuck/service/lib/utils/zuckify-media-urls.ts",
+          "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+          "tack/service/lib/facets/post.ts",
+          "charlotte/packages/queue/src/find-products/pabloize-media-in-integration-products.ts",
+          "aero/packages/tailwindapp/client/hooks/use-upload-base64-to-pablo.ts",
+          "aero/packages/tailwindapp/next.config.js",
+          "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/preview-information.tsx",
+          "tack/service/lib/pinterest/types/pinterest-pin.ts",
+          "tack/service/lib/handlers/sqs/pabloize-media/pabloize-media.ts",
+          "tack/service/lib/facets/post-url-meta.ts",
+          "tack/client/src/requests/get-post-links.ts",
+          "aero/packages/tailwindapp/client/hooks/use-upload-files-to-pablo.ts",
+          "aero/packages/tailwindapp/client/utils/media/rewrite-pablo-url.ts",
+          "aero/packages/tailwindapp/client/utils/media/get-displayable-image-size-url.ts"
+        ],
+        "duration_seconds": 191.643266,
+        "error": null
+      },
+      "ground_truth_files": [
+        "aero/packages/tailwindapp/client/clients/services/pablo/client.ts",
+        "aero/packages/tailwindapp/client/domains/destination-posts/types/destination-post.ts",
+        "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/preview-information.tsx",
+        "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/scheduled-post-preview.tsx",
+        "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/sent-post-preview.tsx",
+        "aero/packages/tailwindapp/client/hooks/use-upload-base64-to-pablo.ts",
+        "aero/packages/tailwindapp/client/hooks/use-upload-files-to-pablo.ts",
+        "aero/packages/tailwindapp/client/store/destination-posts/thunks/create-network-post.ts",
+        "aero/packages/tailwindapp/client/types/pablo-upload.ts",
+        "aero/packages/tailwindapp/client/utils/media/get-displayable-image-size-url.ts",
+        "aero/packages/tailwindapp/client/utils/media/image-file-from-url.ts",
+        "aero/packages/tailwindapp/client/utils/media/rewrite-pablo-url.ts",
+        "aero/packages/tailwindapp/next.config.js",
+        "charlotte/packages/queue/src/find-products/pabloize-media-in-integration-products.ts",
+        "charlotte/packages/queue/src/product-details/get-product-images.ts",
+        "tack/client/src/requests/get-post-links.ts",
+        "tack/client/src/requests/get-posts-by-link.ts",
+        "tack/service/lib/clients/pablo.ts",
+        "tack/service/lib/facets/post-url-meta.ts",
+        "tack/service/lib/facets/post.ts",
+        "tack/service/lib/handlers/sqs/pabloize-media/pabloize-media.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+        "tack/service/lib/pinterest/pinterest-api/create-pinterest-pin-request.ts",
+        "tack/service/lib/pinterest/types/pinterest-pin.ts",
+        "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+        "zuck/service/lib/handlers/api/update-post/update-post-handler.ts",
+        "zuck/service/lib/utils/zuckify-media-urls.ts"
+      ],
+      "our_files": [
+        "aero/packages/bachv2/service/draft-generation/request-processor/blog-post-fetcher.ts",
+        "aero/packages/tailwindapp/client/domains/destination-posts/hooks/use-instagram-feed-post.ts",
+        "aero/packages/e2e/quickSchedule/publishing/publishPostPinterest.playwright.ts",
+        "aero/packages/e2e/quickSchedule/scheduling/scheduleInstagramPosts.playwright.ts",
+        "aero/packages/core/src/llm/prompts/definitions/facebook-post.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/visual-planning/post-editor/post-caption-auto-save-view_test.js",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+        "aero/packages/tailwindapp/client/domains/pinteresto-auth/error.tsx",
+        "aero/packages/e2e/billing/planLimitTopNav.playwright.ts",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/caption-field/ghostwriter/use-ghostwriter-captions.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/state-changers/instagram/post/update-instagram-db-hashtags-in-first-comment-reducer.js",
+        "aero/packages/tailwindapp/client/domains/insights/hooks/use-active-insights-account.ts",
+        "aero/packages/tailwind-api-sdk/src/legacy/domains/instagram/requests/stories/post-story.ts",
+        "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/simplify-content-use-case.tsx",
+        "aero/packages/extension/environment/env.ts",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/dialog.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/Snap.svg/doc/js/prism.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/visual-planning/drag-image-view_test.js",
+        "aero/packages/core/src/llm/prompts/definitions/gemini-pin-quality-analysis.ts",
+        "aero/packages/tailwindapp/client/domains/create/hooks/use-template-filter.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/get-pinterest-method-map.ts",
+        "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-handler.test.ts",
+        "tack/service/lib/facets/post.test.ts",
+        "tack/service/lib/handlers/api/put-batch-posts/put-batch-posts-handler.test.ts",
+        "tack/service/lib/handlers/api/patch-post/patch-post-handler.ts",
+        "tack/service/lib/handlers/api/get-link-stats/get-link-stats-handler.test.ts",
+        "tack/service/lib/handlers/sqs/pabloize-media/pabloize-media.test.ts",
+        "tack/client/src/index.ts",
+        "tack/service/lib/handlers/sqs/publish-post/mark-post-as-published.test.ts",
+        "tack/service/lib/handlers/api/get-post-links/get-post-links-handler.ts",
+        "tack/service/lib/handlers/api/put-batch-posts/put-batch-posts-handler.ts",
+        "tack/client/src/types/post.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+        "tack/service/lib/handlers/sqs/publish-post/publish-post-handler.ts",
+        "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+        "tack/service/lib/handlers/api/put-post/queue-interval-board-pins.test.ts",
+        "tack/service/lib/facets/user-post-url-meta-scrape-job.ts",
+        "tack/service/lib/handlers/sqs/pabloize-media/pabloize-media.ts",
+        "charlotte/packages/repositories/src/blog-post-repository.ts",
+        "charlotte/packages/client/src/types/blog.ts",
+        "charlotte/packages/client/src/charlotte.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "charlotte/packages/repositories/src/types/blog-post.ts",
+        "charlotte/packages/api/src/blog/get-site-blog-posts.ts",
+        "charlotte/packages/core/src/utils.test.ts",
+        "charlotte/packages/database/src/db-types.d.ts",
+        "charlotte/packages/client/src/requests/get-site-blog-posts.ts",
+        "charlotte/packages/client/src/requests/create-blog-post.ts",
+        "charlotte/packages/database/src/db-tools/migrations/2024-04-30t16-54.blog-images-table.ts",
+        "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+        "charlotte/packages/client/src/requests/get-blog-post.ts",
+        "charlotte/packages/database/src/db-tools/migrations/2024-05-09t16-45.add-missing-product-media-index.ts",
+        "charlotte/stacks/modular-stacks/IntegrationModule.ts",
+        "charlotte/packages/api/src/site/get-or-create-site.ts",
+        "charlotte/packages/client/src/requests/delete-blog-post.ts",
+        "charlotte/packages/queue/src/import-blogs/init-blog-import.ts",
+        "charlotte/packages/core/src/s3.ts",
+        "charlotte/packages/api/src/users/get-sites.ts",
+        "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer-config.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-product-title/prompts.ts",
+        "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-facebook-post.ts",
+        "ghostwriter/stack/service/utils/code-generator/script.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/shots.ts",
+        "ghostwriter/client/src/requests/queue-blog-wizard-step.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption/queue-facebook-caption.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-blog-article-topic-idea/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+        "ghostwriter/stack/service/handlers/api/generate-seo-blog-posts-title-meta-description/generate-seo-blog-posts-title-meta-description-schema.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-seo-product-page-title-meta-description/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-blog-editor/prompts.ts",
+        "ghostwriter/stack/service/utils/prompts/personalizationPrompt.test.ts",
+        "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-conclusion-step.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.handler.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/handle-publish-post-results.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/publish-post.ts",
+        "zuck/service/lib/data/models/post.ts",
+        "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+        "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+        "zuck/test-bed/components/app.tsx",
+        "zuck/service/lib/test/post-fixture.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+        "zuck/service/lib/handlers/api/get-post-by-status/get-post-by-status-handler.ts",
+        "zuck/service/lib/utils/zuckify-media-urls.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+        "zuck/service/lib/handlers/api/get-post-by-only-id/get-post-by-only-id-handler.ts",
+        "zuck/service/lib/handlers/api/get-posts-by-send-at/get-posts-by-send-at-handler.ts",
+        "zuck/service/lib/handlers/api/delete-page-by-id/delete-page-by-id-handler.ts",
+        "zuck/service/lib/handlers/cron/queue-posts/queue-posts-handler.ts",
+        "zuck/service/lib/handlers/api/get-post-by-id/get-post-by-id-handler.ts",
+        "zuck/service/lib/data/repository/s3-deleted-post-repository.ts",
+        "zuck/service/lib/data/events/publish-post-event.ts",
+        "zuck/client/src/types/requests/create-page-post-request.ts",
+        "zuck/client/src/types/requests/update-page-post-request.ts"
+      ],
+      "intersection": [
+        "tack/service/lib/handlers/sqs/pabloize-media/pabloize-media.ts",
+        "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+        "zuck/service/lib/utils/zuckify-media-urls.ts"
+      ],
+      "our_unique": [
+        "aero/packages/bachv2/service/draft-generation/request-processor/blog-post-fetcher.ts",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+        "aero/packages/core/src/llm/prompts/definitions/facebook-post.ts",
+        "aero/packages/core/src/llm/prompts/definitions/gemini-pin-quality-analysis.ts",
+        "aero/packages/e2e/billing/planLimitTopNav.playwright.ts",
+        "aero/packages/e2e/quickSchedule/publishing/publishPostPinterest.playwright.ts",
+        "aero/packages/e2e/quickSchedule/scheduling/scheduleInstagramPosts.playwright.ts",
+        "aero/packages/extension/environment/env.ts",
+        "aero/packages/tailwind-api-sdk/src/legacy/domains/instagram/requests/stories/post-story.ts",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/Snap.svg/doc/js/prism.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/dialog.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/state-changers/instagram/post/update-instagram-db-hashtags-in-first-comment-reducer.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/visual-planning/drag-image-view_test.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/visual-planning/post-editor/post-caption-auto-save-view_test.js",
+        "aero/packages/tailwindapp/client/domains/create/hooks/use-template-filter.ts",
+        "aero/packages/tailwindapp/client/domains/destination-posts/hooks/use-instagram-feed-post.ts",
+        "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/simplify-content-use-case.tsx",
+        "aero/packages/tailwindapp/client/domains/insights/hooks/use-active-insights-account.ts",
+        "aero/packages/tailwindapp/client/domains/pinteresto-auth/error.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/caption-field/ghostwriter/use-ghostwriter-captions.ts",
+        "charlotte/packages/api/src/blog/get-site-blog-posts.ts",
+        "charlotte/packages/api/src/site/get-or-create-site.ts",
+        "charlotte/packages/api/src/users/get-sites.ts",
+        "charlotte/packages/client/src/charlotte.ts",
+        "charlotte/packages/client/src/requests/create-blog-post.ts",
+        "charlotte/packages/client/src/requests/delete-blog-post.ts",
+        "charlotte/packages/client/src/requests/get-blog-post.ts",
+        "charlotte/packages/client/src/requests/get-site-blog-posts.ts",
+        "charlotte/packages/client/src/types/blog.ts",
+        "charlotte/packages/core/src/s3.ts",
+        "charlotte/packages/core/src/utils.test.ts",
+        "charlotte/packages/database/src/db-tools/migrations/2024-04-30t16-54.blog-images-table.ts",
+        "charlotte/packages/database/src/db-tools/migrations/2024-05-09t16-45.add-missing-product-media-index.ts",
+        "charlotte/packages/database/src/db-types.d.ts",
+        "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+        "charlotte/packages/queue/src/import-blogs/init-blog-import.ts",
+        "charlotte/packages/repositories/src/blog-post-repository.ts",
+        "charlotte/packages/repositories/src/types/blog-post.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "charlotte/stacks/modular-stacks/IntegrationModule.ts",
+        "ghostwriter/client/src/requests/queue-blog-wizard-step.ts",
+        "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-conclusion-step.ts",
+        "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+        "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer-config.ts",
+        "ghostwriter/stack/service/handlers/api/generate-blog-article-topic-idea/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-blog-editor/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/shots.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-product-title/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption/queue-facebook-caption.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-seo-blog-posts-title-meta-description/generate-seo-blog-posts-title-meta-description-schema.ts",
+        "ghostwriter/stack/service/handlers/api/generate-seo-product-page-title-meta-description/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+        "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-facebook-post.ts",
+        "ghostwriter/stack/service/utils/code-generator/script.ts",
+        "ghostwriter/stack/service/utils/prompts/personalizationPrompt.test.ts",
+        "tack/client/src/index.ts",
+        "tack/client/src/types/post.ts",
+        "tack/service/lib/facets/post.test.ts",
+        "tack/service/lib/facets/user-post-url-meta-scrape-job.ts",
+        "tack/service/lib/handlers/api/get-link-stats/get-link-stats-handler.test.ts",
+        "tack/service/lib/handlers/api/get-post-links/get-post-links-handler.ts",
+        "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-handler.test.ts",
+        "tack/service/lib/handlers/api/patch-post/patch-post-handler.ts",
+        "tack/service/lib/handlers/api/put-batch-posts/put-batch-posts-handler.test.ts",
+        "tack/service/lib/handlers/api/put-batch-posts/put-batch-posts-handler.ts",
+        "tack/service/lib/handlers/api/put-post/queue-interval-board-pins.test.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+        "tack/service/lib/handlers/sqs/pabloize-media/pabloize-media.test.ts",
+        "tack/service/lib/handlers/sqs/publish-post/mark-post-as-published.test.ts",
+        "tack/service/lib/handlers/sqs/publish-post/publish-post-handler.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/get-pinterest-method-map.ts",
+        "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+        "zuck/client/src/types/requests/create-page-post-request.ts",
+        "zuck/client/src/types/requests/update-page-post-request.ts",
+        "zuck/service/lib/data/events/publish-post-event.ts",
+        "zuck/service/lib/data/models/post.ts",
+        "zuck/service/lib/data/repository/s3-deleted-post-repository.ts",
+        "zuck/service/lib/handlers/api/delete-page-by-id/delete-page-by-id-handler.ts",
+        "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+        "zuck/service/lib/handlers/api/get-post-by-id/get-post-by-id-handler.ts",
+        "zuck/service/lib/handlers/api/get-post-by-only-id/get-post-by-only-id-handler.ts",
+        "zuck/service/lib/handlers/api/get-post-by-status/get-post-by-status-handler.ts",
+        "zuck/service/lib/handlers/api/get-posts-by-send-at/get-posts-by-send-at-handler.ts",
+        "zuck/service/lib/handlers/cron/queue-posts/queue-posts-handler.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/handle-publish-post-results.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/publish-post.ts",
+        "zuck/service/lib/test/post-fixture.ts",
+        "zuck/test-bed/components/app.tsx"
+      ],
+      "ground_truth_unique": [
+        "aero/packages/tailwindapp/client/clients/services/pablo/client.ts",
+        "aero/packages/tailwindapp/client/domains/destination-posts/types/destination-post.ts",
+        "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/preview-information.tsx",
+        "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/scheduled-post-preview.tsx",
+        "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/sent-post-preview.tsx",
+        "aero/packages/tailwindapp/client/hooks/use-upload-base64-to-pablo.ts",
+        "aero/packages/tailwindapp/client/hooks/use-upload-files-to-pablo.ts",
+        "aero/packages/tailwindapp/client/store/destination-posts/thunks/create-network-post.ts",
+        "aero/packages/tailwindapp/client/types/pablo-upload.ts",
+        "aero/packages/tailwindapp/client/utils/media/get-displayable-image-size-url.ts",
+        "aero/packages/tailwindapp/client/utils/media/image-file-from-url.ts",
+        "aero/packages/tailwindapp/client/utils/media/rewrite-pablo-url.ts",
+        "aero/packages/tailwindapp/next.config.js",
+        "charlotte/packages/queue/src/find-products/pabloize-media-in-integration-products.ts",
+        "charlotte/packages/queue/src/product-details/get-product-images.ts",
+        "tack/client/src/requests/get-post-links.ts",
+        "tack/client/src/requests/get-posts-by-link.ts",
+        "tack/service/lib/clients/pablo.ts",
+        "tack/service/lib/facets/post-url-meta.ts",
+        "tack/service/lib/facets/post.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+        "tack/service/lib/pinterest/pinterest-api/create-pinterest-pin-request.ts",
+        "tack/service/lib/pinterest/types/pinterest-pin.ts",
+        "zuck/service/lib/handlers/api/update-post/update-post-handler.ts"
+      ],
+      "our_unique_judgments": [
+        {
+          "file": "aero/packages/bachv2/service/draft-generation/request-processor/blog-post-fetcher.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/llm/prompts/definitions/facebook-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/llm/prompts/definitions/gemini-pin-quality-analysis.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/e2e/billing/planLimitTopNav.playwright.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/e2e/quickSchedule/publishing/publishPostPinterest.playwright.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/e2e/quickSchedule/scheduling/scheduleInstagramPosts.playwright.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/extension/environment/env.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwind-api-sdk/src/legacy/domains/instagram/requests/stories/post-story.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/Snap.svg/doc/js/prism.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/dialog.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/state-changers/instagram/post/update-instagram-db-hashtags-in-first-comment-reducer.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/visual-planning/drag-image-view_test.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/visual-planning/post-editor/post-caption-auto-save-view_test.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/create/hooks/use-template-filter.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/destination-posts/hooks/use-instagram-feed-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/simplify-content-use-case.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/insights/hooks/use-active-insights-account.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/pinteresto-auth/error.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/caption-field/ghostwriter/use-ghostwriter-captions.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/blog/get-site-blog-posts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/site/get-or-create-site.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/users/get-sites.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/charlotte.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/create-blog-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/delete-blog-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/get-blog-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/get-site-blog-posts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/types/blog.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/core/src/s3.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/core/src/utils.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/database/src/db-tools/migrations/2024-04-30t16-54.blog-images-table.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/database/src/db-tools/migrations/2024-05-09t16-45.add-missing-product-media-index.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/database/src/db-types.d.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/import-blogs/init-blog-import.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/blog-post-repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/types/blog-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/stacks/modular-stacks/IntegrationModule.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/requests/queue-blog-wizard-step.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-conclusion-step.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/blog-wizard/steps/queue-outline-step.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/content-generation-queuer/content-generation-queuer-config.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-blog-article-topic-idea/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-blog-editor/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-email-subject/shots.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-product-title/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-facebook-caption/queue-facebook-caption.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption-from-blog-content/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-pinterest-title-and-description/generate-pinterest-title-and-description.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-seo-blog-posts-title-meta-description/generate-seo-blog-posts-title-meta-description-schema.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-seo-product-page-title-meta-description/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-facebook-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/code-generator/script.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/prompts/personalizationPrompt.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/index.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/types/post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/facets/post.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/facets/user-post-url-meta-scrape-job.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-link-stats/get-link-stats-handler.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-post-links/get-post-links-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-handler.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/patch-post/patch-post-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/put-batch-posts/put-batch-posts-handler.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/put-batch-posts/put-batch-posts-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/put-post/queue-interval-board-pins.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/pabloize-media/pabloize-media.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/publish-post/mark-post-as-published.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/publish-post/publish-post-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/queue-post-to-publish/get-pinterest-method-map.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/client/src/types/requests/create-page-post-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/client/src/types/requests/update-page-post-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/data/events/publish-post-event.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/data/models/post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/data/repository/s3-deleted-post-repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/delete-page-by-id/delete-page-by-id-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/delete-post/delete-post-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-post-by-id/get-post-by-id-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-post-by-only-id/get-post-by-only-id-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-post-by-status/get-post-by-status-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-posts-by-send-at/get-posts-by-send-at-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/cron/queue-posts/queue-posts-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/handle-publish-post-results.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/publish-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/test/post-fixture.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/test-bed/components/app.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        }
+      ],
+      "precision": 0.03,
+      "recall": 0.111,
+      "calibration_data": {
+        "opus_only": [],
+        "sonnet_only": [
+          "aero/packages/tailwindapp/client/clients/services/pablo/client.ts",
+          "aero/packages/tailwindapp/client/domains/destination-posts/types/destination-post.ts",
+          "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/preview-information.tsx",
+          "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/scheduled-post-preview.tsx",
+          "aero/packages/tailwindapp/client/domains/home/components/calendar/post-card/sent-post-preview.tsx",
+          "aero/packages/tailwindapp/client/hooks/use-upload-base64-to-pablo.ts",
+          "aero/packages/tailwindapp/client/hooks/use-upload-files-to-pablo.ts",
+          "aero/packages/tailwindapp/client/store/destination-posts/thunks/create-network-post.ts",
+          "aero/packages/tailwindapp/client/types/pablo-upload.ts",
+          "aero/packages/tailwindapp/client/utils/media/get-displayable-image-size-url.ts",
+          "aero/packages/tailwindapp/client/utils/media/image-file-from-url.ts",
+          "aero/packages/tailwindapp/client/utils/media/rewrite-pablo-url.ts",
+          "aero/packages/tailwindapp/next.config.js",
+          "charlotte/packages/queue/src/find-products/pabloize-media-in-integration-products.ts",
+          "charlotte/packages/queue/src/product-details/get-product-images.ts",
+          "tack/client/src/requests/get-post-links.ts",
+          "tack/client/src/requests/get-posts-by-link.ts",
+          "tack/service/lib/clients/pablo.ts",
+          "tack/service/lib/facets/post-url-meta.ts",
+          "tack/service/lib/facets/post.ts",
+          "tack/service/lib/handlers/sqs/pabloize-media/pabloize-media.ts",
+          "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+          "tack/service/lib/pinterest/pinterest-api/create-pinterest-pin-request.ts",
+          "tack/service/lib/pinterest/types/pinterest-pin.ts",
+          "zuck/service/lib/handlers/api/create-post/create-post-handler.ts",
+          "zuck/service/lib/handlers/api/update-post/update-post-handler.ts",
+          "zuck/service/lib/utils/zuckify-media-urls.ts"
+        ],
+        "both_models": []
+      }
+    },
+    {
+      "conversation_id": "215472681279516",
+      "issue_summary": "I/ve been billed again this year. I tried emailing last year to cancel and didn't hear back. I knew my card was going to expire 11/25 and assumed it wouldn't renew. It has and I would like a refund and to cancel the service. I haven't used it in years.",
+      "product_area": "uncertain",
+      "run_a": {
+        "model": "claude-opus-4-20250514",
+        "files_found": [
+          "aero/packages/bachv2/service/billing/api/billing-ads-subscriptions-post/billing-ads-subscriptions-post.handler.ts",
+          "aero/packages/tailwindapp/client/domains/settings/hooks/use-billing-information.ts",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/components/downgrade-survey-modal/downgrade-survey-modal.tsx",
+          "aero/packages/bachv2/service/billing/utils/chargify-id.ts",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanMigrator.php",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/information.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/Webhook.php",
+          "aero/packages/tailwindapp/client/domains/upgrade/components/update-credit-card-on-file-button/update-credit-card-on-file-button.tsx",
+          "aero/packages/tailwindapp-legacy/app/build/emails/src/partials/footer.html",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanChanger.php",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/subscription-page.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/statements.tsx",
+          "aero/packages/tailwindapp/client/domains/chargify/hooks/use-credit-card-form-submit.ts",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/user/organization/OrganizationCanceller.php",
+          "aero/packages/tailwindapp-legacy/app/app/routes/www/api/billing.routes.php",
+          "aero/packages/e2e/billing/serialBillingTests/billingSandbox/badNextTransaction.playwright.ts",
+          "aero/packages/tailwindapp-legacy/app/app/controllers/analytics/settings/billing/DirectSubscriptionController.php",
+          "aero/packages/tailwindapp/client/domains/upgrade/components/purchase-form/purchase-form.tsx",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/shopify-subscription-page.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/subscription.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/downgrade_confirmation.blade.php",
+          "aero/packages/bachv2/service/billing/api/org-billing-location-put/org-billing-location-put.handler.ts",
+          "aero/packages/core/src/credits/purchase/subscription-credit-purchaser.ts",
+          "aero/packages/tailwindapp-legacy/app/app/routes/www/api/v2/billing.routes.php",
+          "aero/packages/e2e/billing/downgradeNextPageAnnual.playwright.ts",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/pages/downgrade-page/downgrade-page.tsx",
+          "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+          "aero/packages/tailwindapp/client/domains/chargify/components/chargify-js-form/chargify-js-form.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Delinquency/DelinquentOrganizationQueuer.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/WebhookRepository.php",
+          "aero/packages/tailwindapp/client/domains/settings/hooks/use-has-credit-card.ts",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/information-page.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/plaintext/downgrade_confirmation.blade.php",
+          "aero/packages/tailwindapp-legacy/app/app/models/userhistory.php",
+          "aero/packages/e2e/billing/downgradeNextPageMonthly.playwright.ts",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/ChargifySubscriptionRepository.php",
+          "aero/packages/bachv2/service/billing/utils/tailwind-ads-subscriptions.ts",
+          "aero/packages/tailwindapp/pages/dashboard/v2/debug/chargify-js.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/controllers/api/webhook/ChargifyController.php",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/Billing/Chargify/ChargifySubscriptionRepositoryTest.php",
+          "aero/packages/bachv2/service/billing/api/get-chargify-id-for-org/get-chargify-id-for-org.handler.ts",
+          "aero/packages/tailwindapp/client/domains/upgrade/components/upgrade-view/upgrade-summary.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/downgrade_notification.php",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/pages/downgrade-page/views/cancel-plan-confirmation-view/cancel-table-config.tsx",
+          "aero/packages/tailwindapp/client/domains/chargify/hooks/use-create-publisher-subscription.ts",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/Webhooks.php",
+          "aero/packages/tailwindapp/client/domains/chargify/components/chargify-provider.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Delinquency/DelinquentOrganizationCanceller.php",
+          "aero/packages/bachv2/service/billing/utils/get-payment-profiles.ts",
+          "aero/packages/tailwindapp/client/domains/chargify/hooks/use-create-ads-subscription.ts",
+          "aero/packages/bachv2/service/billing/api/plan-feature/get-plan-feature.handler.ts",
+          "aero/packages/tailwindapp/client/domains/settings/hooks/use-billing-subscription.ts"
+        ],
+        "duration_seconds": 281.882235,
+        "error": null
+      },
+      "run_b": {
+        "model": "claude-sonnet-4-20250514",
+        "files_found": [
+          "aero/packages/tailwindapp/client/domains/settings/hooks/use-billing-information.ts",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/information.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Email/SendConfirmationEmailJob.php",
+          "aero/packages/tailwindapp-legacy/app/app/routes/www/api/v2/settings.routes.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/Webhook.php",
+          "aero/packages/tailwindapp/client/hooks/plans/use-active-plan.ts",
+          "aero/packages/tailwindapp/client/domains/upgrade/components/update-credit-card-on-file-button/update-credit-card-on-file-button.tsx",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/user/Organization/OrganizationCancellerTest.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanChanger.php",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/subscription-page.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/statements.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/user/organization/OrganizationCanceller.php",
+          "aero/packages/tailwindapp-legacy/app/react/app/core/initialize-state/user-history-typed.ts",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/subscription.tsx",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/statements-page.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Account/AccountPlanChanger.php",
+          "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+          "aero/packages/tailwindapp/client/hooks/use-show-email-plan-change-confirmation.ts",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/WebhookRepository.php",
+          "aero/packages/tailwindapp-legacy/app/app/controllers/api/settings/GandalfStatementsController.php",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/cancellation-reason-context.ts",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/information-page.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/User/Organization/OrganizationDeactivator.php",
+          "aero/packages/tailwindapp-legacy/app/app/models/userhistory.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/ChargifySubscriptionRepository.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Email/Mailgun/V3Webhooks/Parsers/TailwindUserEventParser.php",
+          "aero/packages/tailwindapp/client/domains/upgrade/upgrade-page.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/controllers/api/webhook/ChargifyController.php",
+          "aero/packages/tailwindapp-legacy/app/app/routes/api/api.routes.php",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/Billing/Chargify/ChargifySubscriptionRepositoryTest.php",
+          "aero/packages/tailwindapp-legacy/app/app/controllers/api/webhook/MailgunController.php",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/API/webhook/MailgunControllerTest.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/ChargifySubscriptionUpdater.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Delinquency/DelinquentOrganizationCanceller.php",
+          "aero/packages/tailwindapp/client/domains/chargify/types/chargify-js.ts",
+          "aero/packages/tailwindapp/client/domains/upgrade/components/update-credit-card-on-file-button/use-update-credit-card-on-file.test.ts",
+          "aero/packages/tailwindapp/client/hooks/use-make-intercom-avoid.ts",
+          "aero/packages/tailwindapp-legacy/app/react/app/core/constants/typed-user-history.ts",
+          "aero/packages/tailwindapp/client/domains/settings/hooks/use-billing-subscription.ts"
+        ],
+        "duration_seconds": 255.360966,
+        "error": null
+      },
+      "ground_truth_files": [
+        "aero/packages/bachv2/service/billing/api/billing-ads-subscriptions-post/billing-ads-subscriptions-post.handler.ts",
+        "aero/packages/bachv2/service/billing/api/get-chargify-id-for-org/get-chargify-id-for-org.handler.ts",
+        "aero/packages/bachv2/service/billing/api/org-billing-location-put/org-billing-location-put.handler.ts",
+        "aero/packages/bachv2/service/billing/api/plan-feature/get-plan-feature.handler.ts",
+        "aero/packages/bachv2/service/billing/utils/chargify-id.ts",
+        "aero/packages/bachv2/service/billing/utils/get-payment-profiles.ts",
+        "aero/packages/bachv2/service/billing/utils/tailwind-ads-subscriptions.ts",
+        "aero/packages/core/src/credits/purchase/subscription-credit-purchaser.ts",
+        "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+        "aero/packages/e2e/billing/downgradeNextPageAnnual.playwright.ts",
+        "aero/packages/e2e/billing/downgradeNextPageMonthly.playwright.ts",
+        "aero/packages/e2e/billing/serialBillingTests/billingSandbox/badNextTransaction.playwright.ts",
+        "aero/packages/tailwindapp-legacy/app/app/controllers/analytics/settings/billing/DirectSubscriptionController.php",
+        "aero/packages/tailwindapp-legacy/app/app/controllers/api/settings/GandalfStatementsController.php",
+        "aero/packages/tailwindapp-legacy/app/app/controllers/api/webhook/ChargifyController.php",
+        "aero/packages/tailwindapp-legacy/app/app/controllers/api/webhook/MailgunController.php",
+        "aero/packages/tailwindapp-legacy/app/app/models/userhistory.php",
+        "aero/packages/tailwindapp-legacy/app/app/routes/api/api.routes.php",
+        "aero/packages/tailwindapp-legacy/app/app/routes/www/api/billing.routes.php",
+        "aero/packages/tailwindapp-legacy/app/app/routes/www/api/v2/billing.routes.php",
+        "aero/packages/tailwindapp-legacy/app/app/routes/www/api/v2/settings.routes.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/ChargifySubscriptionRepository.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/ChargifySubscriptionUpdater.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/Webhook.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/WebhookRepository.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/Webhooks.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Delinquency/DelinquentOrganizationCanceller.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Delinquency/DelinquentOrganizationQueuer.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Email/Mailgun/V3Webhooks/Parsers/TailwindUserEventParser.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Email/SendConfirmationEmailJob.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Account/AccountPlanChanger.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanChanger.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanMigrator.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/User/Organization/OrganizationDeactivator.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/user/organization/OrganizationCanceller.php",
+        "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/downgrade_confirmation.blade.php",
+        "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/downgrade_notification.php",
+        "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/plaintext/downgrade_confirmation.blade.php",
+        "aero/packages/tailwindapp-legacy/app/build/emails/src/partials/footer.html",
+        "aero/packages/tailwindapp-legacy/app/react/app/core/constants/typed-user-history.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/core/initialize-state/user-history-typed.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/cancellation-reason-context.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/components/downgrade-survey-modal/downgrade-survey-modal.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/pages/downgrade-page/downgrade-page.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/pages/downgrade-page/views/cancel-plan-confirmation-view/cancel-table-config.tsx",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/API/webhook/MailgunControllerTest.php",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/Billing/Chargify/ChargifySubscriptionRepositoryTest.php",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/user/Organization/OrganizationCancellerTest.php",
+        "aero/packages/tailwindapp/client/domains/chargify/components/chargify-js-form/chargify-js-form.tsx",
+        "aero/packages/tailwindapp/client/domains/chargify/components/chargify-provider.tsx",
+        "aero/packages/tailwindapp/client/domains/chargify/hooks/use-create-ads-subscription.ts",
+        "aero/packages/tailwindapp/client/domains/chargify/hooks/use-create-publisher-subscription.ts",
+        "aero/packages/tailwindapp/client/domains/chargify/hooks/use-credit-card-form-submit.ts",
+        "aero/packages/tailwindapp/client/domains/chargify/types/chargify-js.ts",
+        "aero/packages/tailwindapp/client/domains/settings/hooks/use-billing-information.ts",
+        "aero/packages/tailwindapp/client/domains/settings/hooks/use-billing-subscription.ts",
+        "aero/packages/tailwindapp/client/domains/settings/hooks/use-has-credit-card.ts",
+        "aero/packages/tailwindapp/client/domains/settings/pages/billing/information-page.tsx",
+        "aero/packages/tailwindapp/client/domains/settings/pages/billing/shopify-subscription-page.tsx",
+        "aero/packages/tailwindapp/client/domains/settings/pages/billing/statements-page.tsx",
+        "aero/packages/tailwindapp/client/domains/settings/pages/billing/subscription-page.tsx",
+        "aero/packages/tailwindapp/client/domains/upgrade/components/purchase-form/purchase-form.tsx",
+        "aero/packages/tailwindapp/client/domains/upgrade/components/update-credit-card-on-file-button/update-credit-card-on-file-button.tsx",
+        "aero/packages/tailwindapp/client/domains/upgrade/components/update-credit-card-on-file-button/use-update-credit-card-on-file.test.ts",
+        "aero/packages/tailwindapp/client/domains/upgrade/components/upgrade-view/upgrade-summary.tsx",
+        "aero/packages/tailwindapp/client/domains/upgrade/upgrade-page.tsx",
+        "aero/packages/tailwindapp/client/hooks/plans/use-active-plan.ts",
+        "aero/packages/tailwindapp/client/hooks/use-make-intercom-avoid.ts",
+        "aero/packages/tailwindapp/client/hooks/use-show-email-plan-change-confirmation.ts",
+        "aero/packages/tailwindapp/pages/dashboard/v2/debug/chargify-js.tsx",
+        "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/information.tsx",
+        "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/statements.tsx",
+        "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/subscription.tsx"
+      ],
+      "our_files": [
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/dialog.js",
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-editor/side-controls/text-controls-utils.ts",
+        "aero/packages/tailwindapp/client/domains/keywords/hooks/user-history-events/use-keyword-history-event.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/activity/tribemate-recent-activity-indicator-tooltip-view_test.js",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/downgrade-survey/survey.js",
+        "aero/packages/core/src/ghostwriter/utils/errors.ts",
+        "aero/packages/e2e/testUtilities/prodEndpointCheck.playwright.ts",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jqueryui-timepicker-addon/dist/jquery-ui-sliderAccess.js",
+        "aero/packages/tailwindapp/pages/dashboard/v2/campaigns/index.tsx",
+        "aero/packages/core/src/llm/prompts/definitions/gemini-pin-quality-analysis.ts",
+        "aero/packages/tailwindapp/client/components/onboard-personalization/analyzing-personalization-modal.tsx",
+        "aero/packages/tailwindapp/client/domains/pinteresto-auth/error.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/caption-field/ghostwriter/use-ghostwriter-captions.ts",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment/locale/sv.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/i18n/datepicker-bs.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/unit_testing/tests_onhold/4_server-side/2440.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/Snap.svg/doc/js/prism.js",
+        "aero/packages/e2e/quickSchedule/publishing/publishPostPinterest.playwright.ts",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment/locale/tzm.js",
+        "tack/service/lib/__mocks__/user-mocker.ts",
+        "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+        "tack/service/lib/__mocks__/temp-token-mocker.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/get-pinterest-method-map.ts",
+        "tack/service/lib/__mocks__/post-meta-mocker.ts",
+        "tack/client/src/types/post.ts",
+        "tack/service/lib/facets/user.ts",
+        "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+        "tack/service/lib/is-request-authorized.ts",
+        "tack/service/lib/handlers/api/get-posts-by-link/get-posts-by-link-request.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+        "tack/service/lib/handlers/api/legacy/publish-post-now/publish-post-now-handler.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+        "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-request.ts",
+        "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-handler.test.ts",
+        "tack/service/lib/facets/user-post-url-meta-scrape-job.ts",
+        "tack/service/lib/pinterest/types/pinterest-user.ts",
+        "tack/client/src/requests/get-pins.ts",
+        "tack/service/lib/pinterest/get-user-pin-from-pinterest.ts",
+        "tack/client/src/requests/update-fail-token-status.ts",
+        "charlotte/packages/core/src/utils.test.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "charlotte/packages/client/src/base.ts",
+        "charlotte/packages/repositories/src/blog-post-repository.ts",
+        "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+        "charlotte/packages/repositories/src/product-repository.ts",
+        "charlotte/packages/database/src/database.ts",
+        "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+        "charlotte/packages/queue/src/inventory-events/new-products.ts",
+        "charlotte/packages/client/src/charlotte.ts",
+        "charlotte/packages/queue/src/find-products/get-products-from-ebenezer.ts",
+        "charlotte/packages/client/src/requests/get-user-site.ts",
+        "charlotte/stacks/constructs/user-creator-fn.ts",
+        "charlotte/packages/api/src/integrations/squarespace/oauth-finish.ts",
+        "charlotte/packages/client/src/requests/get-user-sites.ts",
+        "charlotte/packages/client/src/requests/woocommerce-oauth-status.ts",
+        "charlotte/packages/client/src/requests/get-squared-token.ts",
+        "charlotte/packages/api/src/blog/get-site-blog-posts.ts",
+        "charlotte/packages/database/src/db-types.d.ts",
+        "charlotte/packages/client/src/requests/woocommerce-store-get-products.ts",
+        "ghostwriter/client/src/ghostwriter.ts",
+        "ghostwriter/client/src/requests/queue-blog-wizard-step.ts",
+        "ghostwriter/stack/infrastructure/lib/infrastructure-stack.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/shots.ts",
+        "ghostwriter/client/src/helpers/make-request.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-product-title/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/get-usage-count-this-period/get-usage-count-this-period.handler.ts",
+        "ghostwriter/stack/service/utils/prompts/personalizationPrompt.test.ts",
+        "ghostwriter/client/src/requests/queue-email-body.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+        "ghostwriter/client/src/requests/queue-pinterest-title-and-description.ts",
+        "ghostwriter/client/src/requests/queue-shopify-product-listing.ts",
+        "ghostwriter/stack/service/utils/api-error.ts",
+        "ghostwriter/stack/service/utils/code-generator/script.ts",
+        "ghostwriter/stack/service/open-ai/requests/create-chat-completion.ts",
+        "ghostwriter/client/src/requests/stream-instagram-caption-generation.ts",
+        "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-facebook-post.ts",
+        "ghostwriter/stack/service/handlers/api/generate-other-product-listing/get-other-product-listing.test.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-shopify-product-listing/get-shopify-product-listing.test.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+        "zuck/service/lib/handlers/api/callback-oauth/callback-oauth-handler.ts",
+        "zuck/service/lib/data/models/post.ts",
+        "zuck/service/lib/shared/authenticate-request.ts",
+        "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/get-active-token-for-page.ts",
+        "zuck/infrastructure/lib/infrastructure-stack.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception-creator.test.ts",
+        "zuck/service/lib/handlers/cron/verify-user-tokens/verify-user-tokens-handler.ts",
+        "zuck/service/lib/handlers/api/get-post-by-only-id/get-post-by-only-id-handler.ts",
+        "zuck/service/lib/handlers/api/check-user-token-status/check-user-token-status-handler.ts",
+        "zuck/service/lib/data/models/o-auth-request.ts",
+        "zuck/service/lib/utils/currencies.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+        "zuck/infrastructure/config.ts",
+        "zuck/service/lib/handlers/api/get-ad-account-pixels/get-ad-account-pixels-handler.ts",
+        "zuck/service/lib/handlers/api/get-locations/get-locations-handler.ts",
+        "zuck/service/lib/test/post-fixture.ts",
+        "zuck/service/lib/handlers/api/get-interests/get-interests-handler.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts"
+      ],
+      "intersection": [],
+      "our_unique": [
+        "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+        "aero/packages/core/src/ghostwriter/utils/errors.ts",
+        "aero/packages/core/src/llm/prompts/definitions/gemini-pin-quality-analysis.ts",
+        "aero/packages/e2e/quickSchedule/publishing/publishPostPinterest.playwright.ts",
+        "aero/packages/e2e/testUtilities/prodEndpointCheck.playwright.ts",
+        "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/downgrade-survey/survey.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/unit_testing/tests_onhold/4_server-side/2440.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/Snap.svg/doc/js/prism.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/dialog.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/i18n/datepicker-bs.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jqueryui-timepicker-addon/dist/jquery-ui-sliderAccess.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment/locale/sv.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment/locale/tzm.js",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-editor/side-controls/text-controls-utils.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/activity/tribemate-recent-activity-indicator-tooltip-view_test.js",
+        "aero/packages/tailwindapp/client/components/onboard-personalization/analyzing-personalization-modal.tsx",
+        "aero/packages/tailwindapp/client/domains/keywords/hooks/user-history-events/use-keyword-history-event.ts",
+        "aero/packages/tailwindapp/client/domains/pinteresto-auth/error.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/caption-field/ghostwriter/use-ghostwriter-captions.ts",
+        "aero/packages/tailwindapp/pages/dashboard/v2/campaigns/index.tsx",
+        "charlotte/packages/api/src/blog/get-site-blog-posts.ts",
+        "charlotte/packages/api/src/integrations/squarespace/oauth-finish.ts",
+        "charlotte/packages/client/src/base.ts",
+        "charlotte/packages/client/src/charlotte.ts",
+        "charlotte/packages/client/src/requests/get-squared-token.ts",
+        "charlotte/packages/client/src/requests/get-user-site.ts",
+        "charlotte/packages/client/src/requests/get-user-sites.ts",
+        "charlotte/packages/client/src/requests/woocommerce-oauth-status.ts",
+        "charlotte/packages/client/src/requests/woocommerce-store-get-products.ts",
+        "charlotte/packages/core/src/utils.test.ts",
+        "charlotte/packages/database/src/database.ts",
+        "charlotte/packages/database/src/db-types.d.ts",
+        "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+        "charlotte/packages/queue/src/find-products/get-products-from-ebenezer.ts",
+        "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+        "charlotte/packages/queue/src/inventory-events/new-products.ts",
+        "charlotte/packages/repositories/src/blog-post-repository.ts",
+        "charlotte/packages/repositories/src/product-repository.ts",
+        "charlotte/stacks/constructs/user-creator-fn.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "ghostwriter/client/src/ghostwriter.ts",
+        "ghostwriter/client/src/helpers/make-request.ts",
+        "ghostwriter/client/src/requests/queue-blog-wizard-step.ts",
+        "ghostwriter/client/src/requests/queue-email-body.ts",
+        "ghostwriter/client/src/requests/queue-pinterest-title-and-description.ts",
+        "ghostwriter/client/src/requests/queue-shopify-product-listing.ts",
+        "ghostwriter/client/src/requests/stream-instagram-caption-generation.ts",
+        "ghostwriter/stack/infrastructure/lib/infrastructure-stack.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+        "ghostwriter/stack/service/handlers/api/generate-email-subject/shots.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-product-title/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-other-product-listing/get-other-product-listing.test.ts",
+        "ghostwriter/stack/service/handlers/api/generate-shopify-product-listing/get-shopify-product-listing.test.ts",
+        "ghostwriter/stack/service/handlers/api/get-usage-count-this-period/get-usage-count-this-period.handler.ts",
+        "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-facebook-post.ts",
+        "ghostwriter/stack/service/open-ai/requests/create-chat-completion.ts",
+        "ghostwriter/stack/service/utils/api-error.ts",
+        "ghostwriter/stack/service/utils/code-generator/script.ts",
+        "ghostwriter/stack/service/utils/prompts/personalizationPrompt.test.ts",
+        "tack/client/src/requests/get-pins.ts",
+        "tack/client/src/requests/update-fail-token-status.ts",
+        "tack/client/src/types/post.ts",
+        "tack/service/lib/__mocks__/post-meta-mocker.ts",
+        "tack/service/lib/__mocks__/temp-token-mocker.ts",
+        "tack/service/lib/__mocks__/user-mocker.ts",
+        "tack/service/lib/facets/user-post-url-meta-scrape-job.ts",
+        "tack/service/lib/facets/user.ts",
+        "tack/service/lib/handlers/api/get-posts-by-link/get-posts-by-link-request.ts",
+        "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-handler.test.ts",
+        "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-request.ts",
+        "tack/service/lib/handlers/api/legacy/publish-post-now/publish-post-now-handler.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/get-pinterest-method-map.ts",
+        "tack/service/lib/is-request-authorized.ts",
+        "tack/service/lib/pinterest/get-user-pin-from-pinterest.ts",
+        "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+        "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+        "tack/service/lib/pinterest/types/pinterest-user.ts",
+        "zuck/infrastructure/config.ts",
+        "zuck/infrastructure/lib/infrastructure-stack.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception-creator.test.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+        "zuck/service/lib/data/models/o-auth-request.ts",
+        "zuck/service/lib/data/models/post.ts",
+        "zuck/service/lib/handlers/api/callback-oauth/callback-oauth-handler.ts",
+        "zuck/service/lib/handlers/api/check-user-token-status/check-user-token-status-handler.ts",
+        "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+        "zuck/service/lib/handlers/api/get-ad-account-pixels/get-ad-account-pixels-handler.ts",
+        "zuck/service/lib/handlers/api/get-interests/get-interests-handler.ts",
+        "zuck/service/lib/handlers/api/get-locations/get-locations-handler.ts",
+        "zuck/service/lib/handlers/api/get-post-by-only-id/get-post-by-only-id-handler.ts",
+        "zuck/service/lib/handlers/cron/verify-user-tokens/verify-user-tokens-handler.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/get-active-token-for-page.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+        "zuck/service/lib/shared/authenticate-request.ts",
+        "zuck/service/lib/test/post-fixture.ts",
+        "zuck/service/lib/utils/currencies.ts"
+      ],
+      "ground_truth_unique": [
+        "aero/packages/bachv2/service/billing/api/billing-ads-subscriptions-post/billing-ads-subscriptions-post.handler.ts",
+        "aero/packages/bachv2/service/billing/api/get-chargify-id-for-org/get-chargify-id-for-org.handler.ts",
+        "aero/packages/bachv2/service/billing/api/org-billing-location-put/org-billing-location-put.handler.ts",
+        "aero/packages/bachv2/service/billing/api/plan-feature/get-plan-feature.handler.ts",
+        "aero/packages/bachv2/service/billing/utils/chargify-id.ts",
+        "aero/packages/bachv2/service/billing/utils/get-payment-profiles.ts",
+        "aero/packages/bachv2/service/billing/utils/tailwind-ads-subscriptions.ts",
+        "aero/packages/core/src/credits/purchase/subscription-credit-purchaser.ts",
+        "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+        "aero/packages/e2e/billing/downgradeNextPageAnnual.playwright.ts",
+        "aero/packages/e2e/billing/downgradeNextPageMonthly.playwright.ts",
+        "aero/packages/e2e/billing/serialBillingTests/billingSandbox/badNextTransaction.playwright.ts",
+        "aero/packages/tailwindapp-legacy/app/app/controllers/analytics/settings/billing/DirectSubscriptionController.php",
+        "aero/packages/tailwindapp-legacy/app/app/controllers/api/settings/GandalfStatementsController.php",
+        "aero/packages/tailwindapp-legacy/app/app/controllers/api/webhook/ChargifyController.php",
+        "aero/packages/tailwindapp-legacy/app/app/controllers/api/webhook/MailgunController.php",
+        "aero/packages/tailwindapp-legacy/app/app/models/userhistory.php",
+        "aero/packages/tailwindapp-legacy/app/app/routes/api/api.routes.php",
+        "aero/packages/tailwindapp-legacy/app/app/routes/www/api/billing.routes.php",
+        "aero/packages/tailwindapp-legacy/app/app/routes/www/api/v2/billing.routes.php",
+        "aero/packages/tailwindapp-legacy/app/app/routes/www/api/v2/settings.routes.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/ChargifySubscriptionRepository.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/ChargifySubscriptionUpdater.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/Webhook.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/WebhookRepository.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/Webhooks.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Delinquency/DelinquentOrganizationCanceller.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Delinquency/DelinquentOrganizationQueuer.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Email/Mailgun/V3Webhooks/Parsers/TailwindUserEventParser.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Email/SendConfirmationEmailJob.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Account/AccountPlanChanger.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanChanger.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanMigrator.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/User/Organization/OrganizationDeactivator.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/user/organization/OrganizationCanceller.php",
+        "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/downgrade_confirmation.blade.php",
+        "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/downgrade_notification.php",
+        "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/plaintext/downgrade_confirmation.blade.php",
+        "aero/packages/tailwindapp-legacy/app/build/emails/src/partials/footer.html",
+        "aero/packages/tailwindapp-legacy/app/react/app/core/constants/typed-user-history.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/core/initialize-state/user-history-typed.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/cancellation-reason-context.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/components/downgrade-survey-modal/downgrade-survey-modal.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/pages/downgrade-page/downgrade-page.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/pages/downgrade-page/views/cancel-plan-confirmation-view/cancel-table-config.tsx",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/API/webhook/MailgunControllerTest.php",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/Billing/Chargify/ChargifySubscriptionRepositoryTest.php",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/user/Organization/OrganizationCancellerTest.php",
+        "aero/packages/tailwindapp/client/domains/chargify/components/chargify-js-form/chargify-js-form.tsx",
+        "aero/packages/tailwindapp/client/domains/chargify/components/chargify-provider.tsx",
+        "aero/packages/tailwindapp/client/domains/chargify/hooks/use-create-ads-subscription.ts",
+        "aero/packages/tailwindapp/client/domains/chargify/hooks/use-create-publisher-subscription.ts",
+        "aero/packages/tailwindapp/client/domains/chargify/hooks/use-credit-card-form-submit.ts",
+        "aero/packages/tailwindapp/client/domains/chargify/types/chargify-js.ts",
+        "aero/packages/tailwindapp/client/domains/settings/hooks/use-billing-information.ts",
+        "aero/packages/tailwindapp/client/domains/settings/hooks/use-billing-subscription.ts",
+        "aero/packages/tailwindapp/client/domains/settings/hooks/use-has-credit-card.ts",
+        "aero/packages/tailwindapp/client/domains/settings/pages/billing/information-page.tsx",
+        "aero/packages/tailwindapp/client/domains/settings/pages/billing/shopify-subscription-page.tsx",
+        "aero/packages/tailwindapp/client/domains/settings/pages/billing/statements-page.tsx",
+        "aero/packages/tailwindapp/client/domains/settings/pages/billing/subscription-page.tsx",
+        "aero/packages/tailwindapp/client/domains/upgrade/components/purchase-form/purchase-form.tsx",
+        "aero/packages/tailwindapp/client/domains/upgrade/components/update-credit-card-on-file-button/update-credit-card-on-file-button.tsx",
+        "aero/packages/tailwindapp/client/domains/upgrade/components/update-credit-card-on-file-button/use-update-credit-card-on-file.test.ts",
+        "aero/packages/tailwindapp/client/domains/upgrade/components/upgrade-view/upgrade-summary.tsx",
+        "aero/packages/tailwindapp/client/domains/upgrade/upgrade-page.tsx",
+        "aero/packages/tailwindapp/client/hooks/plans/use-active-plan.ts",
+        "aero/packages/tailwindapp/client/hooks/use-make-intercom-avoid.ts",
+        "aero/packages/tailwindapp/client/hooks/use-show-email-plan-change-confirmation.ts",
+        "aero/packages/tailwindapp/pages/dashboard/v2/debug/chargify-js.tsx",
+        "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/information.tsx",
+        "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/statements.tsx",
+        "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/subscription.tsx"
+      ],
+      "our_unique_judgments": [
+        {
+          "file": "aero/packages/bachv2/service/draft-generation/request-processor/smart-pin/smart-pin-request-processor.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/ghostwriter/utils/errors.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/core/src/llm/prompts/definitions/gemini-pin-quality-analysis.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/e2e/quickSchedule/publishing/publishPostPinterest.playwright.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/e2e/testUtilities/prodEndpointCheck.playwright.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/downgrade-survey/survey.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/app/js/datatables/media/unit_testing/tests_onhold/4_server-side/2440.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/Snap.svg/doc/js/prism.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/dialog.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jquery-ui/ui/i18n/datepicker-bs.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jqueryui-timepicker-addon/dist/jquery-ui-sliderAccess.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment/locale/sv.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/moment/locale/tzm.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-editor/side-controls/text-controls-utils.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/activity/tribemate-recent-activity-indicator-tooltip-view_test.js",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/components/onboard-personalization/analyzing-personalization-modal.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/keywords/hooks/user-history-events/use-keyword-history-event.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/pinteresto-auth/error.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/instagram/caption-field/ghostwriter/use-ghostwriter-captions.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "aero/packages/tailwindapp/pages/dashboard/v2/campaigns/index.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/blog/get-site-blog-posts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/api/src/integrations/squarespace/oauth-finish.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/base.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/charlotte.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/get-squared-token.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/get-user-site.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/get-user-sites.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/woocommerce-oauth-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/woocommerce-store-get-products.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/core/src/utils.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/database/src/database.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/database/src/db-types.d.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/find-products-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/get-products-from-ebenezer.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/queue/src/inventory-events/new-products.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/blog-post-repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/product-repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/stacks/constructs/user-creator-fn.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/ghostwriter.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/helpers/make-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/requests/queue-blog-wizard-step.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/requests/queue-email-body.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/requests/queue-pinterest-title-and-description.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/requests/queue-shopify-product-listing.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/client/src/requests/stream-instagram-caption-generation.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/infrastructure/lib/infrastructure-stack.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-email-subject/queue-email-subject.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-email-subject/shots.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-blog-content/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-facebook-caption-from-product-title/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-other-product-listing/get-other-product-listing.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-shopify-product-listing/get-shopify-product-listing.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/get-usage-count-this-period/get-usage-count-this-period.handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/lambda/stream-generation/stream-facebook-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/open-ai/requests/create-chat-completion.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/api-error.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/code-generator/script.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/prompts/personalizationPrompt.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/requests/get-pins.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/requests/update-fail-token-status.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/client/src/types/post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/__mocks__/post-meta-mocker.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/__mocks__/temp-token-mocker.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/__mocks__/user-mocker.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/facets/user-post-url-meta-scrape-job.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/facets/user.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-posts-by-link/get-posts-by-link-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-handler.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/legacy/publish-post-now/publish-post-now-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/queue-post-to-publish/get-pinterest-method-map.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/is-request-authorized.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/get-user-pin-from-pinterest.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "tack/service/lib/pinterest/types/pinterest-user.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/infrastructure/config.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/infrastructure/lib/infrastructure-stack.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-exception-creator.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/data/models/o-auth-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/data/models/post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/callback-oauth/callback-oauth-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/check-user-token-status/check-user-token-status-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-ad-account-pixels/get-ad-account-pixels-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-interests/get-interests-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-locations/get-locations-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-post-by-only-id/get-post-by-only-id-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/cron/verify-user-tokens/verify-user-tokens-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/get-active-token-for-page.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/shared/authenticate-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/test/post-fixture.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        },
+        {
+          "file": "zuck/service/lib/utils/currencies.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Judge failed to evaluate"
+        }
+      ],
+      "precision": 0.0,
+      "recall": 0.0,
+      "calibration_data": {
+        "opus_only": [
+          "aero/packages/bachv2/service/billing/api/billing-ads-subscriptions-post/billing-ads-subscriptions-post.handler.ts",
+          "aero/packages/bachv2/service/billing/api/get-chargify-id-for-org/get-chargify-id-for-org.handler.ts",
+          "aero/packages/bachv2/service/billing/api/org-billing-location-put/org-billing-location-put.handler.ts",
+          "aero/packages/bachv2/service/billing/api/plan-feature/get-plan-feature.handler.ts",
+          "aero/packages/bachv2/service/billing/utils/chargify-id.ts",
+          "aero/packages/bachv2/service/billing/utils/get-payment-profiles.ts",
+          "aero/packages/bachv2/service/billing/utils/tailwind-ads-subscriptions.ts",
+          "aero/packages/core/src/credits/purchase/subscription-credit-purchaser.ts",
+          "aero/packages/e2e/billing/downgradeNextPageAnnual.playwright.ts",
+          "aero/packages/e2e/billing/downgradeNextPageMonthly.playwright.ts",
+          "aero/packages/e2e/billing/serialBillingTests/billingSandbox/badNextTransaction.playwright.ts",
+          "aero/packages/tailwindapp-legacy/app/app/controllers/analytics/settings/billing/DirectSubscriptionController.php",
+          "aero/packages/tailwindapp-legacy/app/app/routes/www/api/billing.routes.php",
+          "aero/packages/tailwindapp-legacy/app/app/routes/www/api/v2/billing.routes.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/Webhooks.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Delinquency/DelinquentOrganizationQueuer.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanMigrator.php",
+          "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/downgrade_confirmation.blade.php",
+          "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/downgrade_notification.php",
+          "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/plaintext/downgrade_confirmation.blade.php",
+          "aero/packages/tailwindapp-legacy/app/build/emails/src/partials/footer.html",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/components/downgrade-survey-modal/downgrade-survey-modal.tsx",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/pages/downgrade-page/downgrade-page.tsx",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/pages/downgrade-page/views/cancel-plan-confirmation-view/cancel-table-config.tsx",
+          "aero/packages/tailwindapp/client/domains/chargify/components/chargify-js-form/chargify-js-form.tsx",
+          "aero/packages/tailwindapp/client/domains/chargify/components/chargify-provider.tsx",
+          "aero/packages/tailwindapp/client/domains/chargify/hooks/use-create-ads-subscription.ts",
+          "aero/packages/tailwindapp/client/domains/chargify/hooks/use-create-publisher-subscription.ts",
+          "aero/packages/tailwindapp/client/domains/chargify/hooks/use-credit-card-form-submit.ts",
+          "aero/packages/tailwindapp/client/domains/settings/hooks/use-has-credit-card.ts",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/shopify-subscription-page.tsx",
+          "aero/packages/tailwindapp/client/domains/upgrade/components/purchase-form/purchase-form.tsx",
+          "aero/packages/tailwindapp/client/domains/upgrade/components/upgrade-view/upgrade-summary.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/debug/chargify-js.tsx"
+        ],
+        "sonnet_only": [
+          "aero/packages/tailwindapp-legacy/app/app/controllers/api/settings/GandalfStatementsController.php",
+          "aero/packages/tailwindapp-legacy/app/app/controllers/api/webhook/MailgunController.php",
+          "aero/packages/tailwindapp-legacy/app/app/routes/api/api.routes.php",
+          "aero/packages/tailwindapp-legacy/app/app/routes/www/api/v2/settings.routes.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/ChargifySubscriptionUpdater.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Email/Mailgun/V3Webhooks/Parsers/TailwindUserEventParser.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Email/SendConfirmationEmailJob.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Account/AccountPlanChanger.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/User/Organization/OrganizationDeactivator.php",
+          "aero/packages/tailwindapp-legacy/app/react/app/core/constants/typed-user-history.ts",
+          "aero/packages/tailwindapp-legacy/app/react/app/core/initialize-state/user-history-typed.ts",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/cancel-subscription/cancellation-reason-context.ts",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/API/webhook/MailgunControllerTest.php",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/user/Organization/OrganizationCancellerTest.php",
+          "aero/packages/tailwindapp/client/domains/chargify/types/chargify-js.ts",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/statements-page.tsx",
+          "aero/packages/tailwindapp/client/domains/upgrade/components/update-credit-card-on-file-button/use-update-credit-card-on-file.test.ts",
+          "aero/packages/tailwindapp/client/domains/upgrade/upgrade-page.tsx",
+          "aero/packages/tailwindapp/client/hooks/plans/use-active-plan.ts",
+          "aero/packages/tailwindapp/client/hooks/use-make-intercom-avoid.ts",
+          "aero/packages/tailwindapp/client/hooks/use-show-email-plan-change-confirmation.ts"
+        ],
+        "both_models": [
+          "aero/packages/database/lib/schemas/datastore/schema.sql.ts",
+          "aero/packages/tailwindapp-legacy/app/app/controllers/api/webhook/ChargifyController.php",
+          "aero/packages/tailwindapp-legacy/app/app/models/userhistory.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/ChargifySubscriptionRepository.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/Webhook.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Chargify/Webhook/WebhookRepository.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Billing/Delinquency/DelinquentOrganizationCanceller.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanChanger.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/user/organization/OrganizationCanceller.php",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/Billing/Chargify/ChargifySubscriptionRepositoryTest.php",
+          "aero/packages/tailwindapp/client/domains/settings/hooks/use-billing-information.ts",
+          "aero/packages/tailwindapp/client/domains/settings/hooks/use-billing-subscription.ts",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/information-page.tsx",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/subscription-page.tsx",
+          "aero/packages/tailwindapp/client/domains/upgrade/components/update-credit-card-on-file-button/update-credit-card-on-file-button.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/information.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/statements.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/subscription.tsx"
+        ]
+      }
+    },
+    {
+      "conversation_id": "215472670652346",
+      "issue_summary": "hello, please explain the notice. my limit resets on the 18th so why am I being told that any posts scheduled over the limit by FEB 5 will not be posted?",
+      "product_area": "uncertain",
+      "run_a": {
+        "model": "claude-opus-4-20250514",
+        "files_found": [
+          "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/get-scheduled-post-counts-by-usage-period.ts",
+          "aero/packages/bachv2/service/billing/queue/migrate-org-billing-version/migrations/july-2024-lower-price-experiment.ts",
+          "aero/packages/core/src/billing/organization/organization-billing-info.ts",
+          "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/publisher/published_limit_reached.php",
+          "aero/packages/core/src/billing/organization/subscription-recorder.ts",
+          "aero/packages/tailwindapp/client/domains/scheduler/components/editor/post-field/post-field.tsx",
+          "aero/packages/database/lib/schemas/seed/features.sql",
+          "aero/packages/tailwindapp-legacy/app/app/models/presenters/publisher/QueueSidebar.php",
+          "tack/service/lib/handlers/sqs/queue-post-to-publish/handle-failed-checks.ts",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/subscription-page.tsx",
+          "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/get-usage-period-post-count.handler.ts",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/subscription.tsx",
+          "aero/packages/database/lib/schemas/seed/features_context.sql",
+          "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+          "aero/packages/tailwindapp/client/domains/scheduler/components/alert/warning-alert/warning-alert.tsx",
+          "aero/packages/core/src/scheduler/repositories/pin.ts",
+          "aero/packages/tailwindapp-legacy/app/app/models/userproperty.php",
+          "aero/packages/core/src/organization/services/usage-period-calculator/org-usage-period-calculator.ts",
+          "aero/packages/tailwindapp/client/domains/scheduler/components/editor/post-footer/post-footer.tsx",
+          "aero/packages/core/src/billing/constants/cycle.ts",
+          "aero/packages/core/src/organization/services/bach-client.ts",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Publisher/Pinterest/DailyPinLimitEvaluator.php",
+          "aero/packages/tailwindapp-legacy/app/app/models/userhistory.php",
+          "aero/packages/tailwindapp-legacy/app/public/www/app/js/queue-sidebar.js",
+          "aero/packages/tailwindapp-legacy/app/public/www/app/js/publisher-pins.js",
+          "aero/packages/database/lib/schemas/seed/v151_plan_features.sql",
+          "aero/packages/bachv2/service/billing/queue/migrate-org-billing-version/migrations/july-2024-v107-migration.ts",
+          "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts"
+        ],
+        "duration_seconds": 245.836532,
+        "error": null
+      },
+      "run_b": {
+        "model": "claude-sonnet-4-20250514",
+        "files_found": [
+          "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/get-scheduled-post-counts-by-usage-period.ts",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/CalculatedUsagePeriodTest.php",
+          "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/calculate-over-usage-limit-at.test.ts",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/ResetUsagePeriodEngineTest.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanChanger.php",
+          "aero/packages/tailwindapp-legacy/app/app/models/organization.php",
+          "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/get-usage-period-post-count.handler.ts",
+          "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+          "aero/packages/tailwindapp/client/domains/advanced-scheduler/hooks/use-post-count-by-usage-period.ts",
+          "aero/packages/bachv2/service/common/utils/usage/published-post-count-from-result.ts",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/ResetUsagePeriodEngine.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/ResetUsagePeriodJob.php",
+          "aero/packages/bachv2/service/common/shared-types/org-info.ts",
+          "aero/packages/bachv2/service/common/models/datastore/models.ts",
+          "aero/packages/tailwindapp/client/domains/destination-posts/hooks/use-monthly-post-count-data.ts",
+          "aero/packages/tailwindapp/client/components/post-count-limit/post-count-limit.tsx",
+          "aero/packages/database/lib/schemas/seed/features_context.sql",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/CalculatedUsagePeriod.php",
+          "aero/packages/core/src/organization/services/usage-period-calculator/org-usage-period-calculator.ts",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/Events/ResetUsagePeriodEvent.php",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/UsagePeriodTest.php",
+          "zuck/service/lib/handlers/sqs/enable-publishing/enable-publishing-handler.ts",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriod.php",
+          "aero/packages/bachv2/service/common/utils/usage/get-current-period-published-posts-count.ts",
+          "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/draggable-post.tsx",
+          "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/over-post-limit-alert.tsx",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriodFactory.php",
+          "aero/packages/tailwindapp/client/domains/home/components/calendar/published-post-limit-warning.tsx",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/Publisher/pinterest/DailyPinLimitEvaluatorTest.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriodResetter.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/Events/ResetUsagePeriodEventBridge.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/user/organization/Organization.php",
+          "tack/service/lib/handlers/sqs/limit-publishing/enable-publishing-handler.ts",
+          "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/calculate-over-usage-limit-at.ts",
+          "aero/packages/bachv2/service/billing/queue/migrate-org-billing-version/migrations/july-2024-v107-migration.ts",
+          "aero/packages/tailwindapp/client/hooks/use-post-limit-status.ts",
+          "aero/packages/bachv2/service/common/shared-types/responses.ts"
+        ],
+        "duration_seconds": 249.289788,
+        "error": null
+      },
+      "ground_truth_files": [
+        "aero/packages/bachv2/service/billing/queue/migrate-org-billing-version/migrations/july-2024-lower-price-experiment.ts",
+        "aero/packages/bachv2/service/billing/queue/migrate-org-billing-version/migrations/july-2024-v107-migration.ts",
+        "aero/packages/bachv2/service/common/models/datastore/models.ts",
+        "aero/packages/bachv2/service/common/shared-types/org-info.ts",
+        "aero/packages/bachv2/service/common/shared-types/responses.ts",
+        "aero/packages/bachv2/service/common/utils/usage/get-current-period-published-posts-count.ts",
+        "aero/packages/bachv2/service/common/utils/usage/published-post-count-from-result.ts",
+        "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/calculate-over-usage-limit-at.test.ts",
+        "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/calculate-over-usage-limit-at.ts",
+        "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/get-scheduled-post-counts-by-usage-period.ts",
+        "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/get-usage-period-post-count.handler.ts",
+        "aero/packages/core/src/billing/constants/cycle.ts",
+        "aero/packages/core/src/billing/organization/organization-billing-info.ts",
+        "aero/packages/core/src/billing/organization/subscription-recorder.ts",
+        "aero/packages/core/src/organization/services/bach-client.ts",
+        "aero/packages/core/src/organization/services/usage-period-calculator/org-usage-period-calculator.ts",
+        "aero/packages/core/src/scheduler/repositories/pin.ts",
+        "aero/packages/database/lib/schemas/seed/features.sql",
+        "aero/packages/database/lib/schemas/seed/features_context.sql",
+        "aero/packages/database/lib/schemas/seed/v151_plan_features.sql",
+        "aero/packages/tailwindapp-legacy/app/app/models/organization.php",
+        "aero/packages/tailwindapp-legacy/app/app/models/presenters/publisher/QueueSidebar.php",
+        "aero/packages/tailwindapp-legacy/app/app/models/userhistory.php",
+        "aero/packages/tailwindapp-legacy/app/app/models/userproperty.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/CalculatedUsagePeriod.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/Events/ResetUsagePeriodEvent.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/Events/ResetUsagePeriodEventBridge.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/ResetUsagePeriodEngine.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/ResetUsagePeriodJob.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriod.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriodFactory.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriodResetter.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanChanger.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Publisher/Pinterest/DailyPinLimitEvaluator.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/user/organization/Organization.php",
+        "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/publisher/published_limit_reached.php",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/publisher-pins.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/queue-sidebar.js",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/Publisher/pinterest/DailyPinLimitEvaluatorTest.php",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/CalculatedUsagePeriodTest.php",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/ResetUsagePeriodEngineTest.php",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/UsagePeriodTest.php",
+        "aero/packages/tailwindapp/client/components/post-count-limit/post-count-limit.tsx",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/draggable-post.tsx",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/over-post-limit-alert.tsx",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/hooks/use-post-count-by-usage-period.ts",
+        "aero/packages/tailwindapp/client/domains/destination-posts/hooks/use-monthly-post-count-data.ts",
+        "aero/packages/tailwindapp/client/domains/home/components/calendar/published-post-limit-warning.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/alert/warning-alert/warning-alert.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor/post-field/post-field.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor/post-footer/post-footer.tsx",
+        "aero/packages/tailwindapp/client/domains/settings/pages/billing/subscription-page.tsx",
+        "aero/packages/tailwindapp/client/hooks/use-post-limit-status.ts",
+        "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/subscription.tsx",
+        "tack/service/lib/handlers/sqs/limit-publishing/enable-publishing-handler.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/handle-failed-checks.ts",
+        "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+        "zuck/service/lib/handlers/sqs/enable-publishing/enable-publishing-handler.ts"
+      ],
+      "our_files": [
+        "aero/packages/e2e/billing/planLimitTopNav.playwright.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/limit-indicators/limit-indicator-view.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/views/pricing-table-view/components/generic-feature-limit/generic-feature-limit.stories.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-editor/side-controls/text-controls-utils.ts",
+        "aero/packages/core/src/ghostwriter/utils/errors.ts",
+        "aero/packages/tailwindapp/client/components/onboard-personalization/analyzing-personalization-modal.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/views/pricing-table-view/components/feature-limit-section/index.ts",
+        "aero/packages/tailwindapp/client/domains/keywords/hooks/user-history-events/use-keyword-history-event.ts",
+        "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/sentence-expander-use-case/sentence-expander-use-case.tsx",
+        "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/simplify-content-use-case.tsx",
+        "aero/packages/core/src/llm/prompts/definitions/facebook-post.ts",
+        "aero/packages/bachv2/service/draft-generation/request-processor/blog-post-fetcher.ts",
+        "aero/packages/tailwindapp/client/domains/blogs/utils/initiate-site-import.ts",
+        "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+        "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+        "tack/client/src/types/post.ts",
+        "tack/service/lib/handlers/api/get-posts-by-link/get-posts-by-link-request.ts",
+        "tack/service/lib/token/deauthorize-token.test.ts",
+        "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-request.ts",
+        "tack/service/lib/handlers/api/get-pins-analytics/get-pins-analytics.ts",
+        "tack/service/lib/handlers/api/metrics/user/get-user-metrics.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+        "tack/service/lib/handlers/api/get-pins/get-pins.ts",
+        "tack/service/lib/handlers/api/legacy/publish-post-now/publish-post-now-handler.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+        "charlotte/packages/repositories/src/product-repository.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "charlotte/packages/repositories/src/blog-post-repository.ts",
+        "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+        "charlotte/packages/handler-utils/utils/api-handler.ts",
+        "charlotte/packages/core/src/utils.test.ts",
+        "charlotte/packages/client/src/requests/get-site-blog-posts.ts",
+        "charlotte/packages/client/src/charlotte.ts",
+        "charlotte/packages/database/src/database.ts",
+        "charlotte/packages/database/src/db-tools/migration-checker-job.ts",
+        "charlotte/packages/client/src/types/blog.ts",
+        "ghostwriter/stack/service/utils/code-generator/script.ts",
+        "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+        "ghostwriter/stack/service/open-ai/types.ts",
+        "ghostwriter/stack/service/handlers/api/generate-blog-article-topic-idea/prompts.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+        "zuck/service/lib/handlers/sqs/enable-publishing/enable-publishing-handler.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception-creator.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception-creator.test.ts",
+        "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+        "zuck/service/lib/handlers/api/get-posts-by-send-at/get-posts-by-send-at-handler.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/handle-publish-post-results.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/get-active-token-for-page.ts"
+      ],
+      "intersection": [
+        "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+        "zuck/service/lib/handlers/sqs/enable-publishing/enable-publishing-handler.ts"
+      ],
+      "our_unique": [
+        "aero/packages/bachv2/service/draft-generation/request-processor/blog-post-fetcher.ts",
+        "aero/packages/core/src/ghostwriter/utils/errors.ts",
+        "aero/packages/core/src/llm/prompts/definitions/facebook-post.ts",
+        "aero/packages/e2e/billing/planLimitTopNav.playwright.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/views/pricing-table-view/components/feature-limit-section/index.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/views/pricing-table-view/components/generic-feature-limit/generic-feature-limit.stories.tsx",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-editor/side-controls/text-controls-utils.ts",
+        "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/limit-indicators/limit-indicator-view.tsx",
+        "aero/packages/tailwindapp/client/components/onboard-personalization/analyzing-personalization-modal.tsx",
+        "aero/packages/tailwindapp/client/domains/blogs/utils/initiate-site-import.ts",
+        "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/sentence-expander-use-case/sentence-expander-use-case.tsx",
+        "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/simplify-content-use-case.tsx",
+        "aero/packages/tailwindapp/client/domains/keywords/hooks/user-history-events/use-keyword-history-event.ts",
+        "charlotte/packages/client/src/charlotte.ts",
+        "charlotte/packages/client/src/requests/get-site-blog-posts.ts",
+        "charlotte/packages/client/src/types/blog.ts",
+        "charlotte/packages/core/src/utils.test.ts",
+        "charlotte/packages/database/src/database.ts",
+        "charlotte/packages/database/src/db-tools/migration-checker-job.ts",
+        "charlotte/packages/handler-utils/utils/api-handler.ts",
+        "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+        "charlotte/packages/repositories/src/blog-post-repository.ts",
+        "charlotte/packages/repositories/src/product-repository.ts",
+        "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+        "ghostwriter/stack/service/handlers/api/generate-blog-article-topic-idea/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-instagram-caption/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+        "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+        "ghostwriter/stack/service/open-ai/types.ts",
+        "ghostwriter/stack/service/utils/code-generator/script.ts",
+        "tack/client/src/types/post.ts",
+        "tack/service/lib/handlers/api/get-pins-analytics/get-pins-analytics.ts",
+        "tack/service/lib/handlers/api/get-pins/get-pins.ts",
+        "tack/service/lib/handlers/api/get-posts-by-link/get-posts-by-link-request.ts",
+        "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-request.ts",
+        "tack/service/lib/handlers/api/legacy/publish-post-now/publish-post-now-handler.ts",
+        "tack/service/lib/handlers/api/metrics/user/get-user-metrics.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+        "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+        "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+        "tack/service/lib/token/deauthorize-token.test.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception-creator.test.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception-creator.ts",
+        "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+        "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+        "zuck/service/lib/handlers/api/get-posts-by-send-at/get-posts-by-send-at-handler.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/get-active-token-for-page.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/handle-publish-post-results.ts",
+        "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts"
+      ],
+      "ground_truth_unique": [
+        "aero/packages/bachv2/service/billing/queue/migrate-org-billing-version/migrations/july-2024-lower-price-experiment.ts",
+        "aero/packages/bachv2/service/billing/queue/migrate-org-billing-version/migrations/july-2024-v107-migration.ts",
+        "aero/packages/bachv2/service/common/models/datastore/models.ts",
+        "aero/packages/bachv2/service/common/shared-types/org-info.ts",
+        "aero/packages/bachv2/service/common/shared-types/responses.ts",
+        "aero/packages/bachv2/service/common/utils/usage/get-current-period-published-posts-count.ts",
+        "aero/packages/bachv2/service/common/utils/usage/published-post-count-from-result.ts",
+        "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/calculate-over-usage-limit-at.test.ts",
+        "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/calculate-over-usage-limit-at.ts",
+        "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/get-scheduled-post-counts-by-usage-period.ts",
+        "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/get-usage-period-post-count.handler.ts",
+        "aero/packages/core/src/billing/constants/cycle.ts",
+        "aero/packages/core/src/billing/organization/organization-billing-info.ts",
+        "aero/packages/core/src/billing/organization/subscription-recorder.ts",
+        "aero/packages/core/src/organization/services/bach-client.ts",
+        "aero/packages/core/src/organization/services/usage-period-calculator/org-usage-period-calculator.ts",
+        "aero/packages/core/src/scheduler/repositories/pin.ts",
+        "aero/packages/database/lib/schemas/seed/features.sql",
+        "aero/packages/database/lib/schemas/seed/features_context.sql",
+        "aero/packages/database/lib/schemas/seed/v151_plan_features.sql",
+        "aero/packages/tailwindapp-legacy/app/app/models/organization.php",
+        "aero/packages/tailwindapp-legacy/app/app/models/presenters/publisher/QueueSidebar.php",
+        "aero/packages/tailwindapp-legacy/app/app/models/userhistory.php",
+        "aero/packages/tailwindapp-legacy/app/app/models/userproperty.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/CalculatedUsagePeriod.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/Events/ResetUsagePeriodEvent.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/Events/ResetUsagePeriodEventBridge.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/ResetUsagePeriodEngine.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/ResetUsagePeriodJob.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriod.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriodFactory.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriodResetter.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanChanger.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/Publisher/Pinterest/DailyPinLimitEvaluator.php",
+        "aero/packages/tailwindapp-legacy/app/app/tailwind/user/organization/Organization.php",
+        "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/publisher/published_limit_reached.php",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/publisher-pins.js",
+        "aero/packages/tailwindapp-legacy/app/public/www/app/js/queue-sidebar.js",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/Publisher/pinterest/DailyPinLimitEvaluatorTest.php",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/CalculatedUsagePeriodTest.php",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/ResetUsagePeriodEngineTest.php",
+        "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/UsagePeriodTest.php",
+        "aero/packages/tailwindapp/client/components/post-count-limit/post-count-limit.tsx",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/draggable-post.tsx",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/over-post-limit-alert.tsx",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+        "aero/packages/tailwindapp/client/domains/advanced-scheduler/hooks/use-post-count-by-usage-period.ts",
+        "aero/packages/tailwindapp/client/domains/destination-posts/hooks/use-monthly-post-count-data.ts",
+        "aero/packages/tailwindapp/client/domains/home/components/calendar/published-post-limit-warning.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/alert/warning-alert/warning-alert.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor/post-field/post-field.tsx",
+        "aero/packages/tailwindapp/client/domains/scheduler/components/editor/post-footer/post-footer.tsx",
+        "aero/packages/tailwindapp/client/domains/settings/pages/billing/subscription-page.tsx",
+        "aero/packages/tailwindapp/client/hooks/use-post-limit-status.ts",
+        "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/subscription.tsx",
+        "tack/service/lib/handlers/sqs/limit-publishing/enable-publishing-handler.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+        "tack/service/lib/handlers/sqs/queue-post-to-publish/handle-failed-checks.ts"
+      ],
+      "our_unique_judgments": [
+        {
+          "file": "aero/packages/bachv2/service/draft-generation/request-processor/blog-post-fetcher.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Fetches blog posts for draft generation, not related to posting limits or scheduling warnings"
+        },
+        {
+          "file": "aero/packages/core/src/ghostwriter/utils/errors.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Handles AI content generation errors, not posting limit notifications"
+        },
+        {
+          "file": "aero/packages/core/src/llm/prompts/definitions/facebook-post.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "LLM prompt definitions for Facebook posts, not related to usage limits or scheduling"
+        },
+        {
+          "file": "aero/packages/e2e/billing/planLimitTopNav.playwright.ts",
+          "relevant": true,
+          "actionable": "maybe",
+          "reasoning": "Tests billing plan limits UI which could verify the warning behavior is correct"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/views/pricing-table-view/components/feature-limit-section/index.ts",
+          "relevant": true,
+          "actionable": "yes",
+          "reasoning": "Component that displays feature limits in billing views, could be modified to clarify limit reset messaging"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/views/pricing-table-view/components/generic-feature-limit/generic-feature-limit.stories.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Storybook stories for generic limit component, not the actual implementation"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-editor/side-controls/text-controls-utils.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Text editing utilities for image editor, unrelated to posting limits"
+        },
+        {
+          "file": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/limit-indicators/limit-indicator-view.tsx",
+          "relevant": true,
+          "actionable": "yes",
+          "reasoning": "UI component showing limit indicators with reset time, directly relevant to customer confusion"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/components/onboard-personalization/analyzing-personalization-modal.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Onboarding personalization modal, not related to usage limits"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/blogs/utils/initiate-site-import.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Blog site import functionality, unrelated to posting limits"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/sentence-expander-use-case/sentence-expander-use-case.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "AI content expansion feature, not related to posting limits"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/ghostwriter/components/use-cases/simplify-content-use-case.tsx",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "AI content simplification feature, not related to posting limits"
+        },
+        {
+          "file": "aero/packages/tailwindapp/client/domains/keywords/hooks/user-history-events/use-keyword-history-event.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Keyword search history tracking, unrelated to posting limits"
+        },
+        {
+          "file": "charlotte/packages/client/src/charlotte.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Charlotte service client setup, not related to posting limits"
+        },
+        {
+          "file": "charlotte/packages/client/src/requests/get-site-blog-posts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Blog post fetching for Charlotte service, unrelated to usage limits"
+        },
+        {
+          "file": "charlotte/packages/client/src/types/blog.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Blog type definitions, not related to posting limits"
+        },
+        {
+          "file": "charlotte/packages/core/src/utils.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "General utility tests, not related to posting limits"
+        },
+        {
+          "file": "charlotte/packages/database/src/database.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Database setup for Charlotte service, not specific to posting limits"
+        },
+        {
+          "file": "charlotte/packages/database/src/db-tools/migration-checker-job.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Database migration checker, not related to posting limits"
+        },
+        {
+          "file": "charlotte/packages/handler-utils/utils/api-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Generic API handler utilities, not specific to posting limits"
+        },
+        {
+          "file": "charlotte/packages/queue/src/find-products/locate-products-by-scraping.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Product scraping functionality, unrelated to posting limits"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/blog-post-repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Blog post database operations, not related to posting limits"
+        },
+        {
+          "file": "charlotte/packages/repositories/src/product-repository.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Product database operations, not related to posting limits"
+        },
+        {
+          "file": "charlotte/stacks/modular-stacks/EcommerceModule.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "E-commerce infrastructure setup, not related to posting limits"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-blog-article-topic-idea/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "AI blog topic generation prompts, unrelated to posting limits"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-instagram-caption/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "AI Instagram caption generation, not related to posting limits"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-tweet-from-blog-or-article/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "AI tweet generation from content, unrelated to posting limits"
+        },
+        {
+          "file": "ghostwriter/stack/service/handlers/api/generate-video-topic-idea/prompts.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "AI video topic generation, not related to posting limits"
+        },
+        {
+          "file": "ghostwriter/stack/service/open-ai/types.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "OpenAI type definitions, not related to posting limits"
+        },
+        {
+          "file": "ghostwriter/stack/service/utils/code-generator/script.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Code generation utility script, unrelated to posting limits"
+        },
+        {
+          "file": "tack/client/src/types/post.ts",
+          "relevant": true,
+          "actionable": "maybe",
+          "reasoning": "Defines post failure reasons including rate limits which could relate to the warning message"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-pins-analytics/get-pins-analytics.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Pinterest analytics fetching, not about posting limits"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-pins/get-pins.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Pinterest pin fetching, not about usage limits"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-posts-by-link/get-posts-by-link-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Post fetching by link, not related to usage limits"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/get-posts-for-schedule/get-posts-for-schedule-request.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Scheduled posts fetching request type, doesn't contain limit logic"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/legacy/publish-post-now/publish-post-now-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Immediate post publishing, not about scheduled post warnings"
+        },
+        {
+          "file": "tack/service/lib/handlers/api/metrics/user/get-user-metrics.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "User metrics fetching, not specific to posting limits"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Video container creation, unrelated to posting limits"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/create-video-container/v5/create-video-container.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Video container creation v5, unrelated to posting limits"
+        },
+        {
+          "file": "tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.test.ts",
+          "relevant": true,
+          "actionable": "maybe",
+          "reasoning": "Tests post publishing checks including daily limits, could help understand limit enforcement"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts",
+          "relevant": true,
+          "actionable": "maybe",
+          "reasoning": "Handles Pinterest API responses including rate limits, relevant to understanding limit enforcement"
+        },
+        {
+          "file": "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts",
+          "relevant": true,
+          "actionable": "yes",
+          "reasoning": "Maps Pinterest errors to failure reasons including rate limits, could be modified to improve messaging"
+        },
+        {
+          "file": "tack/service/lib/token/deauthorize-token.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Token deauthorization tests, not related to posting limits"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-exception-creator.test.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Facebook API exception tests, not specifically about posting limits"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-exception-creator.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Facebook API exception creation, not about usage period limits"
+        },
+        {
+          "file": "zuck/service/lib/clients/graph-api/graph-api-exception.ts",
+          "relevant": true,
+          "actionable": "maybe",
+          "reasoning": "Defines Facebook API exceptions including rate limits, could relate to limit warnings"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/create-ad-account-pixel/create-ad-account-pixel-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Facebook pixel creation for ads, unrelated to posting limits"
+        },
+        {
+          "file": "zuck/service/lib/handlers/api/get-posts-by-send-at/get-posts-by-send-at-handler.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Fetches posts by send time but doesn't contain limit warning logic"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/enable-publishing/enable-publishing-handler.ts",
+          "relevant": true,
+          "actionable": "yes",
+          "reasoning": "Handles publishing limit reset events, directly relevant to understanding limit reset behavior"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/get-active-token-for-page.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Gets Facebook page tokens for publishing, not about usage limits"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/get-status-for-failed-publish.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Determines retry status for failed posts, not about scheduled post warnings"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/handle-publish-post-results.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Handles post publishing results, not about pre-publishing limit warnings"
+        },
+        {
+          "file": "zuck/service/lib/handlers/sqs/publish-posts/mark-post-pending.ts",
+          "relevant": false,
+          "actionable": "no",
+          "reasoning": "Marks posts as pending, not about usage limit warnings"
+        }
+      ],
+      "precision": 0.208,
+      "recall": 0.159,
+      "calibration_data": {
+        "opus_only": [
+          "aero/packages/bachv2/service/billing/queue/migrate-org-billing-version/migrations/july-2024-lower-price-experiment.ts",
+          "aero/packages/core/src/billing/constants/cycle.ts",
+          "aero/packages/core/src/billing/organization/organization-billing-info.ts",
+          "aero/packages/core/src/billing/organization/subscription-recorder.ts",
+          "aero/packages/core/src/organization/services/bach-client.ts",
+          "aero/packages/core/src/scheduler/repositories/pin.ts",
+          "aero/packages/database/lib/schemas/seed/features.sql",
+          "aero/packages/database/lib/schemas/seed/v151_plan_features.sql",
+          "aero/packages/tailwindapp-legacy/app/app/models/presenters/publisher/QueueSidebar.php",
+          "aero/packages/tailwindapp-legacy/app/app/models/userhistory.php",
+          "aero/packages/tailwindapp-legacy/app/app/models/userproperty.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Publisher/Pinterest/DailyPinLimitEvaluator.php",
+          "aero/packages/tailwindapp-legacy/app/app/views/shared/emails/html/publisher/published_limit_reached.php",
+          "aero/packages/tailwindapp-legacy/app/public/www/app/js/publisher-pins.js",
+          "aero/packages/tailwindapp-legacy/app/public/www/app/js/queue-sidebar.js",
+          "aero/packages/tailwindapp/client/domains/scheduler/components/alert/warning-alert/warning-alert.tsx",
+          "aero/packages/tailwindapp/client/domains/scheduler/components/editor/post-field/post-field.tsx",
+          "aero/packages/tailwindapp/client/domains/scheduler/components/editor/post-footer/post-footer.tsx",
+          "aero/packages/tailwindapp/client/domains/settings/pages/billing/subscription-page.tsx",
+          "aero/packages/tailwindapp/pages/dashboard/v2/settings/billing/subscription.tsx",
+          "tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts",
+          "tack/service/lib/handlers/sqs/queue-post-to-publish/handle-failed-checks.ts",
+          "tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts"
+        ],
+        "sonnet_only": [
+          "aero/packages/bachv2/service/common/models/datastore/models.ts",
+          "aero/packages/bachv2/service/common/shared-types/org-info.ts",
+          "aero/packages/bachv2/service/common/shared-types/responses.ts",
+          "aero/packages/bachv2/service/common/utils/usage/get-current-period-published-posts-count.ts",
+          "aero/packages/bachv2/service/common/utils/usage/published-post-count-from-result.ts",
+          "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/calculate-over-usage-limit-at.test.ts",
+          "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/calculate-over-usage-limit-at.ts",
+          "aero/packages/tailwindapp-legacy/app/app/models/organization.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/CalculatedUsagePeriod.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/Events/ResetUsagePeriodEvent.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/Events/ResetUsagePeriodEventBridge.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/ResetUsagePeriodEngine.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/ResetUsagePeriodJob.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriod.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriodFactory.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Feature/Usage/UsagePeriodResetter.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/Plan/Organization/OrganizationPlanChanger.php",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/user/organization/Organization.php",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/Publisher/pinterest/DailyPinLimitEvaluatorTest.php",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/CalculatedUsagePeriodTest.php",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/ResetUsagePeriodEngineTest.php",
+          "aero/packages/tailwindapp-legacy/app/tests/phpunit/tailwind/feature/Usage/UsagePeriodTest.php",
+          "aero/packages/tailwindapp/client/components/post-count-limit/post-count-limit.tsx",
+          "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/draggable-post.tsx",
+          "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/over-post-limit-alert.tsx",
+          "aero/packages/tailwindapp/client/domains/advanced-scheduler/components/your-schedule/scheduled-post-popover.tsx",
+          "aero/packages/tailwindapp/client/domains/advanced-scheduler/hooks/use-post-count-by-usage-period.ts",
+          "aero/packages/tailwindapp/client/domains/destination-posts/hooks/use-monthly-post-count-data.ts",
+          "aero/packages/tailwindapp/client/domains/home/components/calendar/published-post-limit-warning.tsx",
+          "aero/packages/tailwindapp/client/hooks/use-post-limit-status.ts",
+          "tack/service/lib/handlers/sqs/limit-publishing/enable-publishing-handler.ts",
+          "zuck/service/lib/handlers/sqs/enable-publishing/enable-publishing-handler.ts"
+        ],
+        "both_models": [
+          "aero/packages/bachv2/service/billing/queue/migrate-org-billing-version/migrations/july-2024-v107-migration.ts",
+          "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/get-scheduled-post-counts-by-usage-period.ts",
+          "aero/packages/bachv2/service/publisher/handlers/api/usage-period-post-count/get-usage-period-post-count.handler.ts",
+          "aero/packages/core/src/organization/services/usage-period-calculator/org-usage-period-calculator.ts",
+          "aero/packages/database/lib/schemas/seed/features_context.sql"
+        ]
+      }
+    }
+  ]
+}

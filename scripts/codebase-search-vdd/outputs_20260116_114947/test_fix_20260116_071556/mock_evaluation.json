@@ -1,0 +1,241 @@
+{
+  "iteration_number": 1,
+  "timestamp": "2026-01-16T12:16:34.846487",
+  "aggregate": {
+    "precision": 0.45,
+    "recall": 0.55
+  },
+  "conversations": [
+    {
+      "conversation_id": "215472506147209",
+      "issue_summary": "my \"number of pins posted\" is registering at zero even though i've posted several pins yesterday. i have a limit of 100 per month so i need to keep track of how many pins i've posted and this feature is not working today",
+      "product_area": "uncertain",
+      "ground_truth_analysis": {
+        "precision": 0.45,
+        "recall": 0.55,
+        "intersection": [
+          "aero/packages/core/src/scheduler/services/schedule-builder/pinterest-schedule-builder.ts",
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/color/color-palette-extract.ts",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/types.ts",
+          "aero/packages/core/src/pinterest-scraper/interest/parse-idea.ts",
+          "aero/packages/e2e/playwright-utils/src/shared/pages/editDraft/draftPinterest.ts",
+          "aero/packages/tailwindapp-legacy/app/public/www/assets/packages/jqueryui-timepicker-addon/dist/jquery-ui-timepicker-addon.min.js",
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-selection/template-filters/alert-zero-favorites-for-post-type-view.tsx",
+          "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/tribes/tribe_content.js",
+          "aero/packages/jarvis/src/common/utils/delay.ts",
+          "aero/packages/tailwind-api-sdk/src/types/paginated-response.ts"
+        ],
+        "ground_truth_unique": [
+          "aero/packages/core/src/pins/services/pin-service.ts",
+          "aero/packages/core/src/communities/services/community-feed.ts"
+        ],
+        "judgments": [
+          {
+            "file_ref": "aero/packages/jarvis/src/common/types/user.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/sessions/session-view.tsx",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/jarvis/src/client/domains/spam/ip/components/spam-ip-lookup-insights/components/spam-ip-lookup-domains-insights.tsx",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/core/src/turbo/turbo-queue/sort-queued.test.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/post/description/instagram-post-description-typeahead-for-hashtag-view.jsx",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/jarvis/src/client/domains/spam/ip/hooks/use-spam-ip-insights-users.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/aws-infrastructure/tailwind-app/lib/fargate-services/php-service.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp/app/dashboard/v3/api/external/organization/[orgId]/ghostwriter/generation-job/[jobId]/route.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/canva-app/app/components/ai-bonus-credit-badge.tsx",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/core/src/ghostwriter-labs/registry.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          }
+        ]
+      }
+    },
+    {
+      "conversation_id": "215472624644716",
+      "issue_summary": "I'd like to talk to someone on the team about my bill.",
+      "product_area": "billing",
+      "ground_truth_analysis": {
+        "precision": 0.45,
+        "recall": 0.55,
+        "intersection": [
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/billing/PowerUp/PowerUpSubscriptionUpdater.php",
+          "aero/packages/tailwindapp-legacy/app/app/database/data/2024_05_13_155826_sql_add_billing_version_107_108_117_118.dat",
+          "aero/packages/tailwindapp-legacy/app/app/lang/en/billing.php",
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/upcoming-post-types/instagram-upcoming-post-type-prompt-view_test.js",
+          "aero/packages/tailwindapp-legacy/app/app/controllers/analytics/api/instagram/posts/InstagramUpdatePostFieldController.php",
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/color/color-palette-extract.ts",
+          "aero/packages/tailwindapp-legacy/app/app/tailwind/billing/Randy/RandyResponse.php",
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/sessions/session-view.tsx",
+          "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/tribes/tribe_content.js",
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/post/description/instagram-post-description-typeahead-for-hashtag-view.jsx"
+        ],
+        "ground_truth_unique": [
+          "aero/packages/core/src/pins/services/pin-service.ts",
+          "aero/packages/core/src/communities/services/community-feed.ts"
+        ],
+        "judgments": [
+          {
+            "file_ref": "aero/packages/core/src/scheduler/services/schedule-builder/pinterest-schedule-builder.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/react/app/state-changers/chat/listen-for-accounts-online-reducer.js",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/core/src/turbo/xp/types.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/core/src/pinterest-scraper/interest/parse-idea.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/firebase/functions/src/interfaces/received-message-interface.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/bachv2/service/billing/api/org-billing-location-put/queries.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/bachv2/service/billing/api/org-billing-location-put/types.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/e2e/billing/ghostwriterNextBonusCoupon.playwright.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp/client/domains/chargify/components/chargify-provider.tsx",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp/client/domains/scheduler/components/editor-fields/pinterest/pin-details-field/smart-content/content-type-select.tsx",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          }
+        ]
+      }
+    },
+    {
+      "conversation_id": "215472507735654",
+      "issue_summary": "Hi I meant to cancel my subscription that billed today. Is it possible to cancel and get a refund?",
+      "product_area": "uncertain",
+      "ground_truth_analysis": {
+        "precision": 0.45,
+        "recall": 0.55,
+        "intersection": [
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/color/color-palette-extract.ts",
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/instagram/post/description/instagram-post-description-typeahead-for-hashtag-view.jsx",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/pages/downgrade-page/views/cancel-plan-confirmation-view/components/cancel-feature-breakdown-table/cancel-feature-breakdown-table.tsx",
+          "aero/packages/tailwindapp-legacy/app/react/app/domains/organization-billing/types.ts",
+          "aero/packages/tailwindapp-legacy/app/react/app/state-changers/chat/listen-for-accounts-online-reducer.js",
+          "aero/packages/tailwindapp-legacy/app/app/controllers/analytics/api/instagram/posts/InstagramUpdatePostFieldController.php",
+          "aero/packages/core/src/scheduler/services/schedule-builder/pinterest-schedule-builder.ts",
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/onboarding-tour/quick-start-tour/open-in-progress-designs.tsx",
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/discovery/empty-state/tribe-category-with-tags-view_test.js",
+          "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/chat/chat-selector/account-chat-selector-list/sort-top-and-bottom-account-chat-list.js"
+        ],
+        "ground_truth_unique": [
+          "aero/packages/core/src/pins/services/pin-service.ts",
+          "aero/packages/core/src/communities/services/community-feed.ts"
+        ],
+        "judgments": [
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/build/assets/www/javascript/compacted/tribes/tribe_content.js",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/core/src/pinterest-scraper/interest/parse-idea.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/e2e/playwright-utils/src/shared/pages/editDraft/draftPinterest.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/jarvis/src/common/utils/delay.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/content-generation/image-selection/template-filters/alert-zero-favorites-for-post-type-view.tsx",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/react/app/ui-components/tribes/user-discovery/user-recommendations-heading-card-view.jsx",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/app/controllers/analytics/api/Publisher/Evergreen/Campaigns/Posts/CreateCampaignPostController.php",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/public/www/app/js/bootstrap-tagsinput.js",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/aws-infrastructure/tailwind-app/lib/fargate-services/php-service.ts",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          },
+          {
+            "file_ref": "aero/packages/tailwindapp-legacy/app/react/app/state-changers/publisher/smartloop/content-library/set-smartloop-content-library-item-property-reducer.js",
+            "is_relevant": true,
+            "reasoning": "Matches theme keywords"
+          }
+        ]
+      }
+    }
+  ]
+}

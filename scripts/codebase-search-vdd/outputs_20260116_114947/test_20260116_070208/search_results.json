@@ -1,0 +1,192 @@
+{
+  "conversations": [
+    {
+      "conversation_id": "215472681279516",
+      "issue_summary": "I/ve been billed again this year. I tried emailing last year to cancel and didn't hear back. I knew my card was going to expire 11/25 and assumed it wouldn't renew. It has and I would like a refund and to cancel the service. I haven't used it in years.",
+      "product_area": "uncertain",
+      "classification_confidence": 0.0,
+      "search_results": {
+        "files_found": [],
+        "snippets": [],
+        "search_terms_used": [
+          "-- Search logs for uncertain errors in last 24h",
+          "SELECT * FROM uncertain WHERE updated_at > NOW() - INTERVAL '7 days' LIMIT 10;"
+        ],
+        "exploration_log": [
+          {
+            "action": "explore",
+            "repo": "aero",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 2450,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "tack",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 58,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "charlotte",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 26,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "ghostwriter",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 54,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "zuck",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 29,
+            "error": null
+          }
+        ]
+      },
+      "search_duration_ms": 2620
+    },
+    {
+      "conversation_id": "215472694722914",
+      "issue_summary": "I need help I ahve made over 100 pins but the calendar keeps going to the next month and filling in fosr the days of the week",
+      "product_area": "uncertain",
+      "classification_confidence": 0.2857142857142857,
+      "search_results": {
+        "files_found": [],
+        "snippets": [],
+        "search_terms_used": [
+          "-- Search logs for uncertain errors in last 24h",
+          "SELECT * FROM uncertain WHERE updated_at > NOW() - INTERVAL '7 days' LIMIT 10;"
+        ],
+        "exploration_log": [
+          {
+            "action": "explore",
+            "repo": "aero",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 1907,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "tack",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 43,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "charlotte",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 19,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "ghostwriter",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 40,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "zuck",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 22,
+            "error": null
+          }
+        ]
+      },
+      "search_duration_ms": 2033
+    },
+    {
+      "conversation_id": "215472478095038",
+      "issue_summary": "The pin scheduler won\u2019t save the board name I select so it won\u2019t schedule",
+      "product_area": "uncertain",
+      "classification_confidence": 0.14285714285714285,
+      "search_results": {
+        "files_found": [],
+        "snippets": [],
+        "search_terms_used": [
+          "-- Search logs for uncertain errors in last 24h",
+          "SELECT * FROM uncertain WHERE updated_at > NOW() - INTERVAL '7 days' LIMIT 10;"
+        ],
+        "exploration_log": [
+          {
+            "action": "explore",
+            "repo": "aero",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 2140,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "tack",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 41,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "charlotte",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 20,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "ghostwriter",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 45,
+            "error": null
+          },
+          {
+            "action": "explore",
+            "repo": "zuck",
+            "success": true,
+            "files_found": 0,
+            "snippets_found": 0,
+            "duration_ms": 26,
+            "error": null
+          }
+        ]
+      },
+      "search_duration_ms": 2275
+    }
+  ],
+  "iteration_number": 1,
+  "timestamp": "2026-01-16T12:02:21.944000"
+}

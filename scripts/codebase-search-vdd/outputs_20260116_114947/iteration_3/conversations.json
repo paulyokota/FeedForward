@@ -1,0 +1,31 @@
+[
+  {
+    "conversation_id": "215472672360025",
+    "issue_summary": "how can I schedule all the pin at the same time and the same date",
+    "product_area": "uncertain",
+    "classification_confidence": 0.14285714285714285,
+    "created_at": "2026-01-14T07:57:20",
+    "source_url": "https://www.tailwindapp.com/dashboard/v2/advanced-scheduler/pinterest",
+    "matched_keywords": [
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "215472698970424",
+    "issue_summary": "my post link pictures aren't loading",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-15T21:01:41",
+    "source_url": "https://www.tailwindapp.com/dashboard/smartbio",
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472699153592",
+    "issue_summary": "I need to cancell my subscription",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-15T21:18:18",
+    "source_url": "https://www.tailwindapp.com/dashboard/v2/advanced-scheduler/pinterest",
+    "matched_keywords": []
+  }
+]

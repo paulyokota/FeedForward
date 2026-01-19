@@ -1,0 +1,52 @@
+=== Exploration Log ===
+Conversation: 215472683875982
+Model: claude-opus-4-20250514
+Duration: 420.9s
+Exit code: 0
+
+=== Raw Output (1998 chars) ===
+RELEVANT FILES:
+- aero/packages/tailwindapp/client/domains/home/components/failed-missed-posts/failure-reasons.ts
+- aero/packages/tailwindapp/client/domains/destination-posts/types/media.ts
+- aero/packages/tailwindapp/client/utils/destination-posts/post-type-upload-validator.ts
+- aero/packages/tailwindapp/client/domains/create/hooks/use-pinterest-video-modal.ts
+- aero/packages/tailwindapp/client/domains/create/components/pinterest-video-guide-modal/pinterest-video-guide-modal.tsx
+- aero/packages/tailwindapp/client/domains/advanced-scheduler/hooks/use-create-pins.ts
+- tack/service/lib/facets/post.ts
+- tack/service/lib/facets/video-container.ts
+- tack/service/lib/handlers/sqs/publish-post/handle-failure-result.ts
+- tack/service/lib/handlers/sqs/publish-post/publish-post-for-all.ts
+- tack/service/lib/handlers/sqs/publish-post/v5/publish-post-for-all.ts
+- tack/service/lib/handlers/sqs/queue-post-to-publish/checks.ts
+- tack/service/lib/handlers/sqs/queue-post-to-publish/does-post-pass-checks.ts
+- tack/service/lib/handlers/sqs/create-video-container/create-video-container.ts
+- tack/service/lib/handlers/sqs/create-video-container/create-video-container-handler.ts
+- tack/service/lib/handlers/sqs/create-video-container/create-video-container-results.ts
+- tack/service/lib/handlers/sqs/check-video-container-status/check-video-container-status.ts
+- tack/service/lib/handlers/sqs/check-video-container-status/check-video-container-status-handler.ts
+- tack/service/lib/handlers/sqs/check-video-container-status/check-video-container-status-results.ts
+- tack/service/lib/handlers/sqs/mark-post-as-failed/mark-post-as-failed-for-all.ts
+- tack/service/lib/pinterest/pinterest-api/create-pinterest-pin-request.ts
+- tack/service/lib/pinterest/pinterest-api/post-register-video-upload.ts
+- tack/service/lib/pinterest/pinterest-api/map-response-to-failure-reason.ts
+- tack/service/lib/pinterest/pinterest-api/handle-pinterest-response.ts
+- tack/service/lib/pinterest/pinterest-api/make-request.ts
+
+
+=== Extraction Diagnostics ===
+Files extracted: 25
+  pattern1_relative: 25 matches
+    - aero/packages/tailwindapp/client/domains/home/components/failed-missed-posts/failure-reasons.ts
+    - aero/packages/tailwindapp/client/domains/destination-posts/types/media.ts
+    - aero/packages/tailwindapp/client/utils/destination-posts/post-type-upload-validator.ts
+    - aero/packages/tailwindapp/client/domains/create/hooks/use-pinterest-video-modal.ts
+    - aero/packages/tailwindapp/client/domains/create/components/pinterest-video-guide-modal/pinterest-video-guide-modal.tsx
+  pattern2_absolute: 0 matches
+  pattern3_json: 0 matches
+  pattern4_bullets: 25 matches
+    - aero/packages/tailwindapp/client/domains/home/components/failed-missed-posts/failure-reasons.ts
+    - aero/packages/tailwindapp/client/domains/destination-posts/types/media.ts
+    - aero/packages/tailwindapp/client/utils/destination-posts/post-type-upload-validator.ts
+    - aero/packages/tailwindapp/client/domains/create/hooks/use-pinterest-video-modal.ts
+    - aero/packages/tailwindapp/client/domains/create/components/pinterest-video-guide-modal/pinterest-video-guide-modal.tsx
+  pattern5_backticks: 0 matches

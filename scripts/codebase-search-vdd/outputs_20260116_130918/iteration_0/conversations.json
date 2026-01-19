@@ -1,0 +1,54 @@
+[
+  {
+    "conversation_id": "coda_i-eb3f682f96a0e31bbd97cf8df4fd5ee4b6600a2afb23e9ff480e8e33f029bc0e",
+    "issue_summary": "[Do You or Anyone Affiliated with Your Business Create Design Any of the Photos or Images That You Pin to Pinterest] No, I only Pin images that I find on Pinterest or the web",
+    "product_area": "uncertain",
+    "classification_confidence": 0.14285714285714285,
+    "created_at": "2026-01-10T15:38:08.666267-05:00",
+    "source_url": null,
+    "matched_keywords": [
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "coda_i-3M21pdzF3k",
+    "issue_summary": "[Why did you pick a 5?] creates some really good posts that match my voice and require limited editing.",
+    "product_area": "uncertain",
+    "classification_confidence": 0.14285714285714285,
+    "created_at": "2026-01-10T15:38:09.766598-05:00",
+    "source_url": null,
+    "matched_keywords": [
+      "posts"
+    ]
+  },
+  {
+    "conversation_id": "coda_row_mobile_app_beta_appl_i-43dd8909e349b26c4ffad2f695249f50fa1900ca22f0b50399ddde38ac75d6c6",
+    "issue_summary": "[Why Did You Choose That Rating] Because I think we can always improve what we have",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-12T10:43:54.224480-05:00",
+    "source_url": null,
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "coda_i-4T8CkWsln9",
+    "issue_summary": "[Notes] Prototype partly obscured, changed link to fit screen.\nCorrectly guessed grouping of PIns\nIncorrectly guessed toggle, but didn\u2019t seem to really review the toggle. Seemed to guess. \nTry again would regenerate both title and description. \nChecking the box would use the output, whether saving ...",
+    "product_area": "uncertain",
+    "classification_confidence": 0.2857142857142857,
+    "created_at": "2026-01-10T15:38:09.955658-05:00",
+    "source_url": null,
+    "matched_keywords": [
+      "pins",
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "coda_row_sprint_work_source_t_i-IzgyvLCIQR",
+    "issue_summary": "[Notes] 8/6/25\nContext\n17 users\n13 beginner/intermediate\n4 intermediate/advanced\nMix of blogger/ecommerce/service\nStill consolidating, cleaning some things up\n\n\ud83c\udf89 Doesn\u2019t seem to be anything majorly blocking in the MVP\nMost beginner/intermediate users are happy with \u201cjust help me get some ...",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-12T10:43:54.858293-05:00",
+    "source_url": null,
+    "matched_keywords": []
+  }
+]

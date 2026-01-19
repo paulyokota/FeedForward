@@ -1,0 +1,34 @@
+[
+  {
+    "conversation_id": "215472681279516",
+    "issue_summary": "I/ve been billed again this year. I tried emailing last year to cancel and didn't hear back. I knew my card was going to expire 11/25 and assumed it wouldn't renew. It has and I would like a refund and to cancel the service. I haven't used it in years.",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-14T19:13:22-05:00",
+    "source_url": null,
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472694722914",
+    "issue_summary": "I need help I ahve made over 100 pins but the calendar keeps going to the next month and filling in fosr the days of the week",
+    "product_area": "uncertain",
+    "classification_confidence": 0.2857142857142857,
+    "created_at": "2026-01-15T15:40:08-05:00",
+    "source_url": null,
+    "matched_keywords": [
+      "pins",
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "215472478095038",
+    "issue_summary": "The pin scheduler won\u2019t save the board name I select so it won\u2019t schedule",
+    "product_area": "uncertain",
+    "classification_confidence": 0.14285714285714285,
+    "created_at": "2025-12-30T10:07:45-05:00",
+    "source_url": null,
+    "matched_keywords": [
+      "pin"
+    ]
+  }
+]

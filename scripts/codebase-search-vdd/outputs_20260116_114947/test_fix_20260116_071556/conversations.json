@@ -1,0 +1,32 @@
+[
+  {
+    "conversation_id": "215472506147209",
+    "issue_summary": "my \"number of pins posted\" is registering at zero even though i've posted several pins yesterday. i have a limit of 100 per month so i need to keep track of how many pins i've posted and this feature is not working today",
+    "product_area": "uncertain",
+    "classification_confidence": 0.2857142857142857,
+    "created_at": "2026-01-01T09:35:18-05:00",
+    "source_url": null,
+    "matched_keywords": [
+      "pins",
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "215472624644716",
+    "issue_summary": "I'd like to talk to someone on the team about my bill.",
+    "product_area": "billing",
+    "classification_confidence": 0.8,
+    "created_at": "2026-01-10T12:57:47-05:00",
+    "source_url": "https://www.tailwindapp.com/dashboard/v2/advanced-scheduler/pinterest?referer=catalog_site",
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472507735654",
+    "issue_summary": "Hi I meant to cancel my subscription that billed today. Is it possible to cancel and get a refund?",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-01T13:14:56-05:00",
+    "source_url": null,
+    "matched_keywords": []
+  }
+]

@@ -1,0 +1,33 @@
+[
+  {
+    "conversation_id": "215472646393365",
+    "issue_summary": "Hello,\nI would like to ask you to check my account and clarify why my pins published via you have not been appearing in my tribes/communities for two months (since around the beginning of November).\nI have assigned all of my English pins, including those planned for the future, to a community when ...",
+    "product_area": "communities",
+    "classification_confidence": 0.42857142857142855,
+    "created_at": "2026-01-12T13:38:32-05:00",
+    "source_url": "https://www.tailwindapp.com/dashboard/tribes",
+    "matched_keywords": [
+      "pins",
+      "community",
+      "pin"
+    ]
+  },
+  {
+    "conversation_id": "215472516428549",
+    "issue_summary": "Why does it show that I have a balance due of $449.03? I know my credit card was declined and I'm working on getting that corrected but I'm unsure about the amount",
+    "product_area": "uncertain",
+    "classification_confidence": 0.0,
+    "created_at": "2026-01-02T10:20:33-05:00",
+    "source_url": null,
+    "matched_keywords": []
+  },
+  {
+    "conversation_id": "215472603832563",
+    "issue_summary": "For a limited time only. Don't miss out. \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f \u034f ...",
+    "product_area": "uncertain",
+    "classification_confidence": 0.8,
+    "created_at": "2026-01-08T15:33:16-05:00",
+    "source_url": null,
+    "matched_keywords": []
+  }
+]
