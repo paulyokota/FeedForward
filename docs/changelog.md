@@ -10,6 +10,38 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Hybrid Review Output Protocol (2026-01-19)**:
+
+- 5-personality reviewers now output in hybrid format:
+  - Verbose markdown to `.claude/reviews/PR-{N}/{reviewer}.md`
+  - Compact JSON to `.claude/reviews/PR-{N}/{reviewer}.json` (~2-5KB each)
+  - Short summary message returned to Tech Lead
+- New fields for Tech Lead decision-making: `why`, `verify`, `scope`, `see_verbose`
+- Unique issue ID prefixes per reviewer: R (Reginald), S (Sanjay), Q (Quinn), D (Dmitri), M (Maya)
+- Created `.claude/reviews/SCHEMA.md` documenting the format
+- Updated all 5 personality files with Output Protocol section
+- Added `/post-compact` command for context recovery after auto-compaction
+
+**Voice Mode Support (2026-01-18)**:
+
+- Voice conversation commands: `/voice` and `/voice-stop`
+- `format-voice-output.sh` hook for voice output formatting
+- Updated `.claude/settings.json` with voice hook configuration
+
+### Fixed
+
+**VDD Codebase Search Round 1 Review Fixes (2026-01-19)**:
+
+- Q1/S3 CRITICAL: Replaced hardcoded `/Users/paulyokota` path with `${REPOS_PATH}` env var
+- D1 HIGH: Deleted 800+ lines of dead code (`evaluate_results.py` - SDK version superseded by v2)
+- S1 HIGH: Fixed shell argument injection via bash arrays in `run_vdd_loop.sh`
+- Q3 HIGH: Added consistent model validation across VDD scripts
+- R1 MEDIUM: Added config file existence check with clear error message
+- R2 MEDIUM: Replaced greedy JSON regex with brace-counting parser in `apply_learnings.py`
+- R4 MEDIUM: Added None guards for nullable Story fields in `cheap_mode_evaluator.py`
+- Q4 MEDIUM: Added `sys.path.insert` for cross-directory imports in ralph scripts
+- D2/D3 LOW: Removed stale doc refs and broken `example_usage.sh`
+
 **Test Configuration (2026-01-16)**:
 
 - Added `tests/conftest.py` to configure PYTHONPATH for pytest
