@@ -1,5 +1,48 @@
 // Story Tracking Types - matching FastAPI backend models
 
+// =============================================================================
+// Code Context Types (from classification-guided exploration)
+// Must be defined before Story which uses CodeContext
+// =============================================================================
+
+export interface CodeContextClassification {
+  category: string;
+  confidence: "high" | "medium" | "low";
+  reasoning: string;
+  keywords_matched: string[];
+}
+
+export interface CodeContextFile {
+  path: string;
+  line_start: number | null;
+  line_end: number | null;
+  relevance: string;
+}
+
+export interface CodeContextSnippet {
+  file_path: string;
+  line_start: number;
+  line_end: number;
+  content: string;
+  language: string;
+  context: string;
+}
+
+export interface CodeContext {
+  classification: CodeContextClassification | null;
+  relevant_files: CodeContextFile[];
+  code_snippets: CodeContextSnippet[];
+  exploration_duration_ms: number;
+  classification_duration_ms: number;
+  explored_at: string | null;
+  success: boolean;
+  error: string | null;
+}
+
+// =============================================================================
+// Story Types
+// =============================================================================
+
 export interface Story {
   id: string;
   title: string;
@@ -11,6 +54,7 @@ export interface Story {
   technical_area: string | null;
   status: string;
   confidence_score: number | null;
+  code_context: CodeContext | null;
   evidence_count: number;
   conversation_count: number;
   created_at: string;
