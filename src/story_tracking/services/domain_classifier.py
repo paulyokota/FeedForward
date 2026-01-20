@@ -17,7 +17,7 @@ import json
 import logging
 import time
 import yaml
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -61,7 +61,12 @@ class DomainClassifier:
 
     def __init__(self):
         """Initialize the classifier with domain map and Anthropic client."""
-        self.client = Anthropic()
+        try:
+            self.client = Anthropic()
+        except Exception as e:
+            logger.error(f"Failed to initialize Anthropic client: {e}. Check ANTHROPIC_API_KEY environment variable.")
+            raise ValueError("Anthropic API key not configured") from e
+
         self.domain_map = self._load_domain_map()
         self.categories = self.domain_map.get("categories", {})
         self._build_keyword_index()
@@ -186,12 +191,13 @@ class DomainClassifier:
         prompt = self._build_classification_prompt(issue_text, stage2_context, category_defs)
 
         try:
-            # Call Haiku with short timeout
+            # Call Haiku with enforced timeout
             response = self.client.messages.create(
                 model=HAIKU_MODEL,
                 max_tokens=500,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}],
+                timeout=CLASSIFICATION_TIMEOUT_MS / 1000,  # Convert ms to seconds
             )
 
             # Parse response
