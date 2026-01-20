@@ -167,11 +167,13 @@ Backend (Python):
   - Added POST /api/pipeline/stop endpoint
   - Added _is_stopping() helper function
   - Added _finalize_stopped_run() helper function
+  - Added _cleanup_terminal_runs() to fix memory leak
   - Updated _run_pipeline_task() to check stop signal and exit gracefully
 - src/two_stage_pipeline.py:
   - Added stop_checker parameter to run_pipeline_async()
   - Added stop_checker parameter to _run_coda_pipeline_async()
-  - Added stop checks during fetch and before classification
+  - Added batched classification with stop checks between batches
+  - Added stop checks to Coda pipeline (after fetch, during normalization, before/during classification)
 - tests/test_pipeline_router.py (NEW):
   - 15 unit tests for pipeline endpoints
   - Tests for stop endpoint, active endpoint, status endpoint, history endpoint
@@ -199,9 +201,109 @@ TEST RESULTS:
 - No new failures introduced
 
 COMMITS:
-- (pending) feat(pipeline): Add webapp pipeline control page + graceful stop
+- dde8e10: feat(pipeline): Add webapp pipeline control page + graceful stop
+- f96aca7: fix(pipeline): Address Round 1 review issues
+
+PR CREATED:
+- PR URL: https://github.com/paulyokota/FeedForward/pull/68
+
+5-PERSONALITY REVIEW - ROUND 1:
+Verdicts:
+- Reginald: Not Ready (R1 HIGH - stop signal during classification, R2 MEDIUM - memory leak)
+- Sanjay: Changes Requested (S1 HIGH - auth, S2/S4 MEDIUM - race condition, rate limiting)
+- Quinn: Changes Requested (Q1/Q2 HIGH - stop ineffective, Q3 LOW - type inconsistency)
+- Dmitri: Approve with Suggestions (D2 HIGH - inline CSS, D7 MEDIUM - duplicated SQL)
+- Maya: Pass with Suggestions (M1 MEDIUM - undocumented state machine)
+
+HIGH Issues Fixed:
+- R1/Q1: Stop signal not checked during classification → Added batched processing (50/batch) with stop checks
+- Q2: Coda pipeline ignores stop signal → Added 4 stop checkpoints throughout
+- R2: Memory leak in _active_runs → Added _cleanup_terminal_runs() called on each run start
+- Q3/Q5: Type inconsistency → Fixed Literal types, removed unused status
+
+Out of Scope (tracked separately):
+- S1-S4: Security hardening (auth, rate limiting) - not blocking for MVP
+
+5-PERSONALITY REVIEW - ROUND 2:
+Verdicts:
+- Reginald: APPROVE (R1-VERIFY, R2-VERIFY fixed, 0 new issues)
+- Sanjay: APPROVE (0 new security issues)
+- Quinn: APPROVE (Q1, Q2, Q3, Q5 verified fixed)
+- Dmitri: APPROVE (no new bloat)
+- Maya: APPROVE (maintainability improved)
+
+Result: 0 new blocking issues across all reviewers - CONVERGED in 2 rounds.
+
+PR #68 merged successfully (commit f2de601).
+
+STATUS: COMPLETE
+
+---
+
+ITERATION: 4
+ISSUE: #44 Wire classification-guided exploration into story creation
+STATE:
+- Implemented code_context storage and persistence.
+- Wired explore_with_classification() into story creation flow.
+- Added comprehensive tests for models and persistence.
+
+REQUIREMENTS (from Issue #44):
+- ≥80% of new stories should include code-area pointer
+- <2s added to story creation (target)
+- Persist code context with stories
+- Expose code context via API
+
+SCHEMA DECISION:
+- Option A: JSONB column in stories table (vs. separate table)
+- Rationale: 1:1 with stories, flexible structure evolution, no join overhead
+
+CHANGES:
+
+Database Migration:
+- src/db/migrations/008_add_code_context.sql (NEW):
+  - Added code_context JSONB column to stories table
+  - Added GIN index for JSONB containment queries
+  - Added partial index for filtering stories with context
+
+Models:
+- src/story_tracking/models/__init__.py:
+  - Added CodeContextClassification model (category, confidence, reasoning, keywords)
+  - Added CodeContextFile model (path, line_start, line_end, relevance)
+  - Added CodeContextSnippet model (file_path, line range, content, language, context)
+  - Added CodeContext model (classification, files, snippets, timing, status)
+  - Added code_context field to StoryCreate, StoryUpdate, Story
+
+Story Creation Service:
+- src/story_tracking/services/story_creation_service.py:
+  - Added _explore_codebase_with_classification() method
+  - Added _build_issue_text_for_classification() helper
+  - Added _build_code_context_dict() helper
+  - Wired exploration into _handle_keep_together() and _create_story_from_subgroup()
+  - Passes code_context to StoryCreate
+
+Story Service:
+- src/story_tracking/services/story_service.py:
+  - Updated create() to serialize and insert code_context
+  - Updated all SELECT queries to include code_context column
+  - Updated update() to handle code_context
+  - Added _parse_code_context() method for JSONB deserialization
+
+Tests:
+- tests/test_story_tracking.py:
+  - Added TestCodeContextModels class (6 tests)
+  - Added TestCodeContextPersistence class (9 tests)
+- tests/test_story_creation_service.py:
+  - Added TestClassificationGuidedExploration class (8 tests)
+
+TEST RESULTS:
+- 68 tests pass (story tracking + story creation service)
+- 635 total tests pass (3 pre-existing failures unchanged)
+- Pre-existing failures: latency test, 2 theme extraction tests (not related)
+
+COMMITS:
+- Pending commit
 
 NEXT:
-- Commit changes
-- Create PR
-- Trigger 5-personality review
+- Create branch and commit
+- Open PR
+- Run 5-personality review

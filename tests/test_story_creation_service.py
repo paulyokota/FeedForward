@@ -888,3 +888,328 @@ class TestDualFormatIntegration:
             # Check that description passed to create includes dual format
             create_call = mock_story_service.create.call_args[0][0]
             assert "Dual Format Story" in create_call.description
+
+
+# -----------------------------------------------------------------------------
+# Classification-Guided Exploration Tests (Issue #44)
+# -----------------------------------------------------------------------------
+
+
+class TestClassificationGuidedExploration:
+    """Tests for classification-guided codebase exploration (Issue #44)."""
+
+    @patch('story_tracking.services.story_creation_service.DUAL_FORMAT_AVAILABLE', True)
+    @patch('story_tracking.services.story_creation_service.DualStoryFormatter')
+    @patch('story_tracking.services.story_creation_service.CodebaseContextProvider')
+    def test_explore_codebase_with_classification_returns_code_context(
+        self,
+        mock_codebase_provider_class,
+        mock_dual_formatter_class,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that classification-guided exploration returns code context dict."""
+        # Setup mock exploration and classification results
+        mock_exploration = Mock()
+        mock_exploration.relevant_files = [
+            Mock(path="packages/scheduler/pin_scheduler.ts", line_start=142, line_end=None, relevance="5 matches"),
+        ]
+        mock_exploration.code_snippets = [
+            Mock(
+                file_path="packages/scheduler/pin_scheduler.ts",
+                line_start=140,
+                line_end=160,
+                content="async function schedulePin() {}",
+                language="typescript",
+                context="Scheduling function",
+            ),
+        ]
+        mock_exploration.exploration_duration_ms = 350
+        mock_exploration.success = True
+        mock_exploration.error = None
+
+        mock_classification = Mock()
+        mock_classification.category = "scheduling"
+        mock_classification.confidence = "high"
+        mock_classification.reasoning = "Issue mentions scheduled pins"
+        mock_classification.keywords_matched = ["schedule", "pin"]
+        mock_classification.classification_duration_ms = 180
+
+        mock_codebase_provider = Mock()
+        mock_codebase_provider.explore_with_classification.return_value = (
+            mock_exploration,
+            mock_classification,
+        )
+        mock_codebase_provider_class.return_value = mock_codebase_provider
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            dual_format_enabled=True,
+            target_repo="aero",
+        )
+
+        theme_data = {
+            "user_intent": "My scheduled pins aren't posting to Pinterest",
+            "symptoms": ["pins not posting", "scheduling failure"],
+            "product_area": "Scheduler",
+            "component": "pinterest",
+        }
+
+        code_context = service._explore_codebase_with_classification(theme_data)
+
+        # Verify code_context structure
+        assert code_context is not None
+        assert code_context["success"] is True
+        assert code_context["classification"]["category"] == "scheduling"
+        assert code_context["classification"]["confidence"] == "high"
+        assert len(code_context["relevant_files"]) == 1
+        assert code_context["relevant_files"][0]["path"] == "packages/scheduler/pin_scheduler.ts"
+        assert len(code_context["code_snippets"]) == 1
+        assert code_context["exploration_duration_ms"] == 350
+        assert code_context["classification_duration_ms"] == 180
+        assert "explored_at" in code_context
+
+    @patch('story_tracking.services.story_creation_service.DUAL_FORMAT_AVAILABLE', True)
+    @patch('story_tracking.services.story_creation_service.DualStoryFormatter')
+    @patch('story_tracking.services.story_creation_service.CodebaseContextProvider')
+    def test_explore_codebase_with_classification_handles_failure(
+        self,
+        mock_codebase_provider_class,
+        mock_dual_formatter_class,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that exploration failures return error context."""
+        mock_codebase_provider = Mock()
+        mock_codebase_provider.explore_with_classification.side_effect = Exception(
+            "Classifier API timeout"
+        )
+        mock_codebase_provider_class.return_value = mock_codebase_provider
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            dual_format_enabled=True,
+            target_repo="aero",
+        )
+
+        theme_data = {"user_intent": "Test issue"}
+        code_context = service._explore_codebase_with_classification(theme_data)
+
+        # Should return error context, not None
+        assert code_context is not None
+        assert code_context["success"] is False
+        assert "Classifier API timeout" in code_context["error"]
+        assert code_context["relevant_files"] == []
+        assert code_context["code_snippets"] == []
+
+    def test_explore_codebase_without_provider_returns_none(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that exploration returns None when provider is not available."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            dual_format_enabled=False,  # Provider not initialized
+        )
+
+        code_context = service._explore_codebase_with_classification({"user_intent": "Test"})
+
+        assert code_context is None
+
+    def test_build_issue_text_for_classification(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that issue text is correctly built for classification."""
+        service = StoryCreationService(mock_story_service, mock_orphan_service)
+
+        theme_data = {
+            "user_intent": "Scheduled pins failing to post",
+            "symptoms": ["pins not posting", "scheduling error", "timeout"],
+            "product_area": "Scheduler",
+            "component": "pinterest",
+            "excerpts": [
+                {"text": "My pins aren't posting on time", "conversation_id": "conv1"},
+            ],
+        }
+
+        issue_text = service._build_issue_text_for_classification(theme_data)
+
+        assert "Scheduled pins failing to post" in issue_text
+        assert "pins not posting" in issue_text
+        assert "Scheduler" in issue_text
+        assert "pinterest" in issue_text
+        assert "My pins aren't posting on time" in issue_text
+
+    def test_build_issue_text_handles_empty_data(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that issue text builder handles empty/missing data."""
+        service = StoryCreationService(mock_story_service, mock_orphan_service)
+
+        # Completely empty
+        assert service._build_issue_text_for_classification({}) == ""
+
+        # Only user_intent
+        theme_data = {"user_intent": "Test issue"}
+        issue_text = service._build_issue_text_for_classification(theme_data)
+        assert "Test issue" in issue_text
+
+    @patch('story_tracking.services.story_creation_service.DUAL_FORMAT_AVAILABLE', True)
+    @patch('story_tracking.services.story_creation_service.DualStoryFormatter')
+    @patch('story_tracking.services.story_creation_service.CodebaseContextProvider')
+    def test_code_context_passed_to_story_create(
+        self,
+        mock_codebase_provider_class,
+        mock_dual_formatter_class,
+        mock_story_service,
+        mock_orphan_service,
+        sample_pm_results_keep,
+        sample_extraction_data,
+    ):
+        """Test that code_context is passed to story creation."""
+        # Setup mocks
+        mock_exploration = Mock()
+        mock_exploration.relevant_files = [Mock(path="test.py", line_start=1, line_end=None, relevance="test")]
+        mock_exploration.code_snippets = []
+        mock_exploration.exploration_duration_ms = 100
+        mock_exploration.success = True
+        mock_exploration.error = None
+
+        mock_classification = Mock()
+        mock_classification.category = "billing"
+        mock_classification.confidence = "high"
+        mock_classification.reasoning = "Billing related"
+        mock_classification.keywords_matched = ["billing"]
+        mock_classification.classification_duration_ms = 50
+
+        mock_codebase_provider = Mock()
+        mock_codebase_provider.explore_with_classification.return_value = (
+            mock_exploration,
+            mock_classification,
+        )
+        mock_codebase_provider_class.return_value = mock_codebase_provider
+
+        # Setup dual formatter
+        mock_dual_output = Mock()
+        mock_dual_output.combined = "# Dual Format"
+        mock_dual_output.format_version = "v2"
+        mock_formatter = Mock()
+        mock_formatter.format_story.return_value = mock_dual_output
+        mock_dual_formatter_class.return_value = mock_formatter
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pm_path = Path(tmpdir) / "pm_results.json"
+            with open(pm_path, "w") as f:
+                json.dump(sample_pm_results_keep, f)
+
+            extraction_path = Path(tmpdir) / "extraction.jsonl"
+            with open(extraction_path, "w") as f:
+                for item in sample_extraction_data:
+                    f.write(json.dumps(item) + "\n")
+
+            service = StoryCreationService(
+                mock_story_service,
+                mock_orphan_service,
+                dual_format_enabled=True,
+                target_repo="aero",
+            )
+
+            result = service.process_pm_review_results(pm_path, extraction_path)
+
+            assert result.stories_created == 1
+            mock_story_service.create.assert_called_once()
+
+            # Verify code_context was passed to create
+            create_call = mock_story_service.create.call_args[0][0]
+            assert create_call.code_context is not None
+            assert create_call.code_context["classification"]["category"] == "billing"
+            assert len(create_call.code_context["relevant_files"]) == 1
+
+    def test_build_code_context_dict_structure(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that code context dict is correctly structured."""
+        service = StoryCreationService(mock_story_service, mock_orphan_service)
+
+        # Create mock exploration result
+        mock_exploration = Mock()
+        mock_exploration.relevant_files = [
+            Mock(path="file1.py", line_start=10, line_end=20, relevance="3 matches: test"),
+            Mock(path="file2.ts", line_start=None, line_end=None, relevance="1 match"),
+        ]
+        mock_exploration.code_snippets = [
+            Mock(
+                file_path="file1.py",
+                line_start=8,
+                line_end=15,
+                content="def test():\n    pass",
+                language="python",
+                context="Test function",
+            ),
+        ]
+        mock_exploration.exploration_duration_ms = 250
+        mock_exploration.success = True
+        mock_exploration.error = None
+
+        # Create mock classification result
+        mock_classification = Mock()
+        mock_classification.category = "billing"
+        mock_classification.confidence = "high"
+        mock_classification.reasoning = "Billing keywords found"
+        mock_classification.keywords_matched = ["billing", "payment"]
+        mock_classification.classification_duration_ms = 120
+
+        code_context = service._build_code_context_dict(mock_exploration, mock_classification)
+
+        # Verify structure
+        assert "classification" in code_context
+        assert code_context["classification"]["category"] == "billing"
+        assert code_context["classification"]["confidence"] == "high"
+        assert code_context["classification"]["keywords_matched"] == ["billing", "payment"]
+
+        assert "relevant_files" in code_context
+        assert len(code_context["relevant_files"]) == 2
+        assert code_context["relevant_files"][0]["path"] == "file1.py"
+        assert code_context["relevant_files"][0]["line_start"] == 10
+
+        assert "code_snippets" in code_context
+        assert len(code_context["code_snippets"]) == 1
+        assert code_context["code_snippets"][0]["language"] == "python"
+
+        assert code_context["exploration_duration_ms"] == 250
+        assert code_context["classification_duration_ms"] == 120
+        assert code_context["success"] is True
+        assert code_context["error"] is None
+        assert "explored_at" in code_context
+
+    def test_build_code_context_dict_without_classification(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test code context dict when classification is None."""
+        service = StoryCreationService(mock_story_service, mock_orphan_service)
+
+        mock_exploration = Mock()
+        mock_exploration.relevant_files = []
+        mock_exploration.code_snippets = []
+        mock_exploration.exploration_duration_ms = 100
+        mock_exploration.success = False
+        mock_exploration.error = "Classification failed"
+
+        code_context = service._build_code_context_dict(mock_exploration, None)
+
+        assert code_context["classification"] is None
+        assert code_context["success"] is False
+        assert code_context["error"] == "Classification failed"
+        assert code_context["classification_duration_ms"] == 0

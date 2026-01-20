@@ -7,10 +7,18 @@ This is the system of record for stories.
 
 import json
 import logging
+import sys
 from typing import List, Optional
 from uuid import UUID
 
+# Size limit for code_context JSONB to prevent storage bloat
+MAX_CODE_CONTEXT_SIZE = 1_000_000  # 1MB
+
 from ..models import (
+    CodeContext,
+    CodeContextClassification,
+    CodeContextFile,
+    CodeContextSnippet,
     Story,
     StoryCreate,
     StoryUpdate,
@@ -39,15 +47,31 @@ class StoryService:
 
     def create(self, story: StoryCreate) -> Story:
         """Create a new story."""
+        # Serialize code_context to JSON if present, with size validation
+        code_context_json = None
+        if story.code_context is not None:
+            code_context_json = json.dumps(story.code_context)
+            if sys.getsizeof(code_context_json) > MAX_CODE_CONTEXT_SIZE:
+                logger.warning(
+                    f"code_context exceeds size limit "
+                    f"({sys.getsizeof(code_context_json)} bytes), truncating snippets"
+                )
+                # Truncate code_snippets to reduce size
+                truncated_context = story.code_context.copy()
+                truncated_context["code_snippets"] = []
+                code_context_json = json.dumps(truncated_context)
+
         with self.db.cursor() as cur:
             cur.execute("""
                 INSERT INTO stories (
                     title, description, labels, priority, severity,
-                    product_area, technical_area, status, confidence_score
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    product_area, technical_area, status, confidence_score,
+                    code_context
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, title, description, labels, priority, severity,
                           product_area, technical_area, status, confidence_score,
-                          evidence_count, conversation_count, created_at, updated_at
+                          code_context, evidence_count, conversation_count,
+                          created_at, updated_at
             """, (
                 story.title,
                 story.description,
@@ -58,6 +82,7 @@ class StoryService:
                 story.technical_area,
                 story.status,
                 story.confidence_score,
+                code_context_json,
             ))
             row = cur.fetchone()
             return self._row_to_story(row)
@@ -69,7 +94,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       evidence_count, conversation_count, created_at, updated_at
+                       code_context, evidence_count, conversation_count,
+                       created_at, updated_at
                 FROM stories
                 WHERE id = %s
             """, (str(story_id),))
@@ -151,6 +177,18 @@ class StoryService:
         if updates.confidence_score is not None:
             update_fields.append("confidence_score = %s")
             values.append(updates.confidence_score)
+        if updates.code_context is not None:
+            code_context_json = json.dumps(updates.code_context)
+            if sys.getsizeof(code_context_json) > MAX_CODE_CONTEXT_SIZE:
+                logger.warning(
+                    f"code_context update exceeds size limit "
+                    f"({sys.getsizeof(code_context_json)} bytes), truncating snippets"
+                )
+                truncated_context = updates.code_context.copy()
+                truncated_context["code_snippets"] = []
+                code_context_json = json.dumps(truncated_context)
+            update_fields.append("code_context = %s")
+            values.append(code_context_json)
 
         if not update_fields:
             # No fields to update, just return current story
@@ -165,7 +203,8 @@ class StoryService:
                 WHERE id = %s
                 RETURNING id, title, description, labels, priority, severity,
                           product_area, technical_area, status, confidence_score,
-                          evidence_count, conversation_count, created_at, updated_at
+                          code_context, evidence_count, conversation_count,
+                          created_at, updated_at
             """, values)
             row = cur.fetchone()
 
@@ -210,7 +249,8 @@ class StoryService:
             cur.execute(f"""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       evidence_count, conversation_count, created_at, updated_at
+                       code_context, evidence_count, conversation_count,
+                       created_at, updated_at
                 FROM stories
                 {where_clause}
                 ORDER BY updated_at DESC
@@ -233,7 +273,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       evidence_count, conversation_count, created_at, updated_at
+                       code_context, evidence_count, conversation_count,
+                       created_at, updated_at
                 FROM stories
                 WHERE status = %s
                 ORDER BY confidence_score DESC NULLS LAST, updated_at DESC
@@ -247,7 +288,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       evidence_count, conversation_count, created_at, updated_at
+                       code_context, evidence_count, conversation_count,
+                       created_at, updated_at
                 FROM stories
                 ORDER BY confidence_score DESC NULLS LAST, updated_at DESC
             """)
@@ -271,7 +313,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       evidence_count, conversation_count, created_at, updated_at
+                       code_context, evidence_count, conversation_count,
+                       created_at, updated_at
                 FROM stories
                 WHERE title ILIKE %s OR description ILIKE %s
                 ORDER BY updated_at DESC
@@ -321,7 +364,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       evidence_count, conversation_count, created_at, updated_at
+                       code_context, evidence_count, conversation_count,
+                       created_at, updated_at
                 FROM stories
                 WHERE id = %s
             """, (str(story_id),))
@@ -330,6 +374,9 @@ class StoryService:
 
     def _row_to_story(self, row: dict) -> Story:
         """Convert database row to Story model."""
+        # Parse code_context JSONB
+        code_context = self._parse_code_context(row.get("code_context"))
+
         return Story(
             id=row["id"],
             title=row["title"],
@@ -341,11 +388,104 @@ class StoryService:
             technical_area=row["technical_area"],
             status=row["status"],
             confidence_score=float(row["confidence_score"]) if row["confidence_score"] else None,
+            code_context=code_context,
             evidence_count=row["evidence_count"],
             conversation_count=row["conversation_count"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
+
+    def _parse_code_context(self, raw_data) -> Optional[CodeContext]:
+        """
+        Parse code_context JSONB from database into CodeContext model.
+
+        Handles both dict (from psycopg JSONB) and str (edge case) formats.
+
+        Args:
+            raw_data: JSONB data from database (dict or str or None)
+
+        Returns:
+            CodeContext model or None if no data
+        """
+        if raw_data is None:
+            return None
+
+        # Parse JSON string if needed
+        if isinstance(raw_data, str):
+            try:
+                raw_data = json.loads(raw_data)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse code_context JSON string")
+                return None
+
+        if not isinstance(raw_data, dict):
+            return None
+
+        try:
+            # Parse classification sub-object
+            classification = None
+            if raw_data.get("classification"):
+                classification = CodeContextClassification(
+                    category=raw_data["classification"].get("category", "unknown"),
+                    confidence=raw_data["classification"].get("confidence", "low"),
+                    reasoning=raw_data["classification"].get("reasoning", ""),
+                    keywords_matched=raw_data["classification"].get("keywords_matched", []),
+                )
+
+            # Parse relevant_files list
+            relevant_files = []
+            for file_data in raw_data.get("relevant_files", []):
+                relevant_files.append(CodeContextFile(
+                    path=file_data.get("path", ""),
+                    line_start=file_data.get("line_start"),
+                    line_end=file_data.get("line_end"),
+                    relevance=file_data.get("relevance", ""),
+                ))
+
+            # Parse code_snippets list
+            code_snippets = []
+            for snippet_data in raw_data.get("code_snippets", []):
+                code_snippets.append(CodeContextSnippet(
+                    file_path=snippet_data.get("file_path", ""),
+                    line_start=snippet_data.get("line_start", 0),
+                    line_end=snippet_data.get("line_end", 0),
+                    content=snippet_data.get("content", ""),
+                    language=snippet_data.get("language", "text"),
+                    context=snippet_data.get("context", ""),
+                ))
+
+            # Parse explored_at timestamp
+            explored_at = None
+            if raw_data.get("explored_at"):
+                from datetime import datetime
+                try:
+                    explored_at = datetime.fromisoformat(
+                        raw_data["explored_at"].replace("Z", "+00:00")
+                    )
+                except (ValueError, AttributeError):
+                    pass
+
+            return CodeContext(
+                classification=classification,
+                relevant_files=relevant_files,
+                code_snippets=code_snippets,
+                exploration_duration_ms=raw_data.get("exploration_duration_ms", 0),
+                classification_duration_ms=raw_data.get("classification_duration_ms", 0),
+                explored_at=explored_at,
+                success=raw_data.get("success", True),
+                error=raw_data.get("error"),
+            )
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to parse code_context: {type(e).__name__}: {e}",
+                extra={
+                    "raw_data_type": type(raw_data).__name__,
+                    "raw_data_preview": str(raw_data)[:200] if raw_data else None,
+                },
+                exc_info=True,
+            )
+            return None
 
     def _row_to_evidence(self, row: dict) -> StoryEvidence:
         """Convert database row to StoryEvidence model."""

@@ -26,15 +26,20 @@ try:
         CodebaseContextProvider,
         ExplorationResult,
     )
+    from src.story_tracking.services.domain_classifier import ClassificationResult
     DUAL_FORMAT_AVAILABLE = True
 except ImportError:
     DualStoryFormatter = None
     DualFormatOutput = None
     CodebaseContextProvider = None
     ExplorationResult = None
+    ClassificationResult = None
     DUAL_FORMAT_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+# Import datetime for code context timestamps
+from datetime import datetime, timezone
 
 # Constants for data limits (used in theme data building and story generation)
 MAX_SYMPTOMS_IN_THEME = 10
@@ -43,6 +48,10 @@ MAX_SYMPTOMS_IN_DESCRIPTION = 5
 MAX_TITLE_LENGTH = 200
 MAX_EXCERPT_LENGTH = 500
 MIN_USER_INTENT_LENGTH = 10  # Minimum meaningful length for user_intent
+
+# Constants for code context limits
+MAX_CODE_SNIPPET_LENGTH = 5000  # 5KB per snippet to prevent bloat
+MAX_CODE_CONTEXT_SIZE = 1_000_000  # 1MB total code_context limit
 
 
 def _truncate_at_word_boundary(text: str, max_length: int) -> str:
@@ -266,6 +275,11 @@ class StoryCreationService:
         # Build theme data from conversations
         theme_data = self._build_theme_data(conversations)
 
+        # Explore codebase with classification (Issue #44)
+        code_context = None
+        if self.dual_format_enabled:
+            code_context = self._explore_codebase_with_classification(theme_data)
+
         # Create story
         story = self.story_service.create(StoryCreate(
             title=self._generate_title(pm_result.signature, theme_data),
@@ -278,14 +292,20 @@ class StoryCreationService:
             product_area=theme_data.get("product_area"),
             technical_area=theme_data.get("component"),
             status="candidate",
+            code_context=code_context,
         ))
 
         result.stories_created += 1
         result.created_story_ids.append(story.id)
 
+        code_context_info = ""
+        if code_context and code_context.get("success"):
+            files_count = len(code_context.get("relevant_files", []))
+            code_context_info = f", {files_count} code files"
+
         logger.info(
             f"Created story {story.id} for '{pm_result.signature}' "
-            f"({len(conversation_ids)} conversations)"
+            f"({len(conversation_ids)} conversations{code_context_info})"
         )
 
     def _handle_split(
@@ -336,6 +356,11 @@ class StoryCreationService:
         """Create a story from a split sub-group."""
         theme_data = self._build_theme_data(conversations)
 
+        # Explore codebase with classification (Issue #44)
+        code_context = None
+        if self.dual_format_enabled:
+            code_context = self._explore_codebase_with_classification(theme_data)
+
         story = self.story_service.create(StoryCreate(
             title=self._generate_title(signature, theme_data),
             description=self._generate_description(
@@ -348,14 +373,20 @@ class StoryCreationService:
             product_area=theme_data.get("product_area"),
             technical_area=theme_data.get("component"),
             status="candidate",
+            code_context=code_context,
         ))
 
         result.stories_created += 1
         result.created_story_ids.append(story.id)
 
+        code_context_info = ""
+        if code_context and code_context.get("success"):
+            files_count = len(code_context.get("relevant_files", []))
+            code_context_info = f", {files_count} code files"
+
         logger.info(
             f"Created story {story.id} for split sub-group '{signature}' "
-            f"(from {original_signature}, {len(conversations)} conversations)"
+            f"(from {original_signature}, {len(conversations)} conversations{code_context_info})"
         )
 
     def _create_or_update_orphan(
@@ -667,4 +698,209 @@ class StoryCreationService:
             "customer_messages": customer_messages,
             # Repository for codebase exploration
             "target_repo": self.target_repo,
+        }
+
+    def _explore_codebase_with_classification(
+        self,
+        theme_data: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Explore codebase using classification-guided exploration.
+
+        Uses CodebaseContextProvider.explore_with_classification() to:
+        1. Classify the issue into a product category (via Haiku)
+        2. Use category-specific search paths for exploration
+        3. Return structured code context for storage
+
+        Args:
+            theme_data: Aggregated theme data from conversations
+
+        Returns:
+            One of three possible states:
+            - None: Provider not configured or no issue text available
+            - Dict with success=False and error message: Exploration attempted but failed
+            - Dict with success=True and code context: Successful exploration
+
+            Callers should check: `code_context and code_context.get("success")`
+            to determine if exploration produced usable results.
+        """
+        if not self.codebase_provider:
+            logger.debug("Codebase provider not available, skipping exploration")
+            return None
+
+        # Build issue text from theme data for classification
+        issue_text = self._build_issue_text_for_classification(theme_data)
+        if not issue_text:
+            logger.debug("No issue text available for classification")
+            return None
+
+        try:
+            logger.info("Starting classification-guided codebase exploration")
+
+            # Use classification-guided exploration
+            exploration_result, classification_result = (
+                self.codebase_provider.explore_with_classification(
+                    issue_text=issue_text,
+                    target_repo=self.target_repo,
+                )
+            )
+
+            # Build code_context dict for storage
+            code_context = self._build_code_context_dict(
+                exploration_result, classification_result
+            )
+
+            if exploration_result.success:
+                logger.info(
+                    f"Classification-guided exploration complete: "
+                    f"{len(exploration_result.relevant_files)} files, "
+                    f"{len(exploration_result.code_snippets)} snippets, "
+                    f"category={classification_result.category if classification_result else 'unknown'}"
+                )
+            else:
+                logger.warning(
+                    f"Exploration completed with errors: {exploration_result.error}"
+                )
+
+            return code_context
+
+        except Exception as e:
+            import traceback
+            error_details = f"{type(e).__name__}: {str(e)}"
+            logger.warning(
+                f"Classification-guided exploration failed: {error_details}",
+                exc_info=True,
+                extra={
+                    "theme_signature": theme_data.get("signature"),
+                    "target_repo": self.target_repo,
+                },
+            )
+            # Return error context with diagnostic details for debugging
+            return {
+                "classification": None,
+                "relevant_files": [],
+                "code_snippets": [],
+                "exploration_duration_ms": 0,
+                "classification_duration_ms": 0,
+                "explored_at": datetime.now(timezone.utc).isoformat(),
+                "success": False,
+                "error": error_details,
+            }
+
+    def _build_issue_text_for_classification(
+        self,
+        theme_data: Dict[str, Any],
+    ) -> str:
+        """
+        Build issue text from theme data for classification.
+
+        Combines user_intent, symptoms, and excerpts into a coherent
+        text that the classifier can analyze.
+
+        Args:
+            theme_data: Aggregated theme data
+
+        Returns:
+            Combined issue text for classification
+        """
+        parts = []
+
+        # User intent is the primary signal
+        if user_intent := theme_data.get("user_intent"):
+            parts.append(f"Issue: {user_intent}")
+
+        # Add symptoms as context
+        if symptoms := theme_data.get("symptoms"):
+            symptoms_text = ", ".join(symptoms[:5])  # Top 5
+            parts.append(f"Symptoms: {symptoms_text}")
+
+        # Add product area and component if available
+        if product_area := theme_data.get("product_area"):
+            parts.append(f"Product Area: {product_area}")
+
+        if component := theme_data.get("component"):
+            parts.append(f"Component: {component}")
+
+        # Add excerpt text if available
+        excerpts = theme_data.get("excerpts", [])
+        if excerpts:
+            # Get first excerpt text
+            first_excerpt = excerpts[0]
+            if isinstance(first_excerpt, dict):
+                excerpt_text = first_excerpt.get("text", "")
+            else:
+                excerpt_text = str(first_excerpt)
+            if excerpt_text:
+                parts.append(f"Customer message: {excerpt_text[:500]}")
+
+        return "\n".join(parts)
+
+    def _build_code_context_dict(
+        self,
+        exploration_result,  # ExplorationResult
+        classification_result,  # Optional[ClassificationResult]
+    ) -> Dict[str, Any]:
+        """
+        Build code_context dict from exploration and classification results.
+
+        This dict is stored as JSONB in stories.code_context column.
+
+        Args:
+            exploration_result: Result from codebase exploration
+            classification_result: Result from issue classification (may be None)
+
+        Returns:
+            Dict ready for JSON serialization and storage
+        """
+        # Build classification sub-dict
+        classification_dict = None
+        classification_duration = 0
+
+        if classification_result:
+            classification_dict = {
+                "category": classification_result.category,
+                "confidence": classification_result.confidence,
+                "reasoning": classification_result.reasoning,
+                "keywords_matched": classification_result.keywords_matched,
+            }
+            classification_duration = classification_result.classification_duration_ms
+
+        # Build relevant_files list
+        relevant_files = []
+        for file_ref in exploration_result.relevant_files:
+            relevant_files.append({
+                "path": file_ref.path,
+                "line_start": file_ref.line_start,
+                "line_end": file_ref.line_end,
+                "relevance": file_ref.relevance,
+            })
+
+        # Build code_snippets list with length limits
+        code_snippets = []
+        for snippet in exploration_result.code_snippets:
+            content = snippet.content
+            if len(content) > MAX_CODE_SNIPPET_LENGTH:
+                logger.debug(
+                    f"Truncating code snippet from {snippet.file_path} "
+                    f"({len(content)} -> {MAX_CODE_SNIPPET_LENGTH} chars)"
+                )
+                content = content[:MAX_CODE_SNIPPET_LENGTH] + "\n... (truncated)"
+            code_snippets.append({
+                "file_path": snippet.file_path,
+                "line_start": snippet.line_start,
+                "line_end": snippet.line_end,
+                "content": content,
+                "language": snippet.language,
+                "context": snippet.context,
+            })
+
+        return {
+            "classification": classification_dict,
+            "relevant_files": relevant_files,
+            "code_snippets": code_snippets,
+            "exploration_duration_ms": exploration_result.exploration_duration_ms,
+            "classification_duration_ms": classification_duration,
+            "explored_at": datetime.now(timezone.utc).isoformat(),
+            "success": exploration_result.success,
+            "error": exploration_result.error,
         }
