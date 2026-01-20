@@ -178,8 +178,17 @@ class StoryService:
             update_fields.append("confidence_score = %s")
             values.append(updates.confidence_score)
         if updates.code_context is not None:
+            code_context_json = json.dumps(updates.code_context)
+            if sys.getsizeof(code_context_json) > MAX_CODE_CONTEXT_SIZE:
+                logger.warning(
+                    f"code_context update exceeds size limit "
+                    f"({sys.getsizeof(code_context_json)} bytes), truncating snippets"
+                )
+                truncated_context = updates.code_context.copy()
+                truncated_context["code_snippets"] = []
+                code_context_json = json.dumps(truncated_context)
             update_fields.append("code_context = %s")
-            values.append(json.dumps(updates.code_context))
+            values.append(code_context_json)
 
         if not update_fields:
             # No fields to update, just return current story
