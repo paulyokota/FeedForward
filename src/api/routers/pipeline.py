@@ -25,7 +25,18 @@ from src.db.models import PipelineRun
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
 
 # Track active runs (in-memory for MVP, could use Redis for production)
+# States: running, stopping, stopped, completed, failed
 _active_runs: dict[int, str] = {}  # run_id -> status
+
+# Terminal states that can be cleaned up
+_TERMINAL_STATES = {"stopped", "completed", "failed"}
+
+
+def _cleanup_terminal_runs() -> None:
+    """Remove terminal (completed/failed/stopped) runs to prevent memory leak."""
+    terminal_ids = [rid for rid, status in _active_runs.items() if status in _TERMINAL_STATES]
+    for rid in terminal_ids:
+        del _active_runs[rid]
 
 
 def _is_stopping(run_id: int) -> bool:
@@ -151,6 +162,9 @@ def start_pipeline_run(
     - **dry_run**: If True, classify but don't store to database
     - **concurrency**: Parallel API calls (default 20)
     """
+    # Clean up terminal runs to prevent memory leak (R2 fix)
+    _cleanup_terminal_runs()
+
     # Check if another run is already active
     active = [rid for rid, status in _active_runs.items() if status == "running"]
     if active:

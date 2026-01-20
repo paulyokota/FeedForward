@@ -416,18 +416,36 @@ async def run_pipeline_async(
             "classification_changed": 0,
         }
 
-    # Phase 2: Classify in parallel
+    # Phase 2: Classify in parallel (with stop checks between batches)
     print(f"\nPhase 2: Classifying {len(conversations)} conversations in parallel...")
     start_time = datetime.now()
 
-    tasks = [
-        classify_conversation_async(parsed, raw_conv, semaphore)
-        for parsed, raw_conv in conversations
-    ]
-    results = await asyncio.gather(*tasks)
+    # Process in batches to allow stop signal checks between batches
+    CLASSIFICATION_BATCH_SIZE = 50
+    results = []
+
+    for batch_start in range(0, len(conversations), CLASSIFICATION_BATCH_SIZE):
+        # Check for stop signal between classification batches
+        if should_stop():
+            print(f"  Stop signal received during classification (batch {batch_start // CLASSIFICATION_BATCH_SIZE + 1}), stopping...")
+            break
+
+        batch_end = min(batch_start + CLASSIFICATION_BATCH_SIZE, len(conversations))
+        batch = conversations[batch_start:batch_end]
+
+        tasks = [
+            classify_conversation_async(parsed, raw_conv, semaphore)
+            for parsed, raw_conv in batch
+        ]
+        batch_results = await asyncio.gather(*tasks)
+        results.extend(batch_results)
+
+        if len(conversations) > CLASSIFICATION_BATCH_SIZE:
+            print(f"  Classified batch {batch_start // CLASSIFICATION_BATCH_SIZE + 1}: {len(batch_results)} conversations")
 
     elapsed = (datetime.now() - start_time).total_seconds()
-    print(f"  Classification complete in {elapsed:.1f}s ({len(results)/elapsed:.1f} conv/sec)")
+    throughput = len(results) / elapsed if elapsed > 0 else 0
+    print(f"  Classification complete in {elapsed:.1f}s ({throughput:.1f} conv/sec)")
 
     # Phase 3: Batch store to database
     stats = {
@@ -489,10 +507,25 @@ async def _run_coda_pipeline_async(
     raw_items = adapter.fetch(max_items=max_conversations, include_tables=True, include_pages=True)
     print(f"  Total fetched: {len(raw_items)} items")
 
+    # Check for stop signal after fetch
+    if should_stop():
+        print("  Stop signal received after fetch, stopping...")
+        return {
+            "fetched": len(raw_items),
+            "filtered": 0,
+            "classified": 0,
+            "stored": 0,
+            "data_source": "coda",
+        }
+
     # Normalize to common format
     print("\nPhase 2: Normalizing Coda data...")
     normalized = []
     for item in raw_items:
+        # Check for stop signal during normalization
+        if should_stop():
+            print("  Stop signal received during normalization, stopping...")
+            break
         try:
             conv = adapter.normalize(item)
             if conv.text and len(conv.text) > 50:  # Skip empty content
@@ -501,6 +534,17 @@ async def _run_coda_pipeline_async(
             print(f"  Warning: Failed to normalize item: {e}")
 
     print(f"  Normalized: {len(normalized)} items with content")
+
+    # Check for stop signal before classification
+    if should_stop():
+        print("  Stop signal received, returning early...")
+        return {
+            "fetched": len(raw_items),
+            "filtered": len(raw_items) - len(normalized),
+            "classified": 0,
+            "stored": 0,
+            "data_source": "coda",
+        }
 
     # Classify in parallel (Stage 1 only for research data)
     print(f"\nPhase 3: Classifying {len(normalized)} items...")
@@ -559,8 +603,25 @@ Return JSON with:
                 "resolution_signal": None,
             }
 
-    tasks = [classify_coda_item(conv) for conv in normalized]
-    results = await asyncio.gather(*tasks)
+    # Process in batches to allow stop signal checks between batches
+    CLASSIFICATION_BATCH_SIZE = 50
+    results = []
+
+    for batch_start in range(0, len(normalized), CLASSIFICATION_BATCH_SIZE):
+        # Check for stop signal between classification batches
+        if should_stop():
+            print(f"  Stop signal received during classification (batch {batch_start // CLASSIFICATION_BATCH_SIZE + 1}), stopping...")
+            break
+
+        batch_end = min(batch_start + CLASSIFICATION_BATCH_SIZE, len(normalized))
+        batch = normalized[batch_start:batch_end]
+
+        tasks = [classify_coda_item(conv) for conv in batch]
+        batch_results = await asyncio.gather(*tasks)
+        results.extend(batch_results)
+
+        if len(normalized) > CLASSIFICATION_BATCH_SIZE:
+            print(f"  Classified batch {batch_start // CLASSIFICATION_BATCH_SIZE + 1}: {len(batch_results)} items")
 
     elapsed = (datetime.now() - start_time).total_seconds()
     print(f"  Classification complete in {elapsed:.1f}s")

@@ -364,7 +364,7 @@ export interface PipelineRunListItem {
 
 export interface PipelineStopResponse {
   run_id: number;
-  status: "stopping" | "stopped" | "not_found" | "not_running";
+  status: "stopping" | "stopped" | "not_running";
   message: string;
 }
 
