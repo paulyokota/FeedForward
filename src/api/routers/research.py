@@ -9,6 +9,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from psycopg2 import IntegrityError
 from pydantic import BaseModel, Field
 
 from src.api.deps import get_db
@@ -19,6 +20,7 @@ from src.research.models import (
     EmbeddingStats,
     ReindexRequest,
     ReindexResponse,
+    EvidenceDecisionResponse,
 )
 from src.research.unified_search import UnifiedSearchService
 from src.research.embedding_pipeline import EmbeddingPipeline
@@ -298,4 +300,213 @@ def get_suggested_evidence(
     return SuggestedEvidenceResponse(
         story_id=str(story_id),
         suggestions=suggestions,
+    )
+
+
+# --- Evidence Decision Endpoints ---
+
+# Valid source types for evidence
+VALID_SOURCE_TYPES = {"coda_page", "coda_theme", "intercom"}
+
+
+def _parse_evidence_id(evidence_id: str) -> tuple[str, str]:
+    """
+    Parse evidence_id in format 'source_type:source_id'.
+
+    Returns:
+        Tuple of (source_type, source_id)
+
+    Raises:
+        HTTPException: If format is invalid or source_type is unknown
+    """
+    if ":" not in evidence_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid evidence_id format: '{evidence_id}'. Expected 'source_type:source_id'"
+        )
+
+    parts = evidence_id.split(":", 1)
+    source_type = parts[0]
+    source_id = parts[1]
+
+    if not source_type or not source_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid evidence_id format: '{evidence_id}'. Both source_type and source_id are required"
+        )
+
+    if source_type not in VALID_SOURCE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid source_type: '{source_type}'. Valid types: {VALID_SOURCE_TYPES}"
+        )
+
+    return source_type, source_id
+
+
+def _validate_story_exists(db, story_id: UUID) -> None:
+    """
+    Validate that a story exists.
+
+    Raises:
+        HTTPException: 404 if story not found
+    """
+    with db.cursor() as cur:
+        cur.execute("SELECT id FROM stories WHERE id = %s", (str(story_id),))
+        if not cur.fetchone():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Story {story_id} not found"
+            )
+
+
+def _record_evidence_decision(
+    db,
+    story_id: UUID,
+    evidence_id: str,
+    source_type: str,
+    source_id: str,
+    decision: str,
+    similarity_score: float | None = None,
+) -> None:
+    """
+    Record an evidence decision in the database.
+
+    Raises:
+        HTTPException: 404 if story not found, 409 if decision already exists
+    """
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO suggested_evidence_decisions
+                    (story_id, evidence_id, source_type, source_id, decision, similarity_score)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (str(story_id), evidence_id, source_type, source_id, decision, similarity_score)
+            )
+    except IntegrityError as e:
+        # Check for unique constraint violation (duplicate decision)
+        error_str = str(e).lower()
+        if "unique" in error_str or "duplicate" in error_str:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Decision already exists for evidence '{evidence_id}' on story {story_id}"
+            )
+        # Check for foreign key violation (story not found)
+        if "foreign key" in error_str or "fk_" in error_str:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Story {story_id} not found"
+            )
+        logger.error("Database integrity error while recording evidence decision", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to record evidence decision"
+        )
+    except Exception as e:
+        logger.error("Failed to record evidence decision", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to record evidence decision"
+        )
+
+
+@router.post("/stories/{story_id}/suggested-evidence/{evidence_id}/accept", response_model=EvidenceDecisionResponse)
+def accept_evidence(
+    story_id: UUID,
+    evidence_id: str,
+    db=Depends(get_db),
+):
+    """
+    Accept suggested evidence for a story.
+
+    Persists the PM's decision to accept this evidence as relevant
+    to the story. Accepted evidence will be shown as linked research.
+
+    **Path Parameters:**
+    - `story_id`: UUID of the story
+    - `evidence_id`: Evidence identifier in format 'source_type:source_id'
+
+    **Returns:**
+    - Success response with decision details
+
+    **Errors:**
+    - 400: Invalid evidence_id format or source_type
+    - 404: Story not found
+    - 409: Decision already exists for this evidence
+    """
+    # Parse and validate evidence_id
+    source_type, source_id = _parse_evidence_id(evidence_id)
+
+    # Validate story exists
+    _validate_story_exists(db, story_id)
+
+    # Record the decision
+    _record_evidence_decision(
+        db=db,
+        story_id=story_id,
+        evidence_id=evidence_id,
+        source_type=source_type,
+        source_id=source_id,
+        decision="accepted",
+    )
+
+    logger.info(f"Evidence accepted: story={story_id}, evidence={evidence_id}")
+
+    return EvidenceDecisionResponse(
+        success=True,
+        story_id=str(story_id),
+        evidence_id=evidence_id,
+        decision="accepted",
+    )
+
+
+@router.post("/stories/{story_id}/suggested-evidence/{evidence_id}/reject", response_model=EvidenceDecisionResponse)
+def reject_evidence(
+    story_id: UUID,
+    evidence_id: str,
+    db=Depends(get_db),
+):
+    """
+    Reject suggested evidence for a story.
+
+    Persists the PM's decision to reject this evidence as not relevant.
+    Rejected evidence will be hidden from future suggestions for this story.
+
+    **Path Parameters:**
+    - `story_id`: UUID of the story
+    - `evidence_id`: Evidence identifier in format 'source_type:source_id'
+
+    **Returns:**
+    - Success response with decision details
+
+    **Errors:**
+    - 400: Invalid evidence_id format or source_type
+    - 404: Story not found
+    - 409: Decision already exists for this evidence
+    """
+    # Parse and validate evidence_id
+    source_type, source_id = _parse_evidence_id(evidence_id)
+
+    # Validate story exists
+    _validate_story_exists(db, story_id)
+
+    # Record the decision
+    _record_evidence_decision(
+        db=db,
+        story_id=story_id,
+        evidence_id=evidence_id,
+        source_type=source_type,
+        source_id=source_id,
+        decision="rejected",
+    )
+
+    logger.info(f"Evidence rejected: story={story_id}, evidence={evidence_id}")
+
+    return EvidenceDecisionResponse(
+        success=True,
+        story_id=str(story_id),
+        evidence_id=evidence_id,
+        decision="rejected",
     )

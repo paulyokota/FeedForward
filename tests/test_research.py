@@ -1,7 +1,8 @@
 """
 Research Module Tests
 
-Tests for search adapters, UnifiedSearchService, and EmbeddingPipeline.
+Tests for search adapters, UnifiedSearchService, EmbeddingPipeline,
+and evidence decision endpoints.
 Run with: pytest tests/test_research.py -v
 """
 
@@ -15,6 +16,11 @@ import sys
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+from fastapi.testclient import TestClient
+from psycopg2 import IntegrityError
+
+from src.api.main import app
+from src.api.deps import get_db
 from research.models import (
     SearchableContent,
     UnifiedSearchResult,
@@ -24,6 +30,7 @@ from research.models import (
     EmbeddingStats,
     ReindexRequest,
     ReindexResponse,
+    EvidenceDecisionResponse,
 )
 from research.adapters.base import SearchSourceAdapter
 from research.adapters.coda_adapter import CodaSearchAdapter
@@ -469,3 +476,274 @@ class TestReindexResponse:
 
         assert response.status == "failed"
         assert response.error == "Database connection failed"
+
+
+# -----------------------------------------------------------------------------
+# Evidence Decision Endpoint Tests
+# -----------------------------------------------------------------------------
+
+
+class TestEvidenceDecisionEndpoints:
+    """Tests for POST /api/research/stories/{story_id}/suggested-evidence/{evidence_id}/accept|reject endpoints."""
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create a mock database connection with cursor context manager."""
+        db = Mock()
+        cursor = MagicMock()
+        db.cursor.return_value.__enter__ = Mock(return_value=cursor)
+        db.cursor.return_value.__exit__ = Mock(return_value=False)
+        return db, cursor
+
+    @pytest.fixture
+    def client(self, mock_db):
+        """Create a test client with overridden database dependency."""
+        db, _ = mock_db
+        app.dependency_overrides[get_db] = lambda: db
+
+        yield TestClient(app)
+
+        # Clean up overrides after test
+        app.dependency_overrides.clear()
+
+    @pytest.fixture
+    def sample_story_id(self):
+        """Generate a valid UUID for a story."""
+        return uuid4()
+
+    @pytest.fixture
+    def valid_evidence_id(self):
+        """Generate a valid evidence ID."""
+        return "coda_page:page_123"
+
+    # -------------------------------------------------------------------------
+    # Happy Path Tests
+    # -------------------------------------------------------------------------
+
+    def test_accept_evidence_success(self, client, mock_db, sample_story_id, valid_evidence_id):
+        """Test accepting valid evidence returns 200 and records in DB."""
+        db, cursor = mock_db
+        # Story exists
+        cursor.fetchone.return_value = {"id": str(sample_story_id)}
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/accept"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["story_id"] == str(sample_story_id)
+        assert data["evidence_id"] == valid_evidence_id
+        assert data["decision"] == "accepted"
+
+        # Verify DB was called to insert the decision
+        cursor.execute.assert_called()
+        # Note: db.commit() is called by FastAPI dependency, not by the endpoint
+
+    def test_reject_evidence_success(self, client, mock_db, sample_story_id, valid_evidence_id):
+        """Test rejecting valid evidence returns 200 and records in DB."""
+        db, cursor = mock_db
+        # Story exists
+        cursor.fetchone.return_value = {"id": str(sample_story_id)}
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/reject"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["story_id"] == str(sample_story_id)
+        assert data["evidence_id"] == valid_evidence_id
+        assert data["decision"] == "rejected"
+
+        # Verify DB was called to insert the decision
+        cursor.execute.assert_called()
+        # Note: db.commit() is called by FastAPI dependency, not by the endpoint
+
+    # -------------------------------------------------------------------------
+    # Validation Tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.parametrize("action", ["accept", "reject"])
+    def test_evidence_invalid_format_missing_colon(self, client, mock_db, sample_story_id, action):
+        """Test evidence with missing colon in evidence_id returns 400 for both accept and reject."""
+        db, cursor = mock_db
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/invalid_evidence_id/{action}"
+        )
+
+        assert response.status_code == 400
+        assert "Invalid evidence_id format" in response.json()["detail"]
+        if action == "accept":
+            assert "Expected 'source_type:source_id'" in response.json()["detail"]
+
+    def test_accept_evidence_invalid_source_type(self, client, mock_db, sample_story_id):
+        """Test accepting evidence with unknown source_type returns 400."""
+        db, cursor = mock_db
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/unknown_type:page_123/accept"
+        )
+
+        assert response.status_code == 400
+        assert "Invalid source_type" in response.json()["detail"]
+        assert "unknown_type" in response.json()["detail"]
+
+    def test_accept_evidence_empty_source_type(self, client, mock_db, sample_story_id):
+        """Test accepting evidence with empty source_type returns 400."""
+        db, cursor = mock_db
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/:page_123/accept"
+        )
+
+        assert response.status_code == 400
+        assert "Invalid evidence_id format" in response.json()["detail"]
+        assert "Both source_type and source_id are required" in response.json()["detail"]
+
+    def test_accept_evidence_empty_source_id(self, client, mock_db, sample_story_id):
+        """Test accepting evidence with empty source_id returns 400."""
+        db, cursor = mock_db
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/coda_page:/accept"
+        )
+
+        assert response.status_code == 400
+        assert "Invalid evidence_id format" in response.json()["detail"]
+        assert "Both source_type and source_id are required" in response.json()["detail"]
+
+    # -------------------------------------------------------------------------
+    # Error Handling Tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.parametrize("action", ["accept", "reject"])
+    def test_evidence_story_not_found(self, client, mock_db, valid_evidence_id, action):
+        """Test accepting/rejecting evidence for non-existent story returns 404."""
+        db, cursor = mock_db
+        # Story does not exist
+        cursor.fetchone.return_value = None
+
+        non_existent_story_id = uuid4()
+
+        response = client.post(
+            f"/api/research/stories/{non_existent_story_id}/suggested-evidence/{valid_evidence_id}/{action}"
+        )
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+        if action == "accept":
+            assert str(non_existent_story_id) in response.json()["detail"]
+
+    @pytest.mark.parametrize("action", ["accept", "reject"])
+    def test_evidence_duplicate_decision(self, client, mock_db, sample_story_id, valid_evidence_id, action):
+        """Test accepting/rejecting same evidence twice returns 409 Conflict."""
+        db, cursor = mock_db
+        # Story exists
+        cursor.fetchone.return_value = {"id": str(sample_story_id)}
+
+        # Simulate unique constraint violation on INSERT
+        cursor.execute.side_effect = [
+            None,  # First call (SELECT for story validation)
+            IntegrityError("duplicate key value violates unique constraint"),  # INSERT fails
+        ]
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/{action}"
+        )
+
+        assert response.status_code == 409
+        assert "already exists" in response.json()["detail"].lower()
+
+    # -------------------------------------------------------------------------
+    # Valid Source Type Tests
+    # -------------------------------------------------------------------------
+
+    def test_accept_evidence_coda_theme_source_type(self, client, mock_db, sample_story_id):
+        """Test accepting evidence with coda_theme source type succeeds."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = {"id": str(sample_story_id)}
+
+        evidence_id = "coda_theme:theme_456"
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{evidence_id}/accept"
+        )
+
+        assert response.status_code == 200
+        assert response.json()["evidence_id"] == evidence_id
+        assert response.json()["decision"] == "accepted"
+
+    def test_accept_evidence_intercom_source_type(self, client, mock_db, sample_story_id):
+        """Test accepting evidence with intercom source type succeeds."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = {"id": str(sample_story_id)}
+
+        evidence_id = "intercom:conv_789"
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{evidence_id}/accept"
+        )
+
+        assert response.status_code == 200
+        assert response.json()["evidence_id"] == evidence_id
+        assert response.json()["decision"] == "accepted"
+
+    # -------------------------------------------------------------------------
+    # Response Structure Tests
+    # -------------------------------------------------------------------------
+
+    # Contract test: Verifies API response structure matches EvidenceDecisionResponse model
+    def test_accept_response_matches_evidence_decision_response_model(self, client, mock_db, sample_story_id, valid_evidence_id):
+        """Test accept response structure matches EvidenceDecisionResponse model."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = {"id": str(sample_story_id)}
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/accept"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify all required fields are present and have correct types
+        assert "success" in data
+        assert isinstance(data["success"], bool)
+
+        assert "story_id" in data
+        assert isinstance(data["story_id"], str)
+
+        assert "evidence_id" in data
+        assert isinstance(data["evidence_id"], str)
+
+        assert "decision" in data
+        assert data["decision"] in ["accepted", "rejected"]
+
+    # Contract test: Verifies API response structure matches EvidenceDecisionResponse model
+    def test_reject_response_matches_evidence_decision_response_model(self, client, mock_db, sample_story_id, valid_evidence_id):
+        """Test reject response structure matches EvidenceDecisionResponse model."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = {"id": str(sample_story_id)}
+
+        response = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/reject"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify all required fields are present and have correct types
+        assert "success" in data
+        assert isinstance(data["success"], bool)
+
+        assert "story_id" in data
+        assert isinstance(data["story_id"], str)
+
+        assert "evidence_id" in data
+        assert isinstance(data["evidence_id"], str)
+
+        assert "decision" in data
+        assert data["decision"] in ["accepted", "rejected"]

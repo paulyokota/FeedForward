@@ -188,3 +188,12 @@ class ReindexResponse(BaseModel):
     items_failed: int = 0
     duration_seconds: Optional[float] = None
     error: Optional[str] = None
+
+
+class EvidenceDecisionResponse(BaseModel):
+    """Response for evidence accept/reject operations."""
+
+    success: bool = Field(..., description="Whether the operation succeeded")
+    story_id: str = Field(..., description="Story ID the decision applies to")
+    evidence_id: str = Field(..., description="Evidence ID that was accepted/rejected")
+    decision: Literal["accepted", "rejected"] = Field(..., description="The decision made")
