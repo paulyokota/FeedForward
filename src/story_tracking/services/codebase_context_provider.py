@@ -11,6 +11,7 @@ import glob
 import logging
 import re
 import shlex
+import subprocess
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -23,6 +24,7 @@ from .codebase_security import (
     filter_exploration_results,
     get_repo_path,
     redact_secrets,
+    validate_git_command_args,
     validate_path,
     validate_repo_name,
 )
@@ -182,16 +184,122 @@ class CodebaseContextProvider:
 
         logger.info(f"Syncing repository: {repo_name} at {repo_path}")
 
-        # TODO: Implement git fetch/pull
-        # Example implementation outline:
-        # 1. Run git fetch with timing using subprocess.run(["git", ...], shell=False, timeout=30)
-        # 2. Run git pull with timing
-        # 3. Use validate_git_command_args() before running commands
-        # 4. Return SyncResult with metrics
+        # Check if repo path exists
+        if not repo_path.exists():
+            logger.warning(f"Repository path does not exist: {repo_path}")
+            return SyncResult(
+                repo_name=repo_name,
+                success=False,
+                error=f"Repository path does not exist: {repo_path}",
+            )
 
-        raise NotImplementedError(
-            "Git sync implementation pending. Will use subprocess.run() with shell=False."
-        )
+        # Git fetch command
+        fetch_args = ["git", "-C", str(repo_path), "fetch", "--all", "--prune"]
+        if not validate_git_command_args(fetch_args):
+            logger.error(f"Invalid git fetch arguments: {fetch_args}")
+            return SyncResult(
+                repo_name=repo_name,
+                success=False,
+                error="Invalid git fetch arguments",
+            )
+
+        # Git pull command (fast-forward only to avoid merge conflicts)
+        pull_args = ["git", "-C", str(repo_path), "pull", "--ff-only"]
+        if not validate_git_command_args(pull_args):
+            logger.error(f"Invalid git pull arguments: {pull_args}")
+            return SyncResult(
+                repo_name=repo_name,
+                success=False,
+                error="Invalid git pull arguments",
+            )
+
+        fetch_duration_ms = 0
+        pull_duration_ms = 0
+
+        try:
+            # Run git fetch with timing
+            fetch_start = time.time()
+            fetch_result = subprocess.run(
+                fetch_args,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                shell=False,
+            )
+            fetch_duration_ms = int((time.time() - fetch_start) * 1000)
+
+            if fetch_result.returncode != 0:
+                logger.error(
+                    f"Git fetch failed for {repo_name}: {fetch_result.stderr}",
+                    extra={"returncode": fetch_result.returncode, "stderr": fetch_result.stderr},
+                )
+                return SyncResult(
+                    repo_name=repo_name,
+                    success=False,
+                    fetch_duration_ms=fetch_duration_ms,
+                    error=f"Git fetch failed: {fetch_result.stderr[:200]}",
+                )
+
+            logger.debug(f"Git fetch completed for {repo_name} in {fetch_duration_ms}ms")
+
+            # Run git pull with timing
+            pull_start = time.time()
+            pull_result = subprocess.run(
+                pull_args,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                shell=False,
+            )
+            pull_duration_ms = int((time.time() - pull_start) * 1000)
+
+            if pull_result.returncode != 0:
+                logger.error(
+                    f"Git pull failed for {repo_name}: {pull_result.stderr}",
+                    extra={"returncode": pull_result.returncode, "stderr": pull_result.stderr},
+                )
+                return SyncResult(
+                    repo_name=repo_name,
+                    success=False,
+                    fetch_duration_ms=fetch_duration_ms,
+                    pull_duration_ms=pull_duration_ms,
+                    error=f"Git pull failed: {pull_result.stderr[:200]}",
+                )
+
+            logger.info(
+                f"Repository {repo_name} synced successfully",
+                extra={
+                    "fetch_duration_ms": fetch_duration_ms,
+                    "pull_duration_ms": pull_duration_ms,
+                },
+            )
+
+            return SyncResult(
+                repo_name=repo_name,
+                success=True,
+                fetch_duration_ms=fetch_duration_ms,
+                pull_duration_ms=pull_duration_ms,
+            )
+
+        except subprocess.TimeoutExpired as e:
+            logger.error(f"Git operation timed out for {repo_name}: {e}")
+            return SyncResult(
+                repo_name=repo_name,
+                success=False,
+                fetch_duration_ms=fetch_duration_ms,
+                pull_duration_ms=pull_duration_ms,
+                error="Git operation timed out after 30 seconds",
+            )
+
+        except Exception as e:
+            logger.error(f"Unexpected error syncing {repo_name}: {e}", exc_info=True)
+            return SyncResult(
+                repo_name=repo_name,
+                success=False,
+                fetch_duration_ms=fetch_duration_ms,
+                pull_duration_ms=pull_duration_ms,
+                error=str(e),
+            )
 
     def explore_for_theme(
         self,
@@ -925,6 +1033,134 @@ class CodebaseContextProvider:
 
         return queries
 
+    # Class-level cache for parsed codebase map
+    _codebase_map_cache: Optional[Dict] = None
+    _codebase_map_path: Optional[Path] = None
+
+    def _load_codebase_map(self) -> Dict:
+        """
+        Load and parse the codebase map from docs/tailwind-codebase-map.md.
+
+        Returns cached data if already loaded. The map is parsed once per
+        process lifetime for performance.
+
+        Returns:
+            Dictionary with component -> context mappings
+        """
+        # Return cached data if available
+        if CodebaseContextProvider._codebase_map_cache is not None:
+            return CodebaseContextProvider._codebase_map_cache
+
+        # Find the codebase map file
+        # Try multiple locations relative to this file
+        possible_paths = [
+            Path(__file__).parent.parent.parent.parent / "docs" / "tailwind-codebase-map.md",
+            REPO_BASE_PATH / "FeedForward" / "docs" / "tailwind-codebase-map.md",
+        ]
+
+        map_path = None
+        for path in possible_paths:
+            if path.exists():
+                map_path = path
+                break
+
+        if not map_path:
+            logger.warning("Codebase map not found at expected locations")
+            CodebaseContextProvider._codebase_map_cache = {}
+            return {}
+
+        CodebaseContextProvider._codebase_map_path = map_path
+
+        try:
+            content = map_path.read_text(encoding="utf-8")
+            parsed = self._parse_codebase_map(content)
+            CodebaseContextProvider._codebase_map_cache = parsed
+            logger.info(
+                f"Loaded codebase map with {len(parsed)} components",
+                extra={"path": str(map_path), "components": list(parsed.keys())},
+            )
+            return parsed
+
+        except Exception as e:
+            logger.error(f"Failed to load codebase map: {e}", exc_info=True)
+            CodebaseContextProvider._codebase_map_cache = {}
+            return {}
+
+    def _parse_codebase_map(self, content: str) -> Dict:
+        """
+        Parse the codebase map markdown into structured data.
+
+        Extracts:
+        - Feature sections with their associated repos
+        - API endpoint patterns from code blocks
+        - URL path to repo mappings from tables
+
+        Args:
+            content: Raw markdown content
+
+        Returns:
+            Dictionary mapping component names to their context
+        """
+        parsed: Dict[str, Dict] = {}
+
+        # Component keywords to look for and their aliases
+        component_keywords = {
+            "pinterest": ["pinterest", "pin", "board", "tack", "scheduling"],
+            "facebook": ["facebook", "zuck", "meta", "fb"],
+            "auth": ["auth", "authentication", "gandalf", "jwt", "token", "login"],
+            "billing": ["billing", "swanson", "payment", "plan", "subscription"],
+            "ecommerce": ["ecommerce", "e-commerce", "charlotte", "shopify", "product"],
+            "smartbio": ["smartbio", "smart.bio", "link-in-bio", "bio"],
+            "create": ["create", "dolly", "template", "design"],
+            "ai": ["ai", "ghostwriter", "openai", "generate"],
+            "media": ["media", "pablo", "image", "video", "upload"],
+            "scraping": ["scraping", "scooby", "url", "scrape"],
+            "dashboard": ["dashboard", "aero", "home"],
+            "turbo": ["turbo", "smartschedule", "smart schedule"],
+        }
+
+        # Extract API patterns from code blocks
+        api_pattern = re.compile(r"```\n?((?:GET|POST|PUT|DELETE|PATCH)[^\n`]+(?:\n(?:GET|POST|PUT|DELETE|PATCH)[^\n`]+)*)\n?```", re.MULTILINE)
+        api_matches = api_pattern.findall(content)
+
+        all_api_patterns: List[str] = []
+        for match in api_matches:
+            lines = match.strip().split("\n")
+            all_api_patterns.extend([line.strip() for line in lines if line.strip()])
+
+        # Extract table rows (URL path -> repo mappings)
+        table_pattern = re.compile(r"\|[^|]+\|[^|]+\|[^|]+\|", re.MULTILINE)
+        table_rows = table_pattern.findall(content)
+
+        # Build component mappings
+        for component, keywords in component_keywords.items():
+            tables: List[str] = []
+            api_endpoints: List[str] = []
+
+            # Find matching API patterns
+            for api in all_api_patterns:
+                api_lower = api.lower()
+                if any(kw in api_lower for kw in keywords):
+                    api_endpoints.append(api)
+
+            # Find matching table rows (which contain repo references)
+            for row in table_rows:
+                row_lower = row.lower()
+                if any(kw in row_lower for kw in keywords):
+                    # Extract table name references if any
+                    table_match = re.search(r"\b(\w+_\w+|\w+s)\b", row)
+                    if table_match:
+                        potential_table = table_match.group(1)
+                        if potential_table not in ["Status", "Primary", "Backend"]:
+                            tables.append(row.strip("| "))
+
+            parsed[component] = {
+                "tables": tables[:10],  # Limit to 10 most relevant
+                "api_patterns": api_endpoints[:20],  # Limit to 20 patterns
+            }
+
+        return parsed
+
     def get_static_context(self, component: str) -> StaticContext:
         """
         Get static codebase map context as fallback.
@@ -939,29 +1175,49 @@ class CodebaseContextProvider:
         - Quick lookups for well-known components
 
         Args:
-            component: Component name (e.g., "auth", "billing", "messaging")
+            component: Component name (e.g., "auth", "billing", "pinterest")
 
         Returns:
             StaticContext containing:
             - tables: Database tables associated with component
             - api_patterns: Common API endpoints/patterns
             - source: Always "codebase_map"
-
-        TODO: Implement static map lookup with:
-        - Load from docs/tailwind-codebase-map.md
-        - Cache parsed data for performance
-        - Handle missing components gracefully
+            Returns empty lists if component not found (does not raise).
         """
         logger.info(f"Getting static context for component: {component}")
 
-        # TODO: Implement static map lookup
-        # Example implementation outline:
-        # 1. Load codebase map from docs/
-        # 2. Parse component section
-        # 3. Extract tables and API patterns
-        # 4. Return StaticContext
+        # Load and cache the codebase map
+        codebase_map = self._load_codebase_map()
 
-        raise NotImplementedError(
-            "Static context lookup implementation pending. "
-            "Will load from docs/tailwind-codebase-map.md."
+        # Normalize component name for lookup
+        component_lower = component.lower().replace(" ", "").replace("-", "").replace("_", "")
+
+        # Try exact match first
+        if component_lower in codebase_map:
+            data = codebase_map[component_lower]
+            return StaticContext(
+                component=component,
+                tables=data.get("tables", []),
+                api_patterns=data.get("api_patterns", []),
+                source="codebase_map",
+            )
+
+        # Try partial match
+        for key, data in codebase_map.items():
+            if component_lower in key or key in component_lower:
+                logger.debug(f"Partial match: {component} -> {key}")
+                return StaticContext(
+                    component=component,
+                    tables=data.get("tables", []),
+                    api_patterns=data.get("api_patterns", []),
+                    source="codebase_map",
+                )
+
+        # No match found - return empty context (don't raise)
+        logger.debug(f"No static context found for component: {component}")
+        return StaticContext(
+            component=component,
+            tables=[],
+            api_patterns=[],
+            source="codebase_map",
         )

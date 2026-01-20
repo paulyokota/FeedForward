@@ -13,6 +13,8 @@ from src.story_tracking.services.codebase_context_provider import (
     ExplorationResult,
     FileReference,
     CodeSnippet,
+    SyncResult,
+    StaticContext,
     MAX_FILE_SIZE_BYTES,
     UNSAFE_GLOB_CHARS,
 )
@@ -431,3 +433,247 @@ class TestExploreForTheme:
         assert result.success is True
         assert len(result.relevant_files) == 0
         assert len(result.code_snippets) == 0
+
+
+class TestEnsureRepoFresh:
+    """Tests for ensure_repo_fresh() repository sync functionality."""
+
+    @patch("src.story_tracking.services.codebase_context_provider.subprocess.run")
+    @patch("src.story_tracking.services.codebase_context_provider.validate_git_command_args")
+    @patch("src.story_tracking.services.codebase_context_provider.get_repo_path")
+    def test_ensure_repo_fresh_success(self, mock_get_path, mock_validate, mock_subprocess):
+        """Should successfully sync repository with git fetch and pull."""
+        # Setup mocks - use real Path to avoid str conversion issues
+        mock_get_path.return_value = Path("/tmp/test-repos/aero")
+        mock_validate.return_value = True  # Args are valid
+
+        # Mock successful subprocess calls
+        mock_fetch_result = MagicMock()
+        mock_fetch_result.returncode = 0
+        mock_fetch_result.stderr = ""
+
+        mock_pull_result = MagicMock()
+        mock_pull_result.returncode = 0
+        mock_pull_result.stderr = ""
+
+        mock_subprocess.side_effect = [mock_fetch_result, mock_pull_result]
+
+        # Execute - need to mock exists() on Path
+        with patch.object(Path, "exists", return_value=True):
+            provider = CodebaseContextProvider()
+            result = provider.ensure_repo_fresh("aero")
+
+        # Verify
+        assert result.success is True
+        assert result.repo_name == "aero"
+        assert result.error is None
+        assert result.fetch_duration_ms >= 0
+        assert result.pull_duration_ms >= 0
+        assert mock_subprocess.call_count == 2  # fetch + pull
+
+    @patch("src.story_tracking.services.codebase_context_provider.get_repo_path")
+    def test_ensure_repo_fresh_unauthorized(self, mock_get_path):
+        """Should raise ValueError for unauthorized repository."""
+        mock_get_path.side_effect = ValueError("Unauthorized repo: malicious")
+
+        provider = CodebaseContextProvider()
+
+        with pytest.raises(ValueError, match="Unauthorized repo"):
+            provider.ensure_repo_fresh("malicious")
+
+    @patch("src.story_tracking.services.codebase_context_provider.get_repo_path")
+    def test_ensure_repo_fresh_nonexistent_path(self, mock_get_path):
+        """Should return failure when repository path doesn't exist."""
+        mock_repo_path = Path("/nonexistent/path")
+        mock_get_path.return_value = mock_repo_path
+
+        # Don't mock exists() - let it return False naturally for nonexistent path
+        provider = CodebaseContextProvider()
+        result = provider.ensure_repo_fresh("aero")
+
+        assert result.success is False
+        assert "does not exist" in result.error
+
+    @patch("src.story_tracking.services.codebase_context_provider.subprocess.run")
+    @patch("src.story_tracking.services.codebase_context_provider.validate_git_command_args")
+    @patch("src.story_tracking.services.codebase_context_provider.get_repo_path")
+    def test_ensure_repo_fresh_fetch_fails(self, mock_get_path, mock_validate, mock_subprocess):
+        """Should handle git fetch failure gracefully."""
+        # Setup mocks
+        mock_get_path.return_value = Path("/tmp/test-repos/aero")
+        mock_validate.return_value = True
+
+        # Mock failed fetch
+        mock_fetch_result = MagicMock()
+        mock_fetch_result.returncode = 1
+        mock_fetch_result.stderr = "fatal: could not read from remote repository"
+
+        mock_subprocess.return_value = mock_fetch_result
+
+        # Execute
+        with patch.object(Path, "exists", return_value=True):
+            provider = CodebaseContextProvider()
+            result = provider.ensure_repo_fresh("aero")
+
+        # Verify
+        assert result.success is False
+        assert "Git fetch failed" in result.error
+        assert result.fetch_duration_ms >= 0
+
+    @patch("src.story_tracking.services.codebase_context_provider.subprocess.run")
+    @patch("src.story_tracking.services.codebase_context_provider.validate_git_command_args")
+    @patch("src.story_tracking.services.codebase_context_provider.get_repo_path")
+    def test_ensure_repo_fresh_pull_fails(self, mock_get_path, mock_validate, mock_subprocess):
+        """Should handle git pull failure gracefully."""
+        # Setup mocks
+        mock_get_path.return_value = Path("/tmp/test-repos/aero")
+        mock_validate.return_value = True
+
+        # Mock successful fetch, failed pull
+        mock_fetch_result = MagicMock()
+        mock_fetch_result.returncode = 0
+        mock_fetch_result.stderr = ""
+
+        mock_pull_result = MagicMock()
+        mock_pull_result.returncode = 1
+        mock_pull_result.stderr = "fatal: Not possible to fast-forward"
+
+        mock_subprocess.side_effect = [mock_fetch_result, mock_pull_result]
+
+        # Execute
+        with patch.object(Path, "exists", return_value=True):
+            provider = CodebaseContextProvider()
+            result = provider.ensure_repo_fresh("aero")
+
+        # Verify
+        assert result.success is False
+        assert "Git pull failed" in result.error
+
+    @patch("src.story_tracking.services.codebase_context_provider.subprocess.run")
+    @patch("src.story_tracking.services.codebase_context_provider.validate_git_command_args")
+    @patch("src.story_tracking.services.codebase_context_provider.get_repo_path")
+    def test_ensure_repo_fresh_timeout(self, mock_get_path, mock_validate, mock_subprocess):
+        """Should handle subprocess timeout gracefully."""
+        import subprocess
+
+        mock_get_path.return_value = Path("/tmp/test-repos/aero")
+        mock_validate.return_value = True
+
+        mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd="git fetch", timeout=30)
+
+        with patch.object(Path, "exists", return_value=True):
+            provider = CodebaseContextProvider()
+            result = provider.ensure_repo_fresh("aero")
+
+        assert result.success is False
+        assert "timed out" in result.error
+
+
+class TestGetStaticContext:
+    """Tests for get_static_context() static map fallback functionality."""
+
+    def test_get_static_context_known_component(self):
+        """Should return context for known components."""
+        provider = CodebaseContextProvider()
+        # Clear cache to ensure fresh load
+        CodebaseContextProvider._codebase_map_cache = None
+
+        result = provider.get_static_context("pinterest")
+
+        assert result.component == "pinterest"
+        assert result.source == "codebase_map"
+        # Should have some context (may be empty if map not found)
+        assert isinstance(result.tables, list)
+        assert isinstance(result.api_patterns, list)
+
+    def test_get_static_context_unknown_component(self):
+        """Should return empty context for unknown components (not raise)."""
+        provider = CodebaseContextProvider()
+
+        result = provider.get_static_context("nonexistent_component_xyz")
+
+        assert result.component == "nonexistent_component_xyz"
+        assert result.source == "codebase_map"
+        assert isinstance(result.tables, list)
+        assert isinstance(result.api_patterns, list)
+        # Should NOT raise an exception
+
+    def test_get_static_context_caching(self):
+        """Should cache the parsed codebase map."""
+        # Clear cache
+        CodebaseContextProvider._codebase_map_cache = None
+
+        provider = CodebaseContextProvider()
+
+        # First call loads the map
+        result1 = provider.get_static_context("auth")
+
+        # Second call should use cached data
+        result2 = provider.get_static_context("billing")
+
+        # Both should work and cache should be populated
+        assert CodebaseContextProvider._codebase_map_cache is not None
+        assert result1.source == "codebase_map"
+        assert result2.source == "codebase_map"
+
+    def test_get_static_context_normalized_lookup(self):
+        """Should handle various component name formats."""
+        provider = CodebaseContextProvider()
+
+        # These should all potentially match similar context
+        result1 = provider.get_static_context("e-commerce")
+        result2 = provider.get_static_context("ecommerce")
+        result3 = provider.get_static_context("E_Commerce")
+
+        # All should return valid StaticContext (not raise)
+        assert result1.source == "codebase_map"
+        assert result2.source == "codebase_map"
+        assert result3.source == "codebase_map"
+
+
+class TestParseCodebaseMap:
+    """Tests for _parse_codebase_map() parsing logic."""
+
+    def test_parse_extracts_api_patterns(self):
+        """Should extract API patterns from code blocks."""
+        provider = CodebaseContextProvider()
+
+        test_content = """
+## Pinterest Scheduling
+
+```
+GET tack.tailwindapp.com/users/{userId}/boards
+POST tack.tailwindapp.com/users/{userId}/posts
+```
+
+## Authentication
+
+```
+GET /api/gandalf/issue-token
+```
+"""
+        result = provider._parse_codebase_map(test_content)
+
+        # Should have parsed components
+        assert "pinterest" in result
+        assert "auth" in result
+
+        # Pinterest should have tack patterns
+        pinterest_apis = result["pinterest"]["api_patterns"]
+        assert any("tack" in api for api in pinterest_apis)
+
+        # Auth should have gandalf patterns
+        auth_apis = result["auth"]["api_patterns"]
+        assert any("gandalf" in api for api in auth_apis)
+
+    def test_parse_handles_empty_content(self):
+        """Should handle empty content gracefully."""
+        provider = CodebaseContextProvider()
+
+        result = provider._parse_codebase_map("")
+
+        # Should return dict with component keys but empty lists
+        assert isinstance(result, dict)
+        for component_data in result.values():
+            assert isinstance(component_data["tables"], list)
+            assert isinstance(component_data["api_patterns"], list)
