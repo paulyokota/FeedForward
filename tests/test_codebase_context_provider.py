@@ -575,8 +575,8 @@ class TestGetStaticContext:
     def test_get_static_context_known_component(self):
         """Should return context for known components."""
         provider = CodebaseContextProvider()
-        # Clear cache to ensure fresh load
-        CodebaseContextProvider._codebase_map_cache = None
+        # Clear cache to ensure fresh load (cache is now a dict keyed by path)
+        CodebaseContextProvider._codebase_map_cache = {}
 
         result = provider.get_static_context("pinterest")
 
@@ -600,8 +600,8 @@ class TestGetStaticContext:
 
     def test_get_static_context_caching(self):
         """Should cache the parsed codebase map."""
-        # Clear cache
-        CodebaseContextProvider._codebase_map_cache = None
+        # Clear cache (cache is now a dict keyed by path)
+        CodebaseContextProvider._codebase_map_cache = {}
 
         provider = CodebaseContextProvider()
 
@@ -611,8 +611,8 @@ class TestGetStaticContext:
         # Second call should use cached data
         result2 = provider.get_static_context("billing")
 
-        # Both should work and cache should be populated
-        assert CodebaseContextProvider._codebase_map_cache is not None
+        # Both should work and cache should be populated (dict with at least one entry)
+        assert len(CodebaseContextProvider._codebase_map_cache) > 0
         assert result1.source == "codebase_map"
         assert result2.source == "codebase_map"
 

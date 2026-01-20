@@ -35,9 +35,13 @@ logger = logging.getLogger(__name__)
 
 # Configuration constants
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB - skip files larger than this
+GIT_TIMEOUT_SECONDS = 30  # Timeout for git fetch/pull operations
 
 # Characters not allowed in glob patterns (prevent injection)
 UNSAFE_GLOB_CHARS = frozenset(['[', ']', '!', '?', '{', '}', '`', '$', '|', ';', '&', '\n', '\r'])
+
+# Minimum component name length for partial matching (prevents single-char matches)
+MIN_COMPONENT_LENGTH_FOR_PARTIAL_MATCH = 3
 
 
 # Data classes for type safety
@@ -171,13 +175,6 @@ class CodebaseContextProvider:
 
         Raises:
             ValueError: If repo_name is not in APPROVED_REPOS
-
-        TODO: Implement git fetch/pull logic with:
-        - subprocess.run() with shell=False
-        - Timeout handling (30s default)
-        - Timing metrics (fetch_duration_ms, pull_duration_ms)
-        - Error capture and logging
-        - Use validate_git_command_args() from codebase_security
         """
         # Validates repo_name and raises ValueError if unauthorized
         repo_path = get_repo_path(repo_name)
@@ -223,7 +220,7 @@ class CodebaseContextProvider:
                 fetch_args,
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=GIT_TIMEOUT_SECONDS,
                 shell=False,
             )
             fetch_duration_ms = int((time.time() - fetch_start) * 1000)
@@ -248,7 +245,7 @@ class CodebaseContextProvider:
                 pull_args,
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=GIT_TIMEOUT_SECONDS,
                 shell=False,
             )
             pull_duration_ms = int((time.time() - pull_start) * 1000)
@@ -288,7 +285,7 @@ class CodebaseContextProvider:
                 success=False,
                 fetch_duration_ms=fetch_duration_ms,
                 pull_duration_ms=pull_duration_ms,
-                error="Git operation timed out after 30 seconds",
+                error=f"Git operation timed out after {GIT_TIMEOUT_SECONDS} seconds",
             )
 
         except Exception as e:
@@ -1033,48 +1030,44 @@ class CodebaseContextProvider:
 
         return queries
 
-    # Class-level cache for parsed codebase map
-    _codebase_map_cache: Optional[Dict] = None
-    _codebase_map_path: Optional[Path] = None
+    # Class-level cache for parsed codebase map, keyed by resolved path
+    # This is process-local and safe for concurrent read access (idempotent)
+    _codebase_map_cache: Dict[str, Dict] = {}
 
     def _load_codebase_map(self) -> Dict:
         """
         Load and parse the codebase map from docs/tailwind-codebase-map.md.
 
-        Returns cached data if already loaded. The map is parsed once per
-        process lifetime for performance.
+        Returns cached data if already loaded for this path. The map is parsed
+        once per unique path per process lifetime for performance.
+
+        Note: Thread-safe due to idempotent read operations.
 
         Returns:
             Dictionary with component -> context mappings
         """
-        # Return cached data if available
-        if CodebaseContextProvider._codebase_map_cache is not None:
-            return CodebaseContextProvider._codebase_map_cache
+        # Find the codebase map file - use path relative to this module
+        map_path = Path(__file__).parent.parent.parent.parent / "docs" / "tailwind-codebase-map.md"
 
-        # Find the codebase map file
-        # Try multiple locations relative to this file
-        possible_paths = [
-            Path(__file__).parent.parent.parent.parent / "docs" / "tailwind-codebase-map.md",
-            REPO_BASE_PATH / "FeedForward" / "docs" / "tailwind-codebase-map.md",
-        ]
+        # Resolve to absolute path for consistent cache key
+        try:
+            cache_key = str(map_path.resolve())
+        except OSError:
+            cache_key = str(map_path)
 
-        map_path = None
-        for path in possible_paths:
-            if path.exists():
-                map_path = path
-                break
+        # Return cached data if available for this path
+        if cache_key in CodebaseContextProvider._codebase_map_cache:
+            return CodebaseContextProvider._codebase_map_cache[cache_key]
 
-        if not map_path:
-            logger.warning("Codebase map not found at expected locations")
-            CodebaseContextProvider._codebase_map_cache = {}
+        if not map_path.exists():
+            logger.warning(f"Codebase map not found at {map_path}")
+            CodebaseContextProvider._codebase_map_cache[cache_key] = {}
             return {}
-
-        CodebaseContextProvider._codebase_map_path = map_path
 
         try:
             content = map_path.read_text(encoding="utf-8")
             parsed = self._parse_codebase_map(content)
-            CodebaseContextProvider._codebase_map_cache = parsed
+            CodebaseContextProvider._codebase_map_cache[cache_key] = parsed
             logger.info(
                 f"Loaded codebase map with {len(parsed)} components",
                 extra={"path": str(map_path), "components": list(parsed.keys())},
@@ -1083,7 +1076,7 @@ class CodebaseContextProvider:
 
         except Exception as e:
             logger.error(f"Failed to load codebase map: {e}", exc_info=True)
-            CodebaseContextProvider._codebase_map_cache = {}
+            CodebaseContextProvider._codebase_map_cache[cache_key] = {}
             return {}
 
     def _parse_codebase_map(self, content: str) -> Dict:
@@ -1104,6 +1097,18 @@ class CodebaseContextProvider:
         parsed: Dict[str, Dict] = {}
 
         # Component keywords to look for and their aliases
+        # Internal codenames follow Tailwind's naming convention:
+        # - tack: Pinterest scheduling service (pins to boards)
+        # - zuck: Facebook integration (named after Facebook founder)
+        # - gandalf: Auth service (gatekeeper, "you shall not pass")
+        # - swanson: Billing service (Ron Swanson - manages money)
+        # - charlotte: E-commerce (Charlotte the spider - weaves product webs)
+        # - dolly: Create/template service (Dolly Parton - creates hits)
+        # - ghostwriter: AI service (writes content)
+        # - pablo: Media service (Pablo Picasso - handles images)
+        # - scooby: Scraping service (Scooby-Doo - sniffs out URLs)
+        # - aero: Dashboard service (aerial view of everything)
+        # Reference: docs/tailwind-codebase-map.md
         component_keywords = {
             "pinterest": ["pinterest", "pin", "board", "tack", "scheduling"],
             "facebook": ["facebook", "zuck", "meta", "fb"],
@@ -1202,16 +1207,18 @@ class CodebaseContextProvider:
                 source="codebase_map",
             )
 
-        # Try partial match
-        for key, data in codebase_map.items():
-            if component_lower in key or key in component_lower:
-                logger.debug(f"Partial match: {component} -> {key}")
-                return StaticContext(
-                    component=component,
-                    tables=data.get("tables", []),
-                    api_patterns=data.get("api_patterns", []),
-                    source="codebase_map",
-                )
+        # Try partial match (only for component names >= MIN_COMPONENT_LENGTH_FOR_PARTIAL_MATCH chars)
+        # This prevents single-char matches like "a" matching "pinterest"
+        if len(component_lower) >= MIN_COMPONENT_LENGTH_FOR_PARTIAL_MATCH:
+            for key, data in codebase_map.items():
+                if component_lower in key or key in component_lower:
+                    logger.debug(f"Partial match: {component} -> {key}")
+                    return StaticContext(
+                        component=component,
+                        tables=data.get("tables", []),
+                        api_patterns=data.get("api_patterns", []),
+                        source="codebase_map",
+                    )
 
         # No match found - return empty context (don't raise)
         logger.debug(f"No static context found for component: {component}")
