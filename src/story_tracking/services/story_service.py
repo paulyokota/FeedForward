@@ -222,10 +222,19 @@ class StoryService:
         self,
         status: Optional[str] = None,
         product_area: Optional[str] = None,
+        created_since: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> StoryListResponse:
-        """List stories with optional filtering."""
+        """List stories with optional filtering.
+
+        Args:
+            status: Filter by story status
+            product_area: Filter by product area
+            created_since: Filter to stories created at or after this ISO timestamp
+            limit: Max stories to return
+            offset: Pagination offset
+        """
         conditions = []
         values = []
 
@@ -235,6 +244,9 @@ class StoryService:
         if product_area:
             conditions.append("product_area = %s")
             values.append(product_area)
+        if created_since:
+            conditions.append("created_at >= %s")
+            values.append(created_since)
 
         where_clause = ""
         if conditions:
