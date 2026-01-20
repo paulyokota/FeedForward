@@ -7,8 +7,12 @@ This is the system of record for stories.
 
 import json
 import logging
+import sys
 from typing import List, Optional
 from uuid import UUID
+
+# Size limit for code_context JSONB to prevent storage bloat
+MAX_CODE_CONTEXT_SIZE = 1_000_000  # 1MB
 
 from ..models import (
     CodeContext,
@@ -43,10 +47,19 @@ class StoryService:
 
     def create(self, story: StoryCreate) -> Story:
         """Create a new story."""
-        # Serialize code_context to JSON if present
+        # Serialize code_context to JSON if present, with size validation
         code_context_json = None
         if story.code_context is not None:
             code_context_json = json.dumps(story.code_context)
+            if sys.getsizeof(code_context_json) > MAX_CODE_CONTEXT_SIZE:
+                logger.warning(
+                    f"code_context exceeds size limit "
+                    f"({sys.getsizeof(code_context_json)} bytes), truncating snippets"
+                )
+                # Truncate code_snippets to reduce size
+                truncated_context = story.code_context.copy()
+                truncated_context["code_snippets"] = []
+                code_context_json = json.dumps(truncated_context)
 
         with self.db.cursor() as cur:
             cur.execute("""
@@ -455,7 +468,14 @@ class StoryService:
             )
 
         except Exception as e:
-            logger.warning(f"Failed to parse code_context: {e}")
+            logger.warning(
+                f"Failed to parse code_context: {type(e).__name__}: {e}",
+                extra={
+                    "raw_data_type": type(raw_data).__name__,
+                    "raw_data_preview": str(raw_data)[:200] if raw_data else None,
+                },
+                exc_info=True,
+            )
             return None
 
     def _row_to_evidence(self, row: dict) -> StoryEvidence:

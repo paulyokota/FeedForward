@@ -49,6 +49,10 @@ MAX_TITLE_LENGTH = 200
 MAX_EXCERPT_LENGTH = 500
 MIN_USER_INTENT_LENGTH = 10  # Minimum meaningful length for user_intent
 
+# Constants for code context limits
+MAX_CODE_SNIPPET_LENGTH = 5000  # 5KB per snippet to prevent bloat
+MAX_CODE_CONTEXT_SIZE = 1_000_000  # 1MB total code_context limit
+
 
 def _truncate_at_word_boundary(text: str, max_length: int) -> str:
     """
@@ -712,8 +716,13 @@ class StoryCreationService:
             theme_data: Aggregated theme data from conversations
 
         Returns:
-            Dict suitable for storage in stories.code_context JSONB column,
-            or None if exploration fails or is not available.
+            One of three possible states:
+            - None: Provider not configured or no issue text available
+            - Dict with success=False and error message: Exploration attempted but failed
+            - Dict with success=True and code context: Successful exploration
+
+            Callers should check: `code_context and code_context.get("success")`
+            to determine if exploration produced usable results.
         """
         if not self.codebase_provider:
             logger.debug("Codebase provider not available, skipping exploration")
@@ -756,11 +765,17 @@ class StoryCreationService:
             return code_context
 
         except Exception as e:
+            import traceback
+            error_details = f"{type(e).__name__}: {str(e)}"
             logger.warning(
-                f"Classification-guided exploration failed: {e}",
+                f"Classification-guided exploration failed: {error_details}",
                 exc_info=True,
+                extra={
+                    "theme_signature": theme_data.get("signature"),
+                    "target_repo": self.target_repo,
+                },
             )
-            # Return error context so we can track failures
+            # Return error context with diagnostic details for debugging
             return {
                 "classification": None,
                 "relevant_files": [],
@@ -769,7 +784,7 @@ class StoryCreationService:
                 "classification_duration_ms": 0,
                 "explored_at": datetime.now(timezone.utc).isoformat(),
                 "success": False,
-                "error": str(e),
+                "error": error_details,
             }
 
     def _build_issue_text_for_classification(
@@ -860,14 +875,21 @@ class StoryCreationService:
                 "relevance": file_ref.relevance,
             })
 
-        # Build code_snippets list
+        # Build code_snippets list with length limits
         code_snippets = []
         for snippet in exploration_result.code_snippets:
+            content = snippet.content
+            if len(content) > MAX_CODE_SNIPPET_LENGTH:
+                logger.debug(
+                    f"Truncating code snippet from {snippet.file_path} "
+                    f"({len(content)} -> {MAX_CODE_SNIPPET_LENGTH} chars)"
+                )
+                content = content[:MAX_CODE_SNIPPET_LENGTH] + "\n... (truncated)"
             code_snippets.append({
                 "file_path": snippet.file_path,
                 "line_start": snippet.line_start,
                 "line_end": snippet.line_end,
-                "content": snippet.content,
+                "content": content,
                 "language": snippet.language,
                 "context": snippet.context,
             })
