@@ -69,20 +69,29 @@ export default function PipelinePage() {
   });
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  // Track whether user has manually selected a run (prevents auto-selection override)
+  const hasUserSelectedRunRef = useRef<boolean>(false);
+
+  // Limit for new stories display - extract as constant for maintainability
+  const NEW_STORIES_DISPLAY_LIMIT = 50;
 
   // Fetch stories created since a specific timestamp
-  const fetchNewStories = useCallback(async (sinceTimestamp: string) => {
-    try {
-      const response = await api.stories.list({
-        created_since: sinceTimestamp,
-        limit: 50,
-      });
-      setNewStories(response.stories);
-    } catch (err) {
-      console.error("Failed to fetch new stories:", err);
-      setNewStories([]);
-    }
-  }, []);
+  // Note: This filters by run start time, not run completion time
+  const fetchStoriesCreatedSince = useCallback(
+    async (sinceTimestamp: string) => {
+      try {
+        const response = await api.stories.list({
+          created_since: sinceTimestamp,
+          limit: NEW_STORIES_DISPLAY_LIMIT,
+        });
+        setNewStories(response.stories);
+      } catch (err) {
+        console.error("Failed to fetch new stories:", err);
+        setNewStories([]);
+      }
+    },
+    [],
+  );
 
   // Check for active run and fetch history
   const fetchData = useCallback(async () => {
@@ -101,14 +110,23 @@ export default function PipelinePage() {
 
       setHistory(historyResponse);
 
-      // Auto-select the most recent completed run to show its new stories
-      const completedRuns = historyResponse.filter(
-        (run) => run.status === "completed",
-      );
-      if (completedRuns.length > 0 && !selectedRunId) {
-        const latestRun = completedRuns[0];
-        setSelectedRunId(latestRun.id);
-        await fetchNewStories(latestRun.started_at);
+      // Auto-select the most recent completed run to show its new stories.
+      // Only auto-select if:
+      // 1. User hasn't manually clicked a run yet (hasUserSelectedRunRef)
+      // 2. There are completed runs with valid timestamps
+      // This prevents the UI from overriding user selection during polling refreshes.
+      if (!hasUserSelectedRunRef.current) {
+        const completedRuns = historyResponse.filter(
+          (run) => run.status === "completed" && run.started_at,
+        );
+        if (completedRuns.length > 0) {
+          const latestRun = completedRuns[0];
+          setSelectedRunId(latestRun.id);
+          // Guard against null started_at (R1 fix)
+          if (latestRun.started_at) {
+            await fetchStoriesCreatedSince(latestRun.started_at);
+          }
+        }
       }
 
       setError(null);
@@ -119,7 +137,7 @@ export default function PipelinePage() {
     } finally {
       setLoading(false);
     }
-  }, [fetchNewStories, selectedRunId]);
+  }, [fetchStoriesCreatedSince]); // Removed selectedRunId from deps (R2/D1 fix)
 
   // Poll for status updates when run is active
   const pollStatus = useCallback(async () => {
@@ -207,11 +225,13 @@ export default function PipelinePage() {
   // Handle clicking on a run in history to view its new stories
   const handleRunClick = useCallback(
     async (run: PipelineRunListItem) => {
-      if (run.status !== "completed") return;
+      if (run.status !== "completed" || !run.started_at) return;
+      // Mark that user has manually selected a run (prevents auto-selection override)
+      hasUserSelectedRunRef.current = true;
       setSelectedRunId(run.id);
-      await fetchNewStories(run.started_at);
+      await fetchStoriesCreatedSince(run.started_at);
     },
-    [fetchNewStories],
+    [fetchStoriesCreatedSince],
   );
 
   if (loading) {

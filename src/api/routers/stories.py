@@ -4,12 +4,38 @@ Story Tracking API Endpoints
 CRUD operations and views for the Story Tracking Web App.
 """
 
+from datetime import datetime
 from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.deps import get_db
+
+
+def validate_iso_timestamp(timestamp: str) -> datetime:
+    """
+    Validate and parse an ISO 8601 timestamp string.
+
+    Args:
+        timestamp: String in ISO 8601 format (e.g., "2024-01-15T10:30:00Z")
+
+    Returns:
+        Parsed datetime object
+
+    Raises:
+        HTTPException: If timestamp is malformed
+    """
+    try:
+        # Try parsing with timezone
+        if timestamp.endswith("Z"):
+            return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        return datetime.fromisoformat(timestamp)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid timestamp format. Expected ISO 8601 (e.g., 2024-01-15T10:30:00Z). Error: {str(e)}",
+        )
 from src.story_tracking.models import (
     Story,
     StoryCreate,
@@ -54,10 +80,16 @@ def list_stories(
 
     Returns paginated list of stories ordered by update time.
     """
+    # Validate and normalize timestamp format (S1 security fix)
+    validated_timestamp = None
+    if created_since:
+        validated_dt = validate_iso_timestamp(created_since)
+        validated_timestamp = validated_dt.isoformat()
+
     return service.list(
         status=status,
         product_area=product_area,
-        created_since=created_since,
+        created_since=validated_timestamp,
         limit=limit,
         offset=offset,
     )

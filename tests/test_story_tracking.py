@@ -683,3 +683,60 @@ class TestCreatedSinceFilter:
         call_args = cursor.execute.call_args_list
         select_call = call_args[1][0][0]
         assert "created_at >=" not in select_call
+
+
+# -----------------------------------------------------------------------------
+# Timestamp Validation Tests (Issue #54 - S1 Security Fix)
+# -----------------------------------------------------------------------------
+
+class TestTimestampValidation:
+    """Tests for ISO 8601 timestamp validation in stories API."""
+
+    def test_validate_iso_timestamp_valid_utc(self):
+        """Test validation of valid UTC timestamp with Z suffix."""
+        from src.api.routers.stories import validate_iso_timestamp
+
+        result = validate_iso_timestamp("2025-01-15T10:30:00Z")
+        assert result.year == 2025
+        assert result.month == 1
+        assert result.day == 15
+        assert result.hour == 10
+        assert result.minute == 30
+
+    def test_validate_iso_timestamp_valid_with_offset(self):
+        """Test validation of valid timestamp with timezone offset."""
+        from src.api.routers.stories import validate_iso_timestamp
+
+        result = validate_iso_timestamp("2025-01-15T10:30:00+05:00")
+        assert result.year == 2025
+
+    def test_validate_iso_timestamp_invalid_format(self):
+        """Test that invalid timestamp format raises HTTPException."""
+        from src.api.routers.stories import validate_iso_timestamp
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            validate_iso_timestamp("not-a-timestamp")
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid timestamp format" in exc_info.value.detail
+
+    def test_validate_iso_timestamp_sql_injection_attempt(self):
+        """Test that SQL injection attempt is rejected."""
+        from src.api.routers.stories import validate_iso_timestamp
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            validate_iso_timestamp("2025-01-15' OR '1'='1")
+
+        assert exc_info.value.status_code == 400
+
+    def test_validate_iso_timestamp_empty_string(self):
+        """Test that empty string is rejected."""
+        from src.api.routers.stories import validate_iso_timestamp
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            validate_iso_timestamp("")
+
+        assert exc_info.value.status_code == 400
