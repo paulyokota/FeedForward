@@ -105,7 +105,7 @@ class CodaSearchAdapter(SearchSourceAdapter):
     def _extract_page(self, cur: sqlite3.Cursor, page_id: str) -> Optional[SearchableContent]:
         """Extract a single page."""
         cur.execute("""
-            SELECT canvas_id, name, content, parent_id
+            SELECT canvas_id, title, content
             FROM pages
             WHERE canvas_id = ?
         """, (page_id,))
@@ -119,7 +119,7 @@ class CodaSearchAdapter(SearchSourceAdapter):
     def _extract_all_pages(self, cur: sqlite3.Cursor, limit: Optional[int]) -> Iterator[SearchableContent]:
         """Extract all pages."""
         query = """
-            SELECT canvas_id, name, content, parent_id
+            SELECT canvas_id, title, content
             FROM pages
             WHERE content IS NOT NULL AND LENGTH(content) > 50
             ORDER BY canvas_id
@@ -140,7 +140,7 @@ class CodaSearchAdapter(SearchSourceAdapter):
             return None
 
         page_id = row["canvas_id"]
-        title = row["name"] or f"Page {page_id}"
+        title = row["title"] or f"Page {page_id}"
 
         # Extract participant info from title if present
         participant = None
@@ -169,7 +169,6 @@ class CodaSearchAdapter(SearchSourceAdapter):
             metadata={
                 "page_type": page_type,
                 "participant": participant,
-                "parent_id": row["parent_id"],
             }
         )
 

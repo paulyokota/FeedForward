@@ -1,0 +1,33 @@
+ITERATION: 0
+STATE:
+- Task not started.
+
+NEXT:
+- Read ralph/PROMPT.md and this file.
+- Begin with Hybrid Week 1, Issue #62.
+- Make the smallest shippable change and commit.
+
+---
+
+ITERATION: 1
+ISSUE: #62 fix(research): coda_page adapter fails with "no such column: name"
+STATE:
+- Identified root cause: coda_adapter.py SQL queries referenced `name` and `parent_id` columns that don't exist in SQLite schema.
+- Actual schema: pages table has `canvas_id`, `title` (not `name`), `content`, `file_path`, `char_count`, `extracted_at` (no `parent_id`).
+- Fixed _extract_page(), _extract_all_pages(), and _row_to_page_content() methods.
+
+CHANGES:
+- src/research/adapters/coda_adapter.py:
+  - Changed `name` -> `title` in SELECT queries
+  - Removed `parent_id` from SELECT queries
+  - Removed `parent_id` from metadata dict in _row_to_page_content()
+
+TEST RESULTS:
+- All 18 coda-related tests pass.
+- 3 pre-existing failures in unrelated tests (latency, theme extraction).
+- No new failures introduced.
+
+NEXT:
+- Commit the fix.
+- Create PR for #62.
+- Wait for 5-personality review and CONVERGED comment.
