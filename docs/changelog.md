@@ -10,6 +10,35 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Domain Knowledge Map + Haiku Classification (2026-01-20)** - PR #42:
+
+- `config/codebase_domain_map.yaml` - 16 issue categories mapped to codebase locations
+  - Categories: scheduling, billing, auth, ai_creation, analytics, media, social_integrations, etc.
+  - Each category includes: description, keywords, repos, search_paths
+- `src/story_tracking/services/domain_classifier.py` - Haiku 4.5 classifier service
+  - Two-stage classification: fast keyword fallback + semantic Haiku
+  - Latency target: <500ms (keyword: <50ms)
+  - Cost: ~$0.00015 per classification (~$4.50/month for 1,000 daily)
+  - Structured output with category, confidence, reasoning, suggested paths
+- `explore_with_classification()` method in `CodebaseContextProvider`
+  - Classification-guided exploration with prioritized search paths
+  - Fallback to standard exploration on error
+- Test suite: 37 tests (24 unit + 13 integration)
+- Validation script: `scripts/validate_domain_classifier.py`
+
+**VDD Methodology Limitations Analysis (2026-01-20)**:
+
+- Created `docs/analysis/codebase-search-vdd-limitations.md`
+- Documented 4 fundamental limitations preventing VDD success
+- Recommended alternatives: domain map, embeddings, human feedback
+
+**Vector Integration Plan Architecture Review (2026-01-20)**:
+
+- 5-personality review appended to `docs/vector-integration-plan.md`
+- Round 1: 21 issues identified (2 critical, 4 high)
+- Round 2: All reviewers CONVERGE, plan approved
+- Security items consciously deferred (internal tool scope)
+
 **Hybrid Review Output Protocol (2026-01-19)**:
 
 - 5-personality reviewers now output in hybrid format:
