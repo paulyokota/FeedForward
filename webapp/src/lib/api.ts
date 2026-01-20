@@ -23,6 +23,12 @@ import type {
   SearchResult,
   SuggestedEvidence,
   ResearchSourceType,
+  PipelineRunRequest,
+  PipelineRunResponse,
+  PipelineStatus,
+  PipelineRunListItem,
+  PipelineStopResponse,
+  PipelineActiveResponse,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -274,6 +280,36 @@ export const api = {
           method: "POST",
         },
       );
+    },
+  },
+
+  // Pipeline endpoints
+  pipeline: {
+    run: async (
+      request: PipelineRunRequest = {},
+    ): Promise<PipelineRunResponse> => {
+      return fetcher("/api/pipeline/run", {
+        method: "POST",
+        body: JSON.stringify(request),
+      });
+    },
+
+    status: async (runId: number): Promise<PipelineStatus> => {
+      return fetcher(`/api/pipeline/status/${runId}`);
+    },
+
+    history: async (limit = 20, offset = 0): Promise<PipelineRunListItem[]> => {
+      return fetcher(`/api/pipeline/history?limit=${limit}&offset=${offset}`);
+    },
+
+    active: async (): Promise<PipelineActiveResponse> => {
+      return fetcher("/api/pipeline/active");
+    },
+
+    stop: async (): Promise<PipelineStopResponse> => {
+      return fetcher("/api/pipeline/stop", {
+        method: "POST",
+      });
     },
   },
 };

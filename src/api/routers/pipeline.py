@@ -16,6 +16,7 @@ from src.api.schemas.pipeline import (
     PipelineRunRequest,
     PipelineRunResponse,
     PipelineStatus,
+    PipelineStopResponse,
 )
 from src.db.connection import create_pipeline_run, update_pipeline_run
 from src.db.models import PipelineRun
@@ -24,7 +25,23 @@ from src.db.models import PipelineRun
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
 
 # Track active runs (in-memory for MVP, could use Redis for production)
+# States: running, stopping, stopped, completed, failed
 _active_runs: dict[int, str] = {}  # run_id -> status
+
+# Terminal states that can be cleaned up
+_TERMINAL_STATES = {"stopped", "completed", "failed"}
+
+
+def _cleanup_terminal_runs() -> None:
+    """Remove terminal (completed/failed/stopped) runs to prevent memory leak."""
+    terminal_ids = [rid for rid, status in _active_runs.items() if status in _TERMINAL_STATES]
+    for rid in terminal_ids:
+        del _active_runs[rid]
+
+
+def _is_stopping(run_id: int) -> bool:
+    """Check if the run has been requested to stop."""
+    return _active_runs.get(run_id) == "stopping"
 
 
 def _run_pipeline_task(run_id: int, days: int, max_conversations: Optional[int], dry_run: bool, concurrency: int):
@@ -32,6 +49,7 @@ def _run_pipeline_task(run_id: int, days: int, max_conversations: Optional[int],
     Background task to execute the pipeline.
 
     Updates the pipeline_runs table with progress and results.
+    Checks for stop signal and exits gracefully if stopping.
     """
     import asyncio
     from src.db.connection import get_connection
@@ -40,13 +58,25 @@ def _run_pipeline_task(run_id: int, days: int, max_conversations: Optional[int],
     _active_runs[run_id] = "running"
 
     try:
+        # Check for stop signal before starting
+        if _is_stopping(run_id):
+            _finalize_stopped_run(run_id, {"fetched": 0, "filtered": 0, "classified": 0, "stored": 0})
+            return
+
         # Run the async pipeline in a new event loop
+        # Pass stop checker so pipeline can exit gracefully
         result = asyncio.run(run_pipeline_async(
             days=days,
             max_conversations=max_conversations,
             dry_run=dry_run,
             concurrency=concurrency,
+            stop_checker=lambda: _is_stopping(run_id),
         ))
+
+        # Check if stopped during execution
+        if _is_stopping(run_id):
+            _finalize_stopped_run(run_id, result)
+            return
 
         # Update pipeline run record with results
         with get_connection() as conn:
@@ -87,6 +117,33 @@ def _run_pipeline_task(run_id: int, days: int, max_conversations: Optional[int],
         raise
 
 
+def _finalize_stopped_run(run_id: int, result: dict):
+    """Finalize a run that was stopped gracefully."""
+    from src.db.connection import get_connection
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE pipeline_runs SET
+                    completed_at = %s,
+                    conversations_fetched = %s,
+                    conversations_filtered = %s,
+                    conversations_classified = %s,
+                    conversations_stored = %s,
+                    status = 'stopped'
+                WHERE id = %s
+            """, (
+                datetime.utcnow(),
+                result.get("fetched", 0),
+                result.get("filtered", 0),
+                result.get("classified", 0),
+                result.get("stored", 0),
+                run_id,
+            ))
+
+    _active_runs[run_id] = "stopped"
+
+
 @router.post("/run", response_model=PipelineRunResponse)
 def start_pipeline_run(
     request: PipelineRunRequest,
@@ -105,6 +162,9 @@ def start_pipeline_run(
     - **dry_run**: If True, classify but don't store to database
     - **concurrency**: Parallel API calls (default 20)
     """
+    # Clean up terminal runs to prevent memory leak (R2 fix)
+    _cleanup_terminal_runs()
+
     # Check if another run is already active
     active = [rid for rid, status in _active_runs.items() if status == "running"]
     if active:
@@ -249,3 +309,46 @@ def get_active_runs():
         "active": bool(active),
         "run_id": active[0] if active else None,
     }
+
+
+@router.post("/stop", response_model=PipelineStopResponse)
+def stop_pipeline_run(db=Depends(get_db)):
+    """
+    Request graceful stop of the active pipeline run.
+
+    Sets the run status to 'stopping'. The worker checks this status
+    and exits gracefully after completing in-flight tasks.
+
+    Returns:
+    - **stopping**: Stop signal sent, worker will exit gracefully
+    - **stopped**: Run was already stopped
+    - **not_running**: No active run to stop
+    """
+    # Find active run
+    active = [rid for rid, status in _active_runs.items() if status == "running"]
+
+    if not active:
+        return PipelineStopResponse(
+            run_id=0,
+            status="not_running",
+            message="No active pipeline run to stop."
+        )
+
+    run_id = active[0]
+
+    # Mark as stopping in memory
+    _active_runs[run_id] = "stopping"
+
+    # Update database status
+    with db.cursor() as cur:
+        cur.execute("""
+            UPDATE pipeline_runs
+            SET status = 'stopping'
+            WHERE id = %s AND status = 'running'
+        """, (run_id,))
+
+    return PipelineStopResponse(
+        run_id=run_id,
+        status="stopping",
+        message=f"Stop signal sent to pipeline run {run_id}. In-flight tasks will complete before stopping."
+    )

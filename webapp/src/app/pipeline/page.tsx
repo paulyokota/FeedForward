@@ -1,0 +1,952 @@
+"use client";
+
+import { useEffect, useState, useCallback, useRef } from "react";
+import { api } from "@/lib/api";
+import type {
+  PipelineStatus,
+  PipelineRunListItem,
+  PipelineRunRequest,
+} from "@/lib/types";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { FeedForwardLogo } from "@/components/FeedForwardLogo";
+import Link from "next/link";
+
+const STATUS_POLL_INTERVAL = 2000; // 2 seconds
+
+type FormState = {
+  days: number;
+  maxConversations: string;
+  dryRun: boolean;
+  concurrency: number;
+};
+
+function formatDuration(seconds: number | null): string {
+  if (seconds === null) return "-";
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return `${minutes}m ${secs}s`;
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "-";
+  const date = new Date(dateStr);
+  return date.toLocaleString();
+}
+
+function getStatusColor(status: string): string {
+  switch (status) {
+    case "running":
+      return "var(--accent-blue)";
+    case "stopping":
+      return "var(--accent-amber)";
+    case "stopped":
+      return "var(--accent-amber)";
+    case "completed":
+      return "var(--accent-green)";
+    case "failed":
+      return "var(--accent-red)";
+    default:
+      return "var(--text-muted)";
+  }
+}
+
+export default function PipelinePage() {
+  const [activeStatus, setActiveStatus] = useState<PipelineStatus | null>(null);
+  const [history, setHistory] = useState<PipelineRunListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
+  const [formState, setFormState] = useState<FormState>({
+    days: 7,
+    maxConversations: "",
+    dryRun: false,
+    concurrency: 20,
+  });
+
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check for active run and fetch history
+  const fetchData = useCallback(async () => {
+    try {
+      const [activeResponse, historyResponse] = await Promise.all([
+        api.pipeline.active(),
+        api.pipeline.history(10),
+      ]);
+
+      if (activeResponse.active && activeResponse.run_id) {
+        const status = await api.pipeline.status(activeResponse.run_id);
+        setActiveStatus(status);
+      } else {
+        setActiveStatus(null);
+      }
+
+      setHistory(historyResponse);
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load pipeline data",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Poll for status updates when run is active
+  const pollStatus = useCallback(async () => {
+    if (!activeStatus) return;
+
+    try {
+      const status = await api.pipeline.status(activeStatus.id);
+      setActiveStatus(status);
+
+      // Stop polling if run completed
+      if (["completed", "failed", "stopped"].includes(status.status)) {
+        setActiveStatus(null);
+        fetchData(); // Refresh history
+      }
+    } catch (err) {
+      console.error("Status poll error:", err);
+    }
+  }, [activeStatus, fetchData]);
+
+  // Setup polling
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (activeStatus && ["running", "stopping"].includes(activeStatus.status)) {
+      pollingRef.current = setInterval(pollStatus, STATUS_POLL_INTERVAL);
+    }
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [activeStatus, pollStatus]);
+
+  const handleStart = async () => {
+    setIsStarting(true);
+    setError(null);
+
+    try {
+      const request: PipelineRunRequest = {
+        days: formState.days,
+        dry_run: formState.dryRun,
+        concurrency: formState.concurrency,
+      };
+
+      if (formState.maxConversations) {
+        request.max_conversations = parseInt(formState.maxConversations, 10);
+      }
+
+      const response = await api.pipeline.run(request);
+      const status = await api.pipeline.status(response.run_id);
+      setActiveStatus(status);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start pipeline");
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const handleStop = async () => {
+    setIsStopping(true);
+    setError(null);
+
+    try {
+      await api.pipeline.stop();
+      // Refresh status
+      if (activeStatus) {
+        const status = await api.pipeline.status(activeStatus.id);
+        setActiveStatus(status);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to stop pipeline");
+    } finally {
+      setIsStopping(false);
+    }
+  };
+
+  const isRunning = Boolean(
+    activeStatus && ["running", "stopping"].includes(activeStatus.status),
+  );
+
+  if (loading) {
+    return (
+      <div className="loading-container loading-delayed">
+        <div className="loading-spinner" />
+        <span>Loading pipeline...</span>
+        <style jsx>{`
+          .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            gap: 16px;
+            color: var(--text-secondary);
+            font-size: 14px;
+          }
+          .loading-spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid var(--border-default);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+          }
+          @keyframes spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pipeline-layout">
+      <header className="pipeline-header">
+        <div className="header-left">
+          <Link href="/" className="logo-link">
+            <FeedForwardLogo size="sm" />
+          </Link>
+          <div className="header-divider" />
+          <span className="page-subtitle">Pipeline Control</span>
+        </div>
+
+        <div className="header-actions">
+          <Link href="/" className="nav-link">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
+            Board
+          </Link>
+          <Link href="/analytics" className="nav-link">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M18 20V10" />
+              <path d="M12 20V4" />
+              <path d="M6 20v-6" />
+            </svg>
+            Analytics
+          </Link>
+          <ThemeToggle />
+        </div>
+      </header>
+
+      <main className="pipeline-content">
+        {error && (
+          <div className="error-banner">
+            <span>{error}</span>
+            <button onClick={() => setError(null)}>Dismiss</button>
+          </div>
+        )}
+
+        <div className="content-grid">
+          {/* Run Configuration */}
+          <section className="config-section">
+            <h2>Run Configuration</h2>
+            <div className="config-form">
+              <div className="form-group">
+                <label htmlFor="days">Days to Process</label>
+                <input
+                  id="days"
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={formState.days}
+                  onChange={(e) =>
+                    setFormState({
+                      ...formState,
+                      days: parseInt(e.target.value, 10) || 7,
+                    })
+                  }
+                  disabled={isRunning}
+                />
+                <span className="form-hint">
+                  Look back this many days for conversations
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="maxConversations">
+                  Max Conversations (optional)
+                </label>
+                <input
+                  id="maxConversations"
+                  type="number"
+                  min="1"
+                  placeholder="No limit"
+                  value={formState.maxConversations}
+                  onChange={(e) =>
+                    setFormState({
+                      ...formState,
+                      maxConversations: e.target.value,
+                    })
+                  }
+                  disabled={isRunning}
+                />
+                <span className="form-hint">
+                  Limit for testing (leave empty for all)
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="concurrency">Concurrency</label>
+                <input
+                  id="concurrency"
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={formState.concurrency}
+                  onChange={(e) =>
+                    setFormState({
+                      ...formState,
+                      concurrency: parseInt(e.target.value, 10) || 20,
+                    })
+                  }
+                  disabled={isRunning}
+                />
+                <span className="form-hint">
+                  Parallel API calls (higher = faster)
+                </span>
+              </div>
+
+              <div className="form-group checkbox-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={formState.dryRun}
+                    onChange={(e) =>
+                      setFormState({ ...formState, dryRun: e.target.checked })
+                    }
+                    disabled={isRunning}
+                  />
+                  <span>Dry Run</span>
+                </label>
+                <span className="form-hint">
+                  Classify but don&apos;t store to database
+                </span>
+              </div>
+
+              <div className="action-buttons">
+                {!isRunning ? (
+                  <button
+                    className="btn-primary"
+                    onClick={handleStart}
+                    disabled={isStarting}
+                  >
+                    {isStarting ? "Starting..." : "Start Pipeline Run"}
+                  </button>
+                ) : (
+                  <button
+                    className="btn-danger"
+                    onClick={handleStop}
+                    disabled={isStopping || activeStatus?.status === "stopping"}
+                  >
+                    {activeStatus?.status === "stopping"
+                      ? "Stopping..."
+                      : isStopping
+                        ? "Sending stop signal..."
+                        : "Stop Pipeline"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Active Run Status */}
+          <section className="status-section">
+            <h2>Active Run Status</h2>
+            {activeStatus ? (
+              <div className="status-panel">
+                <div className="status-header">
+                  <span className="run-id">Run #{activeStatus.id}</span>
+                  <span
+                    className="status-badge"
+                    style={{
+                      backgroundColor: getStatusColor(activeStatus.status),
+                    }}
+                  >
+                    {activeStatus.status}
+                  </span>
+                </div>
+
+                <div className="status-grid">
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {activeStatus.conversations_fetched}
+                    </span>
+                    <span className="stat-label">Fetched</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {activeStatus.conversations_filtered}
+                    </span>
+                    <span className="stat-label">Filtered</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {activeStatus.conversations_classified}
+                    </span>
+                    <span className="stat-label">Classified</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-value">
+                      {activeStatus.conversations_stored}
+                    </span>
+                    <span className="stat-label">Stored</span>
+                  </div>
+                </div>
+
+                <div className="status-meta">
+                  <div className="meta-item">
+                    <span className="meta-label">Started:</span>
+                    <span className="meta-value">
+                      {formatDate(activeStatus.started_at)}
+                    </span>
+                  </div>
+                  <div className="meta-item">
+                    <span className="meta-label">Duration:</span>
+                    <span className="meta-value">
+                      {formatDuration(activeStatus.duration_seconds)}
+                    </span>
+                  </div>
+                </div>
+
+                {activeStatus.error_message && (
+                  <div className="error-message">
+                    <strong>Error:</strong> {activeStatus.error_message}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="no-active-run">
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
+                </svg>
+                <span>No active pipeline run</span>
+                <span className="hint">
+                  Start a new run using the configuration form
+                </span>
+              </div>
+            )}
+          </section>
+
+          {/* Run History */}
+          <section className="history-section">
+            <h2>Run History</h2>
+            {history.length > 0 ? (
+              <div className="history-table">
+                <div className="table-header">
+                  <span>ID</span>
+                  <span>Status</span>
+                  <span>Started</span>
+                  <span>Duration</span>
+                  <span>Fetched</span>
+                  <span>Classified</span>
+                  <span>Stored</span>
+                </div>
+                {history.map((run) => (
+                  <div key={run.id} className="table-row">
+                    <span className="run-id">#{run.id}</span>
+                    <span>
+                      <span
+                        className="status-dot"
+                        style={{ backgroundColor: getStatusColor(run.status) }}
+                      />
+                      {run.status}
+                    </span>
+                    <span>{formatDate(run.started_at)}</span>
+                    <span>{formatDuration(run.duration_seconds)}</span>
+                    <span>{run.conversations_fetched}</span>
+                    <span>{run.conversations_classified}</span>
+                    <span>{run.conversations_stored}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-history">
+                <span>No pipeline runs yet</span>
+              </div>
+            )}
+          </section>
+        </div>
+      </main>
+
+      <style jsx>{`
+        .pipeline-layout {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .pipeline-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 24px;
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 22%),
+            hsl(0, 0%, 18%)
+          );
+          box-shadow: var(--shadow-md);
+          position: sticky;
+          top: 16px;
+          margin: 16px 24px 0;
+          border-radius: var(--radius-full);
+          z-index: 10;
+          gap: 20px;
+        }
+
+        :global([data-theme="light"]) .pipeline-header {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 100%),
+            hsl(0, 0%, 94%)
+          );
+        }
+
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          flex-shrink: 0;
+        }
+
+        .logo-link {
+          display: flex;
+          align-items: center;
+        }
+
+        .header-divider {
+          width: 1px;
+          height: 24px;
+          background: var(--border-default);
+        }
+
+        .page-subtitle {
+          font-size: 16px;
+          font-weight: 500;
+          color: var(--text-secondary);
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+
+        .header-actions :global(.nav-link) {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          border-radius: var(--radius-full);
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          text-decoration: none;
+          transition: all 0.15s ease;
+        }
+
+        .header-actions :global(.nav-link):hover {
+          color: var(--text-primary);
+          background: var(--bg-hover);
+        }
+
+        .pipeline-content {
+          flex: 1;
+          padding: 24px 28px;
+          max-width: 1200px;
+          margin: 0 auto;
+          width: 100%;
+        }
+
+        .error-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 16px;
+          background: var(--accent-red);
+          color: white;
+          border-radius: var(--radius-md);
+          margin-bottom: 24px;
+        }
+
+        .error-banner button {
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          color: white;
+          padding: 4px 12px;
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+        }
+
+        .content-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 24px;
+        }
+
+        .config-section,
+        .status-section,
+        .history-section {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 16%),
+            hsl(0, 0%, 12%)
+          );
+          border-radius: var(--radius-lg);
+          padding: 20px;
+          box-shadow: var(--shadow-sm);
+        }
+
+        :global([data-theme="light"]) .config-section,
+        :global([data-theme="light"]) .status-section,
+        :global([data-theme="light"]) .history-section {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 100%),
+            hsl(0, 0%, 97%)
+          );
+        }
+
+        .history-section {
+          grid-column: 1 / -1;
+        }
+
+        h2 {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin: 0 0 16px 0;
+        }
+
+        .config-form {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .form-group label {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-secondary);
+        }
+
+        .form-group input[type="number"],
+        .form-group input[type="text"] {
+          padding: 10px 12px;
+          background: var(--bg-elevated);
+          border: none;
+          border-radius: var(--radius-md);
+          color: var(--text-primary);
+          font-size: 14px;
+          box-shadow: var(--shadow-inset);
+        }
+
+        .form-group input:focus {
+          outline: 2px solid var(--accent-blue);
+          outline-offset: -2px;
+        }
+
+        .form-group input:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .form-hint {
+          font-size: 11px;
+          color: var(--text-tertiary);
+        }
+
+        .checkbox-group label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+          width: 16px;
+          height: 16px;
+          accent-color: var(--accent-blue);
+        }
+
+        .action-buttons {
+          margin-top: 8px;
+        }
+
+        .btn-primary,
+        .btn-danger {
+          width: 100%;
+          padding: 12px 20px;
+          border: none;
+          border-radius: var(--radius-md);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+          background: var(--accent-blue);
+          color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+          background: #74b3ff;
+        }
+
+        .btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .btn-danger {
+          background: var(--accent-red);
+          color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+          background: #ff6b6b;
+        }
+
+        .btn-danger:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .status-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .status-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .run-id {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .status-badge {
+          padding: 4px 10px;
+          border-radius: var(--radius-full);
+          font-size: 11px;
+          font-weight: 600;
+          color: white;
+          text-transform: uppercase;
+        }
+
+        .status-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+        }
+
+        .stat-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          padding: 12px;
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+        }
+
+        :global([data-theme="light"]) .stat-item {
+          background: var(--bg-hover);
+        }
+
+        .stat-value {
+          font-size: 24px;
+          font-weight: 600;
+          color: var(--text-primary);
+          font-variant-numeric: tabular-nums;
+        }
+
+        .stat-label {
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--text-tertiary);
+          text-transform: uppercase;
+        }
+
+        .status-meta {
+          display: flex;
+          gap: 24px;
+        }
+
+        .meta-item {
+          display: flex;
+          gap: 8px;
+          font-size: 13px;
+        }
+
+        .meta-label {
+          color: var(--text-tertiary);
+        }
+
+        .meta-value {
+          color: var(--text-secondary);
+        }
+
+        .error-message {
+          padding: 12px;
+          background: rgba(255, 82, 82, 0.1);
+          border-radius: var(--radius-md);
+          color: var(--accent-red);
+          font-size: 13px;
+        }
+
+        .no-active-run {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+          gap: 12px;
+          color: var(--text-tertiary);
+        }
+
+        .no-active-run svg {
+          opacity: 0.5;
+        }
+
+        .no-active-run span {
+          font-size: 14px;
+        }
+
+        .no-active-run .hint {
+          font-size: 12px;
+          opacity: 0.7;
+        }
+
+        .history-table {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .table-header,
+        .table-row {
+          display: grid;
+          grid-template-columns: 60px 100px 1fr 80px 80px 80px 80px;
+          gap: 12px;
+          padding: 12px;
+          align-items: center;
+        }
+
+        .table-header {
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text-tertiary);
+          text-transform: uppercase;
+          border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .table-row {
+          font-size: 13px;
+          color: var(--text-secondary);
+          border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .table-row:last-child {
+          border-bottom: none;
+        }
+
+        .table-row:hover {
+          background: var(--bg-hover);
+        }
+
+        .table-row .run-id {
+          font-size: 13px;
+          color: var(--text-primary);
+        }
+
+        .status-dot {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          margin-right: 6px;
+        }
+
+        .no-history {
+          display: flex;
+          justify-content: center;
+          padding: 32px;
+          color: var(--text-tertiary);
+          font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+          .content-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .status-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .table-header,
+          .table-row {
+            grid-template-columns: 50px 80px 1fr 60px 60px;
+          }
+
+          .table-header span:nth-child(6),
+          .table-header span:nth-child(7),
+          .table-row span:nth-child(6),
+          .table-row span:nth-child(7) {
+            display: none;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
