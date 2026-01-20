@@ -1,0 +1,602 @@
+# Codebase Domain Knowledge Map
+# Maps customer issue categories to relevant codebase locations
+# Used by Haiku classifier to provide context-aware search paths
+#
+# Version: 1.0
+# Updated: 2026-01-20
+#
+# Architecture:
+# - Primary: Haiku 4.5 classifies issue into category
+# - Lookup: This map returns pre-curated search paths for that category
+# - Result: Deterministic, debuggable codebase search
+
+version: "1.0"
+updated_at: "2026-01-20T00:00:00.000000"
+description: "v1.0: Initial domain knowledge map with category-to-codebase mappings"
+
+# Issue categories and their corresponding codebase locations
+# Each category includes:
+#   - description: What this category covers
+#   - keywords: Common terms to detect this category
+#   - repos: Which repositories contain relevant code
+#   - search_paths: Glob patterns for finding relevant files
+#   - components: Technical components involved
+#   - related_categories: Related categories (for disambiguation)
+
+categories:
+
+  # Scheduling & Content Calendar
+  scheduling:
+    description: "Pin scheduling, smartschedule, pin spacing, posting time optimization"
+    keywords:
+      - "scheduler"
+      - "scheduled"
+      - "pin spacing"
+      - "posting time"
+      - "queue"
+      - "drafts"
+      - "publish"
+      - "post now"
+      - "smartschedule"
+    repos:
+      - aero      # Primary frontend/API
+      - tack      # Backend services
+      - zuck      # Backend utilities
+    search_paths:
+      - "packages/**/scheduler/**/*"
+      - "packages/**/schedule/**/*"
+      - "service/**/scheduler/**/*"
+      - "service/**/schedule/**/*"
+      - "**/queue/**/*"
+      - "**/draft/**/*"
+      - "**/*scheduler*.py"
+      - "**/*scheduler*.ts"
+      - "**/*schedule*.ts"
+    components:
+      - "scheduler"
+      - "pin_spacing"
+      - "smartschedule"
+      - "queue"
+      - "draft_management"
+    related_categories:
+      - "pinterest_publishing"
+      - "instagram_publishing"
+      - "facebook_publishing"
+
+  # AI Creation Features (Ghostwriter, SmartPin, Tailwind Create)
+  ai_creation:
+    description: "AI-powered content generation, ghostwriter, smartpin, create tools"
+    keywords:
+      - "ghostwriter"
+      - "smartpin"
+      - "ai"
+      - "create"
+      - "generation"
+      - "generate"
+      - "content suggestion"
+      - "ai labs"
+      - "copilot"
+    repos:
+      - ghostwriter  # Primary AI service
+      - aero         # Frontend integration
+      - charlotte    # Related services
+    search_paths:
+      - "stack/**/*.py"
+      - "stack/**/*.ts"
+      - "client/**/*.ts"
+      - "packages/**/ghostwriter/**/*"
+      - "packages/**/create/**/*"
+      - "packages/**/copilot/**/*"
+      - "**/ai/**/*"
+      - "**/*generate*.py"
+      - "**/*smartpin*.ts"
+    components:
+      - "ghostwriter"
+      - "smartpin"
+      - "create"
+      - "copilot"
+      - "ai_generation"
+    related_categories:
+      - "pinterest_publishing"
+      - "instagram_publishing"
+
+  # Pinterest Publishing
+  pinterest_publishing:
+    description: "Pinterest-specific publishing, pin creation, board management, API issues"
+    keywords:
+      - "pinterest"
+      - "pin"
+      - "board"
+      - "pinterest api"
+      - "oauth"
+      - "authentication"
+      - "board permission"
+      - "pin creation"
+    repos:
+      - aero      # Main integration
+      - tack      # Backend
+      - zuck      # Utilities
+    search_paths:
+      - "packages/**/pinterest/**/*"
+      - "service/**/pinterest/**/*"
+      - "packages/**/publishing/**/*"
+      - "service/**/oauth/**/*"
+      - "service/**/auth/**/*"
+      - "**/*pinterest*.ts"
+      - "**/*pinterest*.py"
+      - "**/boards/**/*"
+      - "**/pins/**/*"
+    components:
+      - "pinterest_api"
+      - "oauth_flow"
+      - "board_management"
+      - "pin_creation"
+      - "permission_handling"
+    related_categories:
+      - "instagram_publishing"
+      - "facebook_publishing"
+
+  # Instagram Publishing
+  instagram_publishing:
+    description: "Instagram-specific publishing, story creation, reel uploads, IG API"
+    keywords:
+      - "instagram"
+      - "story"
+      - "reel"
+      - "instagram api"
+      - "ig"
+      - "feed post"
+      - "carousel"
+    repos:
+      - aero      # Main integration
+      - tack      # Backend
+      - zuck      # Utilities
+    search_paths:
+      - "packages/**/instagram/**/*"
+      - "service/**/instagram/**/*"
+      - "packages/**/stories/**/*"
+      - "packages/**/reels/**/*"
+      - "**/instagram*.ts"
+      - "**/instagram*.py"
+      - "**/feed/**/*"
+      - "**/carousel/**/*"
+    components:
+      - "instagram_api"
+      - "story_creation"
+      - "reel_upload"
+      - "feed_posting"
+      - "carousel_management"
+    related_categories:
+      - "pinterest_publishing"
+      - "facebook_publishing"
+
+  # Facebook Publishing
+  facebook_publishing:
+    description: "Facebook page management, post scheduling, event publishing"
+    keywords:
+      - "facebook"
+      - "meta"
+      - "page"
+      - "event"
+      - "fb"
+      - "facebook api"
+    repos:
+      - aero      # Main integration
+      - tack      # Backend
+      - zuck      # Utilities
+    search_paths:
+      - "packages/**/facebook/**/*"
+      - "service/**/facebook/**/*"
+      - "packages/**/pages/**/*"
+      - "**/facebook*.ts"
+      - "**/facebook*.py"
+      - "**/meta/**/*"
+    components:
+      - "facebook_api"
+      - "page_management"
+      - "event_publishing"
+      - "permission_handling"
+    related_categories:
+      - "pinterest_publishing"
+      - "instagram_publishing"
+
+  # Analytics & Insights
+  analytics:
+    description: "Performance analytics, metrics tracking, keyword research, ROI calculation"
+    keywords:
+      - "analytics"
+      - "performance"
+      - "metrics"
+      - "keyword research"
+      - "impressions"
+      - "engagement"
+      - "roi"
+      - "insights"
+      - "pin inspector"
+    repos:
+      - aero      # Main analytics dashboard
+      - tack      # Backend calculations
+      - charlotte # Data services
+    search_paths:
+      - "packages/**/analytics/**/*"
+      - "packages/**/insights/**/*"
+      - "service/**/analytics/**/*"
+      - "service/**/metrics/**/*"
+      - "**/dashboard/**/*"
+      - "**/*analytics*.ts"
+      - "**/*analytics*.py"
+      - "**/*metrics*.py"
+    components:
+      - "analytics_dashboard"
+      - "metrics_calculation"
+      - "keyword_research"
+      - "roi_tracking"
+    related_categories:
+      - "pinterest_publishing"
+      - "instagram_publishing"
+
+  # Billing & Subscription Management
+  billing:
+    description: "Billing plans, subscription management, payment processing, credit system"
+    keywords:
+      - "billing"
+      - "subscription"
+      - "payment"
+      - "credits"
+      - "pricing"
+      - "upgrade"
+      - "plan"
+      - "charge"
+      - "invoice"
+    repos:
+      - tack      # Primary billing service
+      - aero      # Frontend
+      - charlotte # Data services
+    search_paths:
+      - "service/**/billing/**/*"
+      - "service/**/payment/**/*"
+      - "service/**/subscription/**/*"
+      - "packages/**/billing/**/*"
+      - "**/stripe/**/*"
+      - "**/payments/**/*"
+      - "**/*billing*.py"
+      - "**/*subscription*.py"
+    components:
+      - "subscription_management"
+      - "payment_processing"
+      - "credit_system"
+      - "plan_management"
+    related_categories:
+      - "account"
+
+  # Account Management & Settings
+  account:
+    description: "User account, login, profile, connections, settings, OAuth"
+    keywords:
+      - "account"
+      - "login"
+      - "password"
+      - "profile"
+      - "settings"
+      - "oauth"
+      - "connection"
+      - "email"
+      - "username"
+      - "auth"
+    repos:
+      - aero      # Auth frontend
+      - tack      # Auth backend
+      - zuck      # Utilities
+    search_paths:
+      - "service/**/auth/**/*"
+      - "service/**/account/**/*"
+      - "service/**/oauth/**/*"
+      - "packages/**/auth/**/*"
+      - "packages/**/account/**/*"
+      - "**/*auth*.py"
+      - "**/*auth*.ts"
+      - "**/profile/**/*"
+      - "**/settings/**/*"
+    components:
+      - "authentication"
+      - "oauth_flow"
+      - "profile_management"
+      - "settings_ui"
+    related_categories:
+      - "billing"
+      - "integrations"
+
+  # Integrations (Canva, CSV, browser extension, e-commerce)
+  integrations:
+    description: "Third-party integrations, Canva, CSV import/export, browser extension, plugins"
+    keywords:
+      - "integration"
+      - "canva"
+      - "csv"
+      - "import"
+      - "export"
+      - "extension"
+      - "browser extension"
+      - "plugin"
+      - "zapier"
+      - "api"
+    repos:
+      - aero      # Frontend integrations
+      - tack      # Backend
+      - charlotte # Data handling
+    search_paths:
+      - "packages/**/integrations/**/*"
+      - "packages/**/canva/**/*"
+      - "packages/**/extension/**/*"
+      - "service/**/integrations/**/*"
+      - "service/**/csv/**/*"
+      - "**/import/**/*"
+      - "**/export/**/*"
+      - "**/*integration*.ts"
+      - "**/*integration*.py"
+    components:
+      - "canva_integration"
+      - "csv_import"
+      - "csv_export"
+      - "browser_extension"
+      - "plugin_system"
+    related_categories:
+      - "account"
+      - "pinterest_publishing"
+
+  # Communities (Tailwind Communities, groups, collaboration)
+  communities:
+    description: "Tailwind Communities, group management, collaboration features"
+    keywords:
+      - "communities"
+      - "community"
+      - "groups"
+      - "group"
+      - "collaboration"
+      - "members"
+      - "tribes"
+      - "collaborative"
+    repos:
+      - aero      # Frontend
+      - charlotte # Primary service
+      - tack      # Backend support
+    search_paths:
+      - "packages/**/communities/**/*"
+      - "stacks/**/communities/**/*"
+      - "**/groups/**/*"
+      - "**/tribes/**/*"
+      - "**/*community*.ts"
+      - "**/*collaboration*.py"
+    components:
+      - "community_management"
+      - "group_collaboration"
+      - "member_management"
+    related_categories:
+      - "account"
+
+  # Data Import/Export (CSV, templates, etc.)
+  data_operations:
+    description: "CSV import/export, data migration, template management, bulk operations"
+    keywords:
+      - "csv"
+      - "import"
+      - "export"
+      - "bulk"
+      - "template"
+      - "upload"
+      - "download"
+      - "migration"
+      - "encoding"
+    repos:
+      - aero      # Frontend
+      - tack      # Backend processing
+      - charlotte # Data services
+    search_paths:
+      - "packages/**/data/**/*"
+      - "service/**/import/**/*"
+      - "service/**/export/**/*"
+      - "service/**/csv/**/*"
+      - "**/upload/**/*"
+      - "**/download/**/*"
+      - "**/*csv*.py"
+      - "**/*import*.ts"
+    components:
+      - "csv_processor"
+      - "bulk_uploader"
+      - "template_system"
+      - "migration_service"
+    related_categories:
+      - "integrations"
+
+  # API & Technical Issues
+  api:
+    description: "REST API issues, rate limiting, webhooks, API authentication, error responses"
+    keywords:
+      - "api"
+      - "rate limit"
+      - "rate limiting"
+      - "webhook"
+      - "endpoint"
+      - "request"
+      - "response"
+      - "http"
+      - "error code"
+    repos:
+      - aero      # API layer
+      - tack      # Backend API
+      - zuck      # Utilities
+      - charlotte # Data API
+    search_paths:
+      - "packages/**/api/**/*"
+      - "service/**/api/**/*"
+      - "**/routes/**/*"
+      - "**/endpoints/**/*"
+      - "**/*handler*.py"
+      - "**/*route*.ts"
+      - "**/*controller*.ts"
+    components:
+      - "api_gateway"
+      - "rate_limiter"
+      - "webhook_handler"
+      - "error_handler"
+    related_categories:
+      - "pinterest_publishing"
+      - "instagram_publishing"
+
+  # Performance & Optimization
+  performance:
+    description: "Loading speed, UI performance, optimization, crashes, timeouts"
+    keywords:
+      - "slow"
+      - "loading"
+      - "performance"
+      - "timeout"
+      - "crash"
+      - "freeze"
+      - "lag"
+      - "optimize"
+      - "memory"
+    repos:
+      - aero      # Frontend performance
+      - tack      # Backend optimization
+      - charlotte # Data optimization
+    search_paths:
+      - "packages/**/performance/**/*"
+      - "service/**/performance/**/*"
+      - "**/*cache*.ts"
+      - "**/*cache*.py"
+      - "**/*optimization*.py"
+      - "packages/**/utils/**/*"
+    components:
+      - "caching_layer"
+      - "query_optimization"
+      - "ui_performance"
+      - "memory_management"
+    related_categories:
+      - "api"
+      - "analytics"
+
+  # Bug Report / Unclassified
+  bug_report:
+    description: "Generic bugs, unexpected behavior, application errors"
+    keywords:
+      - "bug"
+      - "broken"
+      - "error"
+      - "fail"
+      - "crash"
+      - "issue"
+      - "problem"
+      - "not working"
+      - "unexpected"
+    repos:
+      - aero
+      - tack
+      - charlotte
+      - ghostwriter
+    search_paths:
+      - "**/*"
+    components:
+      - "error_handling"
+      - "logging"
+      - "debugging"
+    related_categories: []
+
+  # Feature Requests
+  feature_request:
+    description: "New feature requests, product suggestions, enhancement ideas"
+    keywords:
+      - "feature"
+      - "request"
+      - "suggestion"
+      - "enhancement"
+      - "would like"
+      - "can you add"
+      - "is it possible"
+    repos:
+      - aero
+      - tack
+      - charlotte
+    search_paths:
+      - "docs/**/*"
+      - "README*"
+    components:
+      - "feature_planning"
+    related_categories: []
+
+  # Documentation & How-to
+  documentation:
+    description: "Help requests, documentation, tutorials, how-to guides"
+    keywords:
+      - "how to"
+      - "help"
+      - "guide"
+      - "tutorial"
+      - "documentation"
+      - "learn"
+      - "explain"
+      - "confused"
+    repos:
+      - aero      # For UI guidance
+    search_paths:
+      - "docs/**/*.md"
+      - "**/README*"
+      - "**/GUIDE*"
+    components:
+      - "documentation"
+      - "help_system"
+    related_categories: []
+
+# Repository metadata
+repositories:
+  aero:
+    description: "Main frontend monorepo and API integration layer"
+    language: "TypeScript"
+    path_pattern: "packages/**"
+    serves: ["scheduling", "ai_creation", "pinterest_publishing", "instagram_publishing", "analytics", "integrations"]
+
+  tack:
+    description: "Primary backend services (scheduling, billing, auth)"
+    language: "Python"
+    path_pattern: "service/**"
+    serves: ["scheduling", "billing", "account", "api", "performance"]
+
+  zuck:
+    description: "Backend utilities and shared services"
+    language: "Python/TypeScript"
+    path_pattern: "service/**"
+    serves: ["scheduling", "pinterest_publishing", "instagram_publishing", "api"]
+
+  charlotte:
+    description: "Data services and analytics backend"
+    language: "TypeScript/Python"
+    path_pattern: "stacks/**"
+    serves: ["analytics", "data_operations", "communities", "performance"]
+
+  ghostwriter:
+    description: "AI generation service for SmartPin and content creation"
+    language: "Python"
+    path_pattern: "stack/**"
+    serves: ["ai_creation"]
+
+# Classification parameters
+classifier_config:
+  model: "claude-haiku-4-5-20251001"
+  temperature: 0.3
+  max_tokens: 500
+  timeout_ms: 500
+  retry_count: 3
+
+# System prompt for classifier
+classifier_prompt: |
+  You are a code search categorizer. Given a customer support conversation,
+  determine which product category the issue belongs to, then recommend
+  the most relevant codebase locations to investigate.
+
+  Be precise and specific. Return a JSON object with:
+  - category: The issue category (must be one of the defined categories)
+  - confidence: Confidence level (high, medium, low)
+  - reasoning: Brief explanation
+  - suggested_repos: List of repos to search
+  - suggested_search_paths: List of specific paths to prioritize
+  - alternative_categories: Other possible categories if uncertain
