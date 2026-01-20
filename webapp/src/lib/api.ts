@@ -66,6 +66,7 @@ export const api = {
     list: async (params?: {
       status?: string;
       product_area?: string;
+      created_since?: string;
       limit?: number;
       offset?: number;
     }): Promise<StoryListResponse> => {
@@ -73,6 +74,8 @@ export const api = {
       if (params?.status) searchParams.set("status", params.status);
       if (params?.product_area)
         searchParams.set("product_area", params.product_area);
+      if (params?.created_since)
+        searchParams.set("created_since", params.created_since);
       if (params?.limit) searchParams.set("limit", params.limit.toString());
       if (params?.offset) searchParams.set("offset", params.offset.toString());
 

@@ -41,6 +41,10 @@ def get_evidence_service(db=Depends(get_db)) -> EvidenceService:
 def list_stories(
     status: Optional[str] = Query(default=None, description="Filter by status"),
     product_area: Optional[str] = Query(default=None, description="Filter by product area"),
+    created_since: Optional[str] = Query(
+        default=None,
+        description="Filter to stories created at or after this ISO timestamp (e.g., 2024-01-15T10:30:00Z)",
+    ),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     service: StoryService = Depends(get_story_service),
@@ -53,6 +57,7 @@ def list_stories(
     return service.list(
         status=status,
         product_area=product_area,
+        created_since=created_since,
         limit=limit,
         offset=offset,
     )

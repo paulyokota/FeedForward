@@ -6,6 +6,7 @@ import type {
   PipelineStatus,
   PipelineRunListItem,
   PipelineRunRequest,
+  Story,
 } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FeedForwardLogo } from "@/components/FeedForwardLogo";
@@ -54,6 +55,8 @@ function getStatusColor(status: string): string {
 export default function PipelinePage() {
   const [activeStatus, setActiveStatus] = useState<PipelineStatus | null>(null);
   const [history, setHistory] = useState<PipelineRunListItem[]>([]);
+  const [newStories, setNewStories] = useState<Story[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -66,6 +69,20 @@ export default function PipelinePage() {
   });
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch stories created since a specific timestamp
+  const fetchNewStories = useCallback(async (sinceTimestamp: string) => {
+    try {
+      const response = await api.stories.list({
+        created_since: sinceTimestamp,
+        limit: 50,
+      });
+      setNewStories(response.stories);
+    } catch (err) {
+      console.error("Failed to fetch new stories:", err);
+      setNewStories([]);
+    }
+  }, []);
 
   // Check for active run and fetch history
   const fetchData = useCallback(async () => {
@@ -83,6 +100,17 @@ export default function PipelinePage() {
       }
 
       setHistory(historyResponse);
+
+      // Auto-select the most recent completed run to show its new stories
+      const completedRuns = historyResponse.filter(
+        (run) => run.status === "completed",
+      );
+      if (completedRuns.length > 0 && !selectedRunId) {
+        const latestRun = completedRuns[0];
+        setSelectedRunId(latestRun.id);
+        await fetchNewStories(latestRun.started_at);
+      }
+
       setError(null);
     } catch (err) {
       setError(
@@ -91,7 +119,7 @@ export default function PipelinePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchNewStories, selectedRunId]);
 
   // Poll for status updates when run is active
   const pollStatus = useCallback(async () => {
@@ -174,6 +202,16 @@ export default function PipelinePage() {
 
   const isRunning = Boolean(
     activeStatus && ["running", "stopping"].includes(activeStatus.status),
+  );
+
+  // Handle clicking on a run in history to view its new stories
+  const handleRunClick = useCallback(
+    async (run: PipelineRunListItem) => {
+      if (run.status !== "completed") return;
+      setSelectedRunId(run.id);
+      await fetchNewStories(run.started_at);
+    },
+    [fetchNewStories],
   );
 
   if (loading) {
@@ -467,6 +505,9 @@ export default function PipelinePage() {
           {/* Run History */}
           <section className="history-section">
             <h2>Run History</h2>
+            <p className="history-hint">
+              Click a completed run to see stories created during that run
+            </p>
             {history.length > 0 ? (
               <div className="history-table">
                 <div className="table-header">
@@ -479,7 +520,21 @@ export default function PipelinePage() {
                   <span>Stored</span>
                 </div>
                 {history.map((run) => (
-                  <div key={run.id} className="table-row">
+                  <div
+                    key={run.id}
+                    className={`table-row ${run.status === "completed" ? "clickable" : ""} ${selectedRunId === run.id ? "selected" : ""}`}
+                    onClick={() => handleRunClick(run)}
+                    role={run.status === "completed" ? "button" : undefined}
+                    tabIndex={run.status === "completed" ? 0 : undefined}
+                    onKeyDown={(e) => {
+                      if (
+                        run.status === "completed" &&
+                        (e.key === "Enter" || e.key === " ")
+                      ) {
+                        handleRunClick(run);
+                      }
+                    }}
+                  >
                     <span className="run-id">#{run.id}</span>
                     <span>
                       <span
@@ -502,6 +557,76 @@ export default function PipelinePage() {
               </div>
             )}
           </section>
+
+          {/* New Stories Panel */}
+          {selectedRunId && (
+            <section className="new-stories-section">
+              <h2>
+                New Stories Created
+                <span className="story-count">({newStories.length})</span>
+              </h2>
+              {newStories.length > 0 ? (
+                <div className="stories-list">
+                  {newStories.map((story) => (
+                    <Link
+                      key={story.id}
+                      href={`/story/${story.id}`}
+                      className="story-card"
+                    >
+                      <div className="story-header">
+                        <span className="story-title">{story.title}</span>
+                        <span
+                          className="story-status"
+                          style={{
+                            backgroundColor:
+                              story.status === "candidate"
+                                ? "var(--accent-amber)"
+                                : story.status === "triaged"
+                                  ? "var(--accent-blue)"
+                                  : "var(--text-tertiary)",
+                          }}
+                        >
+                          {story.status}
+                        </span>
+                      </div>
+                      {story.description && (
+                        <p className="story-description">
+                          {story.description.length > 120
+                            ? `${story.description.substring(0, 120)}...`
+                            : story.description}
+                        </p>
+                      )}
+                      <div className="story-meta">
+                        {story.product_area && (
+                          <span className="story-area">
+                            {story.product_area}
+                          </span>
+                        )}
+                        <span className="story-date">
+                          {formatDate(story.created_at)}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-stories">
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  >
+                    <path d="M9 12h6M12 9v6" />
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                  </svg>
+                  <span>No new stories from this run</span>
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </main>
 
@@ -922,6 +1047,154 @@ export default function PipelinePage() {
           justify-content: center;
           padding: 32px;
           color: var(--text-tertiary);
+          font-size: 14px;
+        }
+
+        .history-hint {
+          font-size: 12px;
+          color: var(--text-tertiary);
+          margin: 0 0 12px 0;
+        }
+
+        .table-row.clickable {
+          cursor: pointer;
+        }
+
+        .table-row.selected {
+          background: var(--bg-hover);
+          border-left: 3px solid var(--accent-blue);
+        }
+
+        /* New Stories Section */
+        .new-stories-section {
+          grid-column: 1 / -1;
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 16%),
+            hsl(0, 0%, 12%)
+          );
+          border-radius: var(--radius-lg);
+          padding: 20px;
+          box-shadow: var(--shadow-sm);
+        }
+
+        :global([data-theme="light"]) .new-stories-section {
+          background: linear-gradient(
+            to bottom,
+            hsl(0, 0%, 100%),
+            hsl(0, 0%, 97%)
+          );
+        }
+
+        .new-stories-section h2 {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .story-count {
+          font-weight: 400;
+          color: var(--text-tertiary);
+          font-size: 13px;
+        }
+
+        .stories-list {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 12px;
+        }
+
+        .story-card {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 14px;
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+          text-decoration: none;
+          transition: all 0.15s ease;
+        }
+
+        :global([data-theme="light"]) .story-card {
+          background: var(--bg-hover);
+        }
+
+        .story-card:hover {
+          background: var(--bg-hover);
+          transform: translateY(-1px);
+        }
+
+        :global([data-theme="light"]) .story-card:hover {
+          background: var(--border-default);
+        }
+
+        .story-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 8px;
+        }
+
+        .story-title {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--text-primary);
+          line-height: 1.3;
+        }
+
+        .story-status {
+          padding: 2px 8px;
+          border-radius: var(--radius-full);
+          font-size: 10px;
+          font-weight: 600;
+          color: white;
+          text-transform: uppercase;
+          flex-shrink: 0;
+        }
+
+        .story-description {
+          font-size: 12px;
+          color: var(--text-secondary);
+          line-height: 1.4;
+          margin: 0;
+        }
+
+        .story-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: auto;
+        }
+
+        .story-area {
+          font-size: 11px;
+          color: var(--text-tertiary);
+          background: var(--bg-subtle);
+          padding: 2px 6px;
+          border-radius: var(--radius-sm);
+        }
+
+        .story-date {
+          font-size: 11px;
+          color: var(--text-tertiary);
+          margin-left: auto;
+        }
+
+        .no-stories {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+          gap: 12px;
+          color: var(--text-tertiary);
+        }
+
+        .no-stories svg {
+          opacity: 0.5;
+        }
+
+        .no-stories span {
           font-size: 14px;
         }
 

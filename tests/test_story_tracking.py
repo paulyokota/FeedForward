@@ -620,3 +620,66 @@ class TestCodeContextPersistence:
         assert len(result.stories) == 1
         assert result.stories[0].code_context is not None
         assert result.stories[0].code_context.classification.category == "scheduling"
+
+
+# -----------------------------------------------------------------------------
+# Created Since Filter Tests (Issue #54)
+# -----------------------------------------------------------------------------
+
+class TestCreatedSinceFilter:
+    """Tests for created_since filtering in StoryService."""
+
+    def test_list_stories_with_created_since(self, mock_db, sample_story_row):
+        """Test filtering stories by created_since timestamp."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = {"count": 1}
+        cursor.fetchall.return_value = [sample_story_row]
+
+        service = StoryService(db)
+        result = service.list(created_since="2025-01-15T10:30:00Z", limit=10)
+
+        assert isinstance(result, StoryListResponse)
+        assert result.total == 1
+        # Verify the SQL includes created_at filter
+        call_args = cursor.execute.call_args_list
+        # Second call is the SELECT for stories
+        select_call = call_args[1][0][0]
+        assert "created_at >=" in select_call
+        # Check the timestamp value was passed
+        values = call_args[1][0][1]
+        assert "2025-01-15T10:30:00Z" in values
+
+    def test_list_stories_with_created_since_and_status(self, mock_db, sample_story_row):
+        """Test combining created_since with status filter."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = {"count": 1}
+        cursor.fetchall.return_value = [sample_story_row]
+
+        service = StoryService(db)
+        result = service.list(
+            status="candidate",
+            created_since="2025-01-15T10:30:00Z",
+            limit=10,
+        )
+
+        assert result.total == 1
+        # Verify both filters in SQL
+        call_args = cursor.execute.call_args_list
+        select_call = call_args[1][0][0]
+        assert "status = %s" in select_call
+        assert "created_at >=" in select_call
+
+    def test_list_stories_without_created_since(self, mock_db, sample_story_row):
+        """Test that created_since is optional (None by default)."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = {"count": 5}
+        cursor.fetchall.return_value = [sample_story_row] * 5
+
+        service = StoryService(db)
+        result = service.list(limit=10)
+
+        assert result.total == 5
+        # Verify no created_at filter in SQL
+        call_args = cursor.execute.call_args_list
+        select_call = call_args[1][0][0]
+        assert "created_at >=" not in select_call
