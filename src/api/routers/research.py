@@ -281,6 +281,17 @@ def get_suggested_evidence(
         max_suggestions=limit,
     )
 
+    # Get previously rejected evidence IDs for this story
+    with db.cursor() as cur:
+        cur.execute("""
+            SELECT evidence_id FROM suggested_evidence_decisions
+            WHERE story_id = %s AND decision = 'rejected'
+        """, (str(story_id),))
+        rejected_ids = {row["evidence_id"] for row in cur.fetchall()}
+
+    # Filter out rejected suggestions
+    results = [r for r in results if f"{r.source_type}:{r.source_id}" not in rejected_ids]
+
     # Convert to SuggestedEvidence format
     suggestions = [
         SuggestedEvidence(
