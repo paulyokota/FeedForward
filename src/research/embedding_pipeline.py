@@ -35,7 +35,7 @@ class EmbeddingPipeline:
 
     def __init__(
         self,
-        embedding_model: str = "text-embedding-3-large",
+        embedding_model: str = "text-embedding-3-small",
         embedding_dimensions: int = 1536,
         batch_size: int = 100,
         config_path: Optional[Path] = None,
@@ -62,7 +62,7 @@ class EmbeddingPipeline:
         """Load configuration from YAML file."""
         defaults = {
             "embedding": {
-                "model": "text-embedding-3-large",
+                "model": "text-embedding-3-small",
                 "dimensions": 1536,
                 "batch_size": 100,
             },
@@ -268,6 +268,7 @@ class EmbeddingPipeline:
                         content_hash,
                         item.title,
                         item.content,
+                        item.url,
                         embedding,
                         item.metadata,
                     ))
@@ -362,12 +363,13 @@ class EmbeddingPipeline:
             sql = """
                 INSERT INTO research_embeddings (
                     source_type, source_id, content_hash,
-                    title, content, embedding, metadata
+                    title, content, url, embedding, metadata
                 ) VALUES %s
                 ON CONFLICT (source_type, source_id) DO UPDATE SET
                     content_hash = EXCLUDED.content_hash,
                     title = EXCLUDED.title,
                     content = EXCLUDED.content,
+                    url = EXCLUDED.url,
                     embedding = EXCLUDED.embedding,
                     metadata = EXCLUDED.metadata,
                     updated_at = NOW()
@@ -381,10 +383,11 @@ class EmbeddingPipeline:
                     content_hash,
                     title,
                     content,
+                    url,
                     embedding,  # pgvector handles list conversion
                     Json(metadata) if metadata else None,
                 )
-                for source_type, source_id, content_hash, title, content, embedding, metadata in rows
+                for source_type, source_id, content_hash, title, content, url, embedding, metadata in rows
             ]
 
             execute_values(cur, sql, formatted_rows)

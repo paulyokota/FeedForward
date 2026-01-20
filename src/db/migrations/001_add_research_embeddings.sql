@@ -15,11 +15,12 @@ CREATE TABLE IF NOT EXISTS research_embeddings (
     content_hash TEXT NOT NULL,             -- SHA-256 hash for change detection
 
     -- Content
-    title TEXT,                             -- Display title
+    title TEXT NOT NULL,                    -- Display title
     content TEXT NOT NULL,                  -- Full text content for embedding
+    url TEXT NOT NULL,                      -- Link to original source
 
-    -- Vector embedding (OpenAI text-embedding-3-large = 1536 dimensions)
-    embedding vector(1536),
+    -- Vector embedding (OpenAI text-embedding-3-small = 1536 dimensions)
+    embedding vector(1536) NOT NULL,
 
     -- Metadata (source-specific fields)
     metadata JSONB DEFAULT '{}',            -- participant, tags, url, etc.
@@ -71,5 +72,5 @@ COMMENT ON TABLE research_embeddings IS 'Unified embeddings table for RAG/Search
 COMMENT ON COLUMN research_embeddings.source_type IS 'Data source: coda_page, coda_theme, intercom';
 COMMENT ON COLUMN research_embeddings.source_id IS 'Unique identifier within the source system';
 COMMENT ON COLUMN research_embeddings.content_hash IS 'SHA-256 hash of content for change detection';
-COMMENT ON COLUMN research_embeddings.embedding IS 'OpenAI text-embedding-3-large vector (1536 dims)';
+COMMENT ON COLUMN research_embeddings.embedding IS 'OpenAI text-embedding-3-small vector (1536 dims)';
 COMMENT ON COLUMN research_embeddings.metadata IS 'Source-specific metadata as JSONB';

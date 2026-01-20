@@ -49,7 +49,7 @@ class UnifiedSearchService:
 
     def __init__(
         self,
-        embedding_model: str = "text-embedding-3-large",
+        embedding_model: str = "text-embedding-3-small",
         embedding_dimensions: int = 1536,
         config_path: Optional[Path] = None,
     ):
