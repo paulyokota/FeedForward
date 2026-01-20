@@ -747,3 +747,169 @@ class TestEvidenceDecisionEndpoints:
 
         assert "decision" in data
         assert data["decision"] in ["accepted", "rejected"]
+
+# -----------------------------------------------------------------------------
+# Suggested Evidence Filtering Tests (Issue #50)
+# -----------------------------------------------------------------------------
+
+
+class TestSuggestedEvidenceFiltering:
+    """Tests for filtering rejected evidence from suggested evidence endpoint."""
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create a mock database connection with cursor context manager."""
+        db = Mock()
+        cursor = MagicMock()
+        db.cursor.return_value.__enter__ = Mock(return_value=cursor)
+        db.cursor.return_value.__exit__ = Mock(return_value=False)
+        return db, cursor
+
+    @pytest.fixture
+    def mock_search_service(self):
+        """Create mock search service that returns test results."""
+        service = Mock()
+        service.suggest_evidence.return_value = [
+            UnifiedSearchResult(
+                id=1,
+                source_type="coda_page",
+                source_id="page_123",
+                title="Test Page 1",
+                snippet="Test content 1",
+                similarity=0.85,
+                url="https://coda.io/page_123",
+                metadata={},
+            ),
+            UnifiedSearchResult(
+                id=2,
+                source_type="coda_theme",
+                source_id="theme_456",
+                title="Test Theme 2",
+                snippet="Test content 2",
+                similarity=0.80,
+                url="https://coda.io/theme_456",
+                metadata={},
+            ),
+            UnifiedSearchResult(
+                id=3,
+                source_type="coda_page",
+                source_id="page_789",
+                title="Test Page 3",
+                snippet="Test content 3",
+                similarity=0.75,
+                url="https://coda.io/page_789",
+                metadata={},
+            ),
+        ]
+        return service
+
+    @pytest.fixture
+    def client(self, mock_db):
+        """Create a test client with overridden database dependency."""
+        db, _ = mock_db
+        app.dependency_overrides[get_db] = lambda: db
+
+        yield TestClient(app)
+
+        # Clean up overrides after test
+        app.dependency_overrides.clear()
+
+    @pytest.fixture
+    def sample_story_id(self):
+        """Generate a valid UUID for a story."""
+        return uuid4()
+
+    def test_suggested_evidence_filters_rejected(self, client, mock_db, mock_search_service, sample_story_id):
+        """Test that previously rejected evidence is excluded from suggestions."""
+        db, cursor = mock_db
+
+        # First call: Get story title/description
+        # Second call: Get rejected evidence IDs
+        cursor.fetchone.return_value = {
+            "title": "Test Story",
+            "description": "Test Description",
+        }
+        cursor.fetchall.return_value = [
+            {"evidence_id": "coda_page:page_123"},  # Rejected
+            {"evidence_id": "coda_theme:theme_456"},  # Rejected
+        ]
+
+        # Override search service dependency
+        from src.api.routers.research import get_search_service
+        app.dependency_overrides[get_search_service] = lambda: mock_search_service
+
+        response = client.get(f"/api/research/stories/{sample_story_id}/suggested-evidence")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should only return page_789 (the non-rejected one)
+        assert len(data["suggestions"]) == 1
+        assert data["suggestions"][0]["source_id"] == "page_789"
+        assert data["suggestions"][0]["source_type"] == "coda_page"
+
+        # Cleanup
+        app.dependency_overrides.clear()
+
+    def test_suggested_evidence_returns_accepted(self, client, mock_db, mock_search_service, sample_story_id):
+        """Test that accepted evidence is NOT filtered out (only rejected evidence is filtered)."""
+        db, cursor = mock_db
+
+        # First call: Get story title/description
+        # Second call: Get rejected evidence IDs (empty - no rejections)
+        cursor.fetchone.return_value = {
+            "title": "Test Story",
+            "description": "Test Description",
+        }
+        # User has accepted page_123, but accepted items should still appear
+        cursor.fetchall.return_value = []  # No rejected evidence
+
+        # Override search service dependency
+        from src.api.routers.research import get_search_service
+        app.dependency_overrides[get_search_service] = lambda: mock_search_service
+
+        response = client.get(f"/api/research/stories/{sample_story_id}/suggested-evidence")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # All 3 items should be returned (none are rejected)
+        assert len(data["suggestions"]) == 3
+        assert data["suggestions"][0]["source_id"] == "page_123"
+        assert data["suggestions"][1]["source_id"] == "theme_456"
+        assert data["suggestions"][2]["source_id"] == "page_789"
+
+        # Cleanup
+        app.dependency_overrides.clear()
+
+    def test_suggested_evidence_no_rejections_returns_all(self, client, mock_db, mock_search_service, sample_story_id):
+        """Test that when no evidence has been rejected, all suggestions are returned (regression test)."""
+        db, cursor = mock_db
+
+        # First call: Get story title/description
+        # Second call: Get rejected evidence IDs (empty set)
+        cursor.fetchone.return_value = {
+            "title": "Test Story",
+            "description": "Test Description",
+        }
+        cursor.fetchall.return_value = []  # Empty rejection set
+
+        # Override search service dependency
+        from src.api.routers.research import get_search_service
+        app.dependency_overrides[get_search_service] = lambda: mock_search_service
+
+        response = client.get(f"/api/research/stories/{sample_story_id}/suggested-evidence")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # All 3 items should be returned
+        assert len(data["suggestions"]) == 3
+
+        # Verify order and IDs
+        assert data["suggestions"][0]["id"] == "coda_page:page_123"
+        assert data["suggestions"][1]["id"] == "coda_theme:theme_456"
+        assert data["suggestions"][2]["id"] == "coda_page:page_789"
+
+        # Cleanup
+        app.dependency_overrides.clear()
