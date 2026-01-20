@@ -1132,6 +1132,102 @@ webapp/src/app/research/     # Frontend search page
 
 ---
 
+### 16. Domain Classifier & Codebase Context (NEW - 2026-01-20)
+
+**Purpose**: Map customer issues to relevant code areas using semantic classification and a curated domain knowledge map.
+
+**Architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Customer Issue (issue_summary, product_area, symptoms)     │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Domain Classifier (src/story_tracking/services/            │
+│                     domain_classifier.py)                   │
+│  - Stage 1: Fast keyword fallback (<50ms)                  │
+│  - Stage 2: Claude Haiku 4.5 semantic classification       │
+│  - Latency target: <500ms total                            │
+│  - Cost: ~$0.00015 per classification                       │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Domain Knowledge Map (config/codebase_domain_map.yaml)    │
+│  - 16 issue categories (scheduling, billing, auth, etc.)   │
+│  - Keywords per category for fast matching                 │
+│  - Repository mappings (aero, tack, webapp, etc.)          │
+│  - Search paths per category                               │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Codebase Context Provider (src/story_tracking/services/    │
+│                             codebase_context_provider.py)   │
+│  - explore_with_classification() - Guided exploration       │
+│  - Classification-prioritized search paths                  │
+│  - File discovery with relevance scoring                   │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Output: ClassificationResult + ExplorationResult           │
+│  - Category, confidence, reasoning                          │
+│  - Suggested repos and search paths                         │
+│  - Matched keywords and alternative categories              │
+│  - Discovered files with relevance scores                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Classification Categories** (16 total):
+
+| Category            | Description                              |
+| ------------------- | ---------------------------------------- |
+| scheduling          | Pin scheduling, calendar issues          |
+| billing             | Payments, subscriptions, plans           |
+| auth                | Login, OAuth, account access             |
+| ai_creation         | Ghostwriter, AI-generated content        |
+| analytics           | Reports, metrics, insights               |
+| media               | Images, videos, uploads                  |
+| social_integrations | Pinterest, Instagram, TikTok connections |
+| communities         | Groups, collaborative features           |
+| notifications       | Alerts, emails, in-app messages          |
+| performance         | Speed, timeouts, errors                  |
+| mobile              | iOS/Android apps                         |
+| browser_extension   | Chrome extension                         |
+| team_collaboration  | Workspaces, permissions                  |
+| api                 | Developer API, webhooks                  |
+| onboarding          | Signup, trial, first-time experience     |
+| bug_report          | General bugs (fallback)                  |
+
+**Key Features**:
+
+- **Two-Stage Classification**: Fast keyword fallback + semantic Haiku for accuracy
+- **Domain-Specific Search**: Repositories and paths curated per category
+- **Graceful Degradation**: Falls back to standard exploration on classification error
+- **Test Coverage**: 37 tests (24 unit + 13 integration)
+
+**Files**:
+
+```
+config/codebase_domain_map.yaml              # Domain knowledge map (602 lines)
+src/story_tracking/services/
+├── domain_classifier.py                     # Haiku classifier (335 lines)
+└── codebase_context_provider.py             # Exploration service (967 lines)
+tests/
+├── test_domain_classifier.py                # 24 unit tests
+└── test_domain_classifier_integration.py    # 13 integration tests
+scripts/validate_domain_classifier.py        # Manual validation
+```
+
+**Current Status**:
+
+- ✅ Classification working with 37 tests passing
+- ⚠️ Not yet wired into story creation flow
+- ⚠️ `ensure_repo_fresh` and `get_static_context` raise `NotImplementedError`
+
+**Documentation**: `docs/analysis/codebase-search-vdd-limitations.md` (methodology analysis)
+
+---
+
 ## Current Status
 
 **Implemented**:
