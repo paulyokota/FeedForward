@@ -331,6 +331,7 @@ async def run_pipeline_async(
     concurrency: int = 20,
     batch_size: int = 50,
     data_source: str = "intercom",
+    stop_checker: Optional[callable] = None,
 ) -> Dict[str, int]:
     """
     Run the two-stage classification pipeline with async parallelization.
@@ -344,6 +345,7 @@ async def run_pipeline_async(
         concurrency: Number of parallel API calls (default 20)
         batch_size: DB batch insert size (default 50)
         data_source: Source to process ("intercom" or "coda")
+        stop_checker: Optional callable returning True if pipeline should stop
 
     Returns:
         Statistics dictionary
@@ -362,6 +364,10 @@ async def run_pipeline_async(
     # Initialize semaphore
     semaphore = asyncio.Semaphore(concurrency)
 
+    # Helper to check if stop requested
+    def should_stop() -> bool:
+        return stop_checker is not None and stop_checker()
+
     # Use appropriate adapter based on data source
     if data_source == "coda":
         return await _run_coda_pipeline_async(
@@ -370,6 +376,7 @@ async def run_pipeline_async(
             concurrency=concurrency,
             batch_size=batch_size,
             semaphore=semaphore,
+            stop_checker=stop_checker,
         )
 
     # Default: Intercom pipeline
@@ -380,6 +387,11 @@ async def run_pipeline_async(
     print("Phase 1: Fetching conversations from Intercom...")
     conversations = []
     for parsed, raw_conv in client.fetch_quality_conversations(since=since, max_pages=None):
+        # Check for stop signal during fetch
+        if should_stop():
+            print("  Stop signal received during fetch, stopping...")
+            break
+
         # Get full conversation with parts
         full_conv = client.get_conversation(parsed.id)
         conversations.append((parsed, full_conv))
@@ -391,6 +403,18 @@ async def run_pipeline_async(
             break
 
     print(f"  Total fetched: {len(conversations)}")
+
+    # Check for stop signal before classification
+    if should_stop():
+        print("  Stop signal received, returning early...")
+        return {
+            "fetched": len(conversations),
+            "filtered": 0,
+            "classified": 0,
+            "stored": 0,
+            "stage2_run": 0,
+            "classification_changed": 0,
+        }
 
     # Phase 2: Classify in parallel
     print(f"\nPhase 2: Classifying {len(conversations)} conversations in parallel...")
@@ -446,6 +470,7 @@ async def _run_coda_pipeline_async(
     concurrency: int = 20,
     batch_size: int = 50,
     semaphore: asyncio.Semaphore = None,
+    stop_checker: Optional[callable] = None,
 ) -> Dict[str, int]:
     """
     Run classification pipeline for Coda research data.
@@ -453,6 +478,8 @@ async def _run_coda_pipeline_async(
     Coda data is evergreen (not time-bounded like Intercom),
     so we process all available research content.
     """
+    def should_stop() -> bool:
+        return stop_checker is not None and stop_checker()
     from adapters import CodaAdapter
 
     adapter = CodaAdapter()

@@ -50,7 +50,7 @@ class PipelineStatus(BaseModel):
     id: int
     started_at: datetime
     completed_at: Optional[datetime] = None
-    status: Literal["running", "completed", "failed"]
+    status: Literal["running", "stopping", "stopped", "completed", "failed"]
     error_message: Optional[str] = None
 
     # Configuration
@@ -84,3 +84,11 @@ class PipelineRunListItem(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PipelineStopResponse(BaseModel):
+    """Response when stopping a pipeline run."""
+
+    run_id: int
+    status: Literal["stopping", "stopped", "not_found", "not_running"]
+    message: str

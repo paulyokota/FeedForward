@@ -339,6 +339,19 @@ export default function BoardPage() {
             </svg>
             Tools
           </Link>
+          <Link href="/pipeline" className="nav-link">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+            Pipeline
+          </Link>
           <ThemeToggle />
           <div className="filter-wrapper">
             <button

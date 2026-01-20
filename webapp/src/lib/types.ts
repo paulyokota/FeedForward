@@ -312,6 +312,67 @@ export interface SimilarContentRequest {
   limit?: number;
 }
 
+// =============================================================================
+// Pipeline Types
+// =============================================================================
+
+export type PipelineRunStatus =
+  | "running"
+  | "stopping"
+  | "stopped"
+  | "completed"
+  | "failed";
+
+export interface PipelineRunRequest {
+  days?: number;
+  max_conversations?: number;
+  dry_run?: boolean;
+  concurrency?: number;
+}
+
+export interface PipelineRunResponse {
+  run_id: number;
+  status: "started" | "queued";
+  message: string;
+}
+
+export interface PipelineStatus {
+  id: number;
+  started_at: string;
+  completed_at: string | null;
+  status: PipelineRunStatus;
+  error_message: string | null;
+  date_from: string | null;
+  date_to: string | null;
+  conversations_fetched: number;
+  conversations_filtered: number;
+  conversations_classified: number;
+  conversations_stored: number;
+  duration_seconds: number | null;
+}
+
+export interface PipelineRunListItem {
+  id: number;
+  started_at: string;
+  completed_at: string | null;
+  status: string;
+  conversations_fetched: number;
+  conversations_classified: number;
+  conversations_stored: number;
+  duration_seconds: number | null;
+}
+
+export interface PipelineStopResponse {
+  run_id: number;
+  status: "stopping" | "stopped" | "not_found" | "not_running";
+  message: string;
+}
+
+export interface PipelineActiveResponse {
+  active: boolean;
+  run_id: number | null;
+}
+
 // Source type display config
 export const SOURCE_TYPE_CONFIG: Record<
   ResearchSourceType,
