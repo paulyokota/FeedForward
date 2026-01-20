@@ -26,6 +26,7 @@ from .codebase_security import (
     validate_path,
     validate_repo_name,
 )
+from .domain_classifier import DomainClassifier, ClassificationResult
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +139,14 @@ class CodebaseContextProvider:
         # Validate that repos path exists
         if not self.repos_path.exists():
             logger.warning(f"Repos path does not exist: {self.repos_path}")
+
+        # Initialize domain classifier for semantic category detection
+        try:
+            self.classifier = DomainClassifier()
+            logger.info("DomainClassifier initialized successfully")
+        except Exception as e:
+            logger.warning(f"Failed to initialize DomainClassifier: {e}. Fallback to non-classified search.")
+            self.classifier = None
 
     def ensure_repo_fresh(self, repo_name: str) -> SyncResult:
         """
@@ -294,6 +303,164 @@ class CodebaseContextProvider:
                 exploration_duration_ms=duration_ms,
                 success=False,
                 error=str(e),
+            )
+
+    def explore_with_classification(
+        self,
+        issue_text: str,
+        target_repo: Optional[str] = None,
+        stage2_context: Optional[str] = None
+    ) -> tuple[ExplorationResult, Optional[ClassificationResult]]:
+        """
+        Explore codebase with semantic issue classification.
+
+        Uses Haiku to classify the issue into a product category, then uses the
+        classifier's recommendations to guide the codebase exploration for
+        maximum precision and recall.
+
+        Two-stage approach:
+        1. Classify: Haiku determines the product category (<500ms)
+        2. Explore: Use category-specific search paths to find relevant files
+
+        Args:
+            issue_text: Raw customer support conversation or issue description
+            target_repo: Repository to search (optional, can be determined by classifier)
+            stage2_context: Additional context from stage 2 analysis (optional)
+
+        Returns:
+            Tuple of (ExplorationResult, ClassificationResult)
+            - ExplorationResult: Files and snippets from codebase
+            - ClassificationResult: Classification details and recommendations
+
+        Example:
+            issue = "My scheduled pins aren't posting to Pinterest anymore"
+            result, classification = provider.explore_with_classification(issue)
+            assert classification.category == "scheduling"
+            assert len(result.relevant_files) > 0
+        """
+        start_time = time.time()
+
+        # Stage 1: Classify the issue using Haiku
+        if not self.classifier:
+            logger.warning("Classifier not available, cannot perform classification-guided exploration")
+            return ExplorationResult(
+                success=False,
+                error="Classifier not initialized",
+                exploration_duration_ms=int((time.time() - start_time) * 1000),
+            ), None
+
+        try:
+            classification = self.classifier.classify(issue_text, stage2_context)
+
+            if not classification.success:
+                logger.warning(f"Classification failed: {classification.error}")
+                return ExplorationResult(
+                    success=False,
+                    error=f"Classification failed: {classification.error}",
+                    exploration_duration_ms=int((time.time() - start_time) * 1000),
+                ), classification
+
+            # Stage 2: Build theme_data from classification results
+            theme_data = {
+                "product_area": classification.category,
+                "component": classification.category,  # Use category as component
+                "user_intent": issue_text[:200],  # First 200 chars as intent
+                "symptoms": [],
+            }
+
+            # Determine target repo from classification if not provided
+            if not target_repo and classification.suggested_repos:
+                target_repo = classification.suggested_repos[0]
+                logger.info(f"Using suggested repo from classifier: {target_repo}")
+
+            # Fallback to aero if no repo suggested
+            if not target_repo:
+                target_repo = "aero"
+                logger.info("No repo suggested by classifier, using default: aero")
+
+            # Stage 3: Explore with classifier-guided paths
+            logger.info(
+                f"Exploring with classification guidance",
+                extra={
+                    "category": classification.category,
+                    "repo": target_repo,
+                    "suggested_paths": len(classification.suggested_search_paths),
+                }
+            )
+
+            # Use original explore_for_theme but with enhanced paths from classifier
+            exploration = self._explore_with_classifier_hints(theme_data, target_repo, classification)
+
+            return exploration, classification
+
+        except Exception as e:
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.error(f"Classification-guided exploration failed: {e}", exc_info=True)
+            return ExplorationResult(
+                success=False,
+                error=str(e),
+                exploration_duration_ms=duration_ms,
+            ), None
+
+    def _explore_with_classifier_hints(
+        self,
+        theme_data: Dict,
+        target_repo: str,
+        classification: ClassificationResult
+    ) -> ExplorationResult:
+        """
+        Internal helper to explore using classifier hints.
+
+        Prioritizes search paths recommended by the classifier.
+        """
+        start_time = time.time()
+
+        try:
+            repo_path = get_repo_path(target_repo)
+
+            # Build search patterns with classifier hints prioritized
+            search_patterns = self._build_search_patterns(theme_data)
+
+            # Prepend classifier-recommended paths for higher priority
+            if classification.suggested_search_paths:
+                search_patterns = classification.suggested_search_paths + search_patterns
+
+            logger.debug(
+                f"Using {len(search_patterns)} search patterns",
+                extra={"classifier_hints": len(classification.suggested_search_paths)}
+            )
+
+            # Find relevant files
+            raw_files = self._find_relevant_files(repo_path, search_patterns)
+            filtered_files = filter_exploration_results(raw_files)
+
+            # Search for keywords
+            keywords = self._extract_keywords(theme_data)
+            file_references = self._search_for_keywords(repo_path, filtered_files, keywords)
+
+            # Extract code snippets
+            code_snippets = self._extract_snippets(file_references[:10])
+
+            # Generate investigation queries
+            investigation_queries = self._generate_queries(theme_data, file_references)
+
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            return ExplorationResult(
+                relevant_files=file_references,
+                code_snippets=code_snippets,
+                investigation_queries=investigation_queries,
+                exploration_duration_ms=duration_ms,
+                success=True,
+            )
+
+        except Exception as e:
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.error(f"Classifier-guided exploration error: {e}", exc_info=True)
+            return ExplorationResult(
+                success=False,
+                error=str(e),
+                exploration_duration_ms=duration_ms,
             )
 
     def _sanitize_for_glob(self, value: str) -> str:
