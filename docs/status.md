@@ -12,56 +12,74 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: PR #42 Domain Classifier & Vector Integration Review (2026-01-20)
+## Latest: Vector Integration Phase 1 Complete (2026-01-20)
 
 ### Session Summary
 
-Merged PR #42 (domain knowledge map + Haiku classifier for codebase search). Completed architecture review of vector integration plan with convergence in 2 rounds. Documented VDD methodology limitations.
+Completed Vector Integration Phase 1 (issue #43). Implemented accept/reject endpoints, rejection filtering, setup scripts, and fixed critical bugs discovered during functional testing.
 
 ### What Was Done
 
-**PR #42: Domain Knowledge Map + Haiku Classification**:
+**Vector Integration Phase 1 - All PRs Merged**:
 
-- Merged `config/codebase_domain_map.yaml` - 16 issue categories mapped to code paths
-- Added `src/story_tracking/services/domain_classifier.py` - Haiku 4.5 classifier with:
-  - Two-stage classification: fast keyword fallback + semantic Haiku
-  - Latency target: <500ms (keyword: <50ms)
-  - Cost: ~$0.00015 per classification (~$4.50/month)
-- Added `explore_with_classification()` to `CodebaseContextProvider`
-- Code review: 4 issues found, 3 blocking fixed before merge
-- 37 tests passing (1 flaky latency test - environment overhead)
+| PR  | Feature                                                 | Status    |
+| --- | ------------------------------------------------------- | --------- |
+| #52 | Schema migration (`suggested_evidence_decisions` table) | ✅ Merged |
+| #57 | Accept/reject endpoints for suggested evidence          | ✅ Merged |
+| #60 | Recovery of orphaned changes from #58/#59               | ✅ Merged |
+| #61 | Fix embedding model + missing URL column                | ✅ Merged |
 
-**VDD Methodology Limitations Analysis**:
+**Accept/Reject Endpoints** (PR #57):
 
-- Created `docs/analysis/codebase-search-vdd-limitations.md`
-- VDD plateaued at 5% precision, 7% recall after LLM query generation
-- Root causes identified:
-  - Metadata poverty (100% `product_area: "uncertain"`)
-  - Ground truth instability (Opus vs Sonnet disagree by 6x)
-  - Zero intersection in 3/5 test conversations
-- Recommendation: Pause VDD iterations, consider domain map + classification approach
+- `POST /api/research/stories/{story_id}/suggested-evidence/{evidence_id}/accept`
+- `POST /api/research/stories/{story_id}/suggested-evidence/{evidence_id}/reject`
+- Evidence ID format: `source_type:source_id` (e.g., `coda_page:page_abc123`)
+- Proper error handling: 400 (invalid format), 404 (story not found), 409 (duplicate decision)
+- 15 new endpoint tests
 
-**Vector Integration Plan Architecture Review**:
+**Filter Rejected Evidence** (recovered in PR #60):
 
-- 5-personality review on `docs/vector-integration-plan.md`
-- Round 1: 21 issues found (2 critical security, 4 high)
-- Security items deferred (internal tool scope documented)
-- Round 2: All 5 reviewers CONVERGE, plan approved
+- `get_suggested_evidence` now excludes previously rejected items
+- Query `suggested_evidence_decisions` table for rejected IDs
+- 3 new filter tests
 
-### Current Gap Analysis
+**Setup Script & Runbook** (recovered in PR #60):
 
-The domain classifier improves "relevant code areas" capability but isn't wired end-to-end:
+- `scripts/run_initial_embeddings.py` - 5-step validation with progress output
+- `docs/runbook/vector-search-setup.md` - Installation and troubleshooting guide
 
-- `explore_with_classification` only in tests, not story creation flow
-- `ensure_repo_fresh` and `get_static_context` still `NotImplementedError`
-- Suggested evidence: GET route exists, accept/reject POST routes missing
-- Vector search isolated from story creation
+**Bug Fixes** (PR #61):
+
+- Switched from `text-embedding-3-large` (3072 dims) to `text-embedding-3-small` (1536 dims)
+  - pgvector 0.8 has 2000 dimension limit for indexes
+- Added missing `url` column to INSERT statement in embedding_pipeline.py
+- Updated migration schema to match
+
+**Functional Test Results**:
+
+- ✅ pgvector extension verified
+- ✅ research_embeddings table created
+- ✅ 10 embeddings generated (5 themes, 5 intercom)
+- ⚠️ P95 latency 712ms (target 500ms) - expected with small dataset
+
+**Issue Filed**:
+
+- #62: coda_page adapter "no such column: name" bug (future session)
+
+### Test Coverage
+
+- 50 tests in `test_research.py` (all passing)
+- Covers: endpoints, filtering, evidence decisions, search functionality
 
 ### Next Steps
 
-1. Wire `explore_with_classification` into story creation service
-2. Implement accept/reject endpoints for suggested evidence
-3. Implement repo sync and static fallback for reliable code pointers
+1. Fix coda_page adapter schema issue (issue #62)
+2. Run full embedding pipeline with production data
+3. Wire suggested evidence into story creation flow
+
+---
+
+## Previous: PR #42 Domain Classifier & Vector Integration Review (2026-01-20)
 
 ---
 

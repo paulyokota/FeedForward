@@ -10,6 +10,34 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Vector Integration Phase 1 Complete (2026-01-20)** - PRs #52, #57, #60, #61:
+
+- Accept/reject endpoints for suggested evidence:
+  - `POST /api/research/stories/{story_id}/suggested-evidence/{evidence_id}/accept`
+  - `POST /api/research/stories/{story_id}/suggested-evidence/{evidence_id}/reject`
+  - Evidence ID format: `source_type:source_id`
+  - Error codes: 400 (invalid format), 404 (story not found), 409 (duplicate)
+- Filter rejected evidence from suggestions in `get_suggested_evidence` endpoint
+- `scripts/run_initial_embeddings.py` - 5-step validation script for vector setup
+- `docs/runbook/vector-search-setup.md` - Installation and troubleshooting guide
+- 18 new tests for evidence endpoints and filtering (50 total in test_research.py)
+- `suggested_evidence_decisions` table (PR #52) for tracking PM accept/reject decisions
+
+### Fixed
+
+**Embedding Pipeline Bugs (2026-01-20)** - PR #61:
+
+- Switched from `text-embedding-3-large` to `text-embedding-3-small` (pgvector 0.8 has 2000 dim limit)
+- Added missing `url` column to INSERT statement in `embedding_pipeline.py`
+- Updated migration schema with `url TEXT NOT NULL`
+
+### Known Issues
+
+- #62: coda_page adapter fails with "no such column: name" (deferred to future session)
+- P95 search latency 712ms with small dataset (expected to improve with more embeddings)
+
+---
+
 **Domain Knowledge Map + Haiku Classification (2026-01-20)** - PR #42:
 
 - `config/codebase_domain_map.yaml` - 16 issue categories mapped to codebase locations
