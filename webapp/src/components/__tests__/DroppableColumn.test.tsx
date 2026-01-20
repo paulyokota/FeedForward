@@ -59,6 +59,7 @@ function createMockStory(overrides: Partial<Story> = {}): Story {
     technical_area: "frontend",
     status: "candidate",
     confidence_score: 0.85,
+    code_context: null,
     evidence_count: 5,
     conversation_count: 3,
     created_at: "2024-01-01T00:00:00Z",

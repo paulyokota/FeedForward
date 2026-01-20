@@ -12,6 +12,7 @@ import { ShortcutSyncPanel } from "@/components/ShortcutSyncPanel";
 import { LabelPicker } from "@/components/LabelPicker";
 import { EvidenceBrowser } from "@/components/EvidenceBrowser";
 import { SuggestedEvidence } from "@/components/SuggestedEvidence";
+import { ImplementationContext } from "@/components/ImplementationContext";
 
 const SEVERITY_OPTIONS = [
   { value: "", label: "None" },
@@ -308,6 +309,11 @@ export default function StoryDetailPage() {
                 setStory(data);
               }}
             />
+          </section>
+
+          {/* Implementation Context Section - code pointers from exploration */}
+          <section className="content-section">
+            <ImplementationContext codeContext={story.code_context} />
           </section>
 
           {/* Comments Section */}
