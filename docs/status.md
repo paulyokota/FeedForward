@@ -12,7 +12,51 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Vector Integration Phase 1 Complete (2026-01-20)
+## Latest: Roadmap Planning & Agent Protocol (2026-01-20)
+
+### Session Summary
+
+Created comprehensive roadmap proposal and used agent coordination protocol for async discussion between Claude Code and Codex to resolve sequencing disagreements. Decision: 4-week parallel tracks (PM UX + Implementation Context).
+
+### What Was Done
+
+**Roadmap Creation** (`docs/proposed_roadmap_jan_20_claude.md`):
+
+- 6-phase roadmap prioritizing implementation context as core differentiator
+- Key insight: code pointers (#44, #46, #56) are "head start on implementation"
+- Issue #62 (coda_page adapter) identified as Week 1 blocker
+
+**Agent Coordination (T-001)**:
+
+- Claude Code (architect) vs Codex (implementation check) discussion
+- Claude: Implementation context first (core value prop)
+- Codex: PM UX spine first (operational risk)
+- Resolution: Hybrid parallel tracks
+
+**Decided Roadmap (4-week parallel tracks)**:
+
+| Week | Track A (PM UX)            | Track B (Implementation Context) |
+| ---- | -------------------------- | -------------------------------- |
+| 1    | #62 coda_page fix          | #46 repo sync                    |
+| 2    | #53 pipeline control       | #44 wire classifier              |
+| 3    | #54 run summary            | #56 impl context UI              |
+| 4    | #55 evidence accept/reject | Buffer                           |
+
+**Files Created**:
+
+- `docs/proposed_roadmap_jan_20_claude.md` - Claude's 6-phase roadmap
+- `docs/agent-conversation-archive/2026-01-20_T-001.md` - Archived T-001 discussion
+- `docs/agent-conversation.md` - Updated with archived summary
+
+### Next Steps
+
+1. Fix #62 coda_page adapter bug (Week 1, Track A)
+2. Implement #46 repo sync + static fallback (Week 1, Track B)
+3. Begin #53 pipeline control (Week 2)
+
+---
+
+## Previous: Vector Integration Phase 1 Complete (2026-01-20)
 
 ### Session Summary
 

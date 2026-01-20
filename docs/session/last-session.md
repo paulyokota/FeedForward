@@ -5,43 +5,54 @@
 
 ## Goal
 
-Complete Vector Integration Phase 1 (issue #43) - verify PR merge state, run functional tests, fix bugs, and document.
+Create roadmap proposal and coordinate with Codex via agent protocol to resolve sequencing disagreements.
 
 ## Progress
 
-- Completed: 6 tasks
+- Completed: 4 tasks
 - Pending: 0 tasks
-
-## What Was Done
-
-### PR Chain Recovery
-
-- Discovered PRs #58 and #59 were merged to feature branches instead of main (orphaned changes)
-- Created PR #60 to cherry-pick and recover orphaned commits
-- Verified all changes now on main
-
-### Functional Testing
-
-- Ran `scripts/run_initial_embeddings.py` 5-step validation
-- Fixed pgvector installation (built from source for PostgreSQL 14)
-- Fixed dimension mismatch (switched to text-embedding-3-small)
-- Fixed missing URL column bug in INSERT statement
-
-### Bug Fixes (PR #61)
-
-- Switched embedding model from `text-embedding-3-large` to `text-embedding-3-small`
-- Added missing `url` column to embedding_pipeline.py INSERT
-- Updated migration schema
-
-### Final State
-
-- 50 tests passing in test_research.py
-- 10 embeddings generated (5 themes, 5 intercom)
-- Issue #62 filed for coda_page adapter bug
 
 ## Session Notes
 
-Vector Integration Phase 1 complete. All accept/reject endpoints working, rejection filtering implemented, functional test passed. Next steps: fix coda_page adapter (#62), run full pipeline with production data.
+### Roadmap Planning
+
+Created `docs/proposed_roadmap_jan_20_claude.md` with 6-phase roadmap:
+
+1. Stabilize Foundation (#62 bug fix)
+2. Implementation Context (#44, #46, #56) - core differentiator
+3. Evidence Workflow (#55, #51)
+4. PM UX (#53, #54)
+5. Quality Improvements (#36, #37)
+6. Optimization (future)
+
+### Agent Coordination (T-001)
+
+Used `docs/AGENT_PROTOCOL.md` for async discussion:
+
+- **Claude Code position**: Implementation context first (core value prop)
+- **Codex position**: PM UX spine first (operational risk)
+- **Resolution**: Hybrid parallel tracks
+
+### Decided Roadmap (4-week parallel tracks)
+
+| Week | Track A (PM UX)            | Track B (Implementation Context) |
+| ---- | -------------------------- | -------------------------------- |
+| 1    | #62 coda_page fix          | #46 repo sync                    |
+| 2    | #53 pipeline control       | #44 wire classifier              |
+| 3    | #54 run summary            | #56 impl context UI              |
+| 4    | #55 evidence accept/reject | Buffer                           |
+
+### Files Created
+
+- `docs/proposed_roadmap_jan_20_claude.md` - Claude's 6-phase roadmap
+- `docs/agent-conversation-archive/2026-01-20_T-001.md` - Archived T-001 discussion
+- `docs/agent-conversation.md` - Updated with archived summary
+
+## Next Steps
+
+1. Fix #62 coda_page adapter bug (Week 1, Track A)
+2. Implement #46 repo sync + static fallback (Week 1, Track B)
+3. Begin #53 pipeline control (Week 2)
 
 ---
 
