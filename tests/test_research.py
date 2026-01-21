@@ -638,25 +638,60 @@ class TestEvidenceDecisionEndpoints:
         if action == "accept":
             assert str(non_existent_story_id) in response.json()["detail"]
 
-    @pytest.mark.parametrize("action", ["accept", "reject"])
-    def test_evidence_duplicate_decision(self, client, mock_db, sample_story_id, valid_evidence_id, action):
-        """Test accepting/rejecting same evidence twice returns 409 Conflict."""
+    def test_state_transition_accepted_to_rejected(self, client, mock_db, sample_story_id, valid_evidence_id):
+        """Test state transition from accepted to rejected succeeds (UPSERT behavior)."""
         db, cursor = mock_db
-        # Story exists
         cursor.fetchone.return_value = {"id": str(sample_story_id)}
 
-        # Simulate unique constraint violation on INSERT
-        cursor.execute.side_effect = [
-            None,  # First call (SELECT for story validation)
-            IntegrityError("duplicate key value violates unique constraint"),  # INSERT fails
-        ]
-
-        response = client.post(
-            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/{action}"
+        # First accept (initial decision)
+        response1 = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/accept"
         )
+        assert response1.status_code == 200
+        assert response1.json()["decision"] == "accepted"
 
-        assert response.status_code == 409
-        assert "already exists" in response.json()["detail"].lower()
+        # Then reject (state transition)
+        response2 = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/reject"
+        )
+        assert response2.status_code == 200
+        assert response2.json()["decision"] == "rejected"
+
+    def test_state_transition_rejected_to_accepted(self, client, mock_db, sample_story_id, valid_evidence_id):
+        """Test state transition from rejected to accepted succeeds (UPSERT behavior)."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = {"id": str(sample_story_id)}
+
+        # First reject (initial decision)
+        response1 = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/reject"
+        )
+        assert response1.status_code == 200
+        assert response1.json()["decision"] == "rejected"
+
+        # Then accept (state transition)
+        response2 = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/accept"
+        )
+        assert response2.status_code == 200
+        assert response2.json()["decision"] == "accepted"
+
+    def test_repeat_same_decision_succeeds(self, client, mock_db, sample_story_id, valid_evidence_id):
+        """Test repeating the same decision succeeds (idempotent UPSERT)."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = {"id": str(sample_story_id)}
+
+        # Accept twice
+        response1 = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/accept"
+        )
+        assert response1.status_code == 200
+
+        response2 = client.post(
+            f"/api/research/stories/{sample_story_id}/suggested-evidence/{valid_evidence_id}/accept"
+        )
+        assert response2.status_code == 200
+        assert response2.json()["decision"] == "accepted"
 
     # -------------------------------------------------------------------------
     # Valid Source Type Tests
@@ -824,14 +859,14 @@ class TestSuggestedEvidenceFiltering:
         db, cursor = mock_db
 
         # First call: Get story title/description
-        # Second call: Get rejected evidence IDs
+        # Second call: Get all evidence decisions (evidence_id, decision)
         cursor.fetchone.return_value = {
             "title": "Test Story",
             "description": "Test Description",
         }
         cursor.fetchall.return_value = [
-            {"evidence_id": "coda_page:page_123"},  # Rejected
-            {"evidence_id": "coda_theme:theme_456"},  # Rejected
+            {"evidence_id": "coda_page:page_123", "decision": "rejected"},
+            {"evidence_id": "coda_theme:theme_456", "decision": "rejected"},
         ]
 
         # Override search service dependency
@@ -847,22 +882,24 @@ class TestSuggestedEvidenceFiltering:
         assert len(data["suggestions"]) == 1
         assert data["suggestions"][0]["source_id"] == "page_789"
         assert data["suggestions"][0]["source_type"] == "coda_page"
+        assert data["suggestions"][0]["status"] == "suggested"
 
         # Cleanup
         app.dependency_overrides.clear()
 
-    def test_suggested_evidence_returns_accepted(self, client, mock_db, mock_search_service, sample_story_id):
-        """Test that accepted evidence is NOT filtered out (only rejected evidence is filtered)."""
+    def test_suggested_evidence_shows_accepted_status(self, client, mock_db, mock_search_service, sample_story_id):
+        """Test that accepted evidence shows status='accepted' in response."""
         db, cursor = mock_db
 
         # First call: Get story title/description
-        # Second call: Get rejected evidence IDs (empty - no rejections)
+        # Second call: Get all evidence decisions
         cursor.fetchone.return_value = {
             "title": "Test Story",
             "description": "Test Description",
         }
-        # User has accepted page_123, but accepted items should still appear
-        cursor.fetchall.return_value = []  # No rejected evidence
+        cursor.fetchall.return_value = [
+            {"evidence_id": "coda_page:page_123", "decision": "accepted"},
+        ]
 
         # Override search service dependency
         from src.api.routers.research import get_search_service
@@ -875,19 +912,24 @@ class TestSuggestedEvidenceFiltering:
 
         # All 3 items should be returned (none are rejected)
         assert len(data["suggestions"]) == 3
-        assert data["suggestions"][0]["source_id"] == "page_123"
-        assert data["suggestions"][1]["source_id"] == "theme_456"
-        assert data["suggestions"][2]["source_id"] == "page_789"
+
+        # page_123 should have accepted status
+        page_123 = next(s for s in data["suggestions"] if s["source_id"] == "page_123")
+        assert page_123["status"] == "accepted"
+
+        # Others should have suggested status
+        theme_456 = next(s for s in data["suggestions"] if s["source_id"] == "theme_456")
+        assert theme_456["status"] == "suggested"
 
         # Cleanup
         app.dependency_overrides.clear()
 
-    def test_suggested_evidence_no_rejections_returns_all(self, client, mock_db, mock_search_service, sample_story_id):
-        """Test that when no evidence has been rejected, all suggestions are returned (regression test)."""
+    def test_suggested_evidence_no_decisions_returns_all_as_suggested(self, client, mock_db, mock_search_service, sample_story_id):
+        """Test that when no decisions exist, all suggestions are returned with status='suggested'."""
         db, cursor = mock_db
 
         # First call: Get story title/description
-        # Second call: Get rejected evidence IDs (empty set)
+        # Second call: Get all evidence decisions (empty)
         cursor.fetchone.return_value = {
             "title": "Test Story",
             "description": "Test Description",
@@ -906,10 +948,13 @@ class TestSuggestedEvidenceFiltering:
         # All 3 items should be returned
         assert len(data["suggestions"]) == 3
 
-        # Verify order and IDs
+        # Verify order, IDs, and all have "suggested" status
         assert data["suggestions"][0]["id"] == "coda_page:page_123"
+        assert data["suggestions"][0]["status"] == "suggested"
         assert data["suggestions"][1]["id"] == "coda_theme:theme_456"
+        assert data["suggestions"][1]["status"] == "suggested"
         assert data["suggestions"][2]["id"] == "coda_page:page_789"
+        assert data["suggestions"][2]["status"] == "suggested"
 
         # Cleanup
         app.dependency_overrides.clear()

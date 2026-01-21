@@ -281,32 +281,40 @@ def get_suggested_evidence(
         max_suggestions=limit,
     )
 
-    # Get previously rejected evidence IDs for this story
+    # Get all evidence decisions for this story
     with db.cursor() as cur:
         cur.execute("""
-            SELECT evidence_id FROM suggested_evidence_decisions
-            WHERE story_id = %s AND decision = 'rejected'
+            SELECT evidence_id, decision FROM suggested_evidence_decisions
+            WHERE story_id = %s
         """, (str(story_id),))
-        rejected_ids = {row["evidence_id"] for row in cur.fetchall()}
+        decisions = {row["evidence_id"]: row["decision"] for row in cur.fetchall()}
 
-    # Filter out rejected suggestions
-    results = [r for r in results if f"{r.source_type}:{r.source_id}" not in rejected_ids]
+    # Convert to SuggestedEvidence format with status from DB
+    suggestions = []
+    for r in results:
+        evidence_id = f"{r.source_type}:{r.source_id}"
+        decision = decisions.get(evidence_id)
 
-    # Convert to SuggestedEvidence format
-    suggestions = [
-        SuggestedEvidence(
-            id=f"{r.source_type}:{r.source_id}",
-            source_type=r.source_type,
-            source_id=r.source_id,
-            title=r.title,
-            snippet=r.snippet,
-            url=r.url,
-            similarity=r.similarity,
-            metadata=r.metadata,
-            status="suggested",
+        # Skip rejected items
+        if decision == "rejected":
+            continue
+
+        # Use accepted status if previously accepted, otherwise suggested
+        status = "accepted" if decision == "accepted" else "suggested"
+
+        suggestions.append(
+            SuggestedEvidence(
+                id=evidence_id,
+                source_type=r.source_type,
+                source_id=r.source_id,
+                title=r.title,
+                snippet=r.snippet,
+                url=r.url,
+                similarity=r.similarity,
+                metadata=r.metadata,
+                status=status,
+            )
         )
-        for r in results
-    ]
 
     return SuggestedEvidenceResponse(
         story_id=str(story_id),
@@ -381,30 +389,34 @@ def _record_evidence_decision(
     similarity_score: float | None = None,
 ) -> None:
     """
-    Record an evidence decision in the database.
+    Record or update an evidence decision in the database.
+
+    State transitions allowed:
+    - suggested -> accepted
+    - suggested -> rejected
+    - accepted -> rejected (audit trail via decided_at update)
+    - rejected -> accepted (audit trail via decided_at update)
 
     Raises:
-        HTTPException: 404 if story not found, 409 if decision already exists
+        HTTPException: 404 if story not found
     """
     try:
         with db.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO suggested_evidence_decisions
-                    (story_id, evidence_id, source_type, source_id, decision, similarity_score)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                    (story_id, evidence_id, source_type, source_id, decision, similarity_score, decided_at)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (story_id, evidence_id)
+                DO UPDATE SET
+                    decision = EXCLUDED.decision,
+                    decided_at = NOW()
                 """,
                 (str(story_id), evidence_id, source_type, source_id, decision, similarity_score)
             )
     except IntegrityError as e:
-        # Check for unique constraint violation (duplicate decision)
-        error_str = str(e).lower()
-        if "unique" in error_str or "duplicate" in error_str:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Decision already exists for evidence '{evidence_id}' on story {story_id}"
-            )
         # Check for foreign key violation (story not found)
+        error_str = str(e).lower()
         if "foreign key" in error_str or "fk_" in error_str:
             raise HTTPException(
                 status_code=404,
