@@ -1,0 +1,57 @@
+{
+  "reviewer": "Reginald",
+  "pr_number": 70,
+  "verdict": "BLOCK_MERGE",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "HIGH",
+      "category": "Type Safety",
+      "title": "Null timestamp handling - type safety violation",
+      "file": "webapp/src/app/pipeline/page.tsx",
+      "lines": [111, 212],
+      "description": "fetchNewStories expects string but receives string | null from started_at field. Will pass 'null' string to API causing invalid SQL query.",
+      "confidence": 95,
+      "blocking": true
+    },
+    {
+      "id": "R2",
+      "severity": "HIGH",
+      "category": "State Management",
+      "title": "Infinite re-render risk from useCallback dependency cycle",
+      "file": "webapp/src/app/pipeline/page.tsx",
+      "lines": [122, 208-215],
+      "description": "selectedRunId in fetchData dependencies creates cycle: click updates selectedRunId → triggers fetchData → triggers useEffect → refetches history. Causes excessive API calls.",
+      "confidence": 90,
+      "blocking": true
+    },
+    {
+      "id": "R3",
+      "severity": "MEDIUM",
+      "category": "Performance",
+      "title": "SQL type coercion prevents index usage",
+      "file": "src/story_tracking/services/story_service.py",
+      "lines": [248],
+      "description": "String comparison on TIMESTAMP column forces implicit cast, preventing index usage. Should parse to datetime before SQL comparison.",
+      "confidence": 85,
+      "blocking": false
+    },
+    {
+      "id": "R4",
+      "severity": "MEDIUM",
+      "category": "Error Handling",
+      "title": "Error swallowing in auto-select leaves inconsistent UI state",
+      "file": "webapp/src/app/pipeline/page.tsx",
+      "lines": [81-84, 111],
+      "description": "Auto-select sets selectedRunId before fetching stories. If fetch fails, run shows as selected with 0 stories, unclear if error or truly empty.",
+      "confidence": 80,
+      "blocking": false
+    }
+  ],
+  "test_coverage_gaps": [
+    "Null started_at timestamps",
+    "API errors with created_since parameter",
+    "Rapid clicking between runs (state race)",
+    "Malformed ISO timestamp strings"
+  ]
+}

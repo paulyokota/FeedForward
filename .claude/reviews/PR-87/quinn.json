@@ -1,0 +1,67 @@
+{
+  "reviewer": "quinn",
+  "pr_number": 87,
+  "review_round": 1,
+  "timestamp": "2026-01-21T00:00:00Z",
+  "verdict": "REQUEST_CHANGES",
+  "summary": "2 HIGH quality risks: inconsistent retry coverage across async methods, missing logger initialization in production contexts",
+  "functional_test_required": false,
+  "issues": [
+    {
+      "id": "Q1",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "system-conflict",
+      "file": "src/intercom_client.py",
+      "lines": [246, 262, 263, 320],
+      "title": "fetch_contact_org_id lacks retry logic while fetch_contact_org_ids_batch async has no retry",
+      "why": "The synchronous fetch_contact_org_id (line 252) bypasses retry logic by directly calling self.session.get instead of using _request_with_retry. The async batch method (lines 263-320) also has no retry logic. This creates inconsistent reliability - some API calls will gracefully handle transient errors while others fail immediately.",
+      "fix": "1) Make fetch_contact_org_id use _get() instead of session.get directly. 2) Add similar retry logic to the async batch method or document why async batch operations intentionally don't retry.",
+      "verify": "Search for other places where session.get/post are called directly instead of through _get/_post wrapper methods",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "Q2",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "category": "quality-impact",
+      "file": "src/intercom_client.py",
+      "lines": [18, 115, 134],
+      "title": "Logger may not be properly initialized in production contexts",
+      "why": "Logger is created at module level with logging.getLogger(__name__) but there's no guarantee logging.basicConfig() has been called. Tests work because they mock things, but in production if the calling code hasn't configured logging, retry warnings will be silently swallowed. Users won't know retries are happening or why requests are slow.",
+      "fix": "Either: 1) Document that callers must configure logging, 2) Add fallback configuration in __init__, or 3) Use structlog/explicit handler. Also add INFO-level logs for successful recovery after retry.",
+      "verify": "Check how other client modules handle logging initialization",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "Q3",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "quality-impact",
+      "file": "src/intercom_client.py",
+      "lines": [115, 134],
+      "title": "Missing success logging after retry recovery",
+      "why": "When a retry succeeds, we only have WARNING logs from failures but no INFO/DEBUG log indicating successful recovery. Operators monitoring logs will see warnings but won't know if the issue self-resolved. This makes it harder to distinguish transient blips from persistent problems.",
+      "fix": "Add logger.info() after successful retry: 'Intercom API recovered after N retries for {endpoint}'",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "Q4",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "missed-update",
+      "file": "tests/test_intercom_retry.py",
+      "lines": [36, 52, 68, 84, 100, 112],
+      "title": "Tests verify retry behavior but not logged output quality",
+      "why": "All retry tests mock time.sleep but none verify that meaningful log messages are actually emitted. If logger.warning() calls have typos or missing variables, tests will still pass. Operators won't get useful debugging context.",
+      "fix": "Add at least one test that captures log output and verifies format/content of retry warning messages",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "reviewer": "Maya",
+  "pr_number": 70,
+  "focus": "maintainability",
+  "verdict": "REQUEST_CHANGES",
+  "issues": [
+    {
+      "id": "M1",
+      "title": "Ambiguous parameter name lacks timezone clarity",
+      "confidence": 85,
+      "severity": "major",
+      "locations": [
+        "src/api/routers/stories.py:44-46",
+        "src/story_tracking/services/story_service.py:225"
+      ],
+      "description": "Parameter 'created_since' doesn't clarify timezone handling requirements. Could lead to off-by-hours bugs.",
+      "recommendation": "Rename to 'created_since_utc' and add validation for timezone-aware timestamps"
+    },
+    {
+      "id": "M2",
+      "title": "Magic number 50 without named constant",
+      "confidence": 82,
+      "severity": "minor",
+      "locations": [
+        "webapp/src/app/pipeline/page.tsx:78"
+      ],
+      "description": "Hardcoded limit of 50 stories makes future changes difficult and intent unclear",
+      "recommendation": "Extract to named constant NEW_STORIES_DISPLAY_LIMIT with explanation"
+    },
+    {
+      "id": "M3",
+      "title": "Function name doesn't convey filtering behavior",
+      "confidence": 78,
+      "severity": "minor",
+      "locations": [
+        "webapp/src/app/pipeline/page.tsx:74"
+      ],
+      "description": "Name 'fetchNewStories' is too generic; doesn't indicate timestamp-based filtering",
+      "recommendation": "Rename to 'fetchStoriesCreatedSince' or 'fetchStoriesForRun'"
+    },
+    {
+      "id": "M4",
+      "title": "Missing docstring for complex state interaction",
+      "confidence": 90,
+      "severity": "major",
+      "locations": [
+        "webapp/src/app/pipeline/page.tsx:104-112"
+      ],
+      "description": "Auto-selection logic interacts with 3 state variables but lacks explanation of business logic",
+      "recommendation": "Add detailed comment explaining why only completed runs, why check !selectedRunId, and error handling"
+    }
+  ],
+  "summary": {
+    "total_issues": 4,
+    "major": 2,
+    "minor": 2,
+    "files_reviewed": 6,
+    "test_coverage": "excellent"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "reviewer": "sanjay",
+  "pr_number": 87,
+  "review_round": 1,
+  "timestamp": "2026-01-21T00:00:00Z",
+  "verdict": "REQUEST_CHANGES",
+  "summary": "1 CRITICAL, 1 HIGH, 1 MEDIUM, 1 LOW security issues",
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "CRITICAL",
+      "confidence": "high",
+      "category": "exposure",
+      "file": "src/intercom_client.py",
+      "lines": [115, 118, 134, 137],
+      "title": "Potential information leakage in error logs",
+      "why": "Retry warning logs include full exception messages and unsanitized endpoints. Could leak authentication tokens, internal API structure, user/org IDs, or network topology if attacker has log access.",
+      "fix": "Sanitize endpoint paths (mask IDs like /contacts/*** instead of /contacts/12345) and log exception types instead of full messages. Add _sanitize_endpoint() helper method.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S2",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "validation",
+      "file": "src/intercom_client.py",
+      "lines": [68, 74],
+      "title": "Missing timeout bounds validation",
+      "why": "timeout parameter accepts arbitrary tuples without validation. Attacker or misconfigured code could pass huge timeouts (e.g., 1 hour), causing thread exhaustion and DoS by tying up connections indefinitely.",
+      "fix": "Add validation: check tuple structure, verify numeric types, enforce upper bounds (e.g., MAX_TIMEOUT_CONNECT=30s, MAX_TIMEOUT_READ=300s). Raise ValueError for invalid inputs.",
+      "verify": null,
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "S3",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "validation",
+      "file": "src/intercom_client.py",
+      "lines": [246, 261],
+      "title": "fetch_contact_org_id missing retry logic",
+      "why": "Method uses direct session.get() instead of _get() wrapper, so it lacks retry logic for transient errors. Silently returns None on all exceptions, masking transient vs permanent failures and reducing observability.",
+      "fix": "Replace session.get() with self._get() to use retry wrapper. Log exception type before returning None to maintain observability.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S4",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "validation",
+      "file": "tests/test_intercom_retry.py",
+      "lines": null,
+      "title": "Missing test coverage for malformed JSON responses",
+      "why": "Tests don't verify behavior when response has 200 status but invalid/corrupted JSON body. If Intercom API returns malformed JSON (outage, MITM, misconfiguration), error handling is untested.",
+      "fix": "Add test: mock response.json() raising JSONDecodeError, verify exception propagates correctly.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

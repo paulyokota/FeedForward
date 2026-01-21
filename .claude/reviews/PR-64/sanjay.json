@@ -1,0 +1,94 @@
+{
+  "reviewer": "sanjay",
+  "pr_number": 64,
+  "round": 1,
+  "date": "2026-01-20",
+  "verdict": "PASS_WITH_CONCERNS",
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "HIGH",
+      "type": "SQL Injection",
+      "cwe": "CWE-89",
+      "location": "src/research/adapters/coda_adapter.py:127-128, 215-216",
+      "title": "SQL Injection via String Interpolation in limit Parameter",
+      "description": "The limit parameter is inserted via f-string formatting instead of parameterized queries. While typed as int, Python type hints are not enforced at runtime.",
+      "introduced_by_pr": false,
+      "requires_fix": true,
+      "recommendation": "Use parameterized queries: cur.execute(query + ' LIMIT ?', (limit,))"
+    },
+    {
+      "id": "S2",
+      "severity": "LOW",
+      "type": "Input Validation",
+      "cwe": "CWE-20",
+      "location": "src/research/adapters/coda_adapter.py:39-40",
+      "title": "Insufficient Input Validation on source_type Parameter",
+      "description": "Error message includes raw user input, enabling potential log injection or information disclosure.",
+      "introduced_by_pr": false,
+      "requires_fix": false,
+      "recommendation": "Sanitize or truncate source_type before including in error messages"
+    },
+    {
+      "id": "S3",
+      "severity": "MEDIUM",
+      "type": "Path Traversal",
+      "cwe": "CWE-22",
+      "location": "src/research/adapters/coda_adapter.py:31-43",
+      "title": "Path Traversal Risk via db_path Parameter",
+      "description": "The db_path parameter accepts arbitrary paths without validation, potentially allowing access to files outside the data directory.",
+      "introduced_by_pr": false,
+      "requires_fix": true,
+      "recommendation": "Validate db_path is within allowed data directory using Path.is_relative_to()"
+    },
+    {
+      "id": "S4",
+      "severity": "LOW",
+      "type": "Information Disclosure",
+      "cwe": "CWE-200",
+      "location": "src/research/adapters/coda_adapter.py:69-71, 86-90, 198-200, 223-225",
+      "title": "Information Disclosure via Exception Logging",
+      "description": "Broad exception catching logs full error details which could expose database schema, file paths, or implementation details.",
+      "introduced_by_pr": false,
+      "requires_fix": false,
+      "recommendation": "Log sanitized summaries at ERROR level, full details at DEBUG level"
+    },
+    {
+      "id": "S5",
+      "severity": "LOW",
+      "type": "ReDoS",
+      "cwe": "CWE-1333",
+      "location": "src/research/adapters/coda_adapter.py:148-151",
+      "title": "Regex Denial of Service Potential",
+      "description": "Email regex on user-influenced title field has no length limits, though risk is low due to simple pattern.",
+      "introduced_by_pr": false,
+      "requires_fix": false,
+      "recommendation": "Add length limit check before regex matching"
+    }
+  ],
+  "pr_changes_assessment": {
+    "new_vulnerabilities_introduced": false,
+    "changes_reviewed": [
+      "name -> title column rename in SELECT queries",
+      "parent_id removal from SELECT queries",
+      "parent_id removal from metadata dict"
+    ],
+    "security_impact": "NONE - changes are semantically equivalent column name fixes"
+  },
+  "checklist_coverage": {
+    "injection_risks": "S1 - SQL Injection in LIMIT clause",
+    "authentication_authorization": "N/A - No auth logic",
+    "sensitive_data_exposure": "S4 - Exception logging",
+    "input_validation": "S2 - source_type, S3 - db_path",
+    "csrf_ssrf": "N/A - No web request handling",
+    "insecure_cryptography": "N/A - No crypto",
+    "rate_limiting_abuse": "S5 - ReDoS potential"
+  },
+  "summary": "PR #64 is SAFE to merge - no new vulnerabilities introduced. However, discovered 5 pre-existing security issues (1 HIGH, 1 MEDIUM, 3 LOW). S1 (SQL Injection) should be addressed urgently in a separate PR.",
+  "recommended_actions": [
+    "Merge PR #64 - changes are safe",
+    "File issue for S1 (SQL Injection) - HIGH priority",
+    "File issue for S3 (Path Traversal) - MEDIUM priority",
+    "Consider S2, S4, S5 for future hardening"
+  ]
+}

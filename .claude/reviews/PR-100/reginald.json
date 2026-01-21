@@ -1,0 +1,80 @@
+{
+  "reviewer": "reginald",
+  "pr_number": 100,
+  "review_round": 1,
+  "timestamp": "2026-01-21T15:30:00Z",
+  "verdict": "BLOCK",
+  "summary": "1 HIGH, 2 MEDIUM, 2 LOW issues found",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "performance",
+      "file": "src/intercom_client.py",
+      "lines": [365, 445],
+      "title": "Multiple aiohttp sessions created, inefficient connection reuse",
+      "why": "search_by_date_range_async creates Session A for pagination, then run_pipeline_async creates Session B for detail fetching. This results in 2 separate sessions instead of connection reuse, which is inefficient and could cause connection pool exhaustion under high concurrency.",
+      "fix": "Pass a session as an optional parameter to share across operations, or restructure to use a single session for the entire pipeline run.",
+      "verify": null,
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "R2",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "integration",
+      "file": "src/intercom_client.py",
+      "lines": [238, 250],
+      "title": "Missing sock_read timeout in aiohttp ClientTimeout config",
+      "why": "The sync client uses timeout=(10, 30) meaning (connect_timeout, read_timeout). The aiohttp ClientTimeout sets connect and total, but NOT sock_read. Without sock_read, a slow server could cause indefinite hangs on individual read operations.",
+      "fix": "Add sock_read=self.timeout[1] to the ClientTimeout configuration: aiohttp.ClientTimeout(connect=self.timeout[0], sock_read=self.timeout[1], total=self.timeout[0] + self.timeout[1])",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R3",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "category": "logic",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [91, 113],
+      "title": "Race condition in PID file operations",
+      "why": "_register_worker_pid and _unregister_worker_pid have a TOCTOU race: if Worker A reads the file, then Worker B appends, then Worker A writes, B's PID is lost. This could cause orphan workers to not be tracked properly.",
+      "fix": "Use file locking (fcntl.flock or filelock library), or use atomic file operations via rename pattern.",
+      "verify": "Check if multiple pipeline workers can run concurrently in production",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R4",
+      "severity": "LOW",
+      "confidence": "high",
+      "category": "performance",
+      "file": "src/intercom_client.py",
+      "lines": [182, 445],
+      "title": "Debug print statements left in production code",
+      "why": "Multiple print(f'[ASYNC]...', flush=True) statements throughout async methods create noise in production logs, impact performance (print is synchronous), and may leak internal implementation details.",
+      "fix": "Remove all debug print statements or convert to proper logger.debug() calls that can be controlled via log levels.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    },
+    {
+      "id": "R5",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "logic",
+      "file": "src/intercom_client.py",
+      "lines": [386, 403],
+      "title": "Exclusive timestamp operators may exclude boundary values",
+      "why": "Search API uses '>' and '<' operators, which means conversations created at exactly the boundary timestamp will be excluded. This is consistent with sync version but may confuse users expecting 'last N days' to be inclusive.",
+      "fix": "Consider using '>=' and '<=' operators for inclusive bounds, or document the behavior clearly.",
+      "verify": "Verify if Intercom Search API supports '>=' operators",
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

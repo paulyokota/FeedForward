@@ -1,0 +1,53 @@
+{
+  "reviewer": "quinn",
+  "pr_number": 67,
+  "review_round": 1,
+  "timestamp": "2026-01-20T16:45:00Z",
+  "verdict": "COMMENT",
+  "functional_test_required": false,
+  "functional_test_rationale": "PR adds infrastructure code (git sync) and static fallback parsing. Does not modify prompts, LLM calls, or classification logic.",
+  "summary": "3 quality concerns: partial match ambiguity, incomplete component keywords, no cache invalidation",
+  "issues": [
+    {
+      "id": "Q1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "output_quality",
+      "file": "src/story_tracking/services/codebase_context_provider.py",
+      "lines": [1205, 1214],
+      "title": "Partial match logic could return wrong component context",
+      "why": "Bidirectional substring matching (component_lower in key or key in component_lower) causes 'auth' to match 'oauth', 'commerce' to match 'ecommerce'. Wrong context degrades story enrichment quality.",
+      "fix": "Use exact match first, then weighted fuzzy matching with minimum similarity threshold (e.g., 0.8 ratio).",
+      "verify": "Check if any current lookups rely on partial matching behavior",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "Q2",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "completeness",
+      "file": "src/story_tracking/services/codebase_context_provider.py",
+      "lines": [1107, 1120],
+      "title": "Hardcoded component keywords miss documented services",
+      "why": "component_keywords dict has 12 components but tailwind-codebase-map.md documents 8+ more: artisan, ebenezer, brandy2, communities, tribes, analytics, insights, roundabout, rosetta. Themes for these services get no static context.",
+      "fix": "Add missing components to keywords dict, or parse markdown headers dynamically to discover components.",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "Q3",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "staleness",
+      "file": "src/story_tracking/services/codebase_context_provider.py",
+      "lines": [1036, 1052],
+      "title": "Process-lifetime cache never invalidates",
+      "why": "Class-level _codebase_map_cache is loaded once and never refreshed. Long-running servers serve stale data if codebase map file is updated. Requires full restart to pick up changes.",
+      "fix": "Add TTL-based invalidation (e.g., 1 hour) or check file mtime before returning cached data.",
+      "verify": "Confirm if map updates are frequent enough to matter",
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

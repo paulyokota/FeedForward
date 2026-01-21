@@ -69,8 +69,8 @@ def search(
         description="Comma-separated source types: coda_page,coda_theme,intercom"
     ),
     min_similarity: float = Query(
-        default=0.5,
-        ge=0.3,
+        default=0.2,
+        ge=0.1,
         le=1.0,
         description="Minimum similarity threshold"
     ),
@@ -129,8 +129,8 @@ def find_similar(
         description="Exclude items from same source type"
     ),
     min_similarity: float = Query(
-        default=0.5,
-        ge=0.3,
+        default=0.2,
+        ge=0.1,
         le=1.0,
         description="Minimum similarity threshold"
     ),

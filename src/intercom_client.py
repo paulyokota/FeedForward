@@ -3,15 +3,21 @@ Intercom API client with quality filtering.
 
 Fetches conversations and filters to only quality customer messages.
 Based on patterns discovered in Phase 1 (see docs/intercom-data-patterns.md).
+
+Supports both sync and async modes:
+- Sync: Uses requests.Session (for CLI, simple scripts)
+- Async: Uses aiohttp (for pipeline, FastAPI integration)
 """
 
+import asyncio
 import logging
 import os
 import re
 import time
 from datetime import datetime, timedelta
-from typing import Generator, Optional
+from typing import AsyncGenerator, Generator, Optional
 
+import aiohttp
 import requests
 from pydantic import BaseModel
 
@@ -151,6 +157,278 @@ class IntercomClient:
     def _post(self, endpoint: str, json: dict) -> dict:
         """Make a POST request to Intercom API with retry."""
         return self._request_with_retry("POST", endpoint, json=json)
+
+    # ==================== ASYNC METHODS ====================
+    # These methods use aiohttp for true async operation.
+    # Use these in async contexts (FastAPI, pipeline) to avoid
+    # thread + event loop conflicts.
+
+    async def _request_with_retry_async(
+        self,
+        session: aiohttp.ClientSession,
+        method: str,
+        endpoint: str,
+        params: Optional[dict] = None,
+        json_data: Optional[dict] = None,
+    ) -> dict:
+        """
+        Make an async HTTP request with retry on transient errors.
+
+        Retries on 429 (rate limit) and 5xx (server errors) with exponential backoff.
+        Same retry logic as sync version but using aiohttp.
+
+        Args:
+            session: aiohttp ClientSession with auth headers
+            method: HTTP method (GET or POST)
+            endpoint: API endpoint path
+            params: Query parameters for GET requests
+            json_data: JSON body for POST requests
+
+        Returns:
+            Parsed JSON response
+
+        Raises:
+            aiohttp.ClientError: On non-retryable errors or after max retries
+        """
+        url = f"{self.BASE_URL}{endpoint}"
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                if method == "GET":
+                    async with session.get(url, params=params) as response:
+                        if response.status in self.RETRYABLE_STATUS_CODES:
+                            if attempt < self.max_retries:
+                                delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                                logger.warning(
+                                    f"Intercom API error {response.status} on {endpoint}, "
+                                    f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                                )
+                                await asyncio.sleep(delay)
+                                continue
+                            else:
+                                response.raise_for_status()
+                        response.raise_for_status()
+                        return await response.json()
+                else:
+                    async with session.post(url, json=json_data) as response:
+                        if response.status in self.RETRYABLE_STATUS_CODES:
+                            if attempt < self.max_retries:
+                                delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                                logger.warning(
+                                    f"Intercom API error {response.status} on {endpoint}, "
+                                    f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                                )
+                                await asyncio.sleep(delay)
+                                continue
+                            else:
+                                response.raise_for_status()
+                        response.raise_for_status()
+                        return await response.json()
+
+            except aiohttp.ClientError as e:
+                if attempt < self.max_retries:
+                    delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                    logger.warning(
+                        f"Intercom API connection error: {e}, "
+                        f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    raise
+
+        raise RuntimeError("Unexpected retry loop exit")
+
+    def _get_aiohttp_session(self) -> aiohttp.ClientSession:
+        """Create an aiohttp session with proper headers and timeout.
+
+        Timeout configuration matches sync version:
+        - connect: Connection establishment timeout (default 10s)
+        - sock_read: Per-read operation timeout (default 30s)
+        - total: Overall request timeout
+        """
+        timeout = aiohttp.ClientTimeout(
+            connect=self.timeout[0],
+            sock_read=self.timeout[1],
+            total=self.timeout[0] + self.timeout[1]
+        )
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Intercom-Version": self.API_VERSION,
+        }
+        return aiohttp.ClientSession(timeout=timeout, headers=headers)
+
+    async def fetch_conversations_async(
+        self,
+        since: Optional[datetime] = None,
+        until: Optional[datetime] = None,
+        per_page: int = 50,
+        max_pages: Optional[int] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """
+        Fetch raw conversations from Intercom (async version).
+
+        Uses the List API with client-side date filtering.
+        NOTE: For date-bounded queries, prefer search_by_date_range_async
+        which uses server-side filtering and is much more efficient.
+
+        Yields raw conversation dicts for further processing.
+        Handles pagination automatically.
+        """
+        params = {"per_page": per_page}
+        endpoint = "/conversations"
+        page_count = 0
+
+        async with self._get_aiohttp_session() as session:
+            while True:
+                data = await self._request_with_retry_async(session, "GET", endpoint, params=params)
+                conversations = data.get("conversations", [])
+
+                for conv in conversations:
+                    created_at = conv.get("created_at", 0)
+                    conv_time = datetime.fromtimestamp(created_at)
+
+                    # Skip conversations outside date range
+                    # NOTE: Intercom sorts by updated_at, NOT created_at
+                    if since and conv_time < since:
+                        continue
+                    if until and conv_time > until:
+                        continue
+
+                    yield conv
+
+                # Check for next page
+                pages = data.get("pages", {})
+                next_page = pages.get("next")
+
+                if not next_page:
+                    break
+
+                page_count += 1
+                if max_pages and page_count >= max_pages:
+                    break
+
+                starting_after = next_page.get("starting_after")
+                if starting_after:
+                    params["starting_after"] = starting_after
+                else:
+                    break
+
+    async def fetch_quality_conversations_async(
+        self,
+        since: Optional[datetime] = None,
+        until: Optional[datetime] = None,
+        per_page: int = 50,
+        max_results: Optional[int] = None,
+    ) -> AsyncGenerator[tuple["IntercomConversation", dict], None]:
+        """
+        Fetch and filter conversations, returning only quality ones (async version).
+
+        Uses the Search API for server-side date filtering, which is MUCH more
+        efficient than the List API (avoids fetching all 338k+ conversations).
+
+        Args:
+            since: Start of date range (inclusive)
+            until: End of date range (exclusive), defaults to now
+            per_page: Results per API page
+            max_results: Maximum conversations to return
+
+        Yields:
+            (parsed_conversation, raw_conversation) tuples for quality conversations
+        """
+        from datetime import timezone
+
+        # Convert datetime to unix timestamps for Search API
+        start_ts = int(since.timestamp()) if since else 0
+        end_ts = int(until.timestamp()) if until else int(datetime.now(timezone.utc).timestamp())
+
+        async for raw_conv in self.search_by_date_range_async(start_ts, end_ts, per_page, max_results):
+            filter_result = self.quality_filter(raw_conv)
+            if filter_result.passed:
+                parsed = self.parse_conversation(raw_conv)
+                yield parsed, raw_conv
+
+    async def get_conversation_async(self, session: aiohttp.ClientSession, conv_id: str) -> dict:
+        """Fetch a single conversation by ID (async version).
+
+        Note: Requires an existing session to be passed in for efficiency
+        when fetching multiple conversations.
+        """
+        return await self._request_with_retry_async(session, "GET", f"/conversations/{conv_id}")
+
+    async def search_by_date_range_async(
+        self,
+        start_timestamp: int,
+        end_timestamp: int,
+        per_page: int = 50,
+        max_results: Optional[int] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """
+        Search conversations within a date range using Intercom Search API (async).
+
+        Uses server-side filtering via POST /conversations/search, which is MUCH
+        more efficient than the LIST API for date-bounded queries.
+
+        Args:
+            start_timestamp: Unix timestamp for start of range (exclusive: >)
+            end_timestamp: Unix timestamp for end of range (exclusive: <)
+            per_page: Results per page
+            max_results: Maximum conversations to return
+
+        Yields:
+            Raw conversation dicts from Intercom API
+        """
+        search_query = {
+            "query": {
+                "operator": "AND",
+                "value": [
+                    {
+                        "field": "created_at",
+                        "operator": ">",
+                        "value": start_timestamp,
+                    },
+                    {
+                        "field": "created_at",
+                        "operator": "<",
+                        "value": end_timestamp,
+                    },
+                ],
+            },
+            "pagination": {"per_page": per_page},
+        }
+
+        count = 0
+        starting_after = None
+
+        async with self._get_aiohttp_session() as session:
+            while True:
+                if starting_after:
+                    search_query["pagination"]["starting_after"] = starting_after
+
+                data = await self._request_with_retry_async(
+                    session, "POST", "/conversations/search", json_data=search_query
+                )
+                conversations = data.get("conversations", [])
+
+                if not conversations:
+                    break
+
+                for conv in conversations:
+                    yield conv
+                    count += 1
+                    if max_results and count >= max_results:
+                        return
+
+                # Check for next page
+                pages = data.get("pages", {})
+                next_page = pages.get("next", {})
+                starting_after = next_page.get("starting_after")
+
+                if not starting_after:
+                    break
+
+    # ==================== END ASYNC METHODS ====================
 
     @staticmethod
     def strip_html(html: str) -> str:
@@ -351,26 +629,21 @@ class IntercomClient:
             data = self._get(endpoint, params)
             conversations = data.get("conversations", [])
 
-            found_old_conversation = False
             for conv in conversations:
                 # Filter by date if specified
                 created_at = conv.get("created_at", 0)
                 conv_time = datetime.fromtimestamp(created_at)
 
+                # Skip conversations outside date range
+                # NOTE: Intercom sorts by updated_at, NOT created_at, so old
+                # conversations can appear on any page. We must paginate through
+                # all pages and filter by date, not assume sorted order.
                 if since and conv_time < since:
-                    # Intercom returns newest first, so once we hit an old
-                    # conversation, all subsequent ones will be older too.
-                    # Stop pagination after this page.
-                    found_old_conversation = True
                     continue
                 if until and conv_time > until:
                     continue
 
                 yield conv
-
-            # Stop if we've hit conversations older than our date range
-            if found_old_conversation:
-                break
 
             # Check for next page
             pages = data.get("pages", {})

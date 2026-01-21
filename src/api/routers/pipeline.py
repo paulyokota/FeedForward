@@ -506,15 +506,14 @@ def _run_pipeline_task(
     from src.db.connection import get_connection
     from src.two_stage_pipeline import run_pipeline_async
 
-    _active_runs[run_id] = "running"
-    stop_checker = lambda: _is_stopping(run_id)
-
-    # Track results across phases
-    result = {"fetched": 0, "filtered": 0, "classified": 0, "stored": 0}
-    theme_result = {"themes_extracted": 0, "themes_new": 0}
-    story_result = {"stories_created": 0, "orphans_created": 0}
-
     try:
+        _active_runs[run_id] = "running"
+        stop_checker = lambda: _is_stopping(run_id)
+
+        # Track results across phases
+        result = {"fetched": 0, "filtered": 0, "classified": 0, "stored": 0}
+        theme_result = {"themes_extracted": 0, "themes_new": 0}
+        story_result = {"stories_created": 0, "orphans_created": 0}
         # ==== PHASE 1: Classification ====
         if stop_checker():
             _finalize_stopped_run(run_id, result, theme_result, story_result)

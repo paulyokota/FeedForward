@@ -1,0 +1,54 @@
+{
+  "reviewer": "sanjay",
+  "pr": 68,
+  "round": 1,
+  "verdict": "changes_requested",
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "high",
+      "category": "authentication",
+      "title": "Missing authentication on pipeline control endpoints",
+      "files": ["src/api/routers/pipeline.py"],
+      "description": "All pipeline endpoints (/run, /stop, /status, /history, /active) have no authentication. Any client can start/stop pipeline runs, consuming API credits and disrupting operations.",
+      "recommendation": "Add authentication middleware with RBAC for admin-only operations"
+    },
+    {
+      "id": "S2",
+      "severity": "medium",
+      "category": "race_condition",
+      "title": "Unsynchronized in-memory state management",
+      "files": ["src/api/routers/pipeline.py"],
+      "lines": [28, 155, 156, 314, 323],
+      "description": "_active_runs dict accessed without synchronization primitives. Check-then-act pattern creates race conditions allowing multiple concurrent runs or wrong-run stop signals.",
+      "recommendation": "Use threading.Lock or migrate to Redis/database state store"
+    },
+    {
+      "id": "S3",
+      "severity": "low",
+      "category": "information_disclosure",
+      "title": "Raw exception messages exposed to clients",
+      "files": ["src/api/routers/pipeline.py"],
+      "lines": [101, 103, 239],
+      "description": "Exception str(e) stored in database and returned via API. May expose internal paths, credentials, or architecture details.",
+      "recommendation": "Sanitize error messages, log full exceptions server-side only"
+    },
+    {
+      "id": "S4",
+      "severity": "medium",
+      "category": "rate_limiting",
+      "title": "No rate limiting on pipeline start endpoint",
+      "files": ["src/api/routers/pipeline.py", "src/api/main.py"],
+      "description": "Rapid start/stop cycles can exhaust resources (database rows, OpenAI tokens, Intercom API quota) even with single-run protection.",
+      "recommendation": "Add rate limiting middleware (e.g., slowapi) with 1 run/minute limit"
+    }
+  ],
+  "positive_notes": [
+    "SQL queries use parameterized statements - no injection risk",
+    "Pydantic schemas enforce reasonable bounds (days: 1-90, concurrency: 1-50)",
+    "CORS locked to specific localhost origins",
+    "Frontend uses controlled components, no XSS vectors found"
+  ],
+  "blocking_issues": ["S1"],
+  "summary": "4 issues found (1 HIGH, 2 MEDIUM, 1 LOW). Missing authentication (S1) is blocking for production deployment."
+}

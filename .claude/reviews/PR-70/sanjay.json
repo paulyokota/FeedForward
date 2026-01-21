@@ -1,0 +1,134 @@
+{
+  "reviewer": "Sanjay",
+  "role": "Security Expert",
+  "pr_number": 70,
+  "review_date": "2026-01-20",
+  "verdict": "REQUEST_CHANGES",
+  "overall_risk": "MEDIUM-HIGH",
+  "issues": [
+    {
+      "id": "S1",
+      "title": "SQL Injection Risk via Timestamp Parameter",
+      "severity": "HIGH",
+      "confidence": 85,
+      "category": "injection",
+      "locations": [
+        "src/story_tracking/services/story_service.py:248-249",
+        "src/api/routers/stories.py:44-47"
+      ],
+      "description": "The created_since parameter accepts arbitrary string input without validating ISO 8601 format. While psycopg parameterization prevents direct SQL injection, malformed input can trigger database errors that leak schema information and enable DoS attacks.",
+      "attack_scenario": "Attacker sends created_since=invalid' OR '1'='1 causing database parsing error with information leakage",
+      "impact": "Database error information disclosure, potential DoS via repeated malformed requests",
+      "recommendation": "Add Pydantic regex validation and parse timestamp in service layer with try/except",
+      "blocking": true,
+      "priority": "P0"
+    },
+    {
+      "id": "S2",
+      "title": "Unauthorized Access to Sensitive Run Information",
+      "severity": "MEDIUM",
+      "confidence": 90,
+      "category": "authorization",
+      "locations": [
+        "webapp/src/app/pipeline/page.tsx:74-85",
+        "src/api/routers/stories.py:40-63"
+      ],
+      "description": "No authentication or authorization checks on created_since filtering. Any user can query stories by arbitrary timestamps, enabling enumeration attacks and information disclosure about pipeline runs and business activities.",
+      "attack_scenario": "Attacker binary-searches through time to discover when stories were created and correlate with business events",
+      "impact": "Business-sensitive information disclosure, pipeline patterns revealed, story enumeration",
+      "recommendation": "Add authentication dependency, permission checks for time-based filtering, audit logging, and rate limiting",
+      "blocking": false,
+      "priority": "P1"
+    },
+    {
+      "id": "S3",
+      "title": "Cross-Site Scripting (XSS) Risk in Story Display",
+      "severity": "MEDIUM",
+      "confidence": 80,
+      "category": "xss",
+      "locations": [
+        "webapp/src/app/pipeline/page.tsx:577",
+        "webapp/src/app/pipeline/page.tsx:593-597"
+      ],
+      "description": "Story titles and descriptions rendered without explicit sanitization. While React provides default escaping, no CSP headers enforced and no backend validation of HTML content in story fields.",
+      "attack_scenario": "Attacker injects XSS payload in story title/description, payload executes when rendered in New Stories panel",
+      "impact": "Session token theft, unauthorized actions as victim user",
+      "recommendation": "Add CSP headers, explicit DOMPurify sanitization in frontend, HTML validation in backend Pydantic models",
+      "blocking": false,
+      "priority": "P1"
+    }
+  ],
+  "observations": [
+    {
+      "id": "O1",
+      "title": "Missing Pagination Input Validation",
+      "severity": "LOW",
+      "description": "limit and offset have bounds but no validation for extreme combinations (e.g., offset=1000000)",
+      "recommendation": "Add max offset limit or use pagination tokens"
+    },
+    {
+      "id": "O2",
+      "title": "No Rate Limiting Evidence",
+      "severity": "LOW",
+      "description": "No rate limiting decorators or middleware visible for /api/stories endpoint",
+      "recommendation": "Add rate limiting to prevent DoS via high-frequency created_since queries"
+    },
+    {
+      "id": "O3",
+      "title": "Error Information Leakage",
+      "severity": "LOW",
+      "description": "Database errors from invalid timestamps could expose schema information",
+      "recommendation": "Add generic error handler that sanitizes internal details"
+    }
+  ],
+  "test_coverage": {
+    "positive_cases": [
+      "Valid ISO timestamp filtering",
+      "Combining filters (status + created_since)",
+      "Optional parameter (None case)"
+    ],
+    "missing_cases": [
+      "Invalid timestamp format rejection",
+      "SQL injection attempt blocking",
+      "Authorization checks",
+      "XSS payload sanitization"
+    ],
+    "recommended_tests": [
+      "test_created_since_invalid_format_rejected",
+      "test_created_since_sql_injection_blocked",
+      "test_created_since_requires_authentication",
+      "test_story_title_xss_payload_sanitized"
+    ]
+  },
+  "risk_matrix": [
+    {
+      "issue": "S1",
+      "severity": "HIGH",
+      "likelihood": "MEDIUM",
+      "impact": "HIGH",
+      "priority": "P0"
+    },
+    {
+      "issue": "S2",
+      "severity": "MEDIUM",
+      "likelihood": "HIGH",
+      "impact": "MEDIUM",
+      "priority": "P1"
+    },
+    {
+      "issue": "S3",
+      "severity": "MEDIUM",
+      "likelihood": "LOW",
+      "impact": "HIGH",
+      "priority": "P1"
+    }
+  ],
+  "files_reviewed": [
+    "src/api/routers/stories.py",
+    "src/story_tracking/services/story_service.py",
+    "webapp/src/lib/api.ts",
+    "webapp/src/app/pipeline/page.tsx",
+    "tests/test_story_tracking.py"
+  ],
+  "summary": "PR adds created_since timestamp filtering with insufficient input validation (S1), no authorization controls (S2), and relies solely on React's default XSS protection (S3). S1 is blocking and must be fixed before merge. S2 should be addressed or explicitly accepted as risk. Overall security posture needs improvement."
+}

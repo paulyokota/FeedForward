@@ -1,0 +1,54 @@
+{
+  "reviewer": "quinn",
+  "pr_number": 86,
+  "review_round": 1,
+  "timestamp": "2026-01-21T00:00:00Z",
+  "verdict": "REQUEST_CHANGES",
+  "summary": "1 HIGH: Incomplete stale state detection; 2 MEDIUM: Error message clarity, silent failure handling",
+  "functional_test_required": false,
+  "functional_test_reason": null,
+  "issues": [
+    {
+      "id": "Q1",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "missed-update",
+      "file": "src/api/main.py",
+      "lines": [46],
+      "title": "Incomplete stale state detection - 'stopping' status ignored",
+      "why": "Cleanup only marks 'running' as failed, but 'stopping' is also a non-terminal in-progress state that becomes stale on restart. Users will have permanent stuck 'stopping' runs after crashes during graceful shutdown.",
+      "fix": "Change WHERE clause to `WHERE status IN ('running', 'stopping')` to clean up both in-progress states. Update error message to reflect this.",
+      "verify": "Check if any other non-terminal states exist beyond 'running' and 'stopping'",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "Q2",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "category": "quality-impact",
+      "file": "src/api/main.py",
+      "lines": [45],
+      "title": "User-facing error message lacks actionable guidance",
+      "why": "Message 'Process terminated unexpectedly (server restart)' tells users what happened but not what to do. Users viewing in UI won't know if they should retry, report bug, or worry about data safety.",
+      "fix": "Change to 'Pipeline interrupted by server restart. You can safely start a new run.' - explains what happened, reassures safety, suggests next step.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "Q3",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "quality-impact",
+      "file": "src/api/main.py",
+      "lines": [59, 60, 61],
+      "title": "Silent failure during startup could hide critical issues",
+      "why": "If database cleanup fails, function logs error and returns 0, but app starts normally. Users see stale runs with no explanation of why cleanup didn't work.",
+      "fix": "Improve error log to include exception type and explain user impact: 'Failed to cleanup stale pipeline runs: {type}: {e}. Stale runs may appear stuck in UI until database is accessible.'",
+      "verify": "Consider if startup should fail or if a health endpoint should report cleanup status",
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "reviewer": "Reginald",
+  "role": "The Architect",
+  "focus": ["correctness", "performance"],
+  "pr_number": 72,
+  "round": 1,
+  "verdict": "CHANGES_REQUESTED",
+  "issues": [
+    {
+      "id": "R1",
+      "title": "Missing Transaction Boundary Around Decision Recording",
+      "severity": "high",
+      "type": "correctness",
+      "file": "src/api/routers/research.py",
+      "lines": "382-435",
+      "description": "The _record_evidence_decision() function performs database INSERT/UPDATE but does not call db.commit(). Relies on implicit commit from FastAPI dependency which should be verified.",
+      "fix_required": true,
+      "recommendation": "Verify get_db dependency implementation commits after yield. If not, add explicit db.commit(). Add comment clarifying commit behavior."
+    },
+    {
+      "id": "R2",
+      "title": "Undo Button Semantically Uses Reject Instead of Proper Undo",
+      "severity": "medium",
+      "type": "logic",
+      "file": "webapp/src/components/SuggestedEvidence.tsx",
+      "lines": "253-272",
+      "description": "Clicking 'Undo' on accepted evidence calls handleReject() which records a 'rejected' decision. User intent is to return to 'suggested' state, not reject. This affects analytics and user experience.",
+      "fix_required": true,
+      "recommendation": "Either: (1) Add /undo endpoint to delete decision record, (2) Rename button to 'Reject' for accuracy, or (3) Document this as intentional design decision."
+    },
+    {
+      "id": "R3",
+      "title": "N+1 Query Pattern Potential in get_suggested_evidence",
+      "severity": "low",
+      "type": "performance",
+      "file": "src/api/routers/research.py",
+      "lines": "226-322",
+      "description": "Currently mitigated by limit (max 20). Two queries per request is acceptable. Batch query pattern for decisions is efficient.",
+      "fix_required": false,
+      "recommendation": "Add comment documenting the batch query pattern for future maintainers."
+    },
+    {
+      "id": "R4",
+      "title": "Frontend Error Handling Swallows All Errors Silently",
+      "severity": "low",
+      "type": "error_handling",
+      "file": "webapp/src/components/SuggestedEvidence.tsx",
+      "lines": "29-36",
+      "description": "All API errors are caught and error state is set to null. Cannot distinguish 'no suggestions' from 'API failure'. Comment says expected during development.",
+      "fix_required": false,
+      "recommendation": "Consider proper error state for production non-404 errors."
+    },
+    {
+      "id": "R5",
+      "title": "Missing Test for Database Foreign Key Violation Error Path",
+      "severity": "low",
+      "type": "test_coverage",
+      "file": "tests/test_research.py",
+      "lines": null,
+      "description": "IntegrityError handling in _record_evidence_decision (lines 417-424) is not tested. Tests mock fetchone=None which triggers pre-check, not IntegrityError path.",
+      "fix_required": false,
+      "recommendation": "Add test with cursor.execute.side_effect = IntegrityError(...) to cover error handling path."
+    }
+  ],
+  "positives": [
+    "21 frontend tests covering loading, empty state, actions, and error handling",
+    "Proper URL encoding with encodeURIComponent(evidenceId) in API client",
+    "Backend tests cover state transitions (accepted<->rejected)",
+    "Idempotent UPSERT pattern allows repeated decisions without errors",
+    "TypeScript types properly extend SearchResult interface"
+  ],
+  "summary": {
+    "total_issues": 5,
+    "high_severity": 1,
+    "medium_severity": 1,
+    "low_severity": 3,
+    "fixes_required": 2
+  }
+}

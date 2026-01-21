@@ -54,6 +54,10 @@ data/
 
 # Ralph script outputs (contains session state with auth tokens)
 scripts/ralph/outputs/
+ralph/progress.txt
+ralph/checkpoints/
+ralph_v2/progress.txt
+ralph_v2/checkpoints/
 
 # Root-level npm (webapp has its own)
 /package.json

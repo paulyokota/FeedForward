@@ -315,7 +315,7 @@ export default function AnalyticsPage() {
             label="Avg Confidence"
             value={
               metrics?.avg_confidence_score !== null
-                ? `${Math.round((metrics?.avg_confidence_score ?? 0) * 100)}%`
+                ? `${Math.round(metrics?.avg_confidence_score ?? 0)}%`
                 : "N/A"
             }
             icon={

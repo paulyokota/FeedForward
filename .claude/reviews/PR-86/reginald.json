@@ -1,0 +1,80 @@
+{
+  "reviewer": "reginald",
+  "pr_number": 86,
+  "review_round": 1,
+  "timestamp": "2026-01-21T00:00:00Z",
+  "verdict": "BLOCK",
+  "summary": "3 HIGH, 1 MEDIUM, 1 LOW correctness issues",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "integration",
+      "file": "src/api/main.py",
+      "lines": [68],
+      "title": "Race condition between startup cleanup and in-memory state",
+      "why": "cleanup_stale_pipeline_runs() updates the database but ignores the in-memory _active_runs dict in pipeline.py. In multi-worker setups, Worker A can run a pipeline while Worker B restarts and marks it as 'failed', creating inconsistent state.",
+      "fix": "Add reconciliation logic to check _active_runs before cleanup, or use database as single source of truth with proper locking. See verbose review for 3 detailed solution options.",
+      "verify": "Confirm deployment architecture: single-worker vs multi-worker (Gunicorn/Uvicorn)",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "R2",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "logic",
+      "file": "src/api/main.py",
+      "lines": [45],
+      "title": "Error message not cleared when run completes after cleanup",
+      "why": "When cleanup marks a run as 'failed' with error_message, then the run actually completes (race condition), the error message persists even though status='completed'. Leaves incorrect error messages in successful runs.",
+      "fix": "In _finalize_completed_run() in pipeline.py, explicitly set error_message=None when updating the PipelineRun object to clear any stale error message.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R3",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "error-handling",
+      "file": "src/api/main.py",
+      "lines": [51],
+      "title": "Redundant commit call (get_connection already commits)",
+      "why": "The get_connection() context manager in src/db/connection.py already commits on exit (line 34). The explicit conn.commit() on line 51 is redundant and creates double-commit, showing misunderstanding of the context manager.",
+      "fix": "Remove the explicit conn.commit() call on line 51. The get_connection() context manager handles commit automatically.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R4",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "testing",
+      "file": "tests/test_startup_cleanup.py",
+      "lines": [17, 58],
+      "title": "Tests don't verify transaction rollback behavior",
+      "why": "Tests verify that commit is called on success, but don't test that rollback happens on errors or that the connection is properly closed. Transaction behavior is only partially tested.",
+      "fix": "Add test case that simulates SQL error and verifies rollback behavior (or at least that commit is NOT called on error).",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R5",
+      "severity": "LOW",
+      "confidence": "high",
+      "category": "type-safety",
+      "file": "src/api/main.py",
+      "lines": [27],
+      "title": "Ambiguous return value (0 could mean no stale runs OR error)",
+      "why": "Function returns int, but 0 could mean 'no stale runs found' or 'error occurred'. Callers can't distinguish between normal and error cases. Docstring doesn't clarify this ambiguity.",
+      "fix": "Either use Optional[int] to return None on error, or update docstring to explicitly state that 0 is returned for both cases and callers should check logs for errors.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

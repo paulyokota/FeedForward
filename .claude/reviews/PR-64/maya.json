@@ -1,0 +1,64 @@
+{
+  "reviewer": "maya",
+  "pr_number": 64,
+  "review_round": 1,
+  "timestamp": "2026-01-20T16:45:00Z",
+  "verdict": "COMMENT",
+  "summary": "2 MEDIUM maintainability issues: missing schema documentation and no integration tests to catch schema drift",
+  "issues": [
+    {
+      "id": "M1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "clarity",
+      "file": "src/research/adapters/coda_adapter.py",
+      "lines": [22, 29],
+      "title": "Missing schema documentation for SQLite database contract",
+      "why": "SQL queries reference external SQLite schema with no documentation. This PR proves schema assumptions drift - previous code used nonexistent columns. Future developers cannot verify correctness without hunting for schema in scripts/coda_storage_optimize.js.",
+      "fix": "Add schema reference comment to class docstring: 'SQLite Schema Reference (coda_content.db): pages: canvas_id, title, content, file_path, char_count, extracted_at. Schema defined in: scripts/coda_storage_optimize.js'",
+      "verify": "Confirm scripts/coda_storage_optimize.js is the authoritative schema definition",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "M2",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "test-coverage",
+      "file": "tests/test_research.py",
+      "lines": [216, 250],
+      "title": "No integration test validates SQL queries match actual schema",
+      "why": "Existing CodaSearchAdapter tests only check source type and URL generation. No test creates a SQLite database and validates extraction. This is why name/parent_id bug shipped. Same class of bug will recur.",
+      "fix": "Add integration test that creates in-memory SQLite with correct schema and validates extract_content returns expected fields. Can be tracked as follow-up issue.",
+      "verify": "Check if other adapters have integration tests as a pattern to follow",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "M3",
+      "severity": "LOW",
+      "confidence": "high",
+      "category": "magic-number",
+      "file": "src/research/adapters/coda_adapter.py",
+      "lines": [124, 139],
+      "title": "Magic number 50 for minimum content length (pre-existing)",
+      "why": "Number 50 appears twice as content length threshold with no explanation. Future developer might change one but not the other, or not understand the rationale.",
+      "fix": "Extract to named constant: MIN_CONTENT_LENGTH = 50 with comment explaining why this threshold.",
+      "scope": "isolated",
+      "see_verbose": false
+    },
+    {
+      "id": "M4",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "clarity",
+      "file": "src/research/adapters/coda_adapter.py",
+      "lines": [148],
+      "title": "Inline import of re module inside method (pre-existing)",
+      "why": "Imports inside functions are unusual in this codebase and make dependencies non-obvious. Suggests this was added as quick fix.",
+      "fix": "Move import re to top of file with other imports.",
+      "scope": "isolated",
+      "see_verbose": false
+    }
+  ]
+}

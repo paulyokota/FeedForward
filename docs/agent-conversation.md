@@ -59,8 +59,20 @@ Complete – awaiting Claude Code
 - **Key insight:** Parallel tracks deliver both PM UX spine and implementation context in 4 weeks instead of 6+ sequential
 - **Archive:** `/docs/agent-conversation-archive/2026-01-20_T-001.md`
 
+### [ARCHIVED] T-002 – Architecture: Canonical pipeline + story creation unification
+
+- **Decision:** Approve 4-step sequence; retire `src/pipeline.py` (2026-01-21)
+- **Key insight:** UI pipeline already uses `StoryCreationService`; focus on quality gates + legacy cleanup
+- **Archive:** `/docs/agent-conversation-archive/2026-01-21_T-002.md`
+
+### [ARCHIVED] T-003 – Architecture: Top opportunities after milestone 5/6
+
+- **Decision:** Converged top 3: pipeline-critical tests, giant file decomposition, configuration consolidation (2026-01-21)
+- **Key insight:** Tests on the canonical flow enable safe decomposition; config consolidation is a small reliability win
+- **Archive:** `/docs/agent-conversation-archive/2026-01-21_T-003.md`
+
 ---
 
 ## Active Topics
 
-(No active topics)
+- (No active topics)

@@ -1,0 +1,80 @@
+{
+  "reviewer": "sanjay",
+  "pr_number": 100,
+  "review_round": 1,
+  "timestamp": "2026-01-21T00:00:00Z",
+  "verdict": "BLOCK",
+  "summary": "1 CRITICAL, 2 HIGH security issues: PID file TOCTOU allowing arbitrary process kill, debug print statements leaking internal state, missing rate limiting",
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "CRITICAL",
+      "confidence": "high",
+      "category": "auth",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [56, 113],
+      "title": "PID file TOCTOU race condition enables arbitrary process kill",
+      "why": "PID file in world-writable /tmp/ can be modified by any local user. On server restart, attacker-injected PIDs are killed via os.kill() without validating process ownership or application identity.",
+      "fix": "Move PID file to app-specific directory with 0600 permissions. Validate process belongs to this application by checking /proc/{pid}/cmdline before sending SIGTERM.",
+      "verify": "Confirm deployment environment and whether local user attacks are in threat model",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S2",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "exposure",
+      "file": "src/intercom_client.py",
+      "lines": [182, 445],
+      "title": "Debug print statements leak internal API state to stdout",
+      "why": "30+ print() statements expose API endpoints, parameters, pagination cursors, and timestamps. In containerized deployments, stdout is often accessible and logged, enabling information disclosure.",
+      "fix": "Replace all print() calls with logger.debug() and ensure production logging level is INFO or higher. Sanitize sensitive fields before logging.",
+      "verify": null,
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "S3",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "category": "rate-limit",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [804, 1183],
+      "title": "Missing rate limiting on pipeline endpoints",
+      "why": "Pipeline endpoints lack rate limiting. Attackers can spam /run (wasting resources on 409 responses), aggressively poll /status (DB exhaustion), or repeatedly stop/start to disrupt operations.",
+      "fix": "Add rate limiting middleware (slowapi) with IP-based throttling. Include Retry-After headers in 429 responses.",
+      "verify": "Check if rate limiting is handled at API gateway or nginx layer",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "S4",
+      "severity": "MEDIUM",
+      "confidence": "low",
+      "category": "injection",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [311, 343],
+      "title": "Dynamic SQL construction pattern is risky despite whitelist",
+      "why": "The _update_phase function uses f-strings for SQL column names. Currently protected by _ALLOWED_PHASE_FIELDS whitelist, but pattern is error-prone if whitelist is expanded carelessly.",
+      "fix": "Consider using an ORM or parameterized query builder to eliminate f-string SQL patterns entirely.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    },
+    {
+      "id": "S5",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "category": "validation",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [804, 883],
+      "title": "Missing upper bounds on days and concurrency parameters",
+      "why": "Pipeline accepts unbounded days (could fetch years of data) and concurrency (could overwhelm Intercom API). Enables resource exhaustion attacks.",
+      "fix": "Add validation bounds: days <= 365, concurrency <= 50. Define in PipelineRunRequest Pydantic schema with Field(le=...).",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    }
+  ]
+}

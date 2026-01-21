@@ -1,0 +1,65 @@
+{
+  "reviewer": "sanjay",
+  "pr_number": 86,
+  "review_round": 1,
+  "timestamp": "2026-01-21T00:00:00Z",
+  "verdict": "APPROVE",
+  "summary": "2 MEDIUM security issues (race condition, error exposure)",
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "validation",
+      "file": "src/api/main.py",
+      "lines": [27, 61],
+      "title": "Potential race condition on startup cleanup in multi-instance deployments",
+      "why": "Cleanup runs synchronously on startup and marks ALL 'running' pipelines as failed, with no way to distinguish between truly stale runs from crashes vs. legitimately running pipelines on other instances. Could mark active pipelines as failed during rolling restarts.",
+      "fix": "Add instance_id tracking and heartbeat mechanism, or use advisory locks. Only mark as failed if heartbeat is stale (>5 min). Alternatively, document if single-instance deployment is assumed.",
+      "verify": "Check if multi-instance deployment is planned or if this is single-instance only",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S2",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "category": "exposure",
+      "file": "src/api/main.py",
+      "lines": [59, 61],
+      "title": "Database connection details exposure via error messages",
+      "why": "Broad exception catch logs full error message which could include database connection strings, credentials, or network topology information if database connection fails.",
+      "fix": "Sanitize error messages before logging. Catch psycopg2.OperationalError separately and log generic message. Log full error details only at DEBUG level with exc_info=True.",
+      "verify": null,
+      "scope": "systemic",
+      "see_verbose": true
+    }
+  ],
+  "safe_patterns": [
+    {
+      "category": "injection",
+      "finding": "SQL query uses only hardcoded literals, no user input or string interpolation",
+      "file": "src/api/main.py",
+      "lines": [40, 48]
+    },
+    {
+      "category": "auth",
+      "finding": "Startup hook runs before HTTP requests, uses existing connection auth",
+      "file": "src/api/main.py",
+      "lines": [65, 70]
+    }
+  ],
+  "positive_observations": [
+    "Proper transaction handling with context manager and explicit commit",
+    "Error resilience - returns 0 instead of raising to prevent startup failures",
+    "Safe SQL - no dynamic query construction",
+    "Legacy file deletion contains no hardcoded secrets or credentials"
+  ],
+  "recommendations": [
+    "Document deployment model (single vs multi-instance)",
+    "Add telemetry metric for stale run count",
+    "Consider heartbeat mechanism if multi-instance deployment planned",
+    "Sanitize database error messages in logging",
+    "Add integration test with real database"
+  ]
+}

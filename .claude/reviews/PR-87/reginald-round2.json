@@ -1,0 +1,55 @@
+{
+  "reviewer": "reginald",
+  "pr_number": 87,
+  "review_round": 2,
+  "timestamp": "2026-01-21T19:30:00Z",
+  "verdict": "APPROVE",
+  "summary": "R1 from Round 1 fixed. Found 3 MEDIUM issues: strip_html edge case, async timeout semantics, async no retry on 5xx",
+  "round1_fix_status": "FIXED - fetch_contact_org_id now uses self._get() with retry logic",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "logic",
+      "file": "src/intercom_client.py",
+      "lines": [156, 170],
+      "title": "strip_html corrupts messages with mathematical expressions",
+      "why": "Regex pattern '<[^>]+>' greedily matches between < and > characters, corrupting text like 'x < 5 and y > 10' into 'x   10'. Affects message data quality before classification.",
+      "fix": "Use html.parser.HTMLParser for robust tag removal, or use more precise regex like '</?\w+[^>]*>' that only matches valid HTML tags.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R2",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "integration",
+      "file": "src/intercom_client.py",
+      "lines": [286, 290],
+      "title": "Async timeout semantics differ from sync client (carry-over from R1)",
+      "why": "aiohttp ClientTimeout(total=40) uses shared timer (connect+read), while requests timeout=(10,30) uses independent timers. Slow 9s connection gets 31s read time in async vs full 30s in sync.",
+      "fix": "Use ClientTimeout(connect=10, sock_read=30) for exact parity with sync client, or document the semantic difference as intentional trade-off.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R3",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "integration",
+      "file": "src/intercom_client.py",
+      "lines": [292, 309],
+      "title": "Async batch fetch doesn't retry 5xx errors",
+      "why": "fetch_contact_org_ids_batch returns None on 5xx without retry, unlike sync fetch_contact_org_id which retries. Semantic inconsistency causes missing org_ids on transient errors.",
+      "fix": "Add retry loop to async fetch_one() using same exponential backoff, or document this as intentional speed-over-reliability trade-off in docstring.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ],
+  "converged": true,
+  "notes": "Core retry logic is correct and well-tested. All issues are MEDIUM severity edge cases or semantic inconsistencies that don't block the main PR goal of adding retry logic for transient errors."
+}

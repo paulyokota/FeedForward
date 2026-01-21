@@ -1,0 +1,64 @@
+{
+  "reviewer": "Sanjay",
+  "persona": "Security Auditor",
+  "pr": 68,
+  "round": 2,
+  "timestamp": "2026-01-20T12:00:00Z",
+  "files_reviewed": [
+    "src/api/routers/pipeline.py",
+    "src/two_stage_pipeline.py"
+  ],
+  "prior_issues_status": {
+    "S1": {
+      "severity": "HIGH",
+      "title": "No authentication on pipeline endpoints",
+      "status": "NOT_FIXED",
+      "note": "Out of scope for this PR - noted for future"
+    },
+    "S2": {
+      "severity": "MEDIUM",
+      "title": "Race condition in _active_runs dict access",
+      "status": "NOT_FIXED",
+      "note": "Acceptable for MVP single-worker deployment"
+    },
+    "S3": {
+      "severity": "LOW",
+      "title": "Error info disclosure via error_message",
+      "status": "NOT_FIXED",
+      "note": "Internal tool, low risk"
+    },
+    "S4": {
+      "severity": "MEDIUM",
+      "title": "No rate limiting on pipeline endpoints",
+      "status": "NOT_FIXED",
+      "note": "Out of scope for graceful stop feature"
+    }
+  },
+  "new_code_review": {
+    "_cleanup_terminal_runs": {
+      "analysis": "Iterates over dict copy (list comprehension) then deletes from original. Thread-safe pattern for single-threaded context. Does not introduce new vulnerabilities.",
+      "verdict": "PASS"
+    },
+    "batched_classification_with_stop": {
+      "analysis": "Stop checker is a callable passed from router. No user-controlled input in stop logic. Lambda captures run_id safely. No injection vectors.",
+      "verdict": "PASS"
+    },
+    "stop_checker_lambda": {
+      "analysis": "Lambda `lambda: _is_stopping(run_id)` only reads from in-memory dict. run_id is server-generated (DB auto-increment), not user-controlled.",
+      "verdict": "PASS"
+    },
+    "_finalize_stopped_run": {
+      "analysis": "Uses parameterized queries for DB update. No SQL injection risk. Result dict values are server-generated stats.",
+      "verdict": "PASS"
+    }
+  },
+  "new_issues": [],
+  "notes": [
+    "Cleanup function uses safe iteration pattern (list copy before delete)",
+    "Stop signal mechanism relies on in-memory state which has known race condition (S2), but no NEW security issues introduced",
+    "All DB operations use parameterized queries",
+    "No user-controlled data flows into stop mechanism"
+  ],
+  "verdict": "APPROVE",
+  "summary": "No NEW security issues introduced by graceful stop feature. Prior issues (S1-S4) remain but were documented as out of scope. Stop mechanism is safe - uses server-generated run_ids, parameterized queries, and safe iteration patterns."
+}
