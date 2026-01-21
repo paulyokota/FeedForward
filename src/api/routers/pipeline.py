@@ -24,6 +24,11 @@ from src.api.schemas.pipeline import (
 )
 from src.db.connection import create_pipeline_run, update_pipeline_run
 from src.db.models import PipelineRun
+from src.story_tracking.models import MIN_GROUP_SIZE
+from src.story_tracking.services.story_service import StoryService
+from src.story_tracking.services.orphan_service import OrphanService
+from src.story_tracking.services.evidence_service import EvidenceService
+from src.story_tracking.services.story_creation_service import StoryCreationService
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +41,6 @@ _active_runs: dict[int, str] = {}  # run_id -> status
 
 # Terminal states that can be cleaned up
 _TERMINAL_STATES = {"stopped", "completed", "failed"}
-
-# Minimum conversations needed to create a full story (vs orphan)
-# Based on product decision: fewer than 3 reports indicates insufficient signal
-MIN_CONVERSATIONS_FOR_STORY = 3
 
 
 def _cleanup_terminal_runs() -> None:
@@ -99,12 +100,13 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
     from src.db.connection import get_connection
     from src.theme_extractor import ThemeExtractor
     from src.db.models import Conversation
+    from psycopg2.extras import RealDictCursor
 
     logger.info(f"Run {run_id}: Starting theme extraction")
 
     # Get conversations classified in this run
     with get_connection() as conn:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Get conversations from the date range of this run
             cur.execute("""
                 SELECT c.id, c.created_at, c.source_body, c.source_url,
@@ -172,6 +174,8 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
             logger.warning(f"Failed to extract theme for {conv.id}: {e}")
 
     # Store themes in database with pipeline_run_id
+    from psycopg2.extras import Json
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             for theme in themes:
@@ -197,7 +201,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                     theme.component,
                     theme.issue_signature,
                     theme.user_intent,
-                    theme.symptoms,
+                    Json(theme.symptoms),  # Wrap list for JSONB column
                     theme.affected_flow,
                     theme.root_cause_hypothesis,
                     run_id,
@@ -211,24 +215,22 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
     """
     Run PM review on theme groups and create stories.
 
+    Uses StoryCreationService for proper story/orphan handling with:
+    - PM review split/keep logic (future: when PM review is enabled)
+    - Evidence bundle creation
+    - Proper orphan lifecycle via OrphanService
+
     Returns dict with stories_created, orphans_created counts.
     """
-    import json
     import os
-    from openai import OpenAI
     from src.db.connection import get_connection
-    from src.story_tracking.services.story_service import StoryService
-    from src.story_tracking.services.evidence_service import EvidenceService
-    from src.story_tracking.services.pipeline_integration import (
-        PipelineIntegrationService,
-        ValidatedGroup,
-    )
+    from psycopg2.extras import RealDictCursor
 
     logger.info(f"Run {run_id}: Starting PM review and story creation")
 
     # Get themes from this run grouped by signature
     with get_connection() as conn:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
                 SELECT t.issue_signature, t.product_area, t.component,
                        t.conversation_id, t.user_intent, t.symptoms,
@@ -245,7 +247,7 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         logger.info(f"Run {run_id}: No themes to create stories from")
         return {"stories_created": 0, "orphans_created": 0}
 
-    # Group by signature
+    # Group by signature (same format as before)
     groups: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
         groups[row["issue_signature"]].append({
@@ -258,114 +260,47 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             "excerpt": (row["source_body"] or "")[:500],
         })
 
-    # Filter to groups with sufficient conversations (story-worthy)
-    valid_groups = {
-        sig: convs for sig, convs in groups.items()
-        if len(convs) >= MIN_CONVERSATIONS_FOR_STORY
-    }
-    orphan_groups = {
-        sig: convs for sig, convs in groups.items()
-        if len(convs) < MIN_CONVERSATIONS_FOR_STORY
-    }
-
     logger.info(
-        f"Run {run_id}: {len(valid_groups)} valid groups, "
-        f"{len(orphan_groups)} orphan groups"
+        f"Run {run_id}: {len(groups)} theme groups, "
+        f"{sum(len(v) for v in groups.values())} total conversations"
     )
 
     if stop_checker():
         return {"stories_created": 0, "orphans_created": 0}
 
-    # Initialize services
+    # Initialize services and process through StoryCreationService
     with get_connection() as conn:
         story_service = StoryService(conn)
+        orphan_service = OrphanService(conn)
         evidence_service = EvidenceService(conn)
-        integration_service = PipelineIntegrationService(story_service, evidence_service)
 
-        stories_created = 0
-        orphans_created = 0
+        # Determine dual format settings from environment
+        dual_format_enabled = os.environ.get("FEEDFORWARD_DUAL_FORMAT", "false").lower() == "true"
+        target_repo = os.environ.get("FEEDFORWARD_TARGET_REPO", "FeedForward")
 
-        # Create stories for valid groups
-        for signature, conversations in valid_groups.items():
-            if stop_checker():
-                break
+        story_creation_service = StoryCreationService(
+            story_service=story_service,
+            orphan_service=orphan_service,
+            evidence_service=evidence_service,
+            dual_format_enabled=dual_format_enabled,
+            target_repo=target_repo,
+        )
 
-            try:
-                # Create validated group
-                product_area = conversations[0]["product_area"]
-                component = conversations[0]["component"]
-
-                # Generate title from signature
-                title = signature.replace("_", " ").title()
-
-                # Combine intents for description
-                intents = list(set(c["user_intent"] for c in conversations if c["user_intent"]))
-                description = f"Users experiencing: {'; '.join(intents[:3])}"
-
-                group = ValidatedGroup(
-                    signature=signature,
-                    conversation_ids=[c["id"] for c in conversations],
-                    theme_signatures=[signature],
-                    title=title,
-                    description=description,
-                    product_area=product_area,
-                    technical_area=component,
-                    excerpts=[
-                        {"text": c["excerpt"], "source": "intercom", "conversation_id": c["id"]}
-                        for c in conversations[:5]
-                    ],
-                )
-
-                story = integration_service.create_candidate_story(group)
-                stories_created += 1
-                logger.info(f"Created story: {story.title}")
-
-                # Link story to pipeline run
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE stories SET pipeline_run_id = %s WHERE id = %s
-                    """, (run_id, str(story.id)))
-
-            except Exception as e:
-                logger.warning(f"Failed to create story for {signature}: {e}")
-
-        # Create orphan stories (for groups < 3 conversations)
-        for signature, conversations in orphan_groups.items():
-            if stop_checker():
-                break
-
-            try:
-                product_area = conversations[0]["product_area"]
-                title = f"[Orphan] {signature.replace('_', ' ').title()}"
-                description = f"Low-volume theme ({len(conversations)} reports). May merge with similar themes."
-
-                group = ValidatedGroup(
-                    signature=signature,
-                    conversation_ids=[c["id"] for c in conversations],
-                    theme_signatures=[signature],
-                    title=title,
-                    description=description,
-                    product_area=product_area,
-                    technical_area=conversations[0]["component"],
-                    confidence_score=30.0,  # Low confidence for orphans
-                )
-
-                story = integration_service.create_candidate_story(group)
-                orphans_created += 1
-
-                # Link to pipeline run
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE stories SET pipeline_run_id = %s WHERE id = %s
-                    """, (run_id, str(story.id)))
-
-            except Exception as e:
-                logger.warning(f"Failed to create orphan story for {signature}: {e}")
+        # Process all theme groups through the service
+        result = story_creation_service.process_theme_groups(
+            theme_groups=groups,
+            pipeline_run_id=run_id,
+        )
 
     logger.info(
-        f"Run {run_id}: Created {stories_created} stories, {orphans_created} orphans"
+        f"Run {run_id}: Created {result.stories_created} stories, "
+        f"{result.orphans_created} orphans"
     )
-    return {"stories_created": stories_created, "orphans_created": orphans_created}
+
+    return {
+        "stories_created": result.stories_created,
+        "orphans_created": result.orphans_created,
+    }
 
 
 def _run_pipeline_task(

@@ -7,6 +7,7 @@ Processes PM review results to create stories and orphans.
 import json
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -15,9 +16,11 @@ from ..models import (
     MIN_GROUP_SIZE,
     OrphanCreate,
     StoryCreate,
+    EvidenceExcerpt,
 )
 from .orphan_service import OrphanService
 from .story_service import StoryService
+from .evidence_service import EvidenceService
 
 # Optional dual-format components (graceful degradation if unavailable)
 try:
@@ -37,9 +40,6 @@ except ImportError:
     DUAL_FORMAT_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
-
-# Import datetime for code context timestamps
-from datetime import datetime, timezone
 
 # Constants for data limits (used in theme data building and story generation)
 MAX_SYMPTOMS_IN_THEME = 10
@@ -136,6 +136,7 @@ class StoryCreationService:
         self,
         story_service: StoryService,
         orphan_service: OrphanService,
+        evidence_service: Optional[EvidenceService] = None,
         dual_format_enabled: bool = False,
         target_repo: Optional[str] = None,
     ):
@@ -145,12 +146,14 @@ class StoryCreationService:
         Args:
             story_service: Service for story CRUD operations
             orphan_service: Service for orphan CRUD operations
+            evidence_service: Service for evidence bundle operations (optional)
             dual_format_enabled: If True, generate dual-format stories (v2) with
                                 codebase context. Default False for backward compatibility.
             target_repo: Repository name for codebase exploration (required if dual_format_enabled)
         """
         self.story_service = story_service
         self.orphan_service = orphan_service
+        self.evidence_service = evidence_service
         self.dual_format_enabled = dual_format_enabled
         self.target_repo = target_repo
 
@@ -228,6 +231,301 @@ class StoryCreationService:
         )
 
         return result
+
+    def process_theme_groups(
+        self,
+        theme_groups: Dict[str, List[Dict[str, Any]]],
+        pipeline_run_id: Optional[int] = None,
+    ) -> ProcessingResult:
+        """
+        Process theme groups from pipeline directly (in-memory).
+
+        This is the UI pipeline entry point for story creation. Converts
+        the pipeline's theme data format into stories and orphans.
+
+        Args:
+            theme_groups: Dict mapping signature -> list of conversation dicts.
+                Each conversation dict should have:
+                - id: str (conversation_id)
+                - product_area: Optional[str]
+                - component: Optional[str]
+                - user_intent: Optional[str]
+                - symptoms: List[str]
+                - affected_flow: Optional[str]
+                - excerpt: Optional[str]
+
+            pipeline_run_id: Optional pipeline run ID to link stories to
+
+        Returns:
+            ProcessingResult with counts and any errors
+        """
+        result = ProcessingResult()
+
+        for signature, conv_dicts in theme_groups.items():
+            try:
+                # Convert dicts to ConversationData objects
+                conversations = [
+                    self._dict_to_conversation_data(d, signature)
+                    for d in conv_dicts
+                ]
+
+                # Generate default PM result (keep_together)
+                pm_result = self._generate_pm_result(signature, len(conversations))
+
+                # Process using existing logic
+                self._process_single_result_with_pipeline_run(
+                    pm_result=pm_result,
+                    conversations=conversations,
+                    result=result,
+                    pipeline_run_id=pipeline_run_id,
+                )
+
+            except (KeyboardInterrupt, SystemExit):
+                raise  # Never swallow these - let user/system interrupt
+            except Exception as e:
+                error_msg = f"Error processing theme group '{signature}': {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
+
+        logger.info(
+            f"Processed theme groups: {result.stories_created} stories created, "
+            f"{result.orphans_created} orphans created, "
+            f"{result.orphans_updated} orphans updated"
+        )
+
+        return result
+
+    def _dict_to_conversation_data(
+        self,
+        conv_dict: Dict[str, Any],
+        signature: str,
+    ) -> ConversationData:
+        """Convert pipeline dict to ConversationData."""
+        # Validate conversation ID (S1: prevent empty IDs from propagating)
+        conv_id = str(conv_dict.get("id", "")).strip()
+        if not conv_id:
+            raise ValueError(f"Empty conversation ID in theme group '{signature}'")
+
+        return ConversationData(
+            id=conv_id,
+            issue_signature=signature,
+            product_area=conv_dict.get("product_area"),
+            component=conv_dict.get("component"),
+            user_intent=conv_dict.get("user_intent"),
+            symptoms=conv_dict.get("symptoms", []),
+            affected_flow=conv_dict.get("affected_flow"),
+            root_cause_hypothesis=None,  # Not in pipeline data
+            excerpt=conv_dict.get("excerpt"),
+        )
+
+    def _generate_pm_result(
+        self,
+        signature: str,
+        conversation_count: int,
+    ) -> PMReviewResult:
+        """Generate default PM result (keep_together)."""
+        return PMReviewResult(
+            signature=signature,
+            decision="keep_together",
+            reasoning="Auto-generated from pipeline (no PM review)",
+            sub_groups=[],
+            conversation_count=conversation_count,
+        )
+
+    def _process_single_result_with_pipeline_run(
+        self,
+        pm_result: PMReviewResult,
+        conversations: List[ConversationData],
+        result: ProcessingResult,
+        pipeline_run_id: Optional[int] = None,
+    ) -> None:
+        """
+        Process a single PM review decision with pipeline run linking.
+
+        Similar to _process_single_result but:
+        1. Takes conversations directly (not by signature lookup)
+        2. Links created stories to pipeline_run_id
+        3. Creates evidence bundles if evidence_service is available
+        """
+        if pm_result.decision == "error":
+            result.errors.append(f"PM review failed for {pm_result.signature}")
+            return
+
+        conversation_count = len(conversations) or pm_result.conversation_count or 0
+
+        if pm_result.decision in ("keep_together", "split"):
+            # Note: "split" falls through to keep_together for pipeline path.
+            # Future PM review integration would process sub_groups differently.
+            if pm_result.decision == "split":
+                logger.debug(
+                    f"Split decision for {pm_result.signature} - "
+                    f"treating as keep_together (PM review not yet integrated)"
+                )
+
+            if conversation_count < MIN_GROUP_SIZE:
+                # Create orphan for small groups
+                self._create_or_update_orphan(
+                    signature=pm_result.signature,
+                    original_signature=None,
+                    conversations=conversations,
+                    result=result,
+                )
+            else:
+                # Create story for valid groups
+                self._create_story_with_evidence(
+                    signature=pm_result.signature,
+                    conversations=conversations,
+                    reasoning=pm_result.reasoning,
+                    result=result,
+                    pipeline_run_id=pipeline_run_id,
+                )
+        else:
+            result.errors.append(
+                f"Unknown decision '{pm_result.decision}' for {pm_result.signature}"
+            )
+
+    def _create_story_with_evidence(
+        self,
+        signature: str,
+        conversations: List[ConversationData],
+        reasoning: str,
+        result: ProcessingResult,
+        pipeline_run_id: Optional[int] = None,
+        original_signature: Optional[str] = None,
+    ) -> None:
+        """
+        Create a story with evidence bundle and pipeline run linking.
+
+        This is the main story creation path for pipeline-generated stories.
+        """
+        # Build theme data from conversations
+        theme_data = self._build_theme_data(conversations)
+
+        # Explore codebase with classification (Issue #44)
+        code_context = None
+        if self.dual_format_enabled:
+            code_context = self._explore_codebase_with_classification(theme_data)
+
+        # Create story
+        story = self.story_service.create(StoryCreate(
+            title=self._generate_title(signature, theme_data),
+            description=self._generate_description(
+                signature,
+                theme_data,
+                reasoning,
+                original_signature,
+            ),
+            labels=[],
+            product_area=theme_data.get("product_area"),
+            technical_area=theme_data.get("component"),
+            status="candidate",
+            code_context=code_context,
+        ))
+
+        result.stories_created += 1
+        result.created_story_ids.append(story.id)
+
+        # Link to pipeline run if provided (S2: track linking failures)
+        if pipeline_run_id is not None:
+            if not self._link_story_to_pipeline_run(story.id, pipeline_run_id):
+                result.errors.append(
+                    f"Story {story.id} created but failed to link to pipeline run {pipeline_run_id}"
+                )
+
+        # Create evidence bundle if evidence_service is available (S3: track failures)
+        if self.evidence_service:
+            if not self._create_evidence_for_story(
+                story_id=story.id,
+                signature=signature,
+                conversations=conversations,
+                theme_data=theme_data,
+            ):
+                result.errors.append(
+                    f"Story {story.id} created but failed to create evidence bundle"
+                )
+
+        code_context_info = ""
+        if code_context and code_context.get("success"):
+            files_count = len(code_context.get("relevant_files", []))
+            code_context_info = f", {files_count} code files"
+
+        logger.info(
+            f"Created story {story.id} for '{signature}' "
+            f"({len(conversations)} conversations{code_context_info})"
+        )
+
+    def _link_story_to_pipeline_run(
+        self,
+        story_id: UUID,
+        pipeline_run_id: int,
+    ) -> bool:
+        """
+        Link a story to a pipeline run.
+
+        Uses the shared connection from story_service. The UPDATE will be
+        committed when the outer connection context manager exits.
+
+        Returns:
+            True if successful, False if failed
+        """
+        try:
+            with self.story_service.db.cursor() as cur:
+                cur.execute("""
+                    UPDATE stories SET pipeline_run_id = %s WHERE id = %s
+                """, (pipeline_run_id, str(story_id)))
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to link story {story_id} to pipeline run {pipeline_run_id}: {e}")
+            return False
+
+    def _create_evidence_for_story(
+        self,
+        story_id: UUID,
+        signature: str,
+        conversations: List[ConversationData],
+        theme_data: Dict[str, Any],
+    ) -> bool:
+        """
+        Create evidence bundle for a story.
+
+        Returns:
+            True if successful or no evidence_service configured, False if failed
+        """
+        if not self.evidence_service:
+            return True  # No-op success when service not configured
+
+        try:
+            # Build conversation IDs
+            conversation_ids = [c.id for c in conversations]
+
+            # Build excerpts
+            excerpts = []
+            for conv in conversations[:MAX_EXCERPTS_IN_THEME]:
+                if conv.excerpt:
+                    excerpts.append(EvidenceExcerpt(
+                        text=conv.excerpt[:MAX_EXCERPT_LENGTH],
+                        source="intercom",  # Default source
+                        conversation_id=conv.id,
+                    ))
+
+            # Calculate source stats (default to intercom)
+            source_stats = {"intercom": len(conversations)}
+
+            # Create evidence bundle
+            self.evidence_service.create_or_update(
+                story_id=story_id,
+                conversation_ids=conversation_ids,
+                theme_signatures=[signature],
+                source_stats=source_stats,
+                excerpts=excerpts,
+            )
+
+            logger.debug(f"Created evidence bundle for story {story_id}")
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to create evidence for story {story_id}: {e}")
+            return False
 
     def _process_single_result(
         self,
