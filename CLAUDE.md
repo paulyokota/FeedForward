@@ -68,6 +68,7 @@ BEFORE these actions, STOP and answer:
 | **After Round 1 review**            | Who wrote the code I'm fixing?        | Route to original dev       |
 | **Creating PR**                     | Build + tests pass?                   | Fix before PR               |
 | **PR with prompt/pipeline changes** | Functional test run and verified?     | Run test, attach evidence   |
+| **Executing architect output**      | Is it deleting code not in scope?     | Flag for user approval      |
 | **Session ending**                  | BACKLOG_FLAGs to file? TODOs in code? | Review and file issues      |
 
 ---

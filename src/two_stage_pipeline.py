@@ -38,9 +38,25 @@ from db.classification_storage import (
     store_classification_results_batch
 )
 from adapters import CodaAdapter, IntercomAdapter, NormalizedConversation
+from resolution_analyzer import ResolutionAnalyzer
+from knowledge_extractor import KnowledgeExtractor
 
 # Async OpenAI client for parallel processing
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Module-level instances (stateless analyzers, cheap to initialize)
+_resolution_analyzer = ResolutionAnalyzer()
+_knowledge_extractor = KnowledgeExtractor()
+
+
+def get_resolution_analyzer() -> ResolutionAnalyzer:
+    """Get the ResolutionAnalyzer instance."""
+    return _resolution_analyzer
+
+
+def get_knowledge_extractor() -> KnowledgeExtractor:
+    """Get the KnowledgeExtractor instance."""
+    return _knowledge_extractor
 
 
 def extract_support_messages(raw_conversation: dict) -> List[str]:
@@ -70,31 +86,68 @@ def extract_support_messages(raw_conversation: dict) -> List[str]:
 
 def detect_resolution_signal(support_messages: List[str]) -> Optional[Dict[str, Any]]:
     """
-    Detect if conversation shows resolution patterns.
+    Detect resolution patterns using ResolutionAnalyzer.
 
-    Simple implementation - checks for common resolution phrases.
-    Can be enhanced with ML later.
+    Returns simple format for backward compatibility with Stage 2 prompt.
+    Full analysis available via get_full_resolution_analysis().
     """
     if not support_messages:
         return None
 
-    # Common resolution patterns
-    resolution_phrases = [
-        "resolved",
-        "fixed",
-        "should be working now",
-        "let me know if",
-        "closing this ticket",
-        "marking this as complete",
-    ]
+    analyzer = get_resolution_analyzer()
+    analysis = analyzer.analyze_conversation(support_messages)
 
-    last_message = support_messages[-1].lower()
-
-    for phrase in resolution_phrases:
-        if phrase in last_message:
-            return {"action": "resolved", "signal": phrase}
-
+    if analysis["primary_action"]:
+        return {
+            "action": analysis["primary_action"]["action"],
+            "signal": analysis["primary_action"]["matched_keyword"]
+        }
     return None
+
+
+def get_full_resolution_analysis(support_messages: List[str]) -> Dict[str, Any]:
+    """Get full resolution analysis for storage in support_insights."""
+    if not support_messages:
+        return {}
+
+    analyzer = get_resolution_analyzer()
+    analysis = analyzer.analyze_conversation(support_messages)
+
+    return {
+        "primary_action": analysis["primary_action"]["action"] if analysis["primary_action"] else None,
+        "action_category": analysis["primary_action"]["action_category"] if analysis["primary_action"] else None,
+        "all_actions": [a["action"] for a in analysis["all_actions"]],
+        "categories": analysis["categories"],
+        "suggested_type": analysis["suggested_type"],
+        "matched_keywords": [a["matched_keyword"] for a in analysis["all_actions"]]
+    }
+
+
+def extract_knowledge(
+    customer_message: str,
+    support_messages: List[str],
+    conversation_type: str
+) -> Dict[str, Any]:
+    """Extract knowledge for storage in support_insights."""
+    if not support_messages:
+        return {}
+
+    extractor = get_knowledge_extractor()
+    knowledge = extractor.extract_from_conversation(
+        customer_message,
+        support_messages,
+        conversation_type
+    )
+
+    # Return subset of fields for storage (exclude verbose terminology)
+    return {
+        "root_cause": knowledge["root_cause"],
+        "solution_provided": knowledge["solution_provided"],
+        "product_mentions": knowledge["product_mentions"],
+        "feature_mentions": knowledge["feature_mentions"],
+        "self_service_gap": knowledge["self_service_gap"],
+        "gap_evidence": knowledge["gap_evidence"]
+    }
 
 
 def classify_conversation(
@@ -105,7 +158,7 @@ def classify_conversation(
     Run two-stage classification on a conversation (sync version).
 
     Returns:
-        Dictionary with stage1_result, stage2_result, support_messages, resolution_signal
+        Dictionary with stage1_result, stage2_result, support_messages, resolution_signal, support_insights
     """
     # Extract support messages
     support_messages = extract_support_messages(raw_conversation)
@@ -121,6 +174,9 @@ def classify_conversation(
 
     # Stage 2: Refined analysis (only if support responded)
     stage2_result = None
+    resolution_signal = None
+    support_insights = None
+
     if support_messages:
         print(f"  [Stage 2] Found {len(support_messages)} support messages, running refined analysis...")
 
@@ -143,14 +199,24 @@ def classify_conversation(
 
         if resolution_signal:
             print(f"    → Resolution detected: {resolution_signal['signal']}")
-    else:
-        resolution_signal = None
+
+        # Build support_insights (same as async version)
+        final_type = stage2_result.get("conversation_type", stage1_result["conversation_type"])
+        support_insights = {
+            "resolution_analysis": get_full_resolution_analysis(support_messages),
+            "knowledge": extract_knowledge(
+                parsed.source_body,
+                support_messages,
+                final_type
+            )
+        }
 
     return {
         "stage1_result": stage1_result,
         "stage2_result": stage2_result,
         "support_messages": support_messages,
         "resolution_signal": resolution_signal,
+        "support_insights": support_insights,
     }
 
 
@@ -281,6 +347,8 @@ async def classify_conversation_async(
 ) -> Dict[str, Any]:
     """
     Run two-stage classification on a conversation (async version).
+
+    Includes resolution analysis and knowledge extraction when support messages exist.
     """
     support_messages = extract_support_messages(raw_conversation)
 
@@ -292,14 +360,17 @@ async def classify_conversation_async(
         semaphore=semaphore,
     )
 
-    # Stage 2 (only if support responded)
+    # Stage 2 + Resolution + Knowledge (only if support responded)
     stage2_result = None
     resolution_signal = None
+    support_insights = None
 
     if support_messages:
+        # Resolution analysis (fast, no semaphore needed)
         resolution_signal = detect_resolution_signal(support_messages)
         resolution_action = resolution_signal.get("action") if resolution_signal else None
 
+        # Stage 2 LLM (slow, needs semaphore)
         stage2_result = await classify_stage2_async(
             customer_message=parsed.source_body,
             support_messages=support_messages,
@@ -308,6 +379,17 @@ async def classify_conversation_async(
             source_url=parsed.source_url,
             semaphore=semaphore,
         )
+
+        # Build support_insights
+        final_type = stage2_result.get("conversation_type", stage1_result["conversation_type"])
+        support_insights = {
+            "resolution_analysis": get_full_resolution_analysis(support_messages),
+            "knowledge": extract_knowledge(
+                parsed.source_body,
+                support_messages,
+                final_type
+            )
+        }
 
     return {
         "conversation_id": parsed.id,
@@ -321,6 +403,7 @@ async def classify_conversation_async(
         "stage2_result": stage2_result,
         "support_messages": support_messages,
         "resolution_signal": resolution_signal,
+        "support_insights": support_insights,
     }
 
 

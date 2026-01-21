@@ -66,7 +66,6 @@ def store_classification_result(
             classification_changed = False
             disambiguation_level = None
             stage2_reasoning = None
-            support_insights_json = None
 
             if stage2_result:
                 stage2_type = stage2_result.get("conversation_type")
@@ -75,10 +74,13 @@ def store_classification_result(
                 disambiguation_level = stage2_result.get("disambiguation_level")
                 stage2_reasoning = stage2_result.get("reasoning")
 
-                # Extract support insights
-                support_insights = stage2_result.get("support_insights", {})
-                if support_insights:
-                    support_insights_json = Json(support_insights)
+            # Extract support_insights (from stage2_result for backward compatibility)
+            # NOTE: This function doesn't receive support_insights as a top-level parameter.
+            # The batch function correctly extracts from result dict's top level.
+            # Single-insert is used only for tests; batch insert is used in production.
+            support_insights_json = None
+            if stage2_result and stage2_result.get("support_insights"):
+                support_insights_json = Json(stage2_result.get("support_insights"))
 
             # Support context
             has_support_response = bool(support_messages)
@@ -202,7 +204,6 @@ def store_classification_results_batch(results: List[Dict[str, Any]]) -> int:
                 classification_changed = False
                 disambiguation_level = None
                 stage2_reasoning = None
-                support_insights_json = None
 
                 if stage2_result:
                     stage2_type = stage2_result.get("conversation_type")
@@ -210,9 +211,12 @@ def store_classification_results_batch(results: List[Dict[str, Any]]) -> int:
                     classification_changed = stage2_result.get("changed_from_stage_1", False)
                     disambiguation_level = stage2_result.get("disambiguation_level")
                     stage2_reasoning = stage2_result.get("reasoning")
-                    support_insights = stage2_result.get("support_insights", {})
-                    if support_insights:
-                        support_insights_json = Json(support_insights)
+
+                # Extract support_insights (from top-level result, not stage2_result)
+                support_insights = r.get("support_insights")
+                support_insights_json = None
+                if support_insights:
+                    support_insights_json = Json(support_insights)
 
                 # Support context
                 support_messages = r.get("support_messages", [])

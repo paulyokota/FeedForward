@@ -21,6 +21,7 @@ Ask these questions before parallelizing ANY work:
 ## How to Deploy Agents
 
 **Sequential with handoff:**
+
 ```
 // Architect designs first
 Agent(Architect): "Design the API contract for [feature]..."
@@ -30,6 +31,7 @@ Agent(Developer): "Implement the API that Architect designed: [paste contract]"
 ```
 
 **Parallel deployment:**
+
 ```
 // Launch multiple agents in parallel
 Agent(Backend, run_in_background=true)
@@ -41,16 +43,17 @@ Agent(Frontend, run_in_background=true)
 
 ## Scaling Guidance
 
-| Task Complexity | Agents | Example |
-|-----------------|--------|---------|
-| Simple fix | 0-1 | Fix typo, add field |
-| Single feature | 1-2 | Add button + API endpoint |
-| Cross-cutting feature | 2-4 | New workflow with UI + backend + tests |
-| Major refactor | 3-5 | Restructure module boundaries |
+| Task Complexity       | Agents | Example                                |
+| --------------------- | ------ | -------------------------------------- |
+| Simple fix            | 0-1    | Fix typo, add field                    |
+| Single feature        | 1-2    | Add button + API endpoint              |
+| Cross-cutting feature | 2-4    | New workflow with UI + backend + tests |
+| Major refactor        | 3-5    | Restructure module boundaries          |
 
 **The 2x Rule**: If parallelization won't save at least 2x the coordination overhead, do it yourself.
 
 **Agent Count Sweet Spots**:
+
 - **2-3 agents**: Easy, minimal overhead
 - **4-5 agents**: Sweet spot for complex features
 - **6+ agents**: Danger zone - coordination cost explodes
@@ -164,14 +167,14 @@ Agents repeat mistakes without memory. Memory retrieval surfaces past learnings 
 
 ### Keywords by Domain
 
-| Agent Type | Typical Keywords |
-|------------|------------------|
-| Prompt/AI | prompt-engineering, examples, constraints |
-| Backend | schema, repository, async, database |
-| Frontend | hooks, components, memoization |
-| Tests | coverage, edge-cases, mocking |
-| Architecture | architecture, boundaries, conflicts |
-| Reviewers | proxy-metrics, quality, security |
+| Agent Type   | Typical Keywords                          |
+| ------------ | ----------------------------------------- |
+| Prompt/AI    | prompt-engineering, examples, constraints |
+| Backend      | schema, repository, async, database       |
+| Frontend     | hooks, components, memoization            |
+| Tests        | coverage, edge-cases, mocking             |
+| Architecture | architecture, boundaries, conflicts       |
+| Reviewers    | proxy-metrics, quality, security          |
 
 ---
 
@@ -179,19 +182,19 @@ Agents repeat mistakes without memory. Memory retrieval surfaces past learnings 
 
 ### Simple Conflicts (Resolve Yourself)
 
-| Conflict Type | Default Resolution |
-|---------------|-------------------|
+| Conflict Type           | Default Resolution                  |
+| ----------------------- | ----------------------------------- |
 | Type/interface mismatch | Backend owns types, frontend adapts |
-| Same file edited | Review both, pick best or combine |
+| Same file edited        | Review both, pick best or combine   |
 
 ### Complex Conflicts (Get Architecture Help)
 
-| Conflict Type | When to Escalate |
-|---------------|------------------|
-| Design disagreement | Two agents solved the problem differently |
-| Domain boundary unclear | Both agents think they own the file |
-| Contract can't be reconciled | Components need different shapes |
-| Quality vs other tradeoffs | Need judgment call |
+| Conflict Type                | When to Escalate                          |
+| ---------------------------- | ----------------------------------------- |
+| Design disagreement          | Two agents solved the problem differently |
+| Domain boundary unclear      | Both agents think they own the file       |
+| Contract can't be reconciled | Components need different shapes          |
+| Quality vs other tradeoffs   | Need judgment call                        |
 
 ### Always Escalate to User When:
 
@@ -207,13 +210,13 @@ Agents repeat mistakes without memory. Memory retrieval surfaces past learnings 
 
 Establish clear ownership. Example structure:
 
-| Domain | Owner |
-|--------|-------|
-| `src/app/api/`, database, repositories | Backend Agent |
-| `src/components/`, pages, hooks | Frontend Agent |
+| Domain                                 | Owner           |
+| -------------------------------------- | --------------- |
+| `src/app/api/`, database, repositories | Backend Agent   |
+| `src/components/`, pages, hooks        | Frontend Agent  |
 | `src/lib/agents/`, prompts, evaluation | AI/Prompt Agent |
-| `*.test.ts`, test utilities | Test Agent |
-| `docs/`, agent profiles | Docs Agent |
+| `*.test.ts`, test utilities            | Test Agent      |
+| `docs/`, agent profiles                | Docs Agent      |
 
 **Customize this for your project structure.**
 
@@ -221,22 +224,23 @@ Establish clear ownership. Example structure:
 
 ## Failure Modes
 
-| Failure | Prevention | Recovery |
-|---------|------------|----------|
-| **Duplicate work** | Define boundaries upfront | Pick better implementation |
-| **Agent blocked waiting** | Identify dependencies upfront | Provide mock/stub, or sequence |
-| **Silent failure** (wrong but "done") | Specific acceptance criteria | Validate before accepting |
-| **Same file chaos** | Assign exclusive file ownership | Human merges carefully |
-| **Context rot** | Brief agents with current state | Re-brief if specs change |
-| **Skipped tests** | Test gate checklist | Revert, add tests, re-merge |
-| **Skipped reflections** | Deploy docs agent after merge | Go back and run it |
-| **Skipped architecture** | Default to Pattern 1 | If conflicts arise, escalate |
+| Failure                               | Prevention                      | Recovery                       |
+| ------------------------------------- | ------------------------------- | ------------------------------ |
+| **Duplicate work**                    | Define boundaries upfront       | Pick better implementation     |
+| **Agent blocked waiting**             | Identify dependencies upfront   | Provide mock/stub, or sequence |
+| **Silent failure** (wrong but "done") | Specific acceptance criteria    | Validate before accepting      |
+| **Same file chaos**                   | Assign exclusive file ownership | Human merges carefully         |
+| **Context rot**                       | Brief agents with current state | Re-brief if specs change       |
+| **Skipped tests**                     | Test gate checklist             | Revert, add tests, re-merge    |
+| **Skipped reflections**               | Deploy docs agent after merge   | Go back and run it             |
+| **Skipped architecture**              | Default to Pattern 1            | If conflicts arise, escalate   |
 
 ---
 
 ## Architecture Review Gate
 
 **When to use**: Before executing any multi-agent implementation plan that:
+
 - Touches critical paths (evaluators, metrics, core logic)
 - Has multiple systems integrating
 - Has non-obvious data flow between agents
@@ -255,6 +259,7 @@ Establish clear ownership. Example structure:
 | **Security** | Security-adjacent (auth, user data, external APIs) |
 
 **Process flow**:
+
 ```
 Architect designs -> Quality + Pragmatist validate plan -> Amend if needed -> Execute
 ```
@@ -270,8 +275,39 @@ Stop and ask when:
 - Tradeoff between security, performance, UX
 - You're unsure which agent's approach is right
 - Build fails after integration and you can't figure out why
+- **Architect recommends DELETION of functional code not in original scope**
 
 **What to provide**: What's conflicting, what you recommend, why, and alternatives considered.
+
+---
+
+## Architect Output Review Gate
+
+**MANDATORY**: When an architect recommends **deleting functional code** that wasn't explicitly scoped for removal in the original task, **flag for user approval before executing**.
+
+| Architect Output                          | Action                     |
+| ----------------------------------------- | -------------------------- |
+| Add new code                              | Execute directly           |
+| Modify existing code                      | Execute directly           |
+| Refactor without removal                  | Execute directly           |
+| **Delete functional code (in scope)**     | Execute directly           |
+| **Delete functional code (NOT in scope)** | **FLAG FOR USER APPROVAL** |
+
+**Why this gate exists**: Deletions are irreversible and may have non-obvious downstream impacts. The user should explicitly approve scope expansion to include deletion.
+
+**How to flag**:
+
+```
+Architect recommends deleting [X, Y, Z] because [rationale].
+This deletion was not in the original scope.
+
+Options:
+A) Approve deletion
+B) Keep the code
+C) Integrate instead of delete
+
+Which approach?
+```
 
 ---
 
@@ -296,12 +332,12 @@ From [Anthropic's research](https://www.anthropic.com/engineering/multi-agent-re
 
 ## Summary
 
-| Stage | Action |
-|-------|--------|
-| Planning | Decide: solo, sequence, or parallel |
+| Stage          | Action                                        |
+| -------------- | --------------------------------------------- |
+| Planning       | Decide: solo, sequence, or parallel           |
 | Pre-deployment | Retrieve memories, check context requirements |
-| Briefing | Use task spec checklist - be explicit |
-| Execution | Track file ownership in touch log |
-| Integration | Resolve conflicts with clear rules |
-| Review | Route fixes to original dev |
-| Post-merge | Collect reflections, update profiles |
+| Briefing       | Use task spec checklist - be explicit         |
+| Execution      | Track file ownership in touch log             |
+| Integration    | Resolve conflicts with clear rules            |
+| Review         | Route fixes to original dev                   |
+| Post-merge     | Collect reflections, update profiles          |
