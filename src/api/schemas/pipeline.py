@@ -124,3 +124,37 @@ class CreateStoriesResponse(BaseModel):
     stories_created: int = 0
     orphans_created: int = 0
     message: str
+
+
+# ============================================================================
+# Dry Run Preview Models
+# ============================================================================
+
+
+class DryRunSample(BaseModel):
+    """A single classified conversation sample for dry run preview."""
+
+    conversation_id: str
+    snippet: str  # First 200 chars of source_body
+    conversation_type: str  # From stage1 or stage2
+    confidence: str  # high/medium/low
+    themes: list[str] = []  # From stage1_result.themes if present
+    has_support_response: bool = False
+
+
+class DryRunClassificationBreakdown(BaseModel):
+    """Classification type distribution for dry run preview."""
+
+    by_type: dict[str, int]  # e.g., {"product_issue": 5, "how_to_question": 3}
+    by_confidence: dict[str, int]  # e.g., {"high": 6, "medium": 2}
+
+
+class DryRunPreview(BaseModel):
+    """Complete dry run preview data."""
+
+    run_id: int
+    classification_breakdown: DryRunClassificationBreakdown
+    samples: list[DryRunSample]  # 5-10 representative samples
+    top_themes: list[tuple[str, int]]  # [(theme, count), ...] top 5
+    total_classified: int
+    timestamp: datetime

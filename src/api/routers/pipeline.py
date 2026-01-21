@@ -16,6 +16,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from src.api.deps import get_db
 from src.api.schemas.pipeline import (
     CreateStoriesResponse,
+    DryRunClassificationBreakdown,
+    DryRunPreview,
+    DryRunSample,
     PipelineRunListItem,
     PipelineRunRequest,
     PipelineRunResponse,
@@ -42,12 +45,189 @@ _active_runs: dict[int, str] = {}  # run_id -> status
 # Terminal states that can be cleaned up
 _TERMINAL_STATES = {"stopped", "completed", "failed"}
 
+# In-memory storage for dry run previews (keyed by run_id)
+# Design: Keep last 5 previews, auto-cleanup on new dry runs
+_dry_run_previews: dict[int, DryRunPreview] = {}
+# Memory limit: Keep only 5 most recent previews to prevent unbounded growth.
+# Each preview contains samples and breakdown data (~1-5KB typical).
+_MAX_DRY_RUN_PREVIEWS = 5
+
+
+def _cleanup_old_dry_run_previews() -> None:
+    """Remove oldest dry run previews when limit exceeded.
+
+    Called proactively BEFORE storing a new preview to ensure we have room.
+    This guarantees we never exceed _MAX_DRY_RUN_PREVIEWS even if storage fails.
+    """
+    global _dry_run_previews
+    # Use >= to make room for new preview (called before storing)
+    if len(_dry_run_previews) >= _MAX_DRY_RUN_PREVIEWS:
+        # Sort by timestamp and keep only the most recent (N-1 to make room)
+        sorted_run_ids = sorted(
+            _dry_run_previews.keys(),
+            key=lambda rid: _dry_run_previews[rid].timestamp,
+            reverse=True,
+        )
+        # Keep only the most recent N-1 previews to make room for new one
+        ids_to_remove = sorted_run_ids[_MAX_DRY_RUN_PREVIEWS - 1:]
+        for rid in ids_to_remove:
+            del _dry_run_previews[rid]
+        logger.info(f"Cleaned up {len(ids_to_remove)} old dry run previews")
+
+
+def _store_dry_run_preview(run_id: int, results: list[dict]) -> None:
+    """
+    Store dry run classification results for later preview retrieval.
+
+    Args:
+        run_id: Pipeline run ID
+        results: List of classification result dicts from run_pipeline_async
+                 Each dict has: conversation_id, source_body, stage1_result,
+                 stage2_result, support_messages, etc.
+    """
+    from collections import Counter
+
+    if not results:
+        logger.info(f"Run {run_id}: No results to store for dry run preview")
+        return
+
+    # Proactive cleanup: remove old previews BEFORE storing new one
+    # to ensure we stay within memory limits even if storage fails
+    _cleanup_old_dry_run_previews()
+
+    # Build classification breakdown
+    type_counts: Counter[str] = Counter()
+    confidence_counts: Counter[str] = Counter()
+    theme_counts: Counter[str] = Counter()
+
+    for r in results:
+        # Get final type (stage2 if available, else stage1)
+        # Note: Check if stage2 dict exists first, then use its values.
+        # Empty string "" is falsy in Python, so we can't just use `or` fallback
+        # which would incorrectly trigger on valid empty strings.
+        stage2 = r.get("stage2_result") or {}
+        stage1 = r.get("stage1_result") or {}
+
+        if stage2:
+            conv_type = stage2.get("conversation_type") or "unknown"
+            confidence = stage2.get("confidence") or "low"
+        else:
+            conv_type = stage1.get("conversation_type", "unknown")
+            confidence = stage1.get("confidence", "low")
+
+        type_counts[conv_type] += 1
+        confidence_counts[confidence] += 1
+
+        # Extract themes from stage1 result if present
+        themes = stage1.get("themes", [])
+        if isinstance(themes, list):
+            for theme in themes:
+                if isinstance(theme, str) and theme:
+                    theme_counts[theme] += 1
+
+    # Build samples (5-10 representative)
+    # Strategy: Take up to 10 samples, prioritizing diversity of types
+    samples: list[DryRunSample] = []
+    seen_types: set[str] = set()
+    # Use a set for O(1) lookup instead of O(n) list scan in second pass
+    seen_conv_ids: set[str] = set()
+
+    # First pass: get one sample per type (up to 5)
+    for r in results:
+        if len(samples) >= 5:
+            break
+        stage2 = r.get("stage2_result") or {}
+        stage1 = r.get("stage1_result") or {}
+
+        if stage2:
+            conv_type = stage2.get("conversation_type") or "unknown"
+        else:
+            conv_type = stage1.get("conversation_type", "unknown")
+
+        if conv_type not in seen_types:
+            seen_types.add(conv_type)
+            conv_id = str(r.get("conversation_id", ""))
+            seen_conv_ids.add(conv_id)
+            samples.append(_build_sample(r))
+
+    # Second pass: fill up to 10 with remaining diverse samples
+    # O(1) lookup using set instead of O(n) list comprehension
+    for r in results:
+        if len(samples) >= 10:
+            break
+        conv_id = str(r.get("conversation_id", ""))
+        if conv_id not in seen_conv_ids:
+            seen_conv_ids.add(conv_id)
+            samples.append(_build_sample(r))
+
+    # Get top 5 themes
+    top_themes = theme_counts.most_common(5)
+
+    # Create preview object
+    preview = DryRunPreview(
+        run_id=run_id,
+        classification_breakdown=DryRunClassificationBreakdown(
+            by_type=dict(type_counts),
+            by_confidence=dict(confidence_counts),
+        ),
+        samples=samples,
+        top_themes=top_themes,
+        total_classified=len(results),
+        timestamp=datetime.now(timezone.utc),
+    )
+
+    # Store preview
+    _dry_run_previews[run_id] = preview
+
+    logger.info(
+        f"Run {run_id}: Stored dry run preview with {len(results)} results, "
+        f"{len(samples)} samples, {len(top_themes)} top themes"
+    )
+
+
+def _build_sample(result: dict) -> DryRunSample:
+    """Build a DryRunSample from a classification result dict."""
+    stage2 = result.get("stage2_result") or {}
+    stage1 = result.get("stage1_result") or {}
+
+    # Check if stage2 dict exists first, then use its values.
+    # Empty string "" is falsy in Python, so we can't just use `or` fallback
+    # which would incorrectly trigger on valid empty strings.
+    if stage2:
+        conv_type = stage2.get("conversation_type") or "unknown"
+        confidence = stage2.get("confidence") or "low"
+    else:
+        conv_type = stage1.get("conversation_type", "unknown")
+        confidence = stage1.get("confidence", "low")
+
+    themes = stage1.get("themes", [])
+    if not isinstance(themes, list):
+        themes = []
+
+    source_body = result.get("source_body", "") or ""
+    support_messages = result.get("support_messages", [])
+
+    return DryRunSample(
+        conversation_id=str(result.get("conversation_id", "")),
+        # Truncate to 200 chars: Keeps samples concise for UI display
+        # while providing enough context to understand the conversation topic.
+        snippet=source_body[:200] if source_body else "",
+        conversation_type=conv_type,
+        confidence=confidence,
+        themes=themes[:5],  # Limit to 5 themes per sample
+        has_support_response=bool(support_messages),
+    )
+
 
 def _cleanup_terminal_runs() -> None:
     """Remove terminal (completed/failed/stopped) runs to prevent memory leak."""
     terminal_ids = [rid for rid, status in _active_runs.items() if status in _TERMINAL_STATES]
     for rid in terminal_ids:
         del _active_runs[rid]
+        # Also cleanup associated dry run preview if it exists
+        # This prevents memory leak from orphaned previews
+        if rid in _dry_run_previews:
+            del _dry_run_previews[rid]
 
 
 def _is_stopping(run_id: int) -> bool:
@@ -376,6 +556,13 @@ def _run_pipeline_task(
         # Skip subsequent phases if dry run or no conversations stored
         if dry_run or result.get("stored", 0) == 0:
             logger.info(f"Run {run_id}: Skipping theme extraction (dry_run={dry_run}, stored={result.get('stored', 0)})")
+
+            # Store dry run preview for later retrieval (Issue #75)
+            if dry_run:
+                dry_run_results = result.pop("_dry_run_results", [])
+                if dry_run_results:
+                    _store_dry_run_preview(run_id, dry_run_results)
+
             _finalize_completed_run(run_id, result, theme_result, story_result)
             return
 
@@ -669,6 +856,59 @@ def get_pipeline_status(run_id: int, db=Depends(get_db)):
         error_message=row["error_message"],
         duration_seconds=round(duration, 1) if duration else None,
     )
+
+
+@router.get("/status/{run_id}/preview", response_model=DryRunPreview)
+def get_dry_run_preview(run_id: int, db=Depends(get_db)):
+    """
+    Get dry run classification preview for a specific pipeline run.
+
+    Returns preview data including:
+    - Classification breakdown by type and confidence
+    - Sample conversations (5-10 representative samples)
+    - Top themes with counts
+    - Total classified count
+
+    **Returns 404 if:**
+    - Run doesn't exist
+    - Run was not a dry run
+    - Preview has expired (server restart or cleanup)
+
+    Preview data is stored in memory and limited to last 5 dry runs.
+    """
+    # First check if the run exists
+    with db.cursor() as cur:
+        cur.execute("""
+            SELECT id, status, conversations_stored
+            FROM pipeline_runs
+            WHERE id = %s
+        """, (run_id,))
+        row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Pipeline run {run_id} not found"
+        )
+
+    # Check if this was a dry run (stored == 0 indicates dry run)
+    # Note: Could also be a run that found 0 conversations
+    if row["conversations_stored"] is not None and row["conversations_stored"] > 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Pipeline run {run_id} was not a dry run (conversations were stored)"
+        )
+
+    # Check if preview is available in memory
+    preview = _dry_run_previews.get(run_id)
+    if not preview:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Preview for pipeline run {run_id} not found. "
+            f"Preview may have expired (server restart) or been cleaned up."
+        )
+
+    return preview
 
 
 @router.get("/history", response_model=List[PipelineRunListItem])

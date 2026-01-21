@@ -403,6 +403,7 @@ export interface PipelineStatus {
   duration_seconds: number | null;
   // Hybrid pipeline fields
   current_phase: PipelinePhase | null;
+  auto_create_stories: boolean;
   themes_extracted: number;
   themes_new: number;
   stories_created: number;
@@ -458,3 +459,30 @@ export const SOURCE_TYPE_CONFIG: Record<
     bgColor: "hsla(160, 64%, 52%, 0.15)",
   },
 };
+
+// =============================================================================
+// Dry Run Preview Types
+// =============================================================================
+
+export interface DryRunSample {
+  conversation_id: string;
+  snippet: string;
+  conversation_type: string;
+  confidence: string;
+  themes: string[];
+  has_support_response: boolean;
+}
+
+export interface DryRunClassificationBreakdown {
+  by_type: Record<string, number>;
+  by_confidence: Record<string, number>;
+}
+
+export interface DryRunPreview {
+  run_id: number;
+  classification_breakdown: DryRunClassificationBreakdown;
+  samples: DryRunSample[];
+  top_themes: [string, number][];
+  total_classified: number;
+  timestamp: string;
+}

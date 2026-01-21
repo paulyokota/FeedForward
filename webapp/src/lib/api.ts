@@ -29,6 +29,7 @@ import type {
   PipelineRunListItem,
   PipelineStopResponse,
   PipelineActiveResponse,
+  DryRunPreview,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -333,6 +334,10 @@ export const api = {
       return fetcher(`/api/pipeline/${runId}/create-stories`, {
         method: "POST",
       });
+    },
+
+    preview: async (runId: number): Promise<DryRunPreview> => {
+      return fetcher(`/api/pipeline/status/${runId}/preview`);
     },
   },
 };
