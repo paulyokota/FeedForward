@@ -2047,6 +2047,99 @@ class TestOrphanRouting:
         # Should fall back to direct orphan creation
         assert mock_orphan_service.create.called or mock_orphan_service.add_conversations.called
 
+    def test_orphan_fallback_counter_incremented_on_integration_error(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """orphan_fallbacks counter should be incremented when OrphanIntegrationService fails."""
+        mock_orphan_integration = Mock()
+        mock_orphan_integration.process_theme.side_effect = Exception("Integration failed")
+
+        # Setup scorer to return low confidence
+        mock_scorer = Mock()
+        low_score_group = Mock()
+        low_score_group.confidence_score = 30.0
+        mock_scorer.score_groups.return_value = [low_score_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            orphan_integration_service=mock_orphan_integration,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # Should track the fallback occurrence
+        assert result.orphan_fallbacks == 1
+
+    def test_orphan_fallback_only_processes_remaining_conversations(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Fallback should only process conversations not already processed by OrphanIntegrationService."""
+        # Create a group with 3 conversations
+        sample_group = {
+            "test_signature": [
+                {"id": "conv1", "excerpt": "test 1"},
+                {"id": "conv2", "excerpt": "test 2"},
+                {"id": "conv3", "excerpt": "test 3"},
+            ],
+        }
+
+        mock_orphan_integration = Mock()
+        # Fail on the second call (after first conversation processed)
+        call_count = [0]
+
+        def fail_on_second_call(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] >= 2:
+                raise Exception("Integration failed mid-loop")
+            return Mock(action="updated")
+
+        mock_orphan_integration.process_theme.side_effect = fail_on_second_call
+
+        # Setup scorer to return low confidence (trigger orphan routing)
+        mock_scorer = Mock()
+        low_score_group = Mock()
+        low_score_group.confidence_score = 30.0
+        mock_scorer.score_groups.return_value = [low_score_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            orphan_integration_service=mock_orphan_integration,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_group)
+
+        # The fallback should have been called
+        assert result.orphan_fallbacks == 1
+
+        # OrphanService should be called with only the remaining conversations (2, not 3)
+        if mock_orphan_service.create.called:
+            create_call = mock_orphan_service.create.call_args
+            orphan_create = create_call[0][0]  # First positional arg
+            # Should have 2 conversations (conv2, conv3), not 3
+            assert len(orphan_create.conversation_ids) == 2
+            assert "conv1" not in orphan_create.conversation_ids
+
 
 # -----------------------------------------------------------------------------
 # QualityGateResult Dataclass Tests

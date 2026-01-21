@@ -142,7 +142,8 @@ class ProcessingResult:
     errors: List[str] = field(default_factory=list)
     created_story_ids: List[UUID] = field(default_factory=list)
     created_orphan_ids: List[UUID] = field(default_factory=list)
-    quality_gate_rejections: int = 0  # NEW: Track groups rejected by quality gates
+    quality_gate_rejections: int = 0  # Track groups rejected by quality gates
+    orphan_fallbacks: int = 0  # Track orphan integration failures that fell back to direct creation
 
 
 @dataclass
@@ -152,19 +153,29 @@ class QualityGateResult:
 
     Used to determine whether a group should become a story or be routed
     to orphan integration for accumulation.
+
+    Primary fields (used for routing decisions):
+    - passed: Final pass/fail decision for story creation
+    - confidence_score: Score used for story.confidence_score
+    - failure_reason: Human-readable explanation when passed=False
+
+    Diagnostic fields (for debugging and testing which specific gate failed):
+    - validation_passed: True if evidence validation passed (or was skipped)
+    - scoring_passed: True if confidence scoring passed (or was skipped)
+    - evidence_quality: Full EvidenceQuality object for detailed validation diagnostics
+    - scored_group: Full ScoredGroup object for detailed scoring diagnostics
     """
 
     signature: str
     passed: bool
 
-    # Validation results (from EvidenceValidator)
+    # Diagnostic fields (for testing/debugging which specific gate failed)
     evidence_quality: Optional[Any] = None  # EvidenceQuality if available
-    validation_passed: bool = True
+    validation_passed: bool = True  # True if validation gate passed or skipped
 
-    # Scoring results (from ConfidenceScorer)
     scored_group: Optional[Any] = None  # ScoredGroup if available
     confidence_score: float = 0.0
-    scoring_passed: bool = True
+    scoring_passed: bool = True  # True if scoring gate passed or skipped
 
     # Failure details for logging/debugging
     failure_reason: Optional[str] = None
@@ -544,6 +555,8 @@ class StoryCreationService:
 
         # Try OrphanIntegrationService first (unified orphan logic)
         if self.orphan_integration_service:
+            # Track successfully processed conversations in case of mid-loop failure
+            processed_conv_ids: set[str] = set()
             try:
                 for conv in conversations:
                     # Build theme data dict for orphan integration
@@ -559,6 +572,7 @@ class StoryCreationService:
                         "excerpt": conv.excerpt,
                     }
                     self.orphan_integration_service.process_theme(conv.id, theme_data)
+                    processed_conv_ids.add(conv.id)
 
                 # Count as orphan updates (OrphanIntegrationService handles create vs update)
                 result.orphans_updated += 1
@@ -570,9 +584,20 @@ class StoryCreationService:
             except Exception as e:
                 logger.warning(
                     f"OrphanIntegrationService failed for '{signature}': {e}, "
-                    f"falling back to direct orphan creation"
+                    f"falling back to direct orphan creation for remaining conversations"
                 )
-                # Fall through to fallback path
+                # Track the fallback occurrence
+                result.orphan_fallbacks += 1
+                # Filter out already-processed conversations to avoid duplicates
+                remaining_conversations = [
+                    c for c in conversations if c.id not in processed_conv_ids
+                ]
+                if not remaining_conversations:
+                    # All conversations were processed before the failure
+                    result.orphans_updated += 1
+                    return
+                # Fall through to fallback path with only remaining conversations
+                conversations = remaining_conversations
 
         # Fallback: Use existing _create_or_update_orphan method
         self._create_or_update_orphan(
