@@ -52,8 +52,9 @@ class IntercomClient:
     DEFAULT_TIMEOUT = (10, 30)
 
     # Retry configuration for transient errors (5xx)
+    # 3 retries with 2s base delay = max 14s total wait (2+4+8), reasonable for API ops
     MAX_RETRIES = 3
-    RETRY_DELAY_BASE = 2  # seconds (exponential backoff: 2s, 4s, 8s)
+    RETRY_DELAY_BASE = 2  # seconds, exponential backoff: 2s, 4s, 8s
     RETRYABLE_STATUS_CODES = {500, 502, 503, 504}
 
     # Template messages to skip
@@ -139,9 +140,8 @@ class IntercomClient:
                 else:
                     raise
 
-        # Should not reach here, but just in case
-        if last_exception:
-            raise last_exception
+        # All paths above either return or raise; this is unreachable but
+        # satisfies type checker that function returns a dict
         raise RuntimeError("Unexpected retry loop exit")
 
     def _get(self, endpoint: str, params: Optional[dict] = None) -> dict:
@@ -249,12 +249,7 @@ class IntercomClient:
             return None
 
         try:
-            response = self.session.get(
-                f"{self.BASE_URL}/contacts/{contact_id}",
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-            contact = response.json()
+            contact = self._get(f"/contacts/{contact_id}")
             custom_attrs = contact.get("custom_attributes", {})
             return custom_attrs.get("account_id")
         except requests.RequestException:
