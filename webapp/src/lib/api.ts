@@ -258,7 +258,10 @@ export const api = {
     getSuggestedEvidence: async (
       storyId: string,
     ): Promise<SuggestedEvidence[]> => {
-      return fetcher(`/api/stories/${storyId}/suggested-evidence`);
+      const response = await fetcher<{ suggestions: SuggestedEvidence[] }>(
+        `/api/research/stories/${storyId}/suggested-evidence`,
+      );
+      return response.suggestions;
     },
 
     acceptEvidence: async (
@@ -266,7 +269,7 @@ export const api = {
       evidenceId: string,
     ): Promise<{ success: boolean }> => {
       return fetcher(
-        `/api/stories/${storyId}/suggested-evidence/${evidenceId}/accept`,
+        `/api/research/stories/${storyId}/suggested-evidence/${encodeURIComponent(evidenceId)}/accept`,
         {
           method: "POST",
         },
@@ -278,7 +281,7 @@ export const api = {
       evidenceId: string,
     ): Promise<{ success: boolean }> => {
       return fetcher(
-        `/api/stories/${storyId}/suggested-evidence/${evidenceId}/reject`,
+        `/api/research/stories/${storyId}/suggested-evidence/${encodeURIComponent(evidenceId)}/reject`,
         {
           method: "POST",
         },

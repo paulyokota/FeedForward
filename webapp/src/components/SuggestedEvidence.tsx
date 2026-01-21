@@ -24,7 +24,8 @@ export function SuggestedEvidence({
       setLoading(true);
       setError(null);
       const data = await api.research.getSuggestedEvidence(storyId);
-      setSuggestions(data.filter((s) => s.status === "suggested"));
+      // Show both suggested and accepted items (rejected are filtered server-side)
+      setSuggestions(data);
     } catch (err) {
       // API not ready yet - this is expected during development
       console.warn("Failed to fetch suggested evidence:", err);
@@ -44,7 +45,12 @@ export function SuggestedEvidence({
       setActionInProgress(evidenceId);
       try {
         await api.research.acceptEvidence(storyId, evidenceId);
-        setSuggestions((prev) => prev.filter((s) => s.id !== evidenceId));
+        // Update status locally to "accepted"
+        setSuggestions((prev) =>
+          prev.map((s) =>
+            s.id === evidenceId ? { ...s, status: "accepted" as const } : s,
+          ),
+        );
         onEvidenceAccepted?.();
       } catch (err) {
         console.error("Failed to accept evidence:", err);
@@ -60,6 +66,7 @@ export function SuggestedEvidence({
       setActionInProgress(evidenceId);
       try {
         await api.research.rejectEvidence(storyId, evidenceId);
+        // Remove rejected item from UI
         setSuggestions((prev) => prev.filter((s) => s.id !== evidenceId));
       } catch (err) {
         console.error("Failed to reject evidence:", err);
@@ -160,11 +167,12 @@ export function SuggestedEvidence({
         {suggestions.map((suggestion, index) => {
           const config = SOURCE_TYPE_CONFIG[suggestion.source_type];
           const isProcessing = actionInProgress === suggestion.id;
+          const isAccepted = suggestion.status === "accepted";
 
           return (
             <div
               key={suggestion.id}
-              className={`suggestion-card ${isProcessing ? "processing" : ""}`}
+              className={`suggestion-card ${isProcessing ? "processing" : ""} ${isAccepted ? "accepted" : ""}`}
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div className="suggestion-header">
@@ -180,50 +188,89 @@ export function SuggestedEvidence({
                 <span className="similarity-badge">
                   {Math.round(suggestion.similarity * 100)}% match
                 </span>
+                {isAccepted && (
+                  <span className="status-badge accepted-badge">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Accepted
+                  </span>
+                )}
               </div>
 
               <h4 className="suggestion-title">{suggestion.title}</h4>
               <p className="suggestion-snippet">{suggestion.snippet}</p>
 
               <div className="suggestion-actions">
-                <button
-                  className="action-accept"
-                  onClick={() => handleAccept(suggestion.id)}
-                  disabled={isProcessing}
-                  aria-label="Accept this evidence"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Accept
-                </button>
+                {!isAccepted ? (
+                  <>
+                    <button
+                      className="action-accept"
+                      onClick={() => handleAccept(suggestion.id)}
+                      disabled={isProcessing}
+                      aria-label="Accept this evidence"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Accept
+                    </button>
 
-                <button
-                  className="action-reject"
-                  onClick={() => handleReject(suggestion.id)}
-                  disabled={isProcessing}
-                  aria-label="Reject this evidence"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
+                    <button
+                      className="action-reject"
+                      onClick={() => handleReject(suggestion.id)}
+                      disabled={isProcessing}
+                      aria-label="Reject this evidence"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                      Reject
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="action-undo"
+                    onClick={() => handleReject(suggestion.id)}
+                    disabled={isProcessing}
+                    aria-label="Undo acceptance"
                   >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                  Reject
-                </button>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
+                    Undo
+                  </button>
+                )}
 
                 <a
                   href={suggestion.url}
@@ -339,6 +386,26 @@ export function SuggestedEvidence({
           border-radius: var(--radius-sm);
         }
 
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 11px;
+          font-weight: 600;
+          padding: 3px 8px;
+          border-radius: var(--radius-sm);
+        }
+
+        .accepted-badge {
+          color: var(--accent-green);
+          background: var(--accent-green-dim);
+        }
+
+        .suggestion-card.accepted {
+          border-color: var(--accent-green);
+          background: hsla(160, 64%, 52%, 0.05);
+        }
+
         .suggestion-title {
           font-size: 14px;
           font-weight: 600;
@@ -366,7 +433,8 @@ export function SuggestedEvidence({
 
         .action-accept,
         .action-reject,
-        .action-view {
+        .action-view,
+        .action-undo {
           display: inline-flex;
           align-items: center;
           gap: 5px;
@@ -413,15 +481,29 @@ export function SuggestedEvidence({
           color: var(--text-primary);
         }
 
+        .action-undo {
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-default);
+          color: var(--text-secondary);
+        }
+
+        .action-undo:hover:not(:disabled) {
+          background: var(--accent-amber-dim, hsla(45, 93%, 47%, 0.15));
+          color: var(--accent-amber, hsl(45, 93%, 47%));
+          border-color: var(--accent-amber, hsl(45, 93%, 47%));
+        }
+
         .action-accept:disabled,
-        .action-reject:disabled {
+        .action-reject:disabled,
+        .action-undo:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
 
         .action-accept:focus-visible,
         .action-reject:focus-visible,
-        .action-view:focus-visible {
+        .action-view:focus-visible,
+        .action-undo:focus-visible {
           outline: 2px solid var(--accent-blue);
           outline-offset: 2px;
         }
