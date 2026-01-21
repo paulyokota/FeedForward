@@ -18,6 +18,7 @@ jest.mock("@/lib/api", () => ({
       status: jest.fn(),
       run: jest.fn(),
       stop: jest.fn(),
+      createStories: jest.fn(),
     },
     stories: {
       list: jest.fn(),
@@ -70,6 +71,50 @@ const mockPipelineHistory = [
   },
 ];
 
+// Mock run status with stories created (for adaptive panel)
+const mockRunStatusWithStories = {
+  id: 1,
+  started_at: "2025-01-20T10:00:00Z",
+  completed_at: "2025-01-20T10:15:00Z",
+  status: "completed",
+  error_message: null,
+  date_from: "2025-01-13T00:00:00Z",
+  date_to: "2025-01-20T00:00:00Z",
+  conversations_fetched: 100,
+  conversations_filtered: 95,
+  conversations_classified: 95,
+  conversations_stored: 90,
+  duration_seconds: 900,
+  current_phase: "completed",
+  themes_extracted: 15,
+  themes_new: 8,
+  stories_created: 2,
+  orphans_created: 0,
+  stories_ready: true,
+};
+
+// Mock run status with themes only (no stories)
+const mockRunStatusThemesOnly = {
+  id: 2,
+  started_at: "2025-01-19T10:00:00Z",
+  completed_at: "2025-01-19T10:10:00Z",
+  status: "completed",
+  error_message: null,
+  date_from: "2025-01-12T00:00:00Z",
+  date_to: "2025-01-19T00:00:00Z",
+  conversations_fetched: 50,
+  conversations_filtered: 48,
+  conversations_classified: 48,
+  conversations_stored: 45,
+  duration_seconds: 600,
+  current_phase: "completed",
+  themes_extracted: 10,
+  themes_new: 5,
+  stories_created: 0,
+  orphans_created: 0,
+  stories_ready: true,
+};
+
 const mockNewStories = [
   {
     id: "story-uuid-1",
@@ -113,6 +158,10 @@ describe("PipelinePage", () => {
       run_id: null,
     });
     (api.pipeline.history as jest.Mock).mockResolvedValue(mockPipelineHistory);
+    // Mock status to return story-created status by default
+    (api.pipeline.status as jest.Mock).mockResolvedValue(
+      mockRunStatusWithStories,
+    );
     (api.stories.list as jest.Mock).mockResolvedValue({
       stories: mockNewStories,
       total: 2,
@@ -121,12 +170,12 @@ describe("PipelinePage", () => {
     });
   });
 
-  describe("New Stories Panel", () => {
-    it("shows new stories count in the panel header", async () => {
+  describe("Adaptive Run Results Panel", () => {
+    it("shows stories created count in the panel header when stories exist", async () => {
       render(<PipelinePage />);
 
       await waitFor(() => {
-        expect(screen.getByText("New Stories Created")).toBeInTheDocument();
+        expect(screen.getByText("Stories Created")).toBeInTheDocument();
       });
 
       expect(screen.getByText("(2)")).toBeInTheDocument();
@@ -209,7 +258,28 @@ describe("PipelinePage", () => {
       expect(storyLink).toBeInTheDocument();
     });
 
-    it("shows empty state when no new stories", async () => {
+    it("shows themes extracted panel when no stories created but themes exist", async () => {
+      (api.pipeline.status as jest.Mock).mockResolvedValue(
+        mockRunStatusThemesOnly,
+      );
+      (api.stories.list as jest.Mock).mockResolvedValue({
+        stories: [],
+        total: 0,
+        limit: 50,
+        offset: 0,
+      });
+
+      render(<PipelinePage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Themes Extracted")).toBeInTheDocument();
+      });
+
+      // Should show Create Stories button since stories_ready is true
+      expect(screen.getByText("Create Stories")).toBeInTheDocument();
+    });
+
+    it("shows empty state when no new stories and stories_created > 0 but list empty", async () => {
       (api.stories.list as jest.Mock).mockResolvedValue({
         stories: [],
         total: 0,

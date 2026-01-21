@@ -6,7 +6,7 @@ Run with: pytest tests/test_pipeline_router.py -v
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -208,25 +208,33 @@ class TestHistoryEndpoint:
         mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
         mock_db.cursor.return_value.__exit__ = Mock(return_value=False)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         mock_cursor.fetchall.return_value = [
             {
                 "id": 1,
                 "started_at": now - timedelta(hours=2),
                 "completed_at": now - timedelta(hours=1),
                 "status": "completed",
+                "current_phase": "completed",
                 "conversations_fetched": 100,
                 "conversations_classified": 100,
                 "conversations_stored": 95,
+                "themes_extracted": 50,
+                "stories_created": 10,
+                "stories_ready": True,
             },
             {
                 "id": 2,
                 "started_at": now - timedelta(hours=1),
                 "completed_at": None,
                 "status": "running",
+                "current_phase": "classification",
                 "conversations_fetched": 50,
                 "conversations_classified": 30,
                 "conversations_stored": 25,
+                "themes_extracted": 0,
+                "stories_created": 0,
+                "stories_ready": False,
             },
         ]
 
@@ -237,8 +245,12 @@ class TestHistoryEndpoint:
         assert len(data) == 2
         assert data[0]["id"] == 1
         assert data[0]["status"] == "completed"
+        assert data[0]["current_phase"] == "completed"
+        assert data[0]["themes_extracted"] == 50
+        assert data[0]["stories_ready"] is True
         assert data[1]["id"] == 2
         assert data[1]["status"] == "running"
+        assert data[1]["current_phase"] == "classification"
 
     def test_history_with_stopped_status(self, client, mock_db):
         """Test history includes stopped runs."""
@@ -246,16 +258,20 @@ class TestHistoryEndpoint:
         mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
         mock_db.cursor.return_value.__exit__ = Mock(return_value=False)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         mock_cursor.fetchall.return_value = [
             {
                 "id": 1,
                 "started_at": now - timedelta(hours=1),
                 "completed_at": now - timedelta(minutes=30),
                 "status": "stopped",
+                "current_phase": "theme_extraction",
                 "conversations_fetched": 50,
                 "conversations_classified": 25,
                 "conversations_stored": 20,
+                "themes_extracted": 10,
+                "stories_created": 0,
+                "stories_ready": True,
             },
         ]
 
@@ -265,6 +281,7 @@ class TestHistoryEndpoint:
         data = response.json()
         assert len(data) == 1
         assert data[0]["status"] == "stopped"
+        assert data[0]["stories_ready"] is True
 
 
 # -----------------------------------------------------------------------------
@@ -293,7 +310,7 @@ class TestStatusEndpoint:
         mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
         mock_db.cursor.return_value.__exit__ = Mock(return_value=False)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         mock_cursor.fetchone.return_value = {
             "id": 42,
             "started_at": now - timedelta(minutes=10),
@@ -302,10 +319,17 @@ class TestStatusEndpoint:
             "date_to": now,
             "status": "stopping",
             "error_message": None,
+            "current_phase": "classification",
+            "auto_create_stories": False,
             "conversations_fetched": 100,
             "conversations_filtered": 80,
             "conversations_classified": 50,
             "conversations_stored": 45,
+            "themes_extracted": 0,
+            "themes_new": 0,
+            "stories_created": 0,
+            "orphans_created": 0,
+            "stories_ready": False,
         }
 
         response = client.get("/api/pipeline/status/42")
@@ -314,8 +338,10 @@ class TestStatusEndpoint:
         data = response.json()
         assert data["id"] == 42
         assert data["status"] == "stopping"
+        assert data["current_phase"] == "classification"
         assert data["conversations_fetched"] == 100
         assert data["conversations_classified"] == 50
+        assert data["stories_ready"] is False
 
     def test_status_returns_stopped(self, client, mock_db):
         """Test status returns stopped state."""
@@ -323,7 +349,7 @@ class TestStatusEndpoint:
         mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
         mock_db.cursor.return_value.__exit__ = Mock(return_value=False)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         mock_cursor.fetchone.return_value = {
             "id": 42,
             "started_at": now - timedelta(minutes=10),
@@ -332,10 +358,17 @@ class TestStatusEndpoint:
             "date_to": now,
             "status": "stopped",
             "error_message": None,
+            "current_phase": "theme_extraction",
+            "auto_create_stories": True,
             "conversations_fetched": 100,
             "conversations_filtered": 80,
             "conversations_classified": 50,
             "conversations_stored": 45,
+            "themes_extracted": 30,
+            "themes_new": 5,
+            "stories_created": 0,
+            "orphans_created": 0,
+            "stories_ready": True,
         }
 
         response = client.get("/api/pipeline/status/42")
@@ -344,3 +377,6 @@ class TestStatusEndpoint:
         data = response.json()
         assert data["status"] == "stopped"
         assert data["completed_at"] is not None
+        assert data["current_phase"] == "theme_extraction"
+        assert data["themes_extracted"] == 30
+        assert data["stories_ready"] is True

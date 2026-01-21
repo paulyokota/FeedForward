@@ -19,6 +19,7 @@ type FormState = {
   maxConversations: string;
   dryRun: boolean;
   concurrency: number;
+  autoCreateStories: boolean;
 };
 
 function formatDuration(seconds: number | null): string {
@@ -52,11 +53,30 @@ function getStatusColor(status: string): string {
   }
 }
 
+function getPhaseLabel(phase: string | null): string {
+  switch (phase) {
+    case "classification":
+      return "Classifying...";
+    case "theme_extraction":
+      return "Extracting themes...";
+    case "pm_review":
+      return "Running PM review...";
+    case "story_creation":
+      return "Creating stories...";
+    case "completed":
+      return "Completed";
+    default:
+      return "Processing...";
+  }
+}
+
 export default function PipelinePage() {
   const [activeStatus, setActiveStatus] = useState<PipelineStatus | null>(null);
   const [history, setHistory] = useState<PipelineRunListItem[]>([]);
   const [newStories, setNewStories] = useState<Story[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  const [selectedRunStatus, setSelectedRunStatus] =
+    useState<PipelineStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -66,7 +86,9 @@ export default function PipelinePage() {
     maxConversations: "",
     dryRun: false,
     concurrency: 20,
+    autoCreateStories: false,
   });
+  const [isCreatingStories, setIsCreatingStories] = useState(false);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   // Track whether user has manually selected a run (prevents auto-selection override)
@@ -122,6 +144,14 @@ export default function PipelinePage() {
         if (completedRuns.length > 0) {
           const latestRun = completedRuns[0];
           setSelectedRunId(latestRun.id);
+          // Fetch full status for the selected run to get theme/story info
+          try {
+            const status = await api.pipeline.status(latestRun.id);
+            setSelectedRunStatus(status);
+          } catch (err) {
+            console.error("Failed to fetch run status:", err);
+            setSelectedRunStatus(null);
+          }
           // Guard against null started_at (R1 fix)
           if (latestRun.started_at) {
             await fetchStoriesCreatedSince(latestRun.started_at);
@@ -184,6 +214,7 @@ export default function PipelinePage() {
         days: formState.days,
         dry_run: formState.dryRun,
         concurrency: formState.concurrency,
+        auto_create_stories: formState.autoCreateStories,
       };
 
       if (formState.maxConversations) {
@@ -197,6 +228,28 @@ export default function PipelinePage() {
       setError(err instanceof Error ? err.message : "Failed to start pipeline");
     } finally {
       setIsStarting(false);
+    }
+  };
+
+  const handleCreateStories = async (runId: number) => {
+    setIsCreatingStories(true);
+    setError(null);
+
+    try {
+      await api.pipeline.createStories(runId);
+      // Refresh data to get updated status and new stories
+      await fetchData();
+      // Fetch stories for the selected run
+      if (selectedRunId) {
+        const selectedRun = history.find((r) => r.id === selectedRunId);
+        if (selectedRun?.started_at) {
+          await fetchStoriesCreatedSince(selectedRun.started_at);
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create stories");
+    } finally {
+      setIsCreatingStories(false);
     }
   };
 
@@ -229,6 +282,14 @@ export default function PipelinePage() {
       // Mark that user has manually selected a run (prevents auto-selection override)
       hasUserSelectedRunRef.current = true;
       setSelectedRunId(run.id);
+      // Fetch full status for the selected run to get theme/story info
+      try {
+        const status = await api.pipeline.status(run.id);
+        setSelectedRunStatus(status);
+      } catch (err) {
+        console.error("Failed to fetch run status:", err);
+        setSelectedRunStatus(null);
+      }
       await fetchStoriesCreatedSince(run.started_at);
     },
     [fetchStoriesCreatedSince],
@@ -410,6 +471,27 @@ export default function PipelinePage() {
                 </span>
               </div>
 
+              <div className="form-group checkbox-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={formState.autoCreateStories}
+                    onChange={(e) =>
+                      setFormState({
+                        ...formState,
+                        autoCreateStories: e.target.checked,
+                      })
+                    }
+                    disabled={isRunning || formState.dryRun}
+                  />
+                  <span>Auto-create stories after run</span>
+                </label>
+                <span className="form-hint">
+                  Automatically run PM review and create stories when pipeline
+                  completes
+                </span>
+              </div>
+
               <div className="action-buttons">
                 {!isRunning ? (
                   <button
@@ -453,6 +535,17 @@ export default function PipelinePage() {
                   </span>
                 </div>
 
+                {/* Phase indicator when running */}
+                {activeStatus.status === "running" &&
+                  activeStatus.current_phase && (
+                    <div className="phase-indicator">
+                      <div className="phase-spinner" />
+                      <span className="phase-label">
+                        {getPhaseLabel(activeStatus.current_phase)}
+                      </span>
+                    </div>
+                  )}
+
                 <div className="status-grid">
                   <div className="stat-item">
                     <span className="stat-value">
@@ -479,6 +572,37 @@ export default function PipelinePage() {
                     <span className="stat-label">Stored</span>
                   </div>
                 </div>
+
+                {/* Theme/Story extraction stats when available */}
+                {(activeStatus.themes_extracted > 0 ||
+                  activeStatus.stories_created > 0) && (
+                  <div className="status-grid secondary">
+                    <div className="stat-item">
+                      <span className="stat-value">
+                        {activeStatus.themes_extracted}
+                      </span>
+                      <span className="stat-label">Themes</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-value">
+                        {activeStatus.themes_new}
+                      </span>
+                      <span className="stat-label">New Signatures</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-value">
+                        {activeStatus.stories_created}
+                      </span>
+                      <span className="stat-label">Stories</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-value">
+                        {activeStatus.orphans_created}
+                      </span>
+                      <span className="stat-label">Orphans</span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="status-meta">
                   <div className="meta-item">
@@ -578,58 +702,143 @@ export default function PipelinePage() {
             )}
           </section>
 
-          {/* New Stories Panel */}
-          {selectedRunId && (
-            <section className="new-stories-section">
-              <h2>
-                New Stories Created
-                <span className="story-count">({newStories.length})</span>
-              </h2>
-              {newStories.length > 0 ? (
-                <div className="stories-list">
-                  {newStories.map((story) => (
-                    <Link
-                      key={story.id}
-                      href={`/story/${story.id}`}
-                      className="story-card"
-                    >
-                      <div className="story-header">
-                        <span className="story-title">{story.title}</span>
-                        <span
-                          className="story-status"
-                          style={{
-                            backgroundColor:
-                              story.status === "candidate"
-                                ? "var(--accent-amber)"
-                                : story.status === "triaged"
-                                  ? "var(--accent-blue)"
-                                  : "var(--text-tertiary)",
-                          }}
+          {/* Adaptive Run Results Panel */}
+          {selectedRunId && selectedRunStatus && (
+            <section className="run-results-section">
+              {/* Stories Created Mode */}
+              {selectedRunStatus.stories_created > 0 ? (
+                <>
+                  <h2>
+                    Stories Created
+                    <span className="story-count">({newStories.length})</span>
+                  </h2>
+                  {newStories.length > 0 ? (
+                    <div className="stories-list">
+                      {newStories.map((story) => (
+                        <Link
+                          key={story.id}
+                          href={`/story/${story.id}`}
+                          className="story-card"
                         >
-                          {story.status}
+                          <div className="story-header">
+                            <span className="story-title">{story.title}</span>
+                            <span
+                              className="story-status"
+                              style={{
+                                backgroundColor:
+                                  story.status === "candidate"
+                                    ? "var(--accent-amber)"
+                                    : story.status === "triaged"
+                                      ? "var(--accent-blue)"
+                                      : "var(--text-tertiary)",
+                              }}
+                            >
+                              {story.status}
+                            </span>
+                          </div>
+                          {story.description && (
+                            <p className="story-description">
+                              {story.description.length > 120
+                                ? `${story.description.substring(0, 120)}...`
+                                : story.description}
+                            </p>
+                          )}
+                          <div className="story-meta">
+                            {story.product_area && (
+                              <span className="story-area">
+                                {story.product_area}
+                              </span>
+                            )}
+                            <span className="story-date">
+                              {formatDate(story.created_at)}
+                            </span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="no-stories">
+                      <svg
+                        width="32"
+                        height="32"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
+                        <path d="M9 12h6M12 9v6" />
+                        <rect x="3" y="5" width="18" height="14" rx="2" />
+                      </svg>
+                      <span>No new stories from this run</span>
+                    </div>
+                  )}
+                </>
+              ) : selectedRunStatus.stories_ready &&
+                selectedRunStatus.themes_extracted > 0 ? (
+                /* Themes Extracted Mode - Ready for Story Creation */
+                <>
+                  <h2>Themes Extracted</h2>
+                  <div className="themes-ready-panel">
+                    <div className="themes-stats">
+                      <div className="stat-highlight">
+                        <span className="stat-value">
+                          {selectedRunStatus.themes_extracted}
                         </span>
+                        <span className="stat-label">themes extracted</span>
                       </div>
-                      {story.description && (
-                        <p className="story-description">
-                          {story.description.length > 120
-                            ? `${story.description.substring(0, 120)}...`
-                            : story.description}
-                        </p>
+                      <div className="stat-detail">
+                        <span className="stat-value">
+                          {selectedRunStatus.themes_new}
+                        </span>
+                        <span className="stat-label">new signatures</span>
+                      </div>
+                    </div>
+                    <p className="ready-message">
+                      Review themes and create stories when ready
+                    </p>
+                    <button
+                      className="btn-create-stories"
+                      onClick={() => handleCreateStories(selectedRunId)}
+                      disabled={isCreatingStories}
+                    >
+                      {isCreatingStories ? (
+                        <>
+                          <span className="btn-spinner" />
+                          Creating Stories...
+                        </>
+                      ) : (
+                        "Create Stories"
                       )}
-                      <div className="story-meta">
-                        {story.product_area && (
-                          <span className="story-area">
-                            {story.product_area}
-                          </span>
-                        )}
-                        <span className="story-date">
-                          {formatDate(story.created_at)}
+                    </button>
+                  </div>
+                </>
+              ) : selectedRunStatus.themes_extracted > 0 ? (
+                /* Themes Extracted but not ready for stories (e.g., dry run) */
+                <>
+                  <h2>Themes Extracted</h2>
+                  <div className="themes-extracted-panel">
+                    <div className="themes-stats">
+                      <div className="stat-highlight">
+                        <span className="stat-value">
+                          {selectedRunStatus.themes_extracted}
                         </span>
+                        <span className="stat-label">themes extracted</span>
                       </div>
-                    </Link>
-                  ))}
-                </div>
+                      <div className="stat-detail">
+                        <span className="stat-value">
+                          {selectedRunStatus.themes_new}
+                        </span>
+                        <span className="stat-label">new signatures</span>
+                      </div>
+                    </div>
+                    <p className="info-message">
+                      Run completed. Themes were extracted during this pipeline
+                      run.
+                    </p>
+                  </div>
+                </>
               ) : (
+                /* No themes or stories - default empty state */
                 <div className="no-stories">
                   <svg
                     width="32"
@@ -642,7 +851,7 @@ export default function PipelinePage() {
                     <path d="M9 12h6M12 9v6" />
                     <rect x="3" y="5" width="18" height="14" rx="2" />
                   </svg>
-                  <span>No new stories from this run</span>
+                  <span>No themes or stories from this run</span>
                 </div>
               )}
             </section>
@@ -1085,8 +1294,40 @@ export default function PipelinePage() {
           border-left: 3px solid var(--accent-blue);
         }
 
-        /* New Stories Section */
-        .new-stories-section {
+        /* Phase Indicator */
+        .phase-indicator {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 14px;
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+          border-left: 3px solid var(--accent-blue);
+        }
+
+        .phase-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid var(--border-default);
+          border-top-color: var(--accent-blue);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        .phase-label {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-primary);
+        }
+
+        .status-grid.secondary {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid var(--border-subtle);
+        }
+
+        /* Run Results Section */
+        .run-results-section {
           grid-column: 1 / -1;
           background: linear-gradient(
             to bottom,
@@ -1098,7 +1339,7 @@ export default function PipelinePage() {
           box-shadow: var(--shadow-sm);
         }
 
-        :global([data-theme="light"]) .new-stories-section {
+        :global([data-theme="light"]) .run-results-section {
           background: linear-gradient(
             to bottom,
             hsl(0, 0%, 100%),
@@ -1106,10 +1347,101 @@ export default function PipelinePage() {
           );
         }
 
-        .new-stories-section h2 {
+        .run-results-section h2 {
           display: flex;
           align-items: center;
           gap: 8px;
+        }
+
+        /* Themes Ready Panel */
+        .themes-ready-panel,
+        .themes-extracted-panel {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          padding: 24px;
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+        }
+
+        :global([data-theme="light"]) .themes-ready-panel,
+        :global([data-theme="light"]) .themes-extracted-panel {
+          background: var(--bg-hover);
+        }
+
+        .themes-stats {
+          display: flex;
+          gap: 32px;
+        }
+
+        .stat-highlight,
+        .stat-detail {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .stat-highlight .stat-value {
+          font-size: 32px;
+          font-weight: 600;
+          color: var(--accent-blue);
+        }
+
+        .stat-detail .stat-value {
+          font-size: 24px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .themes-stats .stat-label {
+          font-size: 12px;
+          color: var(--text-tertiary);
+        }
+
+        .ready-message,
+        .info-message {
+          font-size: 14px;
+          color: var(--text-secondary);
+          text-align: center;
+          margin: 0;
+        }
+
+        .btn-create-stories {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px 24px;
+          background: var(--accent-blue);
+          color: white;
+          border: none;
+          border-radius: var(--radius-md);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          min-width: 180px;
+        }
+
+        .btn-create-stories:hover:not(:disabled) {
+          background: #74b3ff;
+          transform: translateY(-1px);
+        }
+
+        .btn-create-stories:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+
+        .btn-spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
         }
 
         .story-count {
