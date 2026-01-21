@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type {
   PipelineStatus,
   PipelineRunListItem,
   PipelineRunRequest,
   Story,
+  DryRunPreview,
 } from "@/lib/types";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FeedForwardLogo } from "@/components/FeedForwardLogo";
@@ -89,6 +90,13 @@ export default function PipelinePage() {
     autoCreateStories: false,
   });
   const [isCreatingStories, setIsCreatingStories] = useState(false);
+  const [dryRunPreview, setDryRunPreview] = useState<DryRunPreview | null>(
+    null,
+  );
+  const [dryRunPreviewLoading, setDryRunPreviewLoading] = useState(false);
+  const [dryRunPreviewError, setDryRunPreviewError] = useState<string | null>(
+    null,
+  );
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   // Track whether user has manually selected a run (prevents auto-selection override)
@@ -114,6 +122,28 @@ export default function PipelinePage() {
     },
     [],
   );
+
+  // Fetch dry run preview data for a completed dry run
+  const fetchDryRunPreview = useCallback(async (runId: number) => {
+    setDryRunPreviewLoading(true);
+    setDryRunPreviewError(null);
+    setDryRunPreview(null);
+
+    try {
+      const preview = await api.pipeline.preview(runId);
+      setDryRunPreview(preview);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setDryRunPreviewError("Preview no longer available");
+      } else {
+        setDryRunPreviewError(
+          err instanceof Error ? err.message : "Failed to load preview",
+        );
+      }
+    } finally {
+      setDryRunPreviewLoading(false);
+    }
+  }, []);
 
   // Check for active run and fetch history
   const fetchData = useCallback(async () => {
@@ -144,10 +174,17 @@ export default function PipelinePage() {
         if (completedRuns.length > 0) {
           const latestRun = completedRuns[0];
           setSelectedRunId(latestRun.id);
+          // Clear previous preview state
+          setDryRunPreview(null);
+          setDryRunPreviewError(null);
           // Fetch full status for the selected run to get theme/story info
           try {
             const status = await api.pipeline.status(latestRun.id);
             setSelectedRunStatus(status);
+            // If this is a dry run (conversations_stored = 0), fetch preview data
+            if (latestRun.conversations_stored === 0) {
+              await fetchDryRunPreview(latestRun.id);
+            }
           } catch (err) {
             console.error("Failed to fetch run status:", err);
             setSelectedRunStatus(null);
@@ -167,7 +204,7 @@ export default function PipelinePage() {
     } finally {
       setLoading(false);
     }
-  }, [fetchStoriesCreatedSince]); // Removed selectedRunId from deps (R2/D1 fix)
+  }, [fetchStoriesCreatedSince, fetchDryRunPreview]); // Removed selectedRunId from deps (R2/D1 fix)
 
   // Poll for status updates when run is active
   const pollStatus = useCallback(async () => {
@@ -239,6 +276,9 @@ export default function PipelinePage() {
       await api.pipeline.createStories(runId);
       // Refresh data to get updated status and new stories
       await fetchData();
+      // Explicitly refresh selectedRunStatus (fetchData skips when user has selected a run)
+      const updatedStatus = await api.pipeline.status(runId);
+      setSelectedRunStatus(updatedStatus);
       // Fetch stories for the selected run
       if (selectedRunId) {
         const selectedRun = history.find((r) => r.id === selectedRunId);
@@ -275,24 +315,31 @@ export default function PipelinePage() {
     activeStatus && ["running", "stopping"].includes(activeStatus.status),
   );
 
-  // Handle clicking on a run in history to view its new stories
+  // Handle clicking on a run in history to view its new stories or dry run preview
   const handleRunClick = useCallback(
     async (run: PipelineRunListItem) => {
       if (run.status !== "completed" || !run.started_at) return;
       // Mark that user has manually selected a run (prevents auto-selection override)
       hasUserSelectedRunRef.current = true;
       setSelectedRunId(run.id);
+      // Clear previous preview state when selecting a new run
+      setDryRunPreview(null);
+      setDryRunPreviewError(null);
       // Fetch full status for the selected run to get theme/story info
       try {
         const status = await api.pipeline.status(run.id);
         setSelectedRunStatus(status);
+        // If this is a dry run (conversations_stored = 0), fetch preview data
+        if (run.conversations_stored === 0) {
+          await fetchDryRunPreview(run.id);
+        }
       } catch (err) {
         console.error("Failed to fetch run status:", err);
         setSelectedRunStatus(null);
       }
       await fetchStoriesCreatedSince(run.started_at);
     },
-    [fetchStoriesCreatedSince],
+    [fetchStoriesCreatedSince, fetchDryRunPreview],
   );
 
   if (loading) {
@@ -460,7 +507,14 @@ export default function PipelinePage() {
                     type="checkbox"
                     checked={formState.dryRun}
                     onChange={(e) =>
-                      setFormState({ ...formState, dryRun: e.target.checked })
+                      setFormState({
+                        ...formState,
+                        dryRun: e.target.checked,
+                        // Clear auto-create when enabling dry run (no DB = no stories)
+                        autoCreateStories: e.target.checked
+                          ? false
+                          : formState.autoCreateStories,
+                      })
                     }
                     disabled={isRunning}
                   />
@@ -487,8 +541,9 @@ export default function PipelinePage() {
                   <span>Auto-create stories after run</span>
                 </label>
                 <span className="form-hint">
-                  Automatically run PM review and create stories when pipeline
-                  completes
+                  {formState.dryRun
+                    ? "Disabled in dry run mode (no data stored)"
+                    : "Automatically run PM review and create stories when pipeline completes"}
                 </span>
               </div>
 
@@ -705,8 +760,228 @@ export default function PipelinePage() {
           {/* Adaptive Run Results Panel */}
           {selectedRunId && selectedRunStatus && (
             <section className="run-results-section">
-              {/* Stories Created Mode */}
-              {selectedRunStatus.stories_created > 0 ? (
+              {/* Dry Run Preview Mode - conversations_stored = 0 means dry run */}
+              {(selectedRunStatus.conversations_stored === 0 ||
+                selectedRunStatus.conversations_stored === null) &&
+              selectedRunStatus.conversations_classified > 0 ? (
+                <>
+                  <h2>
+                    Dry Run Preview
+                    <span className="preview-badge">No data stored</span>
+                  </h2>
+                  {dryRunPreviewLoading ? (
+                    <div className="preview-loading">
+                      <div className="loading-spinner" />
+                      <span>Loading preview...</span>
+                    </div>
+                  ) : dryRunPreviewError ? (
+                    <div className="preview-error">
+                      <svg
+                        width="32"
+                        height="32"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 8v4M12 16h.01" />
+                      </svg>
+                      <span>{dryRunPreviewError}</span>
+                    </div>
+                  ) : dryRunPreview ? (
+                    <div className="dry-run-preview">
+                      {/* Classification Breakdown */}
+                      <div className="preview-section">
+                        <h3>Classification Breakdown</h3>
+                        <div className="breakdown-grid">
+                          <div className="breakdown-card">
+                            <h4>By Type</h4>
+                            <div className="breakdown-bars">
+                              {Object.entries(
+                                dryRunPreview.classification_breakdown.by_type,
+                              )
+                                .sort(([, a], [, b]) => b - a)
+                                .map(([type, count]) => (
+                                  <div key={type} className="breakdown-row">
+                                    <span className="breakdown-label">
+                                      {type.replace(/_/g, " ")}
+                                    </span>
+                                    <div className="breakdown-bar-container">
+                                      <div
+                                        className="breakdown-bar"
+                                        style={{
+                                          width: `${dryRunPreview.total_classified > 0 ? (count / dryRunPreview.total_classified) * 100 : 0}%`,
+                                        }}
+                                      />
+                                    </div>
+                                    <span className="breakdown-count">
+                                      {count}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                          <div className="breakdown-card">
+                            <h4>By Confidence</h4>
+                            <div className="breakdown-bars">
+                              {Object.entries(
+                                dryRunPreview.classification_breakdown
+                                  .by_confidence,
+                              )
+                                .sort(([a], [b]) => {
+                                  const order = ["high", "medium", "low"];
+                                  return order.indexOf(a) - order.indexOf(b);
+                                })
+                                .map(([confidence, count]) => (
+                                  <div
+                                    key={confidence}
+                                    className="breakdown-row"
+                                  >
+                                    <span className="breakdown-label">
+                                      {confidence}
+                                    </span>
+                                    <div className="breakdown-bar-container">
+                                      <div
+                                        className={`breakdown-bar confidence-${confidence}`}
+                                        style={{
+                                          width: `${dryRunPreview.total_classified > 0 ? (count / dryRunPreview.total_classified) * 100 : 0}%`,
+                                        }}
+                                      />
+                                    </div>
+                                    <span className="breakdown-count">
+                                      {count}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Top Themes */}
+                      {dryRunPreview.top_themes.length > 0 && (
+                        <div className="preview-section">
+                          <h3>Top Themes</h3>
+                          <div className="top-themes-list">
+                            {dryRunPreview.top_themes.map(
+                              ([theme, count], index) => (
+                                <div key={theme} className="theme-item">
+                                  <span className="theme-rank">
+                                    #{index + 1}
+                                  </span>
+                                  <span className="theme-name">{theme}</span>
+                                  <span className="theme-count">{count}</span>
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sample Conversations */}
+                      {dryRunPreview.samples.length > 0 && (
+                        <div className="preview-section">
+                          <h3>
+                            Sample Classifications
+                            <span className="sample-count">
+                              ({dryRunPreview.samples.length} of{" "}
+                              {dryRunPreview.total_classified})
+                            </span>
+                          </h3>
+                          <div className="samples-list">
+                            {dryRunPreview.samples.map((sample) => (
+                              <details
+                                key={sample.conversation_id}
+                                className="sample-item"
+                              >
+                                <summary className="sample-header">
+                                  <div className="sample-badges">
+                                    <span className="sample-type">
+                                      {sample.conversation_type.replace(
+                                        /_/g,
+                                        " ",
+                                      )}
+                                    </span>
+                                    <span
+                                      className={`sample-confidence confidence-${sample.confidence}`}
+                                    >
+                                      {sample.confidence}
+                                    </span>
+                                    {sample.has_support_response && (
+                                      <span className="sample-responded">
+                                        responded
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="sample-id">
+                                    {sample.conversation_id.slice(0, 8)}...
+                                  </span>
+                                </summary>
+                                <div className="sample-content">
+                                  <p className="sample-snippet">
+                                    {sample.snippet}
+                                  </p>
+                                  {sample.themes.length > 0 && (
+                                    <div className="sample-themes">
+                                      {sample.themes.map((theme) => (
+                                        <span
+                                          key={theme}
+                                          className="sample-theme"
+                                        >
+                                          {theme}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </details>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Summary Stats */}
+                      <div className="preview-summary">
+                        <span className="summary-stat">
+                          Total classified:{" "}
+                          <strong>{dryRunPreview.total_classified}</strong>
+                        </span>
+                        <span className="summary-divider">|</span>
+                        <span className="summary-stat">
+                          Preview generated:{" "}
+                          <strong>
+                            {new Date(dryRunPreview.timestamp).toLocaleString()}
+                          </strong>
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="preview-empty">
+                      <svg
+                        width="32"
+                        height="32"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+                      </svg>
+                      <span>
+                        Dry run completed -{" "}
+                        {selectedRunStatus.conversations_classified}{" "}
+                        conversations classified
+                      </span>
+                      <span className="hint">
+                        Preview data may have expired
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : /* Stories Created Mode */
+              selectedRunStatus.stories_created > 0 ? (
                 <>
                   <h2>
                     Stories Created
@@ -786,30 +1061,53 @@ export default function PipelinePage() {
                         </span>
                         <span className="stat-label">themes extracted</span>
                       </div>
-                      <div className="stat-detail">
+                      <div className="stat-highlight">
                         <span className="stat-value">
                           {selectedRunStatus.themes_new}
                         </span>
                         <span className="stat-label">new signatures</span>
                       </div>
                     </div>
-                    <p className="ready-message">
-                      Review themes and create stories when ready
-                    </p>
-                    <button
-                      className="btn-create-stories"
-                      onClick={() => handleCreateStories(selectedRunId)}
-                      disabled={isCreatingStories}
-                    >
-                      {isCreatingStories ? (
+                    {selectedRunStatus.auto_create_stories ? (
+                      /* Auto-create was enabled - show status */
+                      selectedRunStatus.current_phase === "story_creation" ? (
                         <>
-                          <span className="btn-spinner" />
-                          Creating Stories...
+                          <p className="ready-message">
+                            Auto-creating stories from themes...
+                          </p>
+                          <div className="auto-create-indicator">
+                            <span className="btn-spinner" />
+                            <span>Creating Stories</span>
+                          </div>
                         </>
                       ) : (
-                        "Create Stories"
-                      )}
-                    </button>
+                        <p className="ready-message">
+                          Auto-create enabled. Stories will be created
+                          automatically when processing completes.
+                        </p>
+                      )
+                    ) : (
+                      /* Manual mode - show create button */
+                      <>
+                        <p className="ready-message">
+                          Review themes and create stories when ready
+                        </p>
+                        <button
+                          className="btn-create-stories"
+                          onClick={() => handleCreateStories(selectedRunId)}
+                          disabled={isCreatingStories}
+                        >
+                          {isCreatingStories ? (
+                            <>
+                              <span className="btn-spinner" />
+                              Creating Stories...
+                            </>
+                          ) : (
+                            "Create Stories"
+                          )}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </>
               ) : selectedRunStatus.themes_extracted > 0 ? (
@@ -824,7 +1122,7 @@ export default function PipelinePage() {
                         </span>
                         <span className="stat-label">themes extracted</span>
                       </div>
-                      <div className="stat-detail">
+                      <div className="stat-highlight">
                         <span className="stat-value">
                           {selectedRunStatus.themes_new}
                         </span>
@@ -1372,7 +1670,9 @@ export default function PipelinePage() {
 
         .themes-stats {
           display: flex;
-          gap: 32px;
+          justify-content: center;
+          gap: 64px;
+          width: 100%;
         }
 
         .stat-highlight,
@@ -1396,8 +1696,11 @@ export default function PipelinePage() {
         }
 
         .themes-stats .stat-label {
-          font-size: 12px;
+          font-size: 11px;
+          font-weight: 500;
           color: var(--text-tertiary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         .ready-message,
@@ -1442,6 +1745,24 @@ export default function PipelinePage() {
           border-top-color: white;
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
+        }
+
+        .auto-create-indicator {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          padding: 12px 24px;
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+          color: var(--text-secondary);
+          font-size: 14px;
+          font-weight: 500;
+        }
+
+        .auto-create-indicator .btn-spinner {
+          border-color: var(--border-default);
+          border-top-color: var(--accent-blue);
         }
 
         .story-count {
@@ -1550,6 +1871,381 @@ export default function PipelinePage() {
           font-size: 14px;
         }
 
+        /* Dry Run Preview Styles */
+        .preview-badge {
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--accent-amber);
+          background: rgba(255, 193, 7, 0.15);
+          padding: 2px 8px;
+          border-radius: var(--radius-full);
+          margin-left: 8px;
+        }
+
+        .preview-loading {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px;
+          gap: 16px;
+          color: var(--text-secondary);
+        }
+
+        .preview-loading .loading-spinner {
+          width: 24px;
+          height: 24px;
+          border: 2px solid var(--border-default);
+          border-top-color: var(--accent-blue);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        .preview-error {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px;
+          gap: 12px;
+          color: var(--accent-red);
+        }
+
+        .preview-error svg {
+          opacity: 0.7;
+        }
+
+        .preview-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px;
+          gap: 12px;
+          color: var(--text-tertiary);
+        }
+
+        .preview-empty svg {
+          opacity: 0.5;
+        }
+
+        .preview-empty .hint {
+          font-size: 12px;
+          opacity: 0.7;
+        }
+
+        .dry-run-preview {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+
+        .preview-section {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .preview-section h3 {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .sample-count {
+          font-weight: 400;
+          color: var(--text-tertiary);
+          font-size: 12px;
+        }
+
+        .breakdown-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+
+        .breakdown-card {
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+          padding: 16px;
+        }
+
+        :global([data-theme="light"]) .breakdown-card {
+          background: var(--bg-hover);
+        }
+
+        .breakdown-card h4 {
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text-tertiary);
+          text-transform: uppercase;
+          margin: 0 0 12px 0;
+          letter-spacing: 0.5px;
+        }
+
+        .breakdown-bars {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .breakdown-row {
+          display: grid;
+          grid-template-columns: 100px 1fr 40px;
+          gap: 10px;
+          align-items: center;
+        }
+
+        .breakdown-label {
+          font-size: 12px;
+          color: var(--text-secondary);
+          text-transform: capitalize;
+        }
+
+        .breakdown-bar-container {
+          height: 8px;
+          background: var(--bg-subtle);
+          border-radius: var(--radius-full);
+          overflow: hidden;
+        }
+
+        .breakdown-bar {
+          height: 100%;
+          background: var(--accent-blue);
+          border-radius: var(--radius-full);
+          transition: width 0.3s ease;
+        }
+
+        .breakdown-bar.confidence-high {
+          background: var(--accent-green);
+        }
+
+        .breakdown-bar.confidence-medium {
+          background: var(--accent-amber);
+        }
+
+        .breakdown-bar.confidence-low {
+          background: var(--accent-red);
+        }
+
+        .breakdown-count {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-primary);
+          text-align: right;
+          font-variant-numeric: tabular-nums;
+        }
+
+        /* Top Themes */
+        .top-themes-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+          padding: 12px;
+        }
+
+        :global([data-theme="light"]) .top-themes-list {
+          background: var(--bg-hover);
+        }
+
+        .theme-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 6px 0;
+          border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .theme-item:last-child {
+          border-bottom: none;
+        }
+
+        .theme-rank {
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text-tertiary);
+          width: 24px;
+        }
+
+        .theme-name {
+          font-size: 13px;
+          color: var(--text-primary);
+          flex: 1;
+        }
+
+        .theme-count {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--accent-blue);
+          background: rgba(96, 165, 250, 0.15);
+          padding: 2px 8px;
+          border-radius: var(--radius-full);
+          font-variant-numeric: tabular-nums;
+        }
+
+        /* Sample Conversations */
+        .samples-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .sample-item {
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+          overflow: hidden;
+        }
+
+        :global([data-theme="light"]) .sample-item {
+          background: var(--bg-hover);
+        }
+
+        .sample-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 14px;
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .sample-header:hover {
+          background: var(--bg-hover);
+        }
+
+        :global([data-theme="light"]) .sample-header:hover {
+          background: var(--border-default);
+        }
+
+        .sample-badges {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .sample-type {
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--text-primary);
+          background: var(--bg-subtle);
+          padding: 2px 8px;
+          border-radius: var(--radius-sm);
+          text-transform: capitalize;
+        }
+
+        .sample-confidence {
+          font-size: 10px;
+          font-weight: 600;
+          padding: 2px 6px;
+          border-radius: var(--radius-sm);
+          text-transform: uppercase;
+        }
+
+        .sample-confidence.confidence-high {
+          color: var(--accent-green);
+          background: rgba(34, 197, 94, 0.15);
+        }
+
+        .sample-confidence.confidence-medium {
+          color: var(--accent-amber);
+          background: rgba(245, 158, 11, 0.15);
+        }
+
+        .sample-confidence.confidence-low {
+          color: var(--accent-red);
+          background: rgba(239, 68, 68, 0.15);
+        }
+
+        .sample-responded {
+          font-size: 10px;
+          font-weight: 500;
+          color: var(--accent-blue);
+          background: rgba(96, 165, 250, 0.15);
+          padding: 2px 6px;
+          border-radius: var(--radius-sm);
+        }
+
+        .sample-id {
+          font-size: 11px;
+          color: var(--text-tertiary);
+          font-family: monospace;
+        }
+
+        .sample-content {
+          padding: 0 14px 14px;
+          border-top: 1px solid var(--border-subtle);
+        }
+
+        .sample-snippet {
+          font-size: 13px;
+          color: var(--text-secondary);
+          line-height: 1.5;
+          margin: 12px 0 0 0;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+
+        .sample-themes {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 12px;
+        }
+
+        .sample-theme {
+          font-size: 11px;
+          color: var(--text-secondary);
+          background: var(--bg-subtle);
+          padding: 2px 8px;
+          border-radius: var(--radius-full);
+        }
+
+        /* Preview Summary */
+        .preview-summary {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 12px;
+          background: var(--bg-elevated);
+          border-radius: var(--radius-md);
+          font-size: 12px;
+          color: var(--text-tertiary);
+        }
+
+        :global([data-theme="light"]) .preview-summary {
+          background: var(--bg-hover);
+        }
+
+        .summary-stat strong {
+          color: var(--text-secondary);
+        }
+
+        .summary-divider {
+          color: var(--border-default);
+        }
+
+        @media (max-width: 768px) {
+          .breakdown-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .preview-summary {
+            flex-direction: column;
+            gap: 4px;
+          }
+
+          .summary-divider {
+            display: none;
+          }
+        }
+
         @media (max-width: 768px) {
           .content-grid {
             grid-template-columns: 1fr;
@@ -1569,6 +2265,12 @@ export default function PipelinePage() {
           .table-row span:nth-child(6),
           .table-row span:nth-child(7) {
             display: none;
+          }
+        }
+
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
           }
         }
       `}</style>

@@ -562,6 +562,10 @@ async def run_pipeline_async(
     print(f"Throughput:               {stats['classified']/elapsed:.1f} conv/sec")
     print()
 
+    # For dry runs, include results for preview (Issue #75)
+    if dry_run:
+        stats["_dry_run_results"] = results
+
     return stats
 
 
