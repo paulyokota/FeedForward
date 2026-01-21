@@ -228,10 +228,11 @@ streamlit run frontend/app.py                   # Terminal 2: UI
 
 # Then open http://localhost:8501
 
-# Run the classification pipeline directly
-python -m src.pipeline --days 7             # Last 7 days
-python -m src.pipeline --days 1 --max 10    # Test with 10 conversations
-python -m src.pipeline --dry-run            # No DB writes
+# Run the canonical two-stage classification pipeline
+python -m src.two_stage_pipeline --days 7              # Last 7 days
+python -m src.two_stage_pipeline --days 1 --max 10     # Test with 10 conversations
+python -m src.two_stage_pipeline --dry-run             # No DB writes
+python -m src.two_stage_pipeline --async --concurrency 20  # Async mode (faster)
 
 # CLI commands
 python src/cli.py themes           # List all themes

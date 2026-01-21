@@ -332,14 +332,15 @@ else:
 - Prevents duplicate labels in the UI
 - Labels stored as string array in database
 
-### Pipeline Integration Service
+### Story Creation Service (Canonical Path)
 
-- `ValidatedGroup` dataclass defines the contract between PM review pipeline and story creation
+- `StoryCreationService` is the canonical entry point for story/orphan creation from pipeline data
+- Quality gates (EvidenceValidator + ConfidenceScorer) determine story vs. orphan routing
 - Signature-based deduplication checks existing stories before creating new ones
 - Evidence bundle automatically created with conversation links and excerpts
 - Source stats calculated from conversation metadata
-- Bulk creation supports batch processing of validated groups with progress logging
-- Service is fully tested with 14 unit tests covering all edge cases
+- Supports bulk processing of theme groups with progress logging and quality gate rejection tracking
+- Service is fully tested with 66 unit tests covering all edge cases including quality gates
 
 ### Design Decisions
 

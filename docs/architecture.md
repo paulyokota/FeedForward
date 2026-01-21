@@ -1020,16 +1020,16 @@ CODA_DOC_ID=c4RRJ_VLtW
 
 **Services** (`src/story_tracking/services/`):
 
-| Service                      | Purpose                                             |
-| ---------------------------- | --------------------------------------------------- |
-| `StoryService`               | CRUD, search, board view, status management         |
-| `EvidenceService`            | Evidence bundles, conversation/theme linking        |
-| `SyncService`                | Bidirectional Shortcut sync (push/pull/webhook)     |
-| `LabelRegistryService`       | Label management, Shortcut taxonomy import          |
-| `AnalyticsService`           | Story metrics, trending themes, source distribution |
-| `PipelineIntegrationService` | Bridge PM review output to story creation           |
-| `StoryCreationService`       | Process theme groups into stories/orphans (PR #81)  |
-| `OrphanService`              | Manage orphan conversations below MIN_GROUP_SIZE    |
+| Service                    | Purpose                                                  |
+| -------------------------- | -------------------------------------------------------- |
+| `StoryService`             | CRUD, search, board view, status management              |
+| `EvidenceService`          | Evidence bundles, conversation/theme linking             |
+| `SyncService`              | Bidirectional Shortcut sync (push/pull/webhook)          |
+| `LabelRegistryService`     | Label management, Shortcut taxonomy import               |
+| `AnalyticsService`         | Story metrics, trending themes, source distribution      |
+| `StoryCreationService`     | **Canonical** story creation with quality gates (PR #81) |
+| `OrphanService`            | Manage orphan conversations below MIN_GROUP_SIZE         |
+| `OrphanIntegrationService` | Unified orphan routing from quality gate failures        |
 
 **API Routes**:
 
@@ -1073,9 +1073,9 @@ src/story_tracking/
     ├── sync_service.py
     ├── label_registry_service.py
     ├── analytics_service.py
-    ├── pipeline_integration.py
-    ├── story_creation_service.py  # NEW: Pipeline story creation
-    └── orphan_service.py
+    ├── story_creation_service.py  # Canonical story creation with quality gates
+    ├── orphan_service.py
+    └── orphan_integration.py       # Unified orphan routing
 
 src/api/routers/
 ├── stories.py           # Story CRUD + board
@@ -1092,7 +1092,104 @@ webapp/                  # Next.js frontend
 
 ---
 
-### 15. Unified Research Search (NEW - 2026-01-13)
+### 15. Canonical Pipeline and Quality Gates (NEW - 2026-01-21)
+
+**Purpose**: Single canonical path for conversation processing with quality gates ensuring story data quality.
+
+**Canonical Pipeline Path**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  src/two_stage_pipeline.py                                   │
+│  - Fetch conversations from Intercom/Coda                   │
+│  - Run Stage 1 + Stage 2 classification                     │
+│  - Group by theme signature                                 │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  StoryCreationService.process_theme_groups()                 │
+│  (src/story_tracking/services/story_creation_service.py)    │
+│                                                             │
+│  FOR EACH theme_group:                                      │
+│    ┌─────────────────────────────────────────────────────┐  │
+│    │ QUALITY GATES (run at top of processing loop)       │  │
+│    │                                                     │  │
+│    │ 1. EvidenceValidator.validate_samples()             │  │
+│    │    - Check required fields (id, excerpt)            │  │
+│    │    - Detect placeholder text                        │  │
+│    │                                                     │  │
+│    │ 2. ConfidenceScorer.score_groups()                  │  │
+│    │    - Semantic similarity (30%)                      │  │
+│    │    - Intent homogeneity (15%)                       │  │
+│    │    - Symptom overlap (10%)                          │  │
+│    │    - Product/component match                        │  │
+│    └─────────────────────────────────────────────────────┘  │
+│                      │                                      │
+│          ┌───────────┴───────────┐                          │
+│          ▼                       ▼                          │
+│   PASSED GATES?          FAILED GATES?                      │
+│          │                       │                          │
+│          ▼                       ▼                          │
+│   Create Story           Route to Orphans                   │
+│   (confidence_score      (via OrphanIntegrationService)     │
+│    persisted)                                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Quality Gate Configuration**:
+
+| Gate                | Threshold/Behavior                           | On Failure                  |
+| ------------------- | -------------------------------------------- | --------------------------- |
+| Evidence Validation | Required fields: `id`, `excerpt` (>20 chars) | Route to orphan integration |
+| Confidence Scoring  | Minimum score: 50.0 (configurable)           | Route to orphan integration |
+| Minimum Group Size  | >= 3 conversations                           | Route to orphan integration |
+
+**QualityGateResult Type**:
+
+```python
+@dataclass
+class QualityGateResult:
+    signature: str
+    passed: bool
+
+    # Validation results
+    evidence_quality: Optional[EvidenceQuality] = None
+    validation_passed: bool = True
+
+    # Scoring results
+    scored_group: Optional[ScoredGroup] = None
+    confidence_score: float = 0.0
+    scoring_passed: bool = True
+
+    # Failure details
+    failure_reason: Optional[str] = None
+```
+
+**Decision Rationale** (from T-002):
+
+- **Gates in StoryCreationService**: All callers benefit from quality checks
+- **Block on failure**: Route to orphans (reversible), maintain data quality
+- **Unified orphan path**: OrphanIntegrationService for consistent orphan handling
+
+**Entry Points**:
+
+| Entry Point    | Location                                      | Purpose                      |
+| -------------- | --------------------------------------------- | ---------------------------- |
+| CLI            | `python -m src.two_stage_pipeline`            | Direct pipeline execution    |
+| API (UI)       | `POST /api/pipeline/run`                      | UI-triggered runs            |
+| Story Creation | `StoryCreationService.process_theme_groups()` | Quality-gated story creation |
+
+**Files**:
+
+- `src/two_stage_pipeline.py` - Canonical pipeline entry point
+- `src/story_tracking/services/story_creation_service.py` - Quality gates + story creation
+- `src/confidence_scorer.py` - Group coherence scoring
+- `src/evidence_validator.py` - Evidence quality validation
+- `src/story_tracking/services/orphan_integration.py` - Unified orphan routing
+
+---
+
+### 16. Unified Research Search (NEW - 2026-01-13)
 
 **Purpose**: Semantic search across Coda research and Intercom support data for evidence discovery and story enrichment.
 
@@ -1168,7 +1265,7 @@ webapp/src/app/research/     # Frontend search page
 
 ---
 
-### 16. Domain Classifier & Codebase Context (NEW - 2026-01-20)
+### 17. Domain Classifier & Codebase Context (NEW - 2026-01-20)
 
 **Purpose**: Map customer issues to relevant code areas using semantic classification and a curated domain knowledge map.
 

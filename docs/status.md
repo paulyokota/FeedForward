@@ -11,8 +11,74 @@
 **Frontend Dashboard: COMPLETE** ✅
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
+**Milestone 6 (Canonical Pipeline Consolidation): COMPLETE** ✅
 
-## Latest: Dry Run Preview Visibility (2026-01-21)
+## Latest: Milestone 6 - Canonical Pipeline Consolidation (2026-01-21)
+
+### Session Summary
+
+Completed Milestone 6 (Issues #82, #83, #85): Wired quality gates into `StoryCreationService`, retired `PipelineIntegrationService`, and aligned documentation with the canonical pipeline.
+
+### What Was Done
+
+**Milestone 6 Complete** - Canonical Pipeline Consolidation:
+
+| Issue | Title                                        | Status   |
+| ----- | -------------------------------------------- | -------- |
+| #82   | Wire quality gates into StoryCreationService | Complete |
+| #83   | Retire PipelineIntegrationService            | Complete |
+| #85   | Align docs with canonical pipeline           | Complete |
+| #80   | Remove legacy single-stage pipeline          | Complete |
+
+**Quality Gates Added to StoryCreationService** (#82):
+
+| Change                                  | Impact                                              |
+| --------------------------------------- | --------------------------------------------------- |
+| `QualityGateResult` dataclass           | Structured result type for gate pass/fail decisions |
+| `_apply_quality_gates()` method         | Runs validation + scoring at top of processing loop |
+| `_route_to_orphan_integration()` method | Unified orphan routing for failed groups            |
+| EvidenceValidator integration           | Checks required fields (id, excerpt)                |
+| ConfidenceScorer integration            | Scores group coherence, threshold 50.0              |
+| `quality_gate_rejections` counter       | Track rejected groups in ProcessingResult           |
+
+**PipelineIntegrationService Retired** (#83):
+
+| Change                                            | Impact                                      |
+| ------------------------------------------------- | ------------------------------------------- |
+| File deleted: `pipeline_integration.py`           | 466 lines of orphaned code removed          |
+| Test file deleted: `test_pipeline_integration.py` | 507 lines of tests for deleted code removed |
+| `__init__.py` exports cleaned                     | No more dead exports                        |
+| Zero production callers affected                  | Service was never used in production        |
+
+**Architectural Decisions (from T-002)**:
+
+| Decision              | Choice                       | Rationale                               |
+| --------------------- | ---------------------------- | --------------------------------------- |
+| Quality gate location | StoryCreationService         | All callers benefit from quality checks |
+| Failure behavior      | Block (route to orphans)     | Reversible, maintains data quality      |
+| Gate ordering         | Validation then scoring      | Fast-fail on validation, skip scoring   |
+| Orphan path           | Via OrphanIntegrationService | Unified orphan logic across all paths   |
+
+**Canonical Pipeline Path**:
+
+```
+src/two_stage_pipeline.py
+    ↓
+StoryCreationService.process_theme_groups()
+    ↓
+Quality Gates (EvidenceValidator + ConfidenceScorer)
+    ↓
+Story Creation (passed) OR Orphan Integration (failed)
+```
+
+### Next Steps
+
+1. Continue with roadmap Track A/B as planned
+2. Issue #62 (coda_page adapter bug) remains priority
+
+---
+
+## Previous: Dry Run Preview Visibility (2026-01-21)
 
 ### Session Summary
 

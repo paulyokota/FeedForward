@@ -1506,3 +1506,882 @@ class TestGeneratePMResult:
         assert result.decision == "keep_together"
         assert result.conversation_count == 5
         assert result.sub_groups == []
+
+
+# -----------------------------------------------------------------------------
+# Quality Gate Tests (Milestone 6, Issue #82)
+# -----------------------------------------------------------------------------
+
+
+class TestQualityGates:
+    """Tests for quality gate integration in process_theme_groups."""
+
+    @pytest.fixture
+    def sample_valid_group(self):
+        """Sample theme group with valid data for quality gates."""
+        return {
+            "billing_invoice_error": [
+                {
+                    "id": "conv1",
+                    "product_area": "Billing",
+                    "component": "Invoices",
+                    "user_intent": "Cannot download invoice",
+                    "symptoms": ["error message", "blank page"],
+                    "affected_flow": "invoice_download",
+                    "excerpt": "I tried to download my invoice but got an error",
+                },
+                {
+                    "id": "conv2",
+                    "product_area": "Billing",
+                    "component": "Invoices",
+                    "user_intent": "Invoice download broken",
+                    "symptoms": ["404 error"],
+                    "affected_flow": "invoice_download",
+                    "excerpt": "Getting 404 when trying to access invoice",
+                },
+                {
+                    "id": "conv3",
+                    "product_area": "Billing",
+                    "component": "Invoices",
+                    "user_intent": "PDF download fails",
+                    "symptoms": ["timeout"],
+                    "affected_flow": "invoice_download",
+                    "excerpt": "Download times out after a few seconds",
+                },
+            ],
+        }
+
+    @pytest.fixture
+    def mock_confidence_scorer(self):
+        """Create a mock ConfidenceScorer."""
+        scorer = Mock()
+        # Default behavior: return a valid ScoredGroup with score above threshold
+        scored_group = Mock()
+        scored_group.confidence_score = 75.0
+        scorer.score_groups.return_value = [scored_group]
+        return scorer
+
+    def test_low_confidence_group_routes_to_orphan(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """Groups with confidence < threshold should become orphans."""
+        # Setup mock scorer to return low confidence
+        mock_scorer = Mock()
+        low_score_group = Mock()
+        low_score_group.confidence_score = 40.0  # Below default threshold of 50
+        mock_scorer.score_groups.return_value = [low_score_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,  # Disable validation to test scoring only
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # Should NOT create a story
+        assert mock_story_service.create.call_count == 0
+        # Should create orphan for the low-confidence group
+        assert result.quality_gate_rejections == 1
+
+    def test_failed_validation_routes_to_orphan(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Groups failing evidence validation should become orphans."""
+        # Create group with missing required fields (no excerpts)
+        invalid_group = {
+            "test_signature": [
+                {"id": "conv1"},  # Missing excerpt
+                {"id": "conv2"},
+                {"id": "conv3"},
+            ],
+        }
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            validation_enabled=True,  # Enable validation
+            confidence_scorer=None,  # No scoring
+        )
+
+        result = service.process_theme_groups(invalid_group)
+
+        # Should NOT create a story (validation fails)
+        assert mock_story_service.create.call_count == 0
+        # Should record quality gate rejection
+        assert result.quality_gate_rejections == 1
+
+    def test_confidence_score_persisted_to_story(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """Stories should have confidence_score from scorer."""
+        # Setup mock scorer with specific score
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 85.5
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        service.process_theme_groups(sample_valid_group)
+
+        # Verify story was created with confidence_score
+        mock_story_service.create.assert_called_once()
+        create_call = mock_story_service.create.call_args[0][0]
+        assert create_call.confidence_score == 85.5
+
+    def test_quality_gates_disabled_skips_validation(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """validation_enabled=False should skip validation."""
+        # Create group with missing excerpts (would fail validation)
+        group_without_excerpts = {
+            "test_signature": [
+                {"id": "conv1"},
+                {"id": "conv2"},
+                {"id": "conv3"},
+            ],
+        }
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            validation_enabled=False,  # Disable validation
+            confidence_scorer=None,  # No scoring
+        )
+
+        result = service.process_theme_groups(group_without_excerpts)
+
+        # Should create story since validation is disabled
+        assert mock_story_service.create.call_count == 1
+        assert result.quality_gate_rejections == 0
+
+    def test_quality_gates_without_scorer_skips_scoring(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """confidence_scorer=None should skip scoring."""
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            confidence_scorer=None,  # No scorer
+            validation_enabled=False,  # Skip validation too
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # Should create story without scoring
+        assert mock_story_service.create.call_count == 1
+        assert result.quality_gate_rejections == 0
+
+        # Confidence score should be 0 (default when scorer not provided)
+        create_call = mock_story_service.create.call_args[0][0]
+        assert create_call.confidence_score == 0.0
+
+    def test_boundary_confidence_threshold_at_49_9(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """Test boundary case: 49.9 should be BELOW threshold of 50.0."""
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 49.9  # Just below threshold
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # 49.9 < 50.0, should route to orphan
+        assert mock_story_service.create.call_count == 0
+        assert result.quality_gate_rejections == 1
+
+    def test_boundary_confidence_threshold_at_50_0(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """Test boundary case: 50.0 should be AT threshold (pass)."""
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 50.0  # Exactly at threshold
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # 50.0 >= 50.0, should create story
+        assert mock_story_service.create.call_count == 1
+        assert result.quality_gate_rejections == 0
+
+    def test_boundary_confidence_threshold_at_50_1(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """Test boundary case: 50.1 should be ABOVE threshold (pass)."""
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 50.1  # Just above threshold
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # 50.1 >= 50.0, should create story
+        assert mock_story_service.create.call_count == 1
+        assert result.quality_gate_rejections == 0
+
+    def test_undersized_group_fails_quality_gates(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Groups with < MIN_GROUP_SIZE conversations should fail quality gates."""
+        # Only 2 conversations (MIN_GROUP_SIZE is 3)
+        undersized_group = {
+            "test_signature": [
+                {"id": "conv1", "excerpt": "test 1"},
+                {"id": "conv2", "excerpt": "test 2"},
+            ],
+        }
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            validation_enabled=False,
+            confidence_scorer=None,
+        )
+
+        result = service.process_theme_groups(undersized_group)
+
+        # Should not create story, should create orphan
+        assert mock_story_service.create.call_count == 0
+        assert result.quality_gate_rejections == 1
+
+    def test_quality_gate_result_tracks_rejections(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """ProcessingResult should track quality_gate_rejections count."""
+        # Create multiple groups with different outcomes
+        mixed_groups = {
+            "valid_group": [
+                {"id": "conv1", "excerpt": "test 1"},
+                {"id": "conv2", "excerpt": "test 2"},
+                {"id": "conv3", "excerpt": "test 3"},
+            ],
+            "undersized_group": [
+                {"id": "conv4", "excerpt": "test 4"},
+            ],
+        }
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            validation_enabled=False,
+            confidence_scorer=None,
+        )
+
+        result = service.process_theme_groups(mixed_groups)
+
+        # One story created, one rejected
+        assert result.stories_created == 1
+        assert result.quality_gate_rejections == 1
+
+
+class TestOrphanRouting:
+    """Tests for routing failed groups to OrphanIntegrationService."""
+
+    @pytest.fixture
+    def sample_valid_group(self):
+        """Sample theme group with valid data."""
+        return {
+            "billing_invoice_error": [
+                {
+                    "id": "conv1",
+                    "product_area": "Billing",
+                    "component": "Invoices",
+                    "user_intent": "Cannot download invoice",
+                    "symptoms": ["error message"],
+                    "affected_flow": "invoice_download",
+                    "excerpt": "I tried to download my invoice",
+                },
+                {
+                    "id": "conv2",
+                    "product_area": "Billing",
+                    "component": "Invoices",
+                    "user_intent": "Invoice download broken",
+                    "symptoms": ["404 error"],
+                    "affected_flow": "invoice_download",
+                    "excerpt": "Getting 404 when trying to access invoice",
+                },
+                {
+                    "id": "conv3",
+                    "product_area": "Billing",
+                    "component": "Invoices",
+                    "user_intent": "PDF download fails",
+                    "symptoms": ["timeout"],
+                    "affected_flow": "invoice_download",
+                    "excerpt": "Download times out",
+                },
+            ],
+        }
+
+    def test_orphan_integration_service_called_for_failed_groups(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """OrphanIntegrationService should be called for failed quality gates."""
+        # Setup mock OrphanIntegrationService
+        mock_orphan_integration = Mock()
+        mock_orphan_integration.process_theme.return_value = Mock(action="updated")
+
+        # Setup scorer to return low confidence (fail quality gate)
+        mock_scorer = Mock()
+        low_score_group = Mock()
+        low_score_group.confidence_score = 30.0
+        mock_scorer.score_groups.return_value = [low_score_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            orphan_integration_service=mock_orphan_integration,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # OrphanIntegrationService should be called for each conversation
+        assert mock_orphan_integration.process_theme.call_count == 3
+
+    def test_fallback_to_orphan_service_when_integration_unavailable(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """Should fall back to OrphanService.create() if OrphanIntegrationService unavailable."""
+        # Setup scorer to return low confidence
+        mock_scorer = Mock()
+        low_score_group = Mock()
+        low_score_group.confidence_score = 30.0
+        mock_scorer.score_groups.return_value = [low_score_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            orphan_integration_service=None,  # Not available
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # Should fall back to orphan_service.create (via _create_or_update_orphan)
+        assert mock_orphan_service.create.called or mock_orphan_service.add_conversations.called
+
+    def test_orphan_routing_counts_as_update(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """Orphan routing via OrphanIntegrationService should count as orphans_updated."""
+        mock_orphan_integration = Mock()
+        mock_orphan_integration.process_theme.return_value = Mock(action="updated")
+
+        # Setup scorer to return low confidence
+        mock_scorer = Mock()
+        low_score_group = Mock()
+        low_score_group.confidence_score = 30.0
+        mock_scorer.score_groups.return_value = [low_score_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            orphan_integration_service=mock_orphan_integration,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # Should track as orphan update
+        assert result.orphans_updated >= 1
+
+    def test_orphan_routing_fallback_on_integration_error(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """Should fall back to OrphanService if OrphanIntegrationService raises error."""
+        mock_orphan_integration = Mock()
+        mock_orphan_integration.process_theme.side_effect = Exception("Integration failed")
+
+        # Setup scorer to return low confidence
+        mock_scorer = Mock()
+        low_score_group = Mock()
+        low_score_group.confidence_score = 30.0
+        mock_scorer.score_groups.return_value = [low_score_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            orphan_integration_service=mock_orphan_integration,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # Should fall back to direct orphan creation
+        assert mock_orphan_service.create.called or mock_orphan_service.add_conversations.called
+
+    def test_orphan_fallback_counter_incremented_on_integration_error(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        sample_valid_group,
+    ):
+        """orphan_fallbacks counter should be incremented when OrphanIntegrationService fails."""
+        mock_orphan_integration = Mock()
+        mock_orphan_integration.process_theme.side_effect = Exception("Integration failed")
+
+        # Setup scorer to return low confidence
+        mock_scorer = Mock()
+        low_score_group = Mock()
+        low_score_group.confidence_score = 30.0
+        mock_scorer.score_groups.return_value = [low_score_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            orphan_integration_service=mock_orphan_integration,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_valid_group)
+
+        # Should track the fallback occurrence
+        assert result.orphan_fallbacks == 1
+
+    def test_orphan_fallback_only_processes_remaining_conversations(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Fallback should only process conversations not already processed by OrphanIntegrationService."""
+        # Create a group with 3 conversations
+        sample_group = {
+            "test_signature": [
+                {"id": "conv1", "excerpt": "test 1"},
+                {"id": "conv2", "excerpt": "test 2"},
+                {"id": "conv3", "excerpt": "test 3"},
+            ],
+        }
+
+        mock_orphan_integration = Mock()
+        # Fail on the second call (after first conversation processed)
+        call_count = [0]
+
+        def fail_on_second_call(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] >= 2:
+                raise Exception("Integration failed mid-loop")
+            return Mock(action="updated")
+
+        mock_orphan_integration.process_theme.side_effect = fail_on_second_call
+
+        # Setup scorer to return low confidence (trigger orphan routing)
+        mock_scorer = Mock()
+        low_score_group = Mock()
+        low_score_group.confidence_score = 30.0
+        mock_scorer.score_groups.return_value = [low_score_group]
+
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            orphan_integration_service=mock_orphan_integration,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        result = service.process_theme_groups(sample_group)
+
+        # The fallback should have been called
+        assert result.orphan_fallbacks == 1
+
+        # OrphanService should be called with only the remaining conversations (2, not 3)
+        if mock_orphan_service.create.called:
+            create_call = mock_orphan_service.create.call_args
+            orphan_create = create_call[0][0]  # First positional arg
+            # Should have 2 conversations (conv2, conv3), not 3
+            assert len(orphan_create.conversation_ids) == 2
+            assert "conv1" not in orphan_create.conversation_ids
+
+
+# -----------------------------------------------------------------------------
+# QualityGateResult Dataclass Tests
+# -----------------------------------------------------------------------------
+
+
+class TestQualityGateResultModel:
+    """Tests for QualityGateResult dataclass."""
+
+    def test_quality_gate_result_creation(self):
+        """Test creating QualityGateResult."""
+        from story_tracking.services.story_creation_service import QualityGateResult
+
+        result = QualityGateResult(
+            signature="test_sig",
+            passed=True,
+        )
+
+        assert result.signature == "test_sig"
+        assert result.passed is True
+        assert result.validation_passed is True
+        assert result.scoring_passed is True
+        assert result.confidence_score == 0.0
+        assert result.failure_reason is None
+
+    def test_quality_gate_result_with_failure(self):
+        """Test QualityGateResult with failure details."""
+        from story_tracking.services.story_creation_service import QualityGateResult
+
+        result = QualityGateResult(
+            signature="failed_sig",
+            passed=False,
+            validation_passed=False,
+            failure_reason="Evidence validation failed",
+        )
+
+        assert result.passed is False
+        assert result.validation_passed is False
+        assert result.failure_reason == "Evidence validation failed"
+
+
+# -----------------------------------------------------------------------------
+# Migrated Patterns from test_pipeline_integration.py
+# -----------------------------------------------------------------------------
+
+
+class TestSourceStatsCalculation:
+    """Tests for source statistics calculation (migrated from test_pipeline_integration.py)."""
+
+    def test_evidence_source_stats_intercom(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that source stats default to intercom for pipeline path."""
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        mock_evidence_service = Mock()
+        mock_evidence_service.create_or_update.return_value = Mock(id=uuid4())
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {"id": "conv1", "excerpt": "test 1"},
+                {"id": "conv2", "excerpt": "test 2"},
+                {"id": "conv3", "excerpt": "test 3"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        # Verify evidence was created with source_stats
+        mock_evidence_service.create_or_update.assert_called()
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        assert call_kwargs["source_stats"] == {"intercom": 3}
+
+
+class TestExcerptPreparation:
+    """Tests for excerpt handling (migrated patterns from test_pipeline_integration.py)."""
+
+    def test_excerpts_included_in_evidence(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that excerpts are included in evidence bundle."""
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        mock_evidence_service = Mock()
+        mock_evidence_service.create_or_update.return_value = Mock(id=uuid4())
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {"id": "conv1", "excerpt": "I can't download my invoice"},
+                {"id": "conv2", "excerpt": "Getting 404 error"},
+                {"id": "conv3", "excerpt": "Download times out"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        # Verify excerpts were passed to evidence service
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+        assert len(excerpts) == 3
+        assert excerpts[0].text == "I can't download my invoice"
+        assert excerpts[0].conversation_id == "conv1"
+
+    def test_missing_excerpt_in_conversation_handled(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test that conversations with missing excerpts are handled gracefully."""
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        mock_evidence_service = Mock()
+        mock_evidence_service.create_or_update.return_value = Mock(id=uuid4())
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,  # Disable validation to focus on excerpt handling
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {"id": "conv1", "excerpt": "Test 1"},
+                {"id": "conv2", "excerpt": "Test 2"},
+                {"id": "conv3"},  # Missing excerpt - should be skipped in excerpts
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        # Should only have 2 excerpts (conv3 has no excerpt)
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+        assert len(excerpts) == 2
+
+
+class TestApplyQualityGatesMethod:
+    """Direct tests for _apply_quality_gates method."""
+
+    def test_apply_quality_gates_passes_for_valid_group(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test _apply_quality_gates returns passing result for valid group."""
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 75.0
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        conversations = [
+            ConversationData(id="1", issue_signature="test", excerpt="test 1"),
+            ConversationData(id="2", issue_signature="test", excerpt="test 2"),
+            ConversationData(id="3", issue_signature="test", excerpt="test 3"),
+        ]
+        conv_dicts = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+
+        result = service._apply_quality_gates("test_sig", conversations, conv_dicts)
+
+        assert result.passed is True
+        assert result.confidence_score == 75.0
+
+    def test_apply_quality_gates_fails_for_undersized_group(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test _apply_quality_gates returns failing result for undersized group."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            validation_enabled=False,
+        )
+
+        # Only 2 conversations (MIN_GROUP_SIZE is 3)
+        conversations = [
+            ConversationData(id="1", issue_signature="test"),
+            ConversationData(id="2", issue_signature="test"),
+        ]
+        conv_dicts = [{"id": "1"}, {"id": "2"}]
+
+        result = service._apply_quality_gates("test_sig", conversations, conv_dicts)
+
+        assert result.passed is False
+        assert "minimum is" in result.failure_reason
+
+    def test_apply_quality_gates_handles_scorer_error(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Test _apply_quality_gates handles scorer errors conservatively."""
+        mock_scorer = Mock()
+        mock_scorer.score_groups.side_effect = Exception("API rate limit exceeded")
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            validation_enabled=False,
+        )
+
+        conversations = [
+            ConversationData(id="1", issue_signature="test", excerpt="test 1"),
+            ConversationData(id="2", issue_signature="test", excerpt="test 2"),
+            ConversationData(id="3", issue_signature="test", excerpt="test 3"),
+        ]
+        conv_dicts = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+
+        result = service._apply_quality_gates("test_sig", conversations, conv_dicts)
+
+        # Should fail conservatively on error
+        assert result.passed is False
+        assert "scoring error" in result.failure_reason.lower()
