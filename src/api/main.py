@@ -26,13 +26,16 @@ logger = logging.getLogger(__name__)
 
 def cleanup_stale_pipeline_runs() -> int:
     """
-    Mark any 'running' pipeline runs as 'failed' on startup.
+    Mark any in-progress pipeline runs as 'failed' on startup.
 
     This handles the case where the server was restarted while a pipeline
-    was running, leaving stale 'running' status in the database.
+    was running or stopping, leaving stale status in the database.
+
+    Note: This assumes single-instance deployment. Multi-instance deployments
+    would require a heartbeat mechanism to distinguish truly stale runs.
 
     Returns:
-        Number of stale runs cleaned up.
+        Number of stale runs cleaned up, or -1 if cleanup failed.
     """
     try:
         with get_connection() as conn:
@@ -42,13 +45,12 @@ def cleanup_stale_pipeline_runs() -> int:
                     UPDATE pipeline_runs
                     SET status = 'failed',
                         completed_at = NOW(),
-                        error_message = 'Process terminated unexpectedly (server restart)'
-                    WHERE status = 'running'
+                        error_message = 'Pipeline interrupted by server restart. You can safely start a new run.'
+                    WHERE status IN ('running', 'stopping')
                     RETURNING id
                     """
                 )
                 stale_ids = [row[0] for row in cur.fetchall()]
-            conn.commit()
 
         if stale_ids:
             logger.warning(
@@ -57,17 +59,17 @@ def cleanup_stale_pipeline_runs() -> int:
         return len(stale_ids)
 
     except Exception as e:
-        logger.error(f"Failed to cleanup stale pipeline runs: {e}")
-        return 0
+        logger.error(
+            f"Failed to cleanup stale pipeline runs (stale runs may appear stuck in UI): {e}"
+        )
+        return -1
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager for startup/shutdown tasks."""
-    # Startup
     cleanup_stale_pipeline_runs()
     yield
-    # Shutdown (nothing needed currently)
 
 
 # Create FastAPI application

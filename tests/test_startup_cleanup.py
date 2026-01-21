@@ -1,7 +1,8 @@
 """
 Startup Cleanup Tests
 
-Tests for the startup cleanup hook that marks stale 'running' pipeline runs as 'failed'.
+Tests for the startup cleanup hook that marks stale 'running' and 'stopping'
+pipeline runs as 'failed'.
 Run with: pytest tests/test_startup_cleanup.py -v
 """
 
@@ -15,7 +16,7 @@ class TestCleanupStalePipelineRuns:
     """Tests for cleanup_stale_pipeline_runs function."""
 
     def test_cleans_up_stale_runs(self):
-        """Test that stale 'running' runs are marked as 'failed'."""
+        """Test that stale 'running' and 'stopping' runs are marked as 'failed'."""
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [(1,), (2,), (3,)]
 
@@ -31,12 +32,11 @@ class TestCleanupStalePipelineRuns:
 
         assert result == 3
         mock_cursor.execute.assert_called_once()
-        mock_conn.commit.assert_called_once()
 
-        # Verify the SQL updates status to 'failed'
+        # Verify the SQL updates status to 'failed' for both running and stopping
         sql_call = mock_cursor.execute.call_args[0][0]
         assert "status = 'failed'" in sql_call
-        assert "WHERE status = 'running'" in sql_call
+        assert "WHERE status IN ('running', 'stopping')" in sql_call
 
     def test_returns_zero_when_no_stale_runs(self):
         """Test that zero is returned when no stale runs exist."""
@@ -56,16 +56,16 @@ class TestCleanupStalePipelineRuns:
         assert result == 0
 
     def test_handles_database_error_gracefully(self):
-        """Test that database errors are caught and logged."""
+        """Test that database errors return -1 to distinguish from no stale runs."""
         with patch("src.api.main.get_connection") as mock_get_conn:
             mock_get_conn.side_effect = Exception("Database connection failed")
 
             result = cleanup_stale_pipeline_runs()
 
-        assert result == 0
+        assert result == -1
 
-    def test_sets_error_message_on_stale_runs(self):
-        """Test that stale runs get an appropriate error message."""
+    def test_sets_user_friendly_error_message(self):
+        """Test that stale runs get a user-friendly error message."""
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [(5,)]
 
@@ -80,7 +80,7 @@ class TestCleanupStalePipelineRuns:
             cleanup_stale_pipeline_runs()
 
         sql_call = mock_cursor.execute.call_args[0][0]
-        assert "error_message = 'Process terminated unexpectedly" in sql_call
+        assert "You can safely start a new run" in sql_call
 
     def test_sets_completed_at_timestamp(self):
         """Test that stale runs get a completed_at timestamp."""
