@@ -1213,3 +1213,296 @@ class TestClassificationGuidedExploration:
         assert code_context["success"] is False
         assert code_context["error"] == "Classification failed"
         assert code_context["classification_duration_ms"] == 0
+
+
+# -----------------------------------------------------------------------------
+# process_theme_groups Tests (Issue #77)
+# -----------------------------------------------------------------------------
+
+
+class TestProcessThemeGroups:
+    """Tests for process_theme_groups method - pipeline integration entry point."""
+
+    @pytest.fixture
+    def mock_evidence_service(self):
+        """Create mock EvidenceService."""
+        service = Mock()
+        service.create_or_update.return_value = Mock(id=uuid4())
+        return service
+
+    @pytest.fixture
+    def sample_theme_groups(self):
+        """Sample theme groups as produced by pipeline."""
+        return {
+            "billing_invoice_download_error": [
+                {
+                    "id": "conv1",
+                    "product_area": "Billing",
+                    "component": "Invoices",
+                    "user_intent": "Cannot download invoice PDF",
+                    "symptoms": ["error message", "blank page"],
+                    "affected_flow": "invoice_download",
+                    "excerpt": "I tried to download my invoice but got an error",
+                },
+                {
+                    "id": "conv2",
+                    "product_area": "Billing",
+                    "component": "Invoices",
+                    "user_intent": "Invoice download broken",
+                    "symptoms": ["404 error"],
+                    "affected_flow": "invoice_download",
+                    "excerpt": "Getting 404 when trying to access invoice",
+                },
+                {
+                    "id": "conv3",
+                    "product_area": "Billing",
+                    "component": "Invoices",
+                    "user_intent": "PDF download fails",
+                    "symptoms": ["timeout"],
+                    "affected_flow": "invoice_download",
+                    "excerpt": "Download times out after a few seconds",
+                },
+            ],
+            "scheduler_pin_deletion": [
+                {
+                    "id": "conv4",
+                    "product_area": "Scheduler",
+                    "component": "Pins",
+                    "user_intent": "Cannot delete pins",
+                    "symptoms": ["button not working"],
+                    "affected_flow": "pin_management",
+                    "excerpt": "Delete button does nothing",
+                },
+                # Only 1 conversation - should become orphan
+            ],
+        }
+
+    def test_creates_story_for_valid_group(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service, sample_theme_groups
+    ):
+        """Test that groups with >= MIN_GROUP_SIZE conversations create stories."""
+        # Setup mock_story_service db for pipeline_run linking
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+        )
+
+        result = service.process_theme_groups(sample_theme_groups)
+
+        # billing_invoice_download_error has 3 convs -> should create story
+        assert result.stories_created >= 1
+        assert mock_story_service.create.called
+
+    def test_creates_orphan_for_small_group(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service, sample_theme_groups
+    ):
+        """Test that groups with < MIN_GROUP_SIZE conversations create orphans."""
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+        )
+
+        result = service.process_theme_groups(sample_theme_groups)
+
+        # scheduler_pin_deletion has 1 conv -> should create orphan
+        assert result.orphans_created >= 1
+        assert mock_orphan_service.create.called
+
+    def test_creates_evidence_for_stories(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service, sample_theme_groups
+    ):
+        """Test that evidence bundles are created for stories."""
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+        )
+
+        result = service.process_theme_groups(sample_theme_groups)
+
+        # Should create evidence for the story
+        assert mock_evidence_service.create_or_update.called
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        assert "story_id" in call_kwargs
+        assert "conversation_ids" in call_kwargs
+        assert "theme_signatures" in call_kwargs
+
+    def test_links_stories_to_pipeline_run(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service, sample_theme_groups
+    ):
+        """Test that stories are linked to pipeline_run_id."""
+        mock_cursor = Mock()
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+        )
+
+        pipeline_run_id = 42
+        result = service.process_theme_groups(
+            sample_theme_groups,
+            pipeline_run_id=pipeline_run_id,
+        )
+
+        # Should execute UPDATE to link story to pipeline run
+        assert mock_cursor.execute.called
+        # Find the UPDATE call
+        update_calls = [c for c in mock_cursor.execute.call_args_list if 'pipeline_run_id' in str(c)]
+        assert len(update_calls) >= 1
+
+    def test_returns_processing_result(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service, sample_theme_groups
+    ):
+        """Test that ProcessingResult is returned with correct structure."""
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+        )
+
+        result = service.process_theme_groups(sample_theme_groups)
+
+        assert isinstance(result, ProcessingResult)
+        assert result.stories_created >= 0
+        assert result.orphans_created >= 0
+        assert isinstance(result.created_story_ids, list)
+        assert isinstance(result.created_orphan_ids, list)
+        assert isinstance(result.errors, list)
+
+    def test_handles_empty_groups(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test handling of empty theme groups."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+        )
+
+        result = service.process_theme_groups({})
+
+        assert result.stories_created == 0
+        assert result.orphans_created == 0
+        assert len(result.errors) == 0
+
+    def test_handles_missing_fields_gracefully(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test graceful handling of conversations with missing fields."""
+        mock_story_service.db = Mock()
+        mock_story_service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        mock_story_service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+        )
+
+        # Minimal data - only required fields
+        minimal_groups = {
+            "test_signature": [
+                {"id": "conv1"},
+                {"id": "conv2"},
+                {"id": "conv3"},
+            ],
+        }
+
+        # Should not raise
+        result = service.process_theme_groups(minimal_groups)
+        assert len(result.errors) == 0
+
+
+class TestDictToConversationData:
+    """Tests for _dict_to_conversation_data helper."""
+
+    def test_converts_full_dict(self, mock_story_service, mock_orphan_service):
+        """Test conversion with all fields present."""
+        service = StoryCreationService(mock_story_service, mock_orphan_service)
+
+        conv_dict = {
+            "id": "test123",
+            "product_area": "Billing",
+            "component": "Invoices",
+            "user_intent": "Download invoice",
+            "symptoms": ["error", "timeout"],
+            "affected_flow": "invoice_download",
+            "excerpt": "I can't download",
+        }
+
+        result = service._dict_to_conversation_data(conv_dict, "test_signature")
+
+        assert isinstance(result, ConversationData)
+        assert result.id == "test123"
+        assert result.issue_signature == "test_signature"
+        assert result.product_area == "Billing"
+        assert result.component == "Invoices"
+        assert result.symptoms == ["error", "timeout"]
+        assert result.excerpt == "I can't download"
+
+    def test_handles_missing_optional_fields(self, mock_story_service, mock_orphan_service):
+        """Test conversion handles missing optional fields."""
+        service = StoryCreationService(mock_story_service, mock_orphan_service)
+
+        conv_dict = {"id": "test123"}
+
+        result = service._dict_to_conversation_data(conv_dict, "test_signature")
+
+        assert result.id == "test123"
+        assert result.product_area is None
+        assert result.symptoms == []
+        assert result.excerpt is None
+
+    def test_rejects_empty_conversation_id(self, mock_story_service, mock_orphan_service):
+        """Test that empty conversation IDs raise ValueError (S1 fix)."""
+        service = StoryCreationService(mock_story_service, mock_orphan_service)
+
+        # Test with empty string
+        with pytest.raises(ValueError, match="Empty conversation ID"):
+            service._dict_to_conversation_data({"id": ""}, "test_signature")
+
+        # Test with whitespace only
+        with pytest.raises(ValueError, match="Empty conversation ID"):
+            service._dict_to_conversation_data({"id": "   "}, "test_signature")
+
+        # Test with missing id key
+        with pytest.raises(ValueError, match="Empty conversation ID"):
+            service._dict_to_conversation_data({}, "test_signature")
+
+
+class TestGeneratePMResult:
+    """Tests for _generate_pm_result helper."""
+
+    def test_generates_keep_together_result(self, mock_story_service, mock_orphan_service):
+        """Test PM result generation with keep_together decision."""
+        service = StoryCreationService(mock_story_service, mock_orphan_service)
+
+        result = service._generate_pm_result("test_signature", conversation_count=5)
+
+        assert isinstance(result, PMReviewResult)
+        assert result.signature == "test_signature"
+        assert result.decision == "keep_together"
+        assert result.conversation_count == 5
+        assert result.sub_groups == []
