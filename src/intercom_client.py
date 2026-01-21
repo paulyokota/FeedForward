@@ -5,13 +5,17 @@ Fetches conversations and filters to only quality customer messages.
 Based on patterns discovered in Phase 1 (see docs/intercom-data-patterns.md).
 """
 
+import logging
 import os
 import re
+import time
 from datetime import datetime, timedelta
 from typing import Generator, Optional
 
 import requests
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class IntercomConversation(BaseModel):
@@ -42,6 +46,16 @@ class IntercomClient:
     BASE_URL = "https://api.intercom.io"
     API_VERSION = "2.11"
 
+    # HTTP timeout: (connect_timeout, read_timeout) in seconds
+    # - connect: time to establish connection (10s is generous)
+    # - read: time to receive response (30s allows for slow API responses)
+    DEFAULT_TIMEOUT = (10, 30)
+
+    # Retry configuration for transient errors (5xx)
+    MAX_RETRIES = 3
+    RETRY_DELAY_BASE = 2  # seconds (exponential backoff: 2s, 4s, 8s)
+    RETRYABLE_STATUS_CODES = {500, 502, 503, 504}
+
     # Template messages to skip
     TEMPLATE_MESSAGES = [
         "i have a product question or feedback",
@@ -51,10 +65,13 @@ class IntercomClient:
     ]
 
 
-    def __init__(self, access_token: Optional[str] = None):
+    def __init__(self, access_token: Optional[str] = None, timeout: tuple = None, max_retries: int = None):
         self.access_token = access_token or os.getenv("INTERCOM_ACCESS_TOKEN")
         if not self.access_token:
             raise ValueError("INTERCOM_ACCESS_TOKEN not set")
+
+        self.timeout = timeout or self.DEFAULT_TIMEOUT
+        self.max_retries = max_retries if max_retries is not None else self.MAX_RETRIES
 
         self.session = requests.Session()
         self.session.headers.update({
@@ -64,19 +81,76 @@ class IntercomClient:
             "Intercom-Version": self.API_VERSION,
         })
 
-    def _get(self, endpoint: str, params: Optional[dict] = None) -> dict:
-        """Make a GET request to Intercom API."""
+    def _request_with_retry(
+        self,
+        method: str,
+        endpoint: str,
+        params: Optional[dict] = None,
+        json: Optional[dict] = None,
+    ) -> dict:
+        """
+        Make an HTTP request with retry on transient errors.
+
+        Retries on:
+        - 5xx server errors (500, 502, 503, 504)
+        - Connection errors (network issues, timeouts)
+
+        Does NOT retry on:
+        - 4xx client errors (these indicate a problem with the request)
+        """
         url = f"{self.BASE_URL}{endpoint}"
-        response = self.session.get(url, params=params)
-        response.raise_for_status()
-        return response.json()
+        last_exception = None
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                if method == "GET":
+                    response = self.session.get(url, params=params, timeout=self.timeout)
+                else:
+                    response = self.session.post(url, json=json, timeout=self.timeout)
+
+                # Check if we should retry on 5xx
+                if response.status_code in self.RETRYABLE_STATUS_CODES:
+                    if attempt < self.max_retries:
+                        delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                        logger.warning(
+                            f"Intercom API error {response.status_code} on {endpoint}, "
+                            f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                        )
+                        time.sleep(delay)
+                        continue
+                    else:
+                        # Last attempt failed, raise the error
+                        response.raise_for_status()
+
+                # For non-5xx errors (including 4xx), raise immediately without retry
+                response.raise_for_status()
+                return response.json()
+
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                # Retry on connection-level errors
+                last_exception = e
+                if attempt < self.max_retries:
+                    delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                    logger.warning(
+                        f"Intercom API connection error: {e}, "
+                        f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                    )
+                    time.sleep(delay)
+                else:
+                    raise
+
+        # Should not reach here, but just in case
+        if last_exception:
+            raise last_exception
+        raise RuntimeError("Unexpected retry loop exit")
+
+    def _get(self, endpoint: str, params: Optional[dict] = None) -> dict:
+        """Make a GET request to Intercom API with retry."""
+        return self._request_with_retry("GET", endpoint, params=params)
 
     def _post(self, endpoint: str, json: dict) -> dict:
-        """Make a POST request to Intercom API."""
-        url = f"{self.BASE_URL}{endpoint}"
-        response = self.session.post(url, json=json)
-        response.raise_for_status()
-        return response.json()
+        """Make a POST request to Intercom API with retry."""
+        return self._request_with_retry("POST", endpoint, json=json)
 
     @staticmethod
     def strip_html(html: str) -> str:
@@ -175,7 +249,10 @@ class IntercomClient:
             return None
 
         try:
-            response = self.session.get(f"{self.BASE_URL}/contacts/{contact_id}")
+            response = self.session.get(
+                f"{self.BASE_URL}/contacts/{contact_id}",
+                timeout=self.timeout
+            )
             response.raise_for_status()
             contact = response.json()
             custom_attrs = contact.get("custom_attributes", {})
@@ -211,6 +288,12 @@ class IntercomClient:
         results = {}
         semaphore = asyncio.Semaphore(concurrency)
 
+        # Use same timeout as sync client (connect, read)
+        timeout = aiohttp.ClientTimeout(
+            connect=self.timeout[0],
+            total=self.timeout[0] + self.timeout[1]
+        )
+
         async def fetch_one(session: aiohttp.ClientSession, contact_id: str):
             async with semaphore:
                 try:
@@ -230,7 +313,7 @@ class IntercomClient:
                 except Exception:
                     results[contact_id] = None
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             tasks = [fetch_one(session, cid) for cid in unique_ids]
             await asyncio.gather(*tasks)
 
@@ -273,17 +356,26 @@ class IntercomClient:
             data = self._get(endpoint, params)
             conversations = data.get("conversations", [])
 
+            found_old_conversation = False
             for conv in conversations:
                 # Filter by date if specified
                 created_at = conv.get("created_at", 0)
                 conv_time = datetime.fromtimestamp(created_at)
 
                 if since and conv_time < since:
+                    # Intercom returns newest first, so once we hit an old
+                    # conversation, all subsequent ones will be older too.
+                    # Stop pagination after this page.
+                    found_old_conversation = True
                     continue
                 if until and conv_time > until:
                     continue
 
                 yield conv
+
+            # Stop if we've hit conversations older than our date range
+            if found_old_conversation:
+                break
 
             # Check for next page
             pages = data.get("pages", {})
