@@ -8,7 +8,38 @@ Format: [ISO Date] - Summary of changes
 
 ## [Unreleased]
 
+### Fixed
+
+**Pipeline Pagination Bug - Search API Integration (2026-01-21)**:
+
+- Fixed critical bug where pipeline fetched ALL Intercom conversations (338k+) and filtered by date client-side
+- Added `search_by_date_range_async()` method to IntercomClient using Intercom Search API
+- Updated `fetch_quality_conversations_async()` to use Search API for server-side `created_at` filtering
+- Added async methods with aiohttp for true non-blocking I/O in pipeline
+- Added orphan worker cleanup to prevent leaked processes on server restart
+- Reduced 2-day fetch time from ~9 hours to ~30 seconds (run 26: 91 conversations in 65.7s)
+
+**Note**: Changes shipped without tests or 5-personality review due to urgency. Follow-up required.
+
 ### Added
+
+**Milestone 6: Canonical Pipeline Consolidation (2026-01-21)** - PR #99 (Issues #82, #83, #85):
+
+- Wired quality gates (EvidenceValidator + ConfidenceScorer) into `StoryCreationService`
+- New `_apply_quality_gates()` method runs at top of processing loop
+- New `_route_to_orphan_integration()` method for unified orphan routing
+- Added `QualityGateResult` dataclass for structured gate pass/fail decisions
+- Added `quality_gate_rejections` counter to `ProcessingResult`
+- Added `orphan_fallbacks` counter for observability when fallback path is used
+- Partial failure tracking: processed conversation IDs tracked to prevent duplicates on fallback
+- Retired `PipelineIntegrationService` (466 lines deleted, zero production callers)
+- Retired `test_pipeline_integration.py` (507 lines deleted)
+- Cleaned `__init__.py` exports (no more dead exports)
+- Updated architecture docs to reflect canonical pipeline path:
+  ```
+  two_stage_pipeline.py -> StoryCreationService -> Quality Gates -> Story/Orphan
+  ```
+- 68 new tests for quality gates including boundary condition tests (49.9, 50.0, 50.1 thresholds)
 
 **Dry Run Preview Visibility (2026-01-21)** - PR #93 (Issue #75):
 

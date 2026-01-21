@@ -7,8 +7,11 @@ Supports hybrid pipeline with classification, theme extraction, and story creati
 
 import asyncio
 import logging
+import os
+import signal
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Callable, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -44,6 +47,76 @@ _active_runs: dict[int, str] = {}  # run_id -> status
 
 # Terminal states that can be cleaned up
 _TERMINAL_STATES = {"stopped", "completed", "failed"}
+
+# PID file for tracking pipeline worker processes
+# Used to clean up orphaned workers after server restart
+_PID_FILE = Path("/tmp/feedforward_pipeline_workers.pid")
+
+
+def _cleanup_orphaned_workers() -> int:
+    """Kill any orphaned pipeline worker processes from previous server instances.
+
+    Called on module load to clean up workers that survived a server restart.
+    Returns the number of processes killed.
+    """
+    killed = 0
+    if not _PID_FILE.exists():
+        return killed
+
+    try:
+        pids = _PID_FILE.read_text().strip().split('\n')
+        for pid_str in pids:
+            if not pid_str:
+                continue
+            try:
+                pid = int(pid_str)
+                # Check if process exists before killing
+                os.kill(pid, 0)  # Signal 0 just checks if process exists
+                os.kill(pid, signal.SIGTERM)
+                logger.warning(f"Killed orphaned pipeline worker PID {pid}")
+                killed += 1
+            except (ProcessLookupError, ValueError):
+                # Process doesn't exist or invalid PID, ignore
+                pass
+            except PermissionError:
+                logger.warning(f"No permission to kill PID {pid_str}")
+        # Clear the PID file after cleanup
+        _PID_FILE.unlink(missing_ok=True)
+    except Exception as e:
+        logger.error(f"Error cleaning up orphaned workers: {e}")
+
+    return killed
+
+
+def _register_worker_pid(pid: int) -> None:
+    """Register a worker PID for cleanup tracking."""
+    try:
+        # Append PID to file (create if doesn't exist)
+        with open(_PID_FILE, 'a') as f:
+            f.write(f"{pid}\n")
+    except Exception as e:
+        logger.error(f"Error registering worker PID {pid}: {e}")
+
+
+def _unregister_worker_pid(pid: int) -> None:
+    """Remove a worker PID from cleanup tracking."""
+    try:
+        if not _PID_FILE.exists():
+            return
+        pids = _PID_FILE.read_text().strip().split('\n')
+        pids = [p for p in pids if p and p != str(pid)]
+        if pids:
+            _PID_FILE.write_text('\n'.join(pids) + '\n')
+        else:
+            _PID_FILE.unlink(missing_ok=True)
+    except Exception as e:
+        logger.error(f"Error unregistering worker PID {pid}: {e}")
+
+
+# Clean up any orphaned workers on module load (server startup)
+_orphans_killed = _cleanup_orphaned_workers()
+if _orphans_killed:
+    logger.info(f"Cleaned up {_orphans_killed} orphaned pipeline worker(s) on startup")
 
 # In-memory storage for dry run previews (keyed by run_id)
 # Design: Keep last 5 previews, auto-cleanup on new dry runs
@@ -506,15 +579,18 @@ def _run_pipeline_task(
     from src.db.connection import get_connection
     from src.two_stage_pipeline import run_pipeline_async
 
-    _active_runs[run_id] = "running"
-    stop_checker = lambda: _is_stopping(run_id)
-
-    # Track results across phases
-    result = {"fetched": 0, "filtered": 0, "classified": 0, "stored": 0}
-    theme_result = {"themes_extracted": 0, "themes_new": 0}
-    story_result = {"stories_created": 0, "orphans_created": 0}
+    # Register this worker's PID for orphan cleanup on server restart
+    worker_pid = os.getpid()
+    _register_worker_pid(worker_pid)
 
     try:
+        _active_runs[run_id] = "running"
+        stop_checker = lambda: _is_stopping(run_id)
+
+        # Track results across phases
+        result = {"fetched": 0, "filtered": 0, "classified": 0, "stored": 0}
+        theme_result = {"themes_extracted": 0, "themes_new": 0}
+        story_result = {"stories_created": 0, "orphans_created": 0}
         # ==== PHASE 1: Classification ====
         if stop_checker():
             _finalize_stopped_run(run_id, result, theme_result, story_result)
@@ -620,6 +696,7 @@ def _run_pipeline_task(
 
         # ==== COMPLETED ====
         _finalize_completed_run(run_id, result, theme_result, story_result)
+        _unregister_worker_pid(worker_pid)
 
     except Exception as e:
         # Update with error
@@ -636,6 +713,10 @@ def _run_pipeline_task(
 
         _active_runs[run_id] = "failed"
         raise
+
+    finally:
+        # Always unregister worker PID on completion/failure/stop
+        _unregister_worker_pid(worker_pid)
 
 
 def _finalize_completed_run(run_id: int, result: dict, theme_result: dict, story_result: dict):
@@ -673,6 +754,7 @@ def _finalize_completed_run(run_id: int, result: dict, theme_result: dict, story
 
     logger.info(f"Run {run_id}: Pipeline completed successfully")
     _active_runs[run_id] = "completed"
+    # Note: worker_pid cleanup happens in the caller (_run_pipeline_task)
 
 
 def _finalize_stopped_run(

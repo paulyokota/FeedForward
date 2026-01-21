@@ -17,11 +17,14 @@ Multi-source support:
 - --source coda: Process Coda research data
 """
 import asyncio
+import logging
 import os
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -466,26 +469,57 @@ async def run_pipeline_async(
     client = IntercomClient()
     since = datetime.utcnow() - timedelta(days=days)
 
-    # Phase 1: Fetch all conversations (must be sync due to Intercom client)
-    print("Phase 1: Fetching conversations from Intercom...")
+    # Phase 1: Fetch all conversations (fully async with aiohttp)
+    print("Phase 1: Fetching conversations from Intercom...", flush=True)
+    print("[PIPELINE] Starting Phase 1: Fetch conversations", flush=True)
     conversations = []
-    for parsed, raw_conv in client.fetch_quality_conversations(since=since, max_pages=None):
+
+    # Use async generator for pagination
+    print("[PIPELINE] About to enter async for loop over fetch_quality_conversations_async", flush=True)
+    async for parsed, raw_conv in client.fetch_quality_conversations_async(since=since):
+        print(f"[PIPELINE] Received conversation {parsed.id} from async generator", flush=True)
         # Check for stop signal during fetch
         if should_stop():
-            print("  Stop signal received during fetch, stopping...")
+            print("  Stop signal received during fetch, stopping...", flush=True)
+            print("[PIPELINE] Stop signal received, breaking loop", flush=True)
             break
 
-        # Get full conversation with parts
-        full_conv = client.get_conversation(parsed.id)
-        conversations.append((parsed, full_conv))
+        # Get full conversation with parts (need session for this)
+        # We'll batch this after initial fetch for efficiency
+        conversations.append((parsed, raw_conv))
 
         if len(conversations) % 50 == 0:
             print(f"  Fetched {len(conversations)} conversations...", flush=True)
+            print(f"[PIPELINE] Milestone: {len(conversations)} conversations fetched", flush=True)
 
         if max_conversations and len(conversations) >= max_conversations:
+            print(f"[PIPELINE] Reached max_conversations={max_conversations}, breaking loop", flush=True)
             break
 
-    print(f"  Total fetched: {len(conversations)}")
+    print(f"[PIPELINE] Exited async for loop, total conversations: {len(conversations)}", flush=True)
+    print(f"  Total fetched: {len(conversations)}", flush=True)
+
+    # Phase 1b: Fetch full conversation details in parallel
+    if conversations:
+        print(f"  Fetching full conversation details for {len(conversations)} conversations...")
+        async with client._get_aiohttp_session() as session:
+            # Batch fetch with semaphore for rate limiting
+            detail_semaphore = asyncio.Semaphore(concurrency)
+
+            async def fetch_detail(parsed, raw_conv):
+                async with detail_semaphore:
+                    try:
+                        full_conv = await client.get_conversation_async(session, parsed.id)
+                        return (parsed, full_conv)
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch details for {parsed.id}: {e}")
+                        return (parsed, raw_conv)  # Fall back to raw_conv
+
+            tasks = [fetch_detail(p, r) for p, r in conversations]
+            conversations = await asyncio.gather(*tasks)
+            conversations = list(conversations)  # Convert from tuple
+
+        print(f"  Fetched details for {len(conversations)} conversations")
 
     # Check for stop signal before classification
     if should_stop():
@@ -792,7 +826,7 @@ def run_pipeline(
     BATCH_SIZE = 50
 
     # Process conversations
-    for parsed, raw_conv in client.fetch_quality_conversations(since=since, max_pages=1):
+    for parsed, raw_conv in client.fetch_quality_conversations(since=since, max_pages=None):
         stats["fetched"] += 1
 
         # Get full conversation details (includes parts)
