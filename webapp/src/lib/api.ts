@@ -240,7 +240,12 @@ export const api = {
       if (sourceTypes && sourceTypes.length > 0) {
         sourceTypes.forEach((type) => params.append("source_types", type));
       }
-      return fetcher(`/api/research/search?${params}`);
+      const response = await fetcher<{
+        results: SearchResult[];
+        total: number;
+        query: string;
+      }>(`/api/research/search?${params}`);
+      return response.results;
     },
 
     getSimilar: async (
@@ -250,9 +255,13 @@ export const api = {
     ): Promise<SearchResult[]> => {
       const params = new URLSearchParams();
       params.set("limit", limit.toString());
-      return fetcher(
+      const response = await fetcher<{
+        results: SearchResult[];
+        reference: { source_type: string; source_id: string };
+      }>(
         `/api/research/similar/${sourceType}/${encodeURIComponent(sourceId)}?${params}`,
       );
+      return response.results;
     },
 
     getSuggestedEvidence: async (
@@ -314,6 +323,14 @@ export const api = {
 
     stop: async (): Promise<PipelineStopResponse> => {
       return fetcher("/api/pipeline/stop", {
+        method: "POST",
+      });
+    },
+
+    createStories: async (
+      runId: number,
+    ): Promise<{ stories_created: number; orphans_created: number }> => {
+      return fetcher(`/api/pipeline/${runId}/create-stories`, {
         method: "POST",
       });
     },

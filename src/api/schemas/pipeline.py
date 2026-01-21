@@ -34,6 +34,10 @@ class PipelineRunRequest(BaseModel):
         le=50,
         description="Number of parallel API calls"
     )
+    auto_create_stories: bool = Field(
+        default=False,
+        description="If True, automatically run PM review and create stories after theme extraction"
+    )
 
 
 class PipelineRunResponse(BaseModel):
@@ -56,12 +60,27 @@ class PipelineStatus(BaseModel):
     # Configuration
     date_from: Optional[datetime] = None
     date_to: Optional[datetime] = None
+    auto_create_stories: bool = False
 
-    # Progress/results
+    # Phase tracking
+    current_phase: str = "classification"  # classification, theme_extraction, pm_review, story_creation, completed
+
+    # Progress/results - Classification phase
     conversations_fetched: int = 0
     conversations_filtered: int = 0
     conversations_classified: int = 0
     conversations_stored: int = 0
+
+    # Progress/results - Theme extraction phase
+    themes_extracted: int = 0
+    themes_new: int = 0
+
+    # Progress/results - Story creation phase
+    stories_created: int = 0
+    orphans_created: int = 0
+
+    # Story creation readiness
+    stories_ready: bool = False  # True when themes extracted, can create stories
 
     # Computed
     duration_seconds: Optional[float] = None
@@ -77,9 +96,13 @@ class PipelineRunListItem(BaseModel):
     started_at: datetime
     completed_at: Optional[datetime] = None
     status: Literal["running", "stopping", "stopped", "completed", "failed"]
+    current_phase: str = "classification"
     conversations_fetched: int = 0
     conversations_classified: int = 0
     conversations_stored: int = 0
+    themes_extracted: int = 0
+    stories_created: int = 0
+    stories_ready: bool = False
     duration_seconds: Optional[float] = None
 
     class Config:
@@ -91,4 +114,13 @@ class PipelineStopResponse(BaseModel):
 
     run_id: int
     status: Literal["stopping", "stopped", "not_running"]
+    message: str
+
+
+class CreateStoriesResponse(BaseModel):
+    """Response when creating stories from a pipeline run."""
+
+    run_id: int
+    stories_created: int = 0
+    orphans_created: int = 0
     message: str

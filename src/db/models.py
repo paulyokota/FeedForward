@@ -142,15 +142,30 @@ class PipelineRun(BaseModel):
     # Configuration
     date_from: Optional[datetime] = None
     date_to: Optional[datetime] = None
+    auto_create_stories: bool = False
 
-    # Results
+    # Phase tracking
+    current_phase: str = "classification"  # classification, theme_extraction, pm_review, story_creation, completed
+
+    # Results - Classification phase
     conversations_fetched: int = 0
     conversations_filtered: int = 0
     conversations_classified: int = 0
     conversations_stored: int = 0
 
+    # Results - Theme extraction phase
+    themes_extracted: int = 0
+    themes_new: int = 0
+
+    # Results - Story creation phase
+    stories_created: int = 0
+    orphans_created: int = 0
+
+    # Story creation readiness
+    stories_ready: bool = False  # True when themes extracted, can create stories
+
     # Status
-    status: Literal["running", "completed", "failed"] = "running"
+    status: Literal["running", "stopping", "stopped", "completed", "failed"] = "running"
     error_message: Optional[str] = None
 
     class Config:

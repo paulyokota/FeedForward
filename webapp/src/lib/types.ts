@@ -367,11 +367,19 @@ export type PipelineRunStatus =
   | "completed"
   | "failed";
 
+export type PipelinePhase =
+  | "classification"
+  | "theme_extraction"
+  | "pm_review"
+  | "story_creation"
+  | "completed";
+
 export interface PipelineRunRequest {
   days?: number;
   max_conversations?: number;
   dry_run?: boolean;
   concurrency?: number;
+  auto_create_stories?: boolean;
 }
 
 export interface PipelineRunResponse {
@@ -393,6 +401,13 @@ export interface PipelineStatus {
   conversations_classified: number;
   conversations_stored: number;
   duration_seconds: number | null;
+  // Hybrid pipeline fields
+  current_phase: PipelinePhase | null;
+  themes_extracted: number;
+  themes_new: number;
+  stories_created: number;
+  orphans_created: number;
+  stories_ready: boolean;
 }
 
 export interface PipelineRunListItem {
@@ -404,6 +419,11 @@ export interface PipelineRunListItem {
   conversations_classified: number;
   conversations_stored: number;
   duration_seconds: number | null;
+  // Hybrid pipeline fields (from migration 009)
+  current_phase: PipelinePhase | null;
+  themes_extracted: number;
+  stories_created: number;
+  stories_ready: boolean;
 }
 
 export interface PipelineStopResponse {
