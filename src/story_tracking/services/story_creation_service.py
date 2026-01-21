@@ -22,6 +22,31 @@ from .orphan_service import OrphanService
 from .story_service import StoryService
 from .evidence_service import EvidenceService
 
+# Quality gate imports (optional dependencies - graceful degradation if unavailable)
+try:
+    from src.evidence_validator import validate_samples, EvidenceQuality
+    EVIDENCE_VALIDATOR_AVAILABLE = True
+except ImportError:
+    validate_samples = None
+    EvidenceQuality = None
+    EVIDENCE_VALIDATOR_AVAILABLE = False
+
+try:
+    from src.confidence_scorer import ConfidenceScorer, ScoredGroup
+    CONFIDENCE_SCORER_AVAILABLE = True
+except ImportError:
+    ConfidenceScorer = None
+    ScoredGroup = None
+    CONFIDENCE_SCORER_AVAILABLE = False
+
+# OrphanIntegrationService for unified orphan routing
+try:
+    from .orphan_integration import OrphanIntegrationService
+    ORPHAN_INTEGRATION_AVAILABLE = True
+except ImportError:
+    OrphanIntegrationService = None
+    ORPHAN_INTEGRATION_AVAILABLE = False
+
 # Optional dual-format components (graceful degradation if unavailable)
 try:
     from src.story_formatter import DualStoryFormatter, DualFormatOutput
@@ -117,6 +142,37 @@ class ProcessingResult:
     errors: List[str] = field(default_factory=list)
     created_story_ids: List[UUID] = field(default_factory=list)
     created_orphan_ids: List[UUID] = field(default_factory=list)
+    quality_gate_rejections: int = 0  # NEW: Track groups rejected by quality gates
+
+
+@dataclass
+class QualityGateResult:
+    """
+    Result of running quality gates on a theme group.
+
+    Used to determine whether a group should become a story or be routed
+    to orphan integration for accumulation.
+    """
+
+    signature: str
+    passed: bool
+
+    # Validation results (from EvidenceValidator)
+    evidence_quality: Optional[Any] = None  # EvidenceQuality if available
+    validation_passed: bool = True
+
+    # Scoring results (from ConfidenceScorer)
+    scored_group: Optional[Any] = None  # ScoredGroup if available
+    confidence_score: float = 0.0
+    scoring_passed: bool = True
+
+    # Failure details for logging/debugging
+    failure_reason: Optional[str] = None
+
+
+# Default quality gate configuration
+DEFAULT_CONFIDENCE_THRESHOLD = 50.0
+DEFAULT_VALIDATION_ENABLED = True
 
 
 class StoryCreationService:
@@ -137,6 +193,10 @@ class StoryCreationService:
         story_service: StoryService,
         orphan_service: OrphanService,
         evidence_service: Optional[EvidenceService] = None,
+        orphan_integration_service: Optional["OrphanIntegrationService"] = None,
+        confidence_scorer: Optional["ConfidenceScorer"] = None,
+        confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
+        validation_enabled: bool = DEFAULT_VALIDATION_ENABLED,
         dual_format_enabled: bool = False,
         target_repo: Optional[str] = None,
     ):
@@ -147,6 +207,14 @@ class StoryCreationService:
             story_service: Service for story CRUD operations
             orphan_service: Service for orphan CRUD operations
             evidence_service: Service for evidence bundle operations (optional)
+            orphan_integration_service: Service for unified orphan routing (optional).
+                                       Falls back to orphan_service.create() if not provided.
+            confidence_scorer: Scorer for evaluating group coherence (optional).
+                              Scoring is skipped if not provided.
+            confidence_threshold: Minimum confidence score for story creation (default: 50.0).
+                                 Groups below this threshold are routed to orphans.
+            validation_enabled: If True, enforce evidence validation (default: True).
+                               Set to False to disable validation during migration.
             dual_format_enabled: If True, generate dual-format stories (v2) with
                                 codebase context. Default False for backward compatibility.
             target_repo: Repository name for codebase exploration (required if dual_format_enabled)
@@ -156,6 +224,24 @@ class StoryCreationService:
         self.evidence_service = evidence_service
         self.dual_format_enabled = dual_format_enabled
         self.target_repo = target_repo
+
+        # Quality gate configuration
+        self.orphan_integration_service = orphan_integration_service
+        self.confidence_scorer = confidence_scorer
+        self.confidence_threshold = confidence_threshold
+        self.validation_enabled = validation_enabled
+
+        # Log quality gate configuration
+        if confidence_scorer:
+            logger.info(
+                f"Quality gates enabled: confidence_threshold={confidence_threshold}, "
+                f"validation_enabled={validation_enabled}"
+            )
+        else:
+            logger.debug("ConfidenceScorer not provided, scoring will be skipped")
+
+        if orphan_integration_service:
+            logger.debug("OrphanIntegrationService provided for unified orphan routing")
 
         # Initialize optional dual-format components
         if dual_format_enabled:
@@ -243,6 +329,11 @@ class StoryCreationService:
         This is the UI pipeline entry point for story creation. Converts
         the pipeline's theme data format into stories and orphans.
 
+        Quality gates are applied at the top of the processing loop:
+        1. EvidenceValidator checks for required fields (id, excerpt)
+        2. ConfidenceScorer evaluates group coherence
+        3. Groups failing either gate are routed to orphan integration
+
         Args:
             theme_groups: Dict mapping signature -> list of conversation dicts.
                 Each conversation dict should have:
@@ -269,15 +360,30 @@ class StoryCreationService:
                     for d in conv_dicts
                 ]
 
+                # QUALITY GATES: Apply validation and scoring BEFORE deciding story vs orphan
+                gate_result = self._apply_quality_gates(signature, conversations, conv_dicts)
+
+                if not gate_result.passed:
+                    # Route to orphan integration (unified orphan logic)
+                    self._route_to_orphan_integration(
+                        signature=signature,
+                        conversations=conversations,
+                        failure_reason=gate_result.failure_reason or "Quality gate failed",
+                        result=result,
+                    )
+                    result.quality_gate_rejections += 1
+                    continue
+
                 # Generate default PM result (keep_together)
                 pm_result = self._generate_pm_result(signature, len(conversations))
 
-                # Process using existing logic
+                # Process using existing logic, passing confidence score from gates
                 self._process_single_result_with_pipeline_run(
                     pm_result=pm_result,
                     conversations=conversations,
                     result=result,
                     pipeline_run_id=pipeline_run_id,
+                    confidence_score=gate_result.confidence_score,
                 )
 
             except (KeyboardInterrupt, SystemExit):
@@ -290,10 +396,191 @@ class StoryCreationService:
         logger.info(
             f"Processed theme groups: {result.stories_created} stories created, "
             f"{result.orphans_created} orphans created, "
-            f"{result.orphans_updated} orphans updated"
+            f"{result.orphans_updated} orphans updated, "
+            f"{result.quality_gate_rejections} quality gate rejections"
         )
 
         return result
+
+    def _apply_quality_gates(
+        self,
+        signature: str,
+        conversations: List[ConversationData],
+        conv_dicts: List[Dict[str, Any]],
+    ) -> QualityGateResult:
+        """
+        Apply validation and confidence scoring to a theme group.
+
+        This method runs both quality gates and combines results into a single
+        pass/fail decision. Gates run in order (validation fast, scoring may call API).
+
+        Args:
+            signature: Issue signature for the group
+            conversations: List of ConversationData objects
+            conv_dicts: Original conversation dicts (for ConfidenceScorer which expects dicts)
+
+        Returns:
+            QualityGateResult with pass/fail and details
+        """
+        # Start with a passing result
+        result = QualityGateResult(
+            signature=signature,
+            passed=True,
+            validation_passed=True,
+            scoring_passed=True,
+        )
+
+        # Early exit: groups with < MIN_GROUP_SIZE always fail (preserves existing behavior)
+        # Note: This check is also in _process_single_result_with_pipeline_run, but we
+        # duplicate it here to give a clear failure reason in quality gate results.
+        if len(conversations) < MIN_GROUP_SIZE:
+            result.passed = False
+            result.failure_reason = f"Group has {len(conversations)} conversations, minimum is {MIN_GROUP_SIZE}"
+            logger.debug(f"Quality gate FAIL for '{signature}': {result.failure_reason}")
+            return result
+
+        # GATE 1: Evidence Validation (if enabled)
+        if self.validation_enabled and EVIDENCE_VALIDATOR_AVAILABLE and validate_samples:
+            try:
+                evidence_quality = validate_samples(conv_dicts)
+                result.evidence_quality = evidence_quality
+
+                if not evidence_quality.is_valid:
+                    result.passed = False
+                    result.validation_passed = False
+                    result.failure_reason = f"Evidence validation failed: {'; '.join(evidence_quality.errors)}"
+                    logger.info(
+                        f"Quality gate FAIL (validation) for '{signature}': "
+                        f"{result.failure_reason}"
+                    )
+                    return result
+                else:
+                    logger.debug(
+                        f"Evidence validation PASS for '{signature}': "
+                        f"{evidence_quality.sample_count} samples"
+                    )
+            except Exception as e:
+                # Conservative: treat validation errors as failures
+                result.passed = False
+                result.validation_passed = False
+                result.failure_reason = f"Evidence validation error: {e}"
+                logger.warning(
+                    f"Quality gate FAIL (validation error) for '{signature}': {e}"
+                )
+                return result
+
+        # GATE 2: Confidence Scoring (if scorer available)
+        if self.confidence_scorer:
+            try:
+                # ConfidenceScorer expects {signature: [dicts]} format
+                scored_groups = self.confidence_scorer.score_groups(
+                    {signature: conv_dicts},
+                    verbose=False,
+                )
+
+                if scored_groups:
+                    scored_group = scored_groups[0]
+                    result.scored_group = scored_group
+                    result.confidence_score = scored_group.confidence_score
+
+                    if scored_group.confidence_score < self.confidence_threshold:
+                        result.passed = False
+                        result.scoring_passed = False
+                        result.failure_reason = (
+                            f"Confidence score {scored_group.confidence_score:.1f} "
+                            f"below threshold {self.confidence_threshold:.1f}"
+                        )
+                        logger.info(
+                            f"Quality gate FAIL (confidence) for '{signature}': "
+                            f"{result.failure_reason}"
+                        )
+                        return result
+                    else:
+                        logger.debug(
+                            f"Confidence scoring PASS for '{signature}': "
+                            f"score={scored_group.confidence_score:.1f}"
+                        )
+            except Exception as e:
+                # Conservative: treat scoring errors as failures (API rate limit, etc.)
+                result.passed = False
+                result.scoring_passed = False
+                result.failure_reason = f"Confidence scoring error: {e}"
+                logger.warning(
+                    f"Quality gate FAIL (scoring error) for '{signature}': {e}"
+                )
+                return result
+        else:
+            # No scorer configured - skip scoring, treat as passed
+            logger.debug(f"Confidence scoring skipped for '{signature}' (no scorer configured)")
+            # Set a default confidence score for groups without scoring
+            result.confidence_score = 0.0
+
+        logger.debug(f"Quality gates PASS for '{signature}'")
+        return result
+
+    def _route_to_orphan_integration(
+        self,
+        signature: str,
+        conversations: List[ConversationData],
+        failure_reason: str,
+        result: ProcessingResult,
+    ) -> None:
+        """
+        Route a failed group to OrphanIntegrationService for accumulation.
+
+        Uses OrphanIntegrationService if available, otherwise falls back to
+        direct OrphanService.create() via _create_or_update_orphan().
+
+        Args:
+            signature: Issue signature for the group
+            conversations: List of ConversationData objects
+            failure_reason: Why the group failed quality gates
+            result: ProcessingResult to update
+        """
+        logger.info(
+            f"Routing '{signature}' to orphan integration: {failure_reason} "
+            f"({len(conversations)} conversations)"
+        )
+
+        # Try OrphanIntegrationService first (unified orphan logic)
+        if self.orphan_integration_service:
+            try:
+                for conv in conversations:
+                    # Build theme data dict for orphan integration
+                    theme_data = {
+                        "conversation_id": conv.id,
+                        "id": conv.id,
+                        "issue_signature": signature,
+                        "user_intent": conv.user_intent,
+                        "symptoms": conv.symptoms,
+                        "product_area": conv.product_area,
+                        "component": conv.component,
+                        "affected_flow": conv.affected_flow,
+                        "excerpt": conv.excerpt,
+                    }
+                    self.orphan_integration_service.process_theme(conv.id, theme_data)
+
+                # Count as orphan updates (OrphanIntegrationService handles create vs update)
+                result.orphans_updated += 1
+                logger.debug(
+                    f"Routed {len(conversations)} conversations to OrphanIntegrationService"
+                )
+                return
+
+            except Exception as e:
+                logger.warning(
+                    f"OrphanIntegrationService failed for '{signature}': {e}, "
+                    f"falling back to direct orphan creation"
+                )
+                # Fall through to fallback path
+
+        # Fallback: Use existing _create_or_update_orphan method
+        self._create_or_update_orphan(
+            signature=signature,
+            original_signature=None,
+            conversations=conversations,
+            result=result,
+        )
 
     def _dict_to_conversation_data(
         self,
@@ -338,6 +625,7 @@ class StoryCreationService:
         conversations: List[ConversationData],
         result: ProcessingResult,
         pipeline_run_id: Optional[int] = None,
+        confidence_score: Optional[float] = None,
     ) -> None:
         """
         Process a single PM review decision with pipeline run linking.
@@ -346,6 +634,14 @@ class StoryCreationService:
         1. Takes conversations directly (not by signature lookup)
         2. Links created stories to pipeline_run_id
         3. Creates evidence bundles if evidence_service is available
+        4. Passes confidence_score from quality gates to story creation
+
+        Args:
+            pm_result: PM review decision
+            conversations: List of ConversationData objects
+            result: ProcessingResult to update
+            pipeline_run_id: Optional pipeline run ID to link story to
+            confidence_score: Optional confidence score from quality gates
         """
         if pm_result.decision == "error":
             result.errors.append(f"PM review failed for {pm_result.signature}")
@@ -378,6 +674,7 @@ class StoryCreationService:
                     reasoning=pm_result.reasoning,
                     result=result,
                     pipeline_run_id=pipeline_run_id,
+                    confidence_score=confidence_score,
                 )
         else:
             result.errors.append(
@@ -392,11 +689,21 @@ class StoryCreationService:
         result: ProcessingResult,
         pipeline_run_id: Optional[int] = None,
         original_signature: Optional[str] = None,
+        confidence_score: Optional[float] = None,
     ) -> None:
         """
         Create a story with evidence bundle and pipeline run linking.
 
         This is the main story creation path for pipeline-generated stories.
+
+        Args:
+            signature: Issue signature for the story
+            conversations: List of ConversationData objects
+            reasoning: PM review reasoning
+            result: ProcessingResult to update
+            pipeline_run_id: Optional pipeline run ID to link story to
+            original_signature: Original signature if split from larger group
+            confidence_score: Optional confidence score from quality gates
         """
         # Build theme data from conversations
         theme_data = self._build_theme_data(conversations)
@@ -406,7 +713,7 @@ class StoryCreationService:
         if self.dual_format_enabled:
             code_context = self._explore_codebase_with_classification(theme_data)
 
-        # Create story
+        # Create story with confidence_score from quality gates
         story = self.story_service.create(StoryCreate(
             title=self._generate_title(signature, theme_data),
             description=self._generate_description(
@@ -416,6 +723,7 @@ class StoryCreationService:
                 original_signature,
             ),
             labels=[],
+            confidence_score=confidence_score,
             product_area=theme_data.get("product_area"),
             technical_area=theme_data.get("component"),
             status="candidate",

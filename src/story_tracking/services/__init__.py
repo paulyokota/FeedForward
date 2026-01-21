@@ -31,7 +31,6 @@ from .orphan_integration import (
     create_orphan_integration_hook,
 )
 from .orphan_service import OrphanService
-from .pipeline_integration import PipelineIntegrationService, ValidatedGroup
 from .story_creation_service import StoryCreationService
 from .story_service import StoryService
 from .sync_service import SyncService
@@ -47,13 +46,11 @@ __all__ = [
     "OrphanIntegrationResult",
     "OrphanIntegrationService",
     "OrphanService",
-    "PipelineIntegrationService",
     "StaticContext",
     "StoryCreationService",
     "StoryService",
     "SyncResult",
     "SyncService",
-    "ValidatedGroup",
     "create_orphan_integration_hook",
     "filter_exploration_results",
     "get_repo_path",
