@@ -12,13 +12,69 @@ API Documentation available at:
     - ReDoc: http://localhost:8000/redoc
 """
 
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routers import analytics, health, labels, pipeline, research, stories, sync, themes
+from src.db.connection import get_connection
+
+logger = logging.getLogger(__name__)
+
+
+def cleanup_stale_pipeline_runs() -> int:
+    """
+    Mark any in-progress pipeline runs as 'failed' on startup.
+
+    This handles the case where the server was restarted while a pipeline
+    was running or stopping, leaving stale status in the database.
+
+    Note: This assumes single-instance deployment. Multi-instance deployments
+    would require a heartbeat mechanism to distinguish truly stale runs.
+
+    Returns:
+        Number of stale runs cleaned up, or -1 if cleanup failed.
+    """
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE pipeline_runs
+                    SET status = 'failed',
+                        completed_at = NOW(),
+                        error_message = 'Pipeline interrupted by server restart. You can safely start a new run.'
+                    WHERE status IN ('running', 'stopping')
+                    RETURNING id
+                    """
+                )
+                stale_ids = [row[0] for row in cur.fetchall()]
+
+        if stale_ids:
+            logger.warning(
+                f"Cleaned up {len(stale_ids)} stale pipeline run(s) from previous session: {stale_ids}"
+            )
+        return len(stale_ids)
+
+    except Exception as e:
+        logger.error(
+            f"Failed to cleanup stale pipeline runs (stale runs may appear stuck in UI): {e}"
+        )
+        return -1
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager for startup/shutdown tasks."""
+    cleanup_stale_pipeline_runs()
+    yield
+
 
 # Create FastAPI application
 app = FastAPI(
+    lifespan=lifespan,
     title="FeedForward API",
     description="""
     Operational API for the FeedForward conversation analysis pipeline.
