@@ -227,6 +227,36 @@ Customer Message
      - Resolution pattern detection
    - **Output**: refined conversation_type, confidence, disambiguation_level, support_insights
 
+3. **Resolution and Knowledge Integration** (PR #92)
+   - **ResolutionAnalyzer** (`src/resolution_analyzer.py`) - Integrated into `two_stage_pipeline.py`
+     - Detects 48 resolution patterns across 6 categories
+     - Provides full analysis: primary_action, action_category, all_actions, categories, suggested_type
+     - Module-level eager initialization for efficient re-use
+   - **KnowledgeExtractor** (`src/knowledge_extractor.py`) - Integrated into `two_stage_pipeline.py`
+     - Extracts: root_cause, solution_provided, product_mentions, feature_mentions
+     - Detects self_service_gap with gap_evidence
+   - **support_insights JSONB** - Populated with structured data:
+     ```json
+     {
+       "resolution_analysis": {
+         "primary_action": "refund_processed",
+         "action_category": "billing_resolution",
+         "all_actions": ["refund_processed"],
+         "categories": ["billing"],
+         "suggested_type": "billing_question",
+         "matched_keywords": ["processed your refund"]
+       },
+       "knowledge": {
+         "root_cause": "billing sync issue",
+         "solution_provided": "processed refund",
+         "product_mentions": ["Pro plan"],
+         "feature_mentions": ["billing"],
+         "self_service_gap": true,
+         "gap_evidence": "Support manually cancelled"
+       }
+     }
+     ```
+
 **Test Results**:
 
 - **Stage 1**: 100% high confidence on test data (5/5 real conversations)
@@ -250,11 +280,13 @@ Stage 2: configuration_help (high) - True root cause identified
 - `src/classifier_stage1.py` - Fast routing classifier
 - `src/classifier_stage2.py` - Refined analysis classifier
 - `src/classification_manager.py` - Orchestrates both stages
-- `src/resolution_analyzer.py` - Detects support actions
-- `src/knowledge_extractor.py` - Extracts insights per conversation
+- `src/resolution_analyzer.py` - Detects support actions (integrated into two_stage_pipeline.py)
+- `src/knowledge_extractor.py` - Extracts insights per conversation (integrated into two_stage_pipeline.py)
 - `src/knowledge_aggregator.py` - Aggregates knowledge across conversations
+- `src/two_stage_pipeline.py` - End-to-end pipeline with ResolutionAnalyzer + KnowledgeExtractor integration
+- `tests/test_pipeline_integration_insights.py` - 21 tests for pipeline integration
 
-**Status**: Production ready, 100% high confidence, awaiting database integration
+**Status**: Production ready, support_insights populated with resolution_analysis and knowledge data
 
 ### 7. Equivalence Class System (NEW - 2026-01-08)
 
@@ -831,15 +863,15 @@ Optional:
 
 **API Endpoints (25+ total)**:
 
-| Category  | Endpoints                                                                        |
-| --------- | -------------------------------------------------------------------------------- |
-| Health    | `/health`, `/health/db`, `/health/full`                                          |
-| Analytics | `/api/analytics/dashboard`, `/stats`, `/stories`, `/themes/trending`, `/sources` |
-| Pipeline  | `/api/pipeline/run`, `/status/{id}`, `/history`, `/active`                       |
-| Themes    | `/api/themes/trending`, `/orphans`, `/singletons`, `/all`, `/{signature}`        |
-| Stories   | `/api/stories`, `/api/stories/{id}`, `/board`, `/search`                         |
-| Sync      | `/api/sync/shortcut/push`, `/pull`, `/webhook`, `/status/{id}`                   |
-| Labels    | `/api/labels`, `/api/labels/import`                                              |
+| Category  | Endpoints                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------- |
+| Health    | `/health`, `/health/db`, `/health/full`                                                     |
+| Analytics | `/api/analytics/dashboard`, `/stats`, `/stories`, `/themes/trending`, `/sources`            |
+| Pipeline  | `/api/pipeline/run`, `/status/{id}`, `/status/{id}/preview`, `/history`, `/active`, `/stop` |
+| Themes    | `/api/themes/trending`, `/orphans`, `/singletons`, `/all`, `/{signature}`                   |
+| Stories   | `/api/stories`, `/api/stories/{id}`, `/board`, `/search`                                    |
+| Sync      | `/api/sync/shortcut/push`, `/pull`, `/webhook`, `/status/{id}`                              |
+| Labels    | `/api/labels`, `/api/labels/import`                                                         |
 
 **Frontend Pages**:
 
@@ -996,6 +1028,8 @@ CODA_DOC_ID=c4RRJ_VLtW
 | `LabelRegistryService`       | Label management, Shortcut taxonomy import          |
 | `AnalyticsService`           | Story metrics, trending themes, source distribution |
 | `PipelineIntegrationService` | Bridge PM review output to story creation           |
+| `StoryCreationService`       | Process theme groups into stories/orphans (PR #81)  |
+| `OrphanService`              | Manage orphan conversations below MIN_GROUP_SIZE    |
 
 **API Routes**:
 
@@ -1039,7 +1073,9 @@ src/story_tracking/
     ├── sync_service.py
     ├── label_registry_service.py
     ├── analytics_service.py
-    └── pipeline_integration.py
+    ├── pipeline_integration.py
+    ├── story_creation_service.py  # NEW: Pipeline story creation
+    └── orphan_service.py
 
 src/api/routers/
 ├── stories.py           # Story CRUD + board

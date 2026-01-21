@@ -48,6 +48,8 @@ When designing systems:
 <!-- Updated by Tech Lead after each session where Priya runs -->
 <!-- Format: - YYYY-MM-DD: [Lesson description] -->
 
+- 2026-01-21: Architecture recommendations (DELETE vs INTEGRATE) are proposals, not mandates. PR #92 showed that presenting options (ResolutionAnalyzer: retire vs integrate) lets the user choose based on their priorities. The user chose INTEGRATE over the architect's DELETE recommendation, and the integration worked well. Present options with tradeoffs; don't dictate.
+
 ---
 
 ## Working Patterns

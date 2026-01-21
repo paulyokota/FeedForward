@@ -12,7 +12,113 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 
-## Latest: Roadmap Planning & Agent Protocol (2026-01-20)
+## Latest: Dry Run Preview Visibility (2026-01-21)
+
+### Session Summary
+
+Completed PR #93 (Issue #75): Added ability to preview classification results from dry runs in the UI. Users can now see what would have been classified before committing to a production run.
+
+### What Was Done
+
+**PR #93 Merged** - Dry Run Preview Visibility:
+
+| Change                                                                   | Impact                                                   |
+| ------------------------------------------------------------------------ | -------------------------------------------------------- |
+| New endpoint `GET /api/pipeline/status/{run_id}/preview`                 | Preview dry run results without storing to database      |
+| `DryRunSample`, `DryRunClassificationBreakdown`, `DryRunPreview` schemas | Structured preview data for frontend consumption         |
+| In-memory preview storage with cleanup                                   | Max 5 previews, auto-cleanup on terminal runs            |
+| Proactive cleanup before storage                                         | Guarantees memory limits even if storage fails           |
+| Frontend preview panel                                                   | Bar charts for type/confidence, sample cards, top themes |
+| TypeScript types in `webapp/src/lib/types.ts`                            | Full type safety for frontend integration                |
+| 30 unit tests                                                            | Storage, endpoint, cleanup, and edge case coverage       |
+
+**Preview Panel Features**:
+
+- **Classification breakdown**: Bar charts showing distribution by type and confidence
+- **Sample conversations**: 5-10 diverse samples with snippets (200 chars)
+- **Top themes**: Top 5 extracted themes with counts
+- **Metadata**: Total classified count and timestamp
+
+**5-Personality Review (2 rounds)**:
+
+- Round 1: 5/5 REQUEST_CHANGES (cleanup, edge cases, UI improvements)
+- Round 2: All issues resolved, 5/5 APPROVE, CONVERGED
+
+### Next Steps
+
+1. Continue with roadmap Track A/B as planned
+2. Issue #62 (coda_page adapter bug) remains priority
+
+---
+
+## Previous: ResolutionAnalyzer and KnowledgeExtractor Integration (2026-01-21)
+
+### Session Summary
+
+Completed PR #92 (Issues #78, #79): Integrated `ResolutionAnalyzer` and `KnowledgeExtractor` modules into the two-stage classification pipeline, enriching the `support_insights` JSONB column with structured resolution and knowledge data.
+
+### What Was Done
+
+**PR #92 Merged** - ResolutionAnalyzer and KnowledgeExtractor Integration:
+
+| Change                                                               | Impact                                                                    |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Replaced `detect_resolution_signal()` with full `ResolutionAnalyzer` | Richer resolution tracking with categories, all actions, matched keywords |
+| Added `get_full_resolution_analysis()` helper                        | Clean interface for resolution data extraction                            |
+| Added `extract_knowledge()` helper                                   | Structured knowledge extraction (root cause, solution, mentions)          |
+| Module-level analyzer initialization                                 | Efficient re-use of stateless analyzers                                   |
+| Both sync and async paths enriched                                   | Consistent support_insights population                                    |
+| 21 new tests                                                         | Comprehensive coverage of new functionality                               |
+| Architect Output Review Gate                                         | Process gate for deletion approval workflow                               |
+
+**5-Personality Review (2 rounds)**:
+
+- Round 1: Issues identified (4 REQUEST_CHANGES, 1 APPROVE)
+- Round 2: All issues resolved, 5/5 APPROVE, CONVERGED
+
+---
+
+## Previous: StoryCreationService Pipeline Integration (2026-01-21)
+
+### Session Summary
+
+Completed PR #81 (Issue #77): Wired `StoryCreationService` into the UI pipeline router, consolidating story creation logic from inline code to the dedicated service layer.
+
+### What Was Done
+
+**PR #81 Merged** - StoryCreationService Integration:
+
+| Change                                                                  | Impact                                         |
+| ----------------------------------------------------------------------- | ---------------------------------------------- |
+| Replaced inline story creation in `_run_pm_review_and_story_creation()` | ~50 lines removed from pipeline.py             |
+| Added `process_theme_groups()` entry point                              | Clean pipeline integration                     |
+| Consolidated `MIN_GROUP_SIZE` constant                                  | Removed duplicate constant                     |
+| Added error tracking for pipeline linking                               | Proper failure visibility                      |
+| Security fixes S1-S3                                                    | Conversation ID validation, exception handling |
+
+**5-Personality Review (3 rounds)**:
+
+- Round 1: Initial review with issues identified
+- Round 2: Sanjay raised 3 security issues (S1-S3)
+- Round 3: All issues resolved, CONVERGED
+
+**Security Fixes Applied**:
+
+- S1: Conversation ID validation before use
+- S2: Pipeline run linking error tracking
+- S3: Evidence creation error tracking
+- Bonus: Never swallow KeyboardInterrupt/SystemExit
+
+**Test Coverage**: 11 new tests for pipeline integration
+
+### Next Steps
+
+1. Continue with roadmap Track A/B as planned
+2. Issue #62 (coda_page adapter bug) remains priority
+
+---
+
+## Previous: Roadmap Planning & Agent Protocol (2026-01-20)
 
 ### Session Summary
 

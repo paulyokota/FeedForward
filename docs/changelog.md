@@ -10,6 +10,47 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Dry Run Preview Visibility (2026-01-21)** - PR #93 (Issue #75):
+
+- Added ability to preview classification results from dry runs in the UI
+- New backend endpoint: `GET /api/pipeline/status/{run_id}/preview`
+- Dry run preview shows:
+  - Classification breakdown by type and confidence (bar charts)
+  - 5-10 representative sample conversations with snippets
+  - Top 5 extracted themes with counts
+  - Total classified count and timestamp
+- In-memory storage with automatic cleanup (max 5 previews) prevents unbounded memory growth
+- Proactive cleanup on new dry runs and terminal run completion
+- Pydantic models: `DryRunSample`, `DryRunClassificationBreakdown`, `DryRunPreview`
+- TypeScript types added to `webapp/src/lib/types.ts`
+- Frontend preview panel in `webapp/src/app/pipeline/page.tsx`
+- 30 unit tests in `tests/api/test_pipeline_dry_run_preview.py`
+
+**ResolutionAnalyzer and KnowledgeExtractor Pipeline Integration (2026-01-21)** - PR #92 (Issues #78, #79):
+
+- Wired `ResolutionAnalyzer` and `KnowledgeExtractor` modules into `two_stage_pipeline.py`
+- Replaced simple `detect_resolution_signal()` with full `ResolutionAnalyzer` analysis
+- Added helper functions:
+  - `get_full_resolution_analysis()` - Returns complete resolution analysis for storage
+  - `extract_knowledge()` - Extracts knowledge fields for support_insights
+- `support_insights` JSONB column now populated with:
+  - `resolution_analysis`: primary_action, action_category, all_actions, categories, suggested_type, matched_keywords
+  - `knowledge`: root_cause, solution_provided, product_mentions, feature_mentions, self_service_gap, gap_evidence
+- Module-level eager initialization for stateless analyzers (efficient re-use)
+- Both sync and async pipeline paths enriched with support_insights
+- 21 new tests in `tests/test_pipeline_integration_insights.py`
+- Added Architect Output Review Gate for deletion approval workflow in process-playbook
+
+**StoryCreationService Pipeline Integration (2026-01-21)** - PR #81 (Issue #77):
+
+- Wired `StoryCreationService` into UI pipeline router, replacing inline story creation logic
+- Added `process_theme_groups()` method as the UI pipeline entry point for story creation
+- Consolidated `MIN_GROUP_SIZE` constant (removed duplicate `MIN_CONVERSATIONS_FOR_STORY`)
+- Added proper error tracking for pipeline run linking and evidence creation failures
+- Security hardening: conversation ID validation, proper exception handling (never swallow KeyboardInterrupt/SystemExit)
+- 11 new tests in `tests/test_story_creation_service.py` for pipeline integration
+- Reduced pipeline.py by ~50 lines through service delegation
+
 **Vector Integration Phase 1 Complete (2026-01-20)** - PRs #52, #57, #60, #61:
 
 - Accept/reject endpoints for suggested evidence:

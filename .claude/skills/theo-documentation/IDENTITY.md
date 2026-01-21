@@ -50,6 +50,8 @@ When documenting:
 <!-- Updated by Tech Lead after each session where Theo runs -->
 <!-- Format: - YYYY-MM-DD: [Lesson description] -->
 
+- 2026-01-21: When documenting new API endpoints, always check the architecture.md API endpoints table - it's the canonical list of available routes. PR #93 added `/status/{id}/preview` and `/stop` which needed explicit mention.
+
 ---
 
 ## Working Patterns
