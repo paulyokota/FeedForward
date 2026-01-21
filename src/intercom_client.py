@@ -174,21 +174,28 @@ class IntercomClient:
         """
         Make an async HTTP request with retry on transient errors.
 
+        Retries on 429 (rate limit) and 5xx (server errors) with exponential backoff.
         Same retry logic as sync version but using aiohttp.
-        """
-        import time as time_module
-        url = f"{self.BASE_URL}{endpoint}"
 
-        print(f"[ASYNC] Starting {method} request to {endpoint}, params={params}", flush=True)
-        request_start = time_module.time()
+        Args:
+            session: aiohttp ClientSession with auth headers
+            method: HTTP method (GET or POST)
+            endpoint: API endpoint path
+            params: Query parameters for GET requests
+            json_data: JSON body for POST requests
+
+        Returns:
+            Parsed JSON response
+
+        Raises:
+            aiohttp.ClientError: On non-retryable errors or after max retries
+        """
+        url = f"{self.BASE_URL}{endpoint}"
 
         for attempt in range(self.max_retries + 1):
             try:
-                print(f"[ASYNC] Attempt {attempt + 1}/{self.max_retries + 1} for {endpoint}", flush=True)
                 if method == "GET":
-                    print(f"[ASYNC] About to call session.get({url})", flush=True)
                     async with session.get(url, params=params) as response:
-                        print(f"[ASYNC] Got response status {response.status} for {endpoint}", flush=True)
                         if response.status in self.RETRYABLE_STATUS_CODES:
                             if attempt < self.max_retries:
                                 delay = self.RETRY_DELAY_BASE * (2 ** attempt)
@@ -201,11 +208,7 @@ class IntercomClient:
                             else:
                                 response.raise_for_status()
                         response.raise_for_status()
-                        print(f"[ASYNC] About to read response body for {endpoint}", flush=True)
-                        result = await response.json()
-                        elapsed = time_module.time() - request_start
-                        print(f"[ASYNC] Completed {method} {endpoint} in {elapsed:.2f}s", flush=True)
-                        return result
+                        return await response.json()
                 else:
                     async with session.post(url, json=json_data) as response:
                         if response.status in self.RETRYABLE_STATUS_CODES:
@@ -236,9 +239,16 @@ class IntercomClient:
         raise RuntimeError("Unexpected retry loop exit")
 
     def _get_aiohttp_session(self) -> aiohttp.ClientSession:
-        """Create an aiohttp session with proper headers and timeout."""
+        """Create an aiohttp session with proper headers and timeout.
+
+        Timeout configuration matches sync version:
+        - connect: Connection establishment timeout (default 10s)
+        - sock_read: Per-read operation timeout (default 30s)
+        - total: Overall request timeout
+        """
         timeout = aiohttp.ClientTimeout(
             connect=self.timeout[0],
+            sock_read=self.timeout[1],
             total=self.timeout[0] + self.timeout[1]
         )
         headers = {
@@ -259,6 +269,10 @@ class IntercomClient:
         """
         Fetch raw conversations from Intercom (async version).
 
+        Uses the List API with client-side date filtering.
+        NOTE: For date-bounded queries, prefer search_by_date_range_async
+        which uses server-side filtering and is much more efficient.
+
         Yields raw conversation dicts for further processing.
         Handles pagination automatically.
         """
@@ -266,16 +280,10 @@ class IntercomClient:
         endpoint = "/conversations"
         page_count = 0
 
-        print(f"[ASYNC FETCH] Starting fetch_conversations_async, since={since}, max_pages={max_pages}", flush=True)
-        print(f"[ASYNC FETCH] Creating aiohttp session...", flush=True)
-
         async with self._get_aiohttp_session() as session:
-            print(f"[ASYNC FETCH] Session created, starting pagination loop", flush=True)
             while True:
-                print(f"[ASYNC FETCH] Fetching page {page_count + 1}, params={params}", flush=True)
                 data = await self._request_with_retry_async(session, "GET", endpoint, params=params)
                 conversations = data.get("conversations", [])
-                print(f"[ASYNC FETCH] Page {page_count + 1} returned {len(conversations)} conversations", flush=True)
 
                 for conv in conversations:
                     created_at = conv.get("created_at", 0)
@@ -293,26 +301,19 @@ class IntercomClient:
                 # Check for next page
                 pages = data.get("pages", {})
                 next_page = pages.get("next")
-                print(f"[ASYNC FETCH] Page {page_count + 1} pagination: next_page={next_page is not None}", flush=True)
 
                 if not next_page:
-                    print(f"[ASYNC FETCH] No next page, ending pagination", flush=True)
                     break
 
                 page_count += 1
                 if max_pages and page_count >= max_pages:
-                    print(f"[ASYNC FETCH] Reached max_pages={max_pages}, ending pagination", flush=True)
                     break
 
                 starting_after = next_page.get("starting_after")
                 if starting_after:
-                    print(f"[ASYNC FETCH] Moving to page {page_count + 1}, starting_after={starting_after[:20]}...", flush=True)
                     params["starting_after"] = starting_after
                 else:
-                    print(f"[ASYNC FETCH] No starting_after cursor, ending pagination", flush=True)
                     break
-
-        print(f"[ASYNC FETCH] Exiting fetch_conversations_async, total pages={page_count + 1}", flush=True)
 
     async def fetch_quality_conversations_async(
         self,
@@ -327,32 +328,26 @@ class IntercomClient:
         Uses the Search API for server-side date filtering, which is MUCH more
         efficient than the List API (avoids fetching all 338k+ conversations).
 
-        Yields (parsed_conversation, raw_conversation) tuples.
+        Args:
+            since: Start of date range (inclusive)
+            until: End of date range (exclusive), defaults to now
+            per_page: Results per API page
+            max_results: Maximum conversations to return
+
+        Yields:
+            (parsed_conversation, raw_conversation) tuples for quality conversations
         """
-        print(f"[ASYNC QUALITY] Starting fetch_quality_conversations_async", flush=True)
-        print(f"[ASYNC QUALITY] Using Search API for server-side date filtering", flush=True)
+        from datetime import timezone
 
         # Convert datetime to unix timestamps for Search API
         start_ts = int(since.timestamp()) if since else 0
-        end_ts = int(until.timestamp()) if until else int(datetime.utcnow().timestamp())
-
-        print(f"[ASYNC QUALITY] Date range: {since} ({start_ts}) to {until} ({end_ts})", flush=True)
-
-        yielded_count = 0
-        filtered_count = 0
+        end_ts = int(until.timestamp()) if until else int(datetime.now(timezone.utc).timestamp())
 
         async for raw_conv in self.search_by_date_range_async(start_ts, end_ts, per_page, max_results):
             filter_result = self.quality_filter(raw_conv)
             if filter_result.passed:
                 parsed = self.parse_conversation(raw_conv)
-                yielded_count += 1
-                if yielded_count % 10 == 0:
-                    print(f"[ASYNC QUALITY] Yielded {yielded_count} quality conversations so far", flush=True)
                 yield parsed, raw_conv
-            else:
-                filtered_count += 1
-
-        print(f"[ASYNC QUALITY] Completed: {yielded_count} yielded, {filtered_count} filtered", flush=True)
 
     async def get_conversation_async(self, session: aiohttp.ClientSession, conv_id: str) -> dict:
         """Fetch a single conversation by ID (async version).
@@ -376,12 +371,13 @@ class IntercomClient:
         more efficient than the LIST API for date-bounded queries.
 
         Args:
-            start_timestamp: Unix timestamp for start of range
-            end_timestamp: Unix timestamp for end of range
+            start_timestamp: Unix timestamp for start of range (exclusive: >)
+            end_timestamp: Unix timestamp for end of range (exclusive: <)
             per_page: Results per page
             max_results: Maximum conversations to return
 
-        Yields raw conversation dicts.
+        Yields:
+            Raw conversation dicts from Intercom API
         """
         search_query = {
             "query": {
@@ -403,46 +399,34 @@ class IntercomClient:
         }
 
         count = 0
-        page_count = 0
         starting_after = None
-
-        print(f"[SEARCH API] Starting search_by_date_range_async", flush=True)
-        print(f"[SEARCH API] Date range: {start_timestamp} to {end_timestamp}", flush=True)
 
         async with self._get_aiohttp_session() as session:
             while True:
                 if starting_after:
                     search_query["pagination"]["starting_after"] = starting_after
 
-                print(f"[SEARCH API] Fetching page {page_count + 1}", flush=True)
                 data = await self._request_with_retry_async(
                     session, "POST", "/conversations/search", json_data=search_query
                 )
                 conversations = data.get("conversations", [])
-                print(f"[SEARCH API] Page {page_count + 1} returned {len(conversations)} conversations", flush=True)
 
                 if not conversations:
-                    print(f"[SEARCH API] No conversations returned, ending search", flush=True)
                     break
 
                 for conv in conversations:
                     yield conv
                     count += 1
                     if max_results and count >= max_results:
-                        print(f"[SEARCH API] Reached max_results={max_results}", flush=True)
                         return
 
                 # Check for next page
                 pages = data.get("pages", {})
                 next_page = pages.get("next", {})
                 starting_after = next_page.get("starting_after")
-                page_count += 1
 
                 if not starting_after:
-                    print(f"[SEARCH API] No more pages, search complete", flush=True)
                     break
-
-        print(f"[SEARCH API] Total: {count} conversations from {page_count} pages", flush=True)
 
     # ==================== END ASYNC METHODS ====================
 

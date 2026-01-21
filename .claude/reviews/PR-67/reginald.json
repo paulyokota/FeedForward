@@ -1,0 +1,113 @@
+{
+  "reviewer": "Reginald",
+  "focus": ["correctness", "performance", "type_safety", "error_handling"],
+  "pr_number": 67,
+  "files_reviewed": [
+    "src/story_tracking/services/codebase_context_provider.py",
+    "tests/test_codebase_context_provider.py"
+  ],
+  "findings": [
+    {
+      "id": "REG-001",
+      "severity": "high",
+      "category": "correctness",
+      "title": "Class-Level Mutable Cache Bug",
+      "location": {
+        "file": "src/story_tracking/services/codebase_context_provider.py",
+        "lines": [1037, 1038, 1051, 1052]
+      },
+      "description": "The codebase map cache is stored as class attributes (_codebase_map_cache, _codebase_map_path), not instance attributes. Different instances with different repos_path configurations will share the same cache, leading to incorrect context being returned.",
+      "impact": "Multi-instance scenarios will return wrong context data from a shared cache",
+      "fix": "Make cache instance-level or include repos_path as part of cache key",
+      "trace": "provider1(path_a).get_static_context() caches -> provider2(path_b).get_static_context() returns path_a's cache"
+    },
+    {
+      "id": "REG-002",
+      "severity": "high",
+      "category": "correctness",
+      "title": "Permissive Partial Matching Logic",
+      "location": {
+        "file": "src/story_tracking/services/codebase_context_provider.py",
+        "lines": [1206, 1207]
+      },
+      "description": "The partial match fallback 'if component_lower in key or key in component_lower' is too permissive. Single characters match multiple components.",
+      "impact": "get_static_context('a') returns 'pinterest' context because 'a' is in 'pinterest'",
+      "fix": "Add minimum length requirement (>= 3 chars) or use word-boundary matching",
+      "trace": "get_static_context('a') -> component_lower='a' -> 'a' in 'pinterest'? YES -> returns pinterest"
+    },
+    {
+      "id": "REG-003",
+      "severity": "medium",
+      "category": "performance",
+      "title": "Inaccurate Timeout Duration Tracking",
+      "location": {
+        "file": "src/story_tracking/services/codebase_context_provider.py",
+        "lines": [284, 285, 286, 287, 288, 289, 290, 291]
+      },
+      "description": "When TimeoutExpired is raised, duration values remain at 0 (initialized at lines 216-217), not the actual 30 seconds spent before timeout.",
+      "impact": "Timing metrics in error cases are misleading - 30s timeout reports 0ms",
+      "fix": "Update duration to timeout value (30000ms) in exception handler",
+      "trace": "fetch_duration_ms=0 at init -> timeout at subprocess.run -> except block uses 0, not 30000"
+    },
+    {
+      "id": "REG-004",
+      "severity": "medium",
+      "category": "test_coverage",
+      "title": "Missing Test for Invalid Git Args Branch",
+      "location": {
+        "file": "tests/test_codebase_context_provider.py",
+        "lines": []
+      },
+      "description": "Lines 198-204 and 207-214 handle validate_git_command_args() returning False, but no test exercises this branch.",
+      "impact": "Untested code path could have bugs that go undetected",
+      "fix": "Add test with mock_validate.side_effect = [False, True]"
+    },
+    {
+      "id": "REG-005",
+      "severity": "low",
+      "category": "test_quality",
+      "title": "Overly Broad Mocking in Tests",
+      "location": {
+        "file": "tests/test_codebase_context_provider.py",
+        "lines": [462]
+      },
+      "description": "patch.object(Path, 'exists', return_value=True) patches ALL Path.exists() calls system-wide",
+      "impact": "Tests may pass for wrong reasons; changes elsewhere could be masked",
+      "fix": "Use targeted mock: patch.object(mock_get_path.return_value, 'exists', return_value=True)"
+    },
+    {
+      "id": "REG-006",
+      "severity": "low",
+      "category": "correctness",
+      "title": "Fragile Table Parsing Regex",
+      "location": {
+        "file": "src/story_tracking/services/codebase_context_provider.py",
+        "lines": [1147, 1148, 1149, 1150, 1151, 1152, 1153, 1154, 1155]
+      },
+      "description": "Regex matches words ending in 's' (Previous, Methods, Parameters) as potential tables. Exclusion list is incomplete.",
+      "impact": "False positives in table extraction lead to noisy context data",
+      "fix": "Use more specific pattern or comprehensive exclusion list"
+    },
+    {
+      "id": "REG-007",
+      "severity": "low",
+      "category": "correctness",
+      "title": "API Pattern Regex Misses Language-Tagged Code Blocks",
+      "location": {
+        "file": "src/story_tracking/services/codebase_context_provider.py",
+        "lines": [1123]
+      },
+      "description": "Regex only matches code blocks starting with HTTP methods. Blocks with language tags like ```http won't match.",
+      "impact": "Potential API patterns in tagged code blocks are missed",
+      "fix": "Update regex to handle optional language tags: ```(?:\\w+)?\\n?"
+    }
+  ],
+  "summary": {
+    "high": 2,
+    "medium": 2,
+    "low": 3,
+    "total": 7
+  },
+  "recommendation": "Address HIGH issues before merge. Class-level cache bug affects multi-instance correctness. Permissive matching returns unexpected results for short search terms.",
+  "status": "changes_requested"
+}

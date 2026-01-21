@@ -1,0 +1,69 @@
+{
+  "reviewer": "reginald",
+  "pr": 68,
+  "round": 1,
+  "date": "2026-01-20",
+  "verdict": "not_ready",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "category": "correctness",
+      "title": "Stop signal not checked during classification phase",
+      "file": "src/two_stage_pipeline.py",
+      "lines": "419-427",
+      "description": "asyncio.gather() runs all classification tasks to completion with no cancellation. Stop signal only checked during fetch and before classification, not during the longest-running phase."
+    },
+    {
+      "id": "R2",
+      "severity": "medium",
+      "category": "performance",
+      "title": "Memory leak in _active_runs dict",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "28,47,91,105,133,326",
+      "description": "Entries added to _active_runs but never removed. Dict grows unbounded over time, scanning becomes slower."
+    },
+    {
+      "id": "R3",
+      "severity": "medium-low",
+      "category": "correctness",
+      "title": "conversations_filtered always stored as 0",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "76,119",
+      "description": "Pipeline stats never include 'filtered' key, so result.get('filtered', 0) always returns 0. Misleading data in status responses."
+    },
+    {
+      "id": "R4",
+      "severity": "low",
+      "category": "performance",
+      "title": "Inefficient polling interval recreation",
+      "file": "webapp/src/app/pipeline/page.tsx",
+      "lines": "119-130",
+      "description": "Polling interval recreated on every status update due to effect dependencies. pollStatus callback recreated when activeStatus changes, triggering effect re-run."
+    },
+    {
+      "id": "R5",
+      "severity": "low",
+      "category": "ux",
+      "title": "Final run status cleared immediately",
+      "file": "webapp/src/app/pipeline/page.tsx",
+      "lines": "105-107",
+      "description": "When run completes, setActiveStatus(null) called immediately after showing final status. User sees brief flash before panel clears."
+    }
+  ],
+  "files_reviewed": [
+    "src/api/routers/pipeline.py",
+    "src/two_stage_pipeline.py",
+    "src/api/schemas/pipeline.py",
+    "tests/test_pipeline_router.py",
+    "webapp/src/app/pipeline/page.tsx",
+    "webapp/src/lib/api.ts",
+    "webapp/src/lib/types.ts"
+  ],
+  "strengths": [
+    "Stop endpoint atomicity between in-memory and database",
+    "Good test coverage with 15 unit tests",
+    "TypeScript types align with backend schemas",
+    "Error handling in both backend and frontend"
+  ]
+}

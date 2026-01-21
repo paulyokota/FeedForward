@@ -1,0 +1,87 @@
+{
+  "reviewer": "maya",
+  "pr_number": 100,
+  "review_round": 1,
+  "timestamp": "2026-01-21T12:00:00Z",
+  "verdict": "BLOCK",
+  "summary": "1 blocking issue (debug prints in production code), 6 maintainability improvements",
+  "issues": [
+    {
+      "id": "maya-001",
+      "severity": "high",
+      "category": "code_quality",
+      "title": "Debug print statements in production code",
+      "file": "src/intercom_client.py",
+      "lines": "182-315, 332-355, 409-445",
+      "description": "Async methods contain numerous print() statements with [ASYNC], [SEARCH API], [PIPELINE] prefixes that are clearly debug artifacts. These will spam production logs and make log aggregation impossible.",
+      "recommendation": "Remove all debug prints or convert to logger.debug() with proper log levels",
+      "blocking": true
+    },
+    {
+      "id": "maya-002",
+      "severity": "low",
+      "category": "documentation",
+      "title": "Magic number without rationale",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "126",
+      "description": "_MAX_DRY_RUN_PREVIEWS = 5 has no documented rationale for why 5 is the right value",
+      "recommendation": "Add comment explaining memory footprint calculation",
+      "blocking": false
+    },
+    {
+      "id": "maya-003",
+      "severity": "low",
+      "category": "configuration",
+      "title": "Hardcoded PID file path",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "53",
+      "description": "PID file hardcoded to /tmp which may not exist in all environments (Docker, etc.)",
+      "recommendation": "Make configurable via environment variable or document assumption",
+      "blocking": false
+    },
+    {
+      "id": "maya-004",
+      "severity": "low",
+      "category": "documentation",
+      "title": "Missing docstring on async retry method",
+      "file": "src/intercom_client.py",
+      "lines": "166-236",
+      "description": "_request_with_retry_async lacks detailed docstring explaining retry behavior, unlike its sync counterpart",
+      "recommendation": "Copy full docstring from sync version",
+      "blocking": false
+    },
+    {
+      "id": "maya-005",
+      "severity": "low",
+      "category": "code_duplication",
+      "title": "Duplicated retry logic between sync/async",
+      "file": "src/intercom_client.py",
+      "lines": "91-151, 166-236",
+      "description": "Sync and async retry methods have duplicated logic that could diverge",
+      "recommendation": "Extract shared retry configuration and document relationship",
+      "blocking": false
+    },
+    {
+      "id": "maya-006",
+      "severity": "low",
+      "category": "naming",
+      "title": "Unclear variable name",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "312-317",
+      "description": "_ALLOWED_PHASE_FIELDS name doesn't convey SQL injection prevention purpose",
+      "recommendation": "Rename to _SAFE_PIPELINE_RUN_COLUMNS or add explanatory comment",
+      "blocking": false
+    },
+    {
+      "id": "maya-007",
+      "severity": "low",
+      "category": "best_practices",
+      "title": "Deprecated datetime.utcnow() usage",
+      "file": "src/intercom_client.py",
+      "lines": "336-337",
+      "description": "Uses datetime.utcnow() which is deprecated in Python 3.12+, mixed with potentially timezone-naive inputs",
+      "recommendation": "Use datetime.now(timezone.utc) and validate inputs are UTC",
+      "blocking": false
+    }
+  ]
+}

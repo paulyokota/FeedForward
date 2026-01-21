@@ -398,9 +398,9 @@ def load_live_test_data(
             "total": len(sources),
         },
         "quality_thresholds": {
-            "gestalt_min": 4.8,
-            "per_source_gestalt_min": 4.5,
-            "scoping_min": 4.5
+            "gestalt_min": 5.0,
+            "per_source_gestalt_min": 5.0,
+            "scoping_min": 5.0
         },
         "evaluation_config": {
             "gestalt_model": "gpt-4o-mini",

@@ -1,0 +1,48 @@
+{
+  "reviewer": "Reginald",
+  "pr_number": 64,
+  "round": 1,
+  "timestamp": "2026-01-20T00:00:00Z",
+  "verdict": "changes_requested",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "medium",
+      "category": "missing_tests",
+      "title": "Missing Unit Tests for _row_to_page_content Method",
+      "description": "The modified page extraction logic (_row_to_page_content, _extract_page, _extract_all_pages) lacks unit test coverage. The existing CodaSearchAdapter tests only cover source type validation and URL generation, not the actual row-to-SearchableContent conversion that was changed.",
+      "location": "tests/test_research.py, src/research/adapters/coda_adapter.py",
+      "recommendation": "Add tests that mock SQLite rows with 'title' field to verify: (1) correct conversion to SearchableContent, (2) fallback when title is None, (3) participant extraction regex, (4) page_type detection",
+      "blocking": true
+    },
+    {
+      "id": "R2",
+      "severity": "low",
+      "category": "security",
+      "title": "SQL Injection Risk via f-string LIMIT Interpolation",
+      "description": "The LIMIT clause uses f-string interpolation (query += f' LIMIT {limit}'). While limit is typed as Optional[int], Python's dynamic typing doesn't enforce this at runtime. A malicious caller could pass a string containing SQL injection.",
+      "location": "src/research/adapters/coda_adapter.py:128, :216",
+      "recommendation": "Use parameterized queries or explicit int() conversion with validation",
+      "blocking": false,
+      "note": "Pre-existing issue, not introduced by this PR"
+    },
+    {
+      "id": "R3",
+      "severity": "medium",
+      "category": "resource_leak",
+      "title": "Connection Not Closed When Generator Abandoned",
+      "description": "In extract_all(), if the generator is abandoned mid-iteration (e.g., via islice()), the finally block may not execute immediately, leaving the SQLite connection open. Generators with resources require careful lifecycle management.",
+      "location": "src/research/adapters/coda_adapter.py:75-93",
+      "recommendation": "Use context manager pattern or ensure _get_connection() returns a context manager",
+      "blocking": false,
+      "note": "Pre-existing architectural pattern"
+    }
+  ],
+  "correctness_verified": true,
+  "schema_match_verified": true,
+  "notes": [
+    "Core fix is correct: name->title and parent_id removal match actual SQLite schema",
+    "No downstream code references metadata['parent_id'] for coda_page source type",
+    "R1 is blocking per project Test Gate requirements"
+  ]
+}

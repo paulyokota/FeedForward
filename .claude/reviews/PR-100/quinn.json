@@ -1,0 +1,84 @@
+{
+  "reviewer": "quinn",
+  "pr_number": 100,
+  "review_round": 1,
+  "timestamp": "2026-01-21T14:30:00Z",
+  "verdict": "BLOCK",
+  "summary": "1 HIGH, 3 MEDIUM, 2 LOW quality issues. Critical: sync/async path divergence creates inconsistent behavior.",
+  "functional_test_required": true,
+  "functional_test_reason": "PR fundamentally changes data fetching from List API to Search API. Must verify sync/async paths return consistent conversation sets and boundary timestamps are handled correctly.",
+  "issues": [
+    {
+      "id": "Q100-1",
+      "severity": "HIGH",
+      "category": "system_conflict",
+      "title": "Sync/Async Path Divergence",
+      "file": "src/intercom_client.py",
+      "lines": "317-355, 682-698",
+      "description": "Async path uses Search API with server-side date filtering, while sync path uses List API with client-side filtering. This creates 'same inputs, different outputs' risk - users may get different conversation sets depending on which mode they use.",
+      "impact": "Data inconsistency: sync and async modes may classify different conversations for the same date range.",
+      "recommendation": "Update sync fetch_quality_conversations to also use Search API, or clearly document the behavioral difference.",
+      "evidence": "Line 829: sync uses fetch_quality_conversations (List API). Line 479: async uses fetch_quality_conversations_async (Search API)."
+    },
+    {
+      "id": "Q100-2",
+      "severity": "MEDIUM",
+      "category": "output_quality",
+      "title": "Boundary Timestamp Exclusion",
+      "file": "src/intercom_client.py",
+      "lines": "391-399, 746-759",
+      "description": "Search API uses exclusive operators (> and <) instead of inclusive (>= and <=). Conversations created exactly at the boundary timestamps are excluded.",
+      "impact": "Edge case data loss: conversations created exactly at the since/until boundaries are excluded from results.",
+      "recommendation": "Change to >= and <= operators, or document that boundaries are exclusive. Add tests to verify intended behavior.",
+      "evidence": "Query uses operator: '>' for start and '<' for end. Tests verify this is implemented but not that it's intended."
+    },
+    {
+      "id": "Q100-3",
+      "severity": "MEDIUM",
+      "category": "output_quality",
+      "title": "Excessive Debug Print Statements",
+      "file": "src/intercom_client.py",
+      "lines": "182-207, 269-315, 332-355, 409-445",
+      "description": "38+ print() statements with flush=True throughout production code. Debug output pollutes logs and forces synchronous I/O.",
+      "impact": "Log pollution, performance degradation from flush=True, potential security concern from exposing internal state.",
+      "recommendation": "Remove debug prints or convert to proper logging at DEBUG level.",
+      "evidence": "Multiple print statements: [ASYNC], [ASYNC FETCH], [SEARCH API], [ASYNC QUALITY] prefixes throughout async methods."
+    },
+    {
+      "id": "Q100-4",
+      "severity": "MEDIUM",
+      "category": "missed_update",
+      "title": "Sync Pipeline Not Updated to Use Search API",
+      "file": "src/two_stage_pipeline.py",
+      "lines": "829",
+      "description": "Sync run_pipeline still uses fetch_quality_conversations which uses the slow List API. Performance improvement only applies to async mode.",
+      "impact": "CLI users without --async flag get old slow behavior, creating feature inconsistency.",
+      "recommendation": "Create sync version of Search API fetch or update sync pipeline to use async internals.",
+      "evidence": "Line 829: client.fetch_quality_conversations(since=since, max_pages=None)"
+    },
+    {
+      "id": "Q100-5",
+      "severity": "LOW",
+      "category": "technical_debt",
+      "title": "Deprecated datetime.utcnow() Usage",
+      "file": "src/intercom_client.py",
+      "lines": "337",
+      "description": "Uses deprecated datetime.utcnow() which will produce warnings in Python 3.12+.",
+      "impact": "Technical debt and future deprecation warnings.",
+      "recommendation": "Replace with datetime.now(timezone.utc) for timezone-aware handling.",
+      "evidence": "end_ts = int(until.timestamp()) if until else int(datetime.utcnow().timestamp())"
+    },
+    {
+      "id": "Q100-6",
+      "severity": "LOW",
+      "category": "regression_risk",
+      "title": "Orphan Worker Cleanup Race Condition",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "56-88, 91-113",
+      "description": "PID file in /tmp/ shared across server instances without locking. One server could kill workers belonging to another in multi-instance deployments.",
+      "impact": "In multi-server deployments, workers may be incorrectly terminated.",
+      "recommendation": "Add file locking or use instance-specific PID files for production deployments.",
+      "evidence": "_PID_FILE = Path('/tmp/feedforward_pipeline_workers.pid') - shared path with no locking."
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "reviewer": "maya",
+  "pr_number": 86,
+  "review_round": 1,
+  "timestamp": "2026-01-21T17:53:02Z",
+  "verdict": "APPROVE",
+  "summary": "3 maintainability improvements identified, none blocking. Main concern: error handling silently swallows failures.",
+  "issues": [
+    {
+      "id": "M1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "error-context",
+      "file": "src/api/main.py",
+      "lines": [59, 60, 61],
+      "title": "Silent error handling makes debugging hard",
+      "why": "Cleanup function catches all exceptions and returns 0, making it impossible to distinguish between 'no stale runs' and 'database failed'. If DB is down, server starts successfully but stale runs never clean up.",
+      "fix": "Either return error state {'cleaned': n, 'error': msg} or let exception propagate to fail fast. Swallowing errors makes 2am debugging impossible.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "M2",
+      "severity": "LOW",
+      "confidence": "high",
+      "category": "error-context",
+      "file": "src/api/main.py",
+      "lines": [45],
+      "title": "Error message lacks actionable guidance",
+      "why": "Message 'Process terminated unexpectedly (server restart)' tells WHAT but not DO. User seeing this in UI won't know if they need to re-run pipeline or if data is corrupted.",
+      "fix": "Add actionable context: 'Pipeline interrupted by server restart. No data was committed. Please re-run the pipeline to complete this analysis.'",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    },
+    {
+      "id": "M3",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "missing-docs",
+      "file": "src/api/main.py",
+      "lines": [54, 55, 56],
+      "title": "Log message missing operational context",
+      "why": "Log tells WHAT happened but not WHY it matters. On-call engineer seeing this at 2am won't know if this is expected (server restart) or a sign of deeper problems. Missing impact assessment.",
+      "fix": "Add context to log: 'These runs were marked failed because server restarted while they were in progress. Users can re-run these pipelines from the UI if needed.'",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    }
+  ]
+}

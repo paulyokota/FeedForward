@@ -1,0 +1,67 @@
+{
+  "reviewer": "reginald",
+  "pr_number": 87,
+  "review_round": 1,
+  "timestamp": "2026-01-21T18:07:49Z",
+  "verdict": "REQUEST_CHANGES",
+  "summary": "1 HIGH, 1 MEDIUM, 1 LOW - Retry logic solid but one method bypasses it entirely",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "integration",
+      "file": "src/intercom_client.py",
+      "lines": [246, 261],
+      "title": "fetch_contact_org_id() bypasses retry logic entirely",
+      "why": "Method uses direct self.session.get() instead of self._get(), so it doesn't benefit from retry logic. Transient 5xx errors will cause immediate failures instead of retrying with exponential backoff.",
+      "fix": "Replace self.session.get() with self._get() to use retry logic. Change response.json() to directly use returned dict from self._get().",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R2",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "integration",
+      "file": "src/intercom_client.py",
+      "lines": [291, 295],
+      "title": "Async batch timeout semantics don't match sync client",
+      "why": "Sync client uses requests (connect, read) as independent timers. Async client uses aiohttp ClientTimeout with 'total' which includes connect time. Slow connections (9s) reduce available read time from 30s to 21s, causing earlier timeouts than sync client.",
+      "fix": "Use aiohttp.ClientTimeout(connect=..., sock_read=...) instead of 'total' parameter to match sync client's independent timeout behavior. Or add comment documenting the semantic difference.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R3",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "integration",
+      "file": "src/intercom_client.py",
+      "lines": [306],
+      "title": "Session timeout propagation needs verification",
+      "why": "Async batch method sets timeout on ClientSession, relying on session-level timeout to propagate to individual requests. This is likely correct but not explicitly tested.",
+      "fix": "Add test to verify session timeout applies to individual requests within the batch. No code change likely needed.",
+      "verify": "Check aiohttp documentation to confirm session-level timeout applies to all requests made with that session",
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ],
+  "positives": [
+    "Retry loop logic is correct - thorough trace confirms 5xx and connection errors handled properly",
+    "Exponential backoff math is correct (2s, 4s, 8s)",
+    "Test coverage is excellent - 14 comprehensive tests covering all retry scenarios",
+    "Correctly distinguishes 4xx (don't retry) from 5xx (retry)",
+    "Logging messages are clear and include attempt numbers",
+    "Configurable max_retries and timeout parameters",
+    "Pagination optimization (found_old_conversation flag) is correct"
+  ],
+  "review_notes": {
+    "slow_thinking_applied": true,
+    "trace_count": 12,
+    "false_positives_eliminated": 3,
+    "notes": "Initial analysis suspected missing 'continue' in connection error handler and off-by-one in backoff calculation. Both proved false after careful tracing. The code is well-written; main issue is R1 where one method was missed during refactor to add retry logic."
+  }
+}

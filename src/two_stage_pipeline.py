@@ -471,17 +471,12 @@ async def run_pipeline_async(
 
     # Phase 1: Fetch all conversations (fully async with aiohttp)
     print("Phase 1: Fetching conversations from Intercom...", flush=True)
-    print("[PIPELINE] Starting Phase 1: Fetch conversations", flush=True)
     conversations = []
 
-    # Use async generator for pagination
-    print("[PIPELINE] About to enter async for loop over fetch_quality_conversations_async", flush=True)
     async for parsed, raw_conv in client.fetch_quality_conversations_async(since=since):
-        print(f"[PIPELINE] Received conversation {parsed.id} from async generator", flush=True)
         # Check for stop signal during fetch
         if should_stop():
             print("  Stop signal received during fetch, stopping...", flush=True)
-            print("[PIPELINE] Stop signal received, breaking loop", flush=True)
             break
 
         # Get full conversation with parts (need session for this)
@@ -490,13 +485,10 @@ async def run_pipeline_async(
 
         if len(conversations) % 50 == 0:
             print(f"  Fetched {len(conversations)} conversations...", flush=True)
-            print(f"[PIPELINE] Milestone: {len(conversations)} conversations fetched", flush=True)
 
         if max_conversations and len(conversations) >= max_conversations:
-            print(f"[PIPELINE] Reached max_conversations={max_conversations}, breaking loop", flush=True)
             break
 
-    print(f"[PIPELINE] Exited async for loop, total conversations: {len(conversations)}", flush=True)
     print(f"  Total fetched: {len(conversations)}", flush=True)
 
     # Phase 1b: Fetch full conversation details in parallel

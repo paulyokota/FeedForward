@@ -94,7 +94,7 @@ export const StoryCard = React.forwardRef<HTMLElement, StoryCardProps>(
           {story.confidence_score !== null && (
             <div className="meta-item confidence" title="Confidence score">
               <span className="confidence-value">
-                {Math.round(story.confidence_score * 100)}%
+                {Math.round(story.confidence_score)}%
               </span>
             </div>
           )}

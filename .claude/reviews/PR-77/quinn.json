@@ -1,0 +1,49 @@
+{
+  "reviewer": "Quinn",
+  "round": 1,
+  "issues": [
+    {
+      "id": "Q1",
+      "severity": "medium",
+      "confidence": 85,
+      "file": "src/story_tracking/services/story_creation_service.py",
+      "line": 349,
+      "title": "Conversation count fallback may hide empty-list case",
+      "description": "In `_process_single_result_with_pipeline_run`, the line `conversation_count = len(conversations) or pm_result.conversation_count or 0` will evaluate to 0 when `conversations` is an empty list, but the fallback to `pm_result.conversation_count` would mask this. The logic is correct due to short-circuit evaluation, but a theme group with 0 actual conversations but a stale `conversation_count` in PM result could theoretically bypass the MIN_GROUP_SIZE check. While this is unlikely in normal operation, the intent could be clearer.",
+      "suggestion": "Consider explicit check: `conversation_count = len(conversations) if conversations else (pm_result.conversation_count or 0)`"
+    },
+    {
+      "id": "Q2",
+      "severity": "low",
+      "confidence": 82,
+      "file": "tests/test_story_creation_service.py",
+      "line": 1280,
+      "title": "Test fixture sample_theme_groups has only 1 conversation in second group",
+      "description": "The `sample_theme_groups` fixture has `scheduler_pin_deletion` with only 1 conversation, which tests the orphan creation path. However, there's no test case with exactly MIN_GROUP_SIZE (3) conversations to verify the boundary condition is handled correctly. The test `test_creates_story_for_valid_group` uses a group with 3 conversations which is valid, but there's no test for a group with exactly 2 conversations (one below threshold).",
+      "suggestion": "Add a test case with exactly 2 conversations to verify the MIN_GROUP_SIZE boundary (2 < 3 should create orphan, 3 >= 3 should create story). Currently covered by `test_keep_together_with_insufficient_convos_creates_orphan` but for `process_pm_review_results` path, not `process_theme_groups` path."
+    },
+    {
+      "id": "Q3",
+      "severity": "low",
+      "confidence": 80,
+      "file": "src/api/routers/pipeline.py",
+      "line": 268,
+      "title": "Stop checker bypass in story creation lambda",
+      "description": "In `_run_pm_review_and_story_creation`, after checking `stop_checker()` at line 268, the function proceeds to call `story_creation_service.process_theme_groups()` which doesn't receive a stop_checker. This is intentional (story creation is fast), but if a theme group processing encounters an error mid-way through many groups, there's no way to interrupt. This is acceptable for MVP but worth noting.",
+      "suggestion": "Document that story creation phase is not interruptible by design, or consider adding stop_checker support to `process_theme_groups` for consistency with other phases."
+    },
+    {
+      "id": "Q4",
+      "severity": "low",
+      "confidence": 85,
+      "file": "src/story_tracking/services/story_creation_service.py",
+      "line": 468,
+      "title": "Warning logged but no error in ProcessingResult for pipeline_run linking failure",
+      "description": "In `_link_story_to_pipeline_run`, database errors are caught and logged as warnings, but the error is not added to `ProcessingResult.errors`. This could make it difficult to diagnose issues in production where the story was created but not linked to the pipeline run.",
+      "suggestion": "Consider passing the `result` object to `_link_story_to_pipeline_run` and appending the error to `result.errors` when linking fails, or ensure the warning log is sufficient for debugging."
+    }
+  ],
+  "functional_test_required": false,
+  "functional_test_reason": "This PR wires existing, tested StoryCreationService into the pipeline. The service was already tested in isolation (test_story_creation_service.py). The integration is mechanical - converting theme groups dict format to ConversationData and calling existing methods. No new LLM prompts or output quality changes introduced.",
+  "summary": "PR-77 is well-structured with comprehensive test coverage for the new `process_theme_groups` entry point. The StoryCreationService integration follows the established patterns. Found 4 low-to-medium severity issues: (Q1) potential edge case in conversation count fallback logic, (Q2) missing boundary test for exactly 2 conversations in process_theme_groups path, (Q3) non-interruptible story creation phase (acceptable design), and (Q4) pipeline_run linking errors not surfaced in ProcessingResult. No functional test required as this is a mechanical integration of already-tested components."
+}

@@ -548,7 +548,7 @@ export default function StoryDetailPage() {
               <span className="field-value">
                 {story.confidence_score !== null ? (
                   <span className="confidence-value">
-                    {Math.round(story.confidence_score * 100)}%
+                    {Math.round(story.confidence_score)}%
                   </span>
                 ) : (
                   <span className="field-empty">—</span>

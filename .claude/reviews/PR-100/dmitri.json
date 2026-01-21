@@ -1,0 +1,83 @@
+{
+  "reviewer": "dmitri",
+  "pr_number": 100,
+  "review_round": 1,
+  "timestamp": "2026-01-21T19:45:00Z",
+  "verdict": "BLOCK",
+  "summary": "~400 lines added that could be ~150 lines. Legitimate async/Search API value buried under 60+ debug prints and 70 lines of YAGNI PID tracking. Delete the bloat, keep the feature.",
+  "issues": [
+    {
+      "id": "D1",
+      "severity": "high",
+      "category": "unnecessary_complexity",
+      "title": "Debug print statements left in production code",
+      "file": "src/intercom_client.py",
+      "lines": "182-316 (scattered throughout async methods)",
+      "description": "60+ debug print() statements with flush=True pollute async methods. These are debug artifacts, not production code. The file has a logger - use logger.debug() instead.",
+      "fix": "Delete all print() statements in async methods. If tracing is needed, use logger.debug() which can be filtered by log level.",
+      "lines_to_remove": 60,
+      "blocking": true
+    },
+    {
+      "id": "D2",
+      "severity": "medium",
+      "category": "yagni",
+      "title": "PID file tracking solves a non-problem",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "51-119",
+      "description": "70 lines of PID file management to clean up 'orphaned workers' that cannot exist. FastAPI BackgroundTasks run in the same process - when uvicorn dies, they die. PID tracking is dangerous (PID reuse) and unnecessary.",
+      "fix": "Delete _cleanup_orphaned_workers(), _register_worker_pid(), _unregister_worker_pid(), and all calls to them. If process isolation is actually needed, use Celery.",
+      "lines_to_remove": 70,
+      "blocking": false
+    },
+    {
+      "id": "D3",
+      "severity": "low",
+      "category": "duplication",
+      "title": "Sync and async methods duplicate ~80% of logic",
+      "file": "src/intercom_client.py",
+      "lines": "166-446 vs 627-789",
+      "description": "Async versions largely copy-paste sync versions. Bug fixes must be applied twice. Consider shared implementation for retry/pagination logic.",
+      "fix": "Factor out common logic where possible. Accept some duplication as inherent to Python async/sync split.",
+      "lines_to_remove": 0,
+      "blocking": false
+    },
+    {
+      "id": "D4",
+      "severity": "low",
+      "category": "redundant_code",
+      "title": "Redundant worker_pid unregister call",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "699 and 718-719",
+      "description": "worker_pid is unregistered both explicitly at line 699 AND in the finally block. The explicit call is redundant since finally always executes.",
+      "fix": "Remove the explicit call at line 699, keep only the finally block.",
+      "lines_to_remove": 1,
+      "blocking": false
+    },
+    {
+      "id": "D5",
+      "severity": "low",
+      "category": "unnecessary_complexity",
+      "title": "Debug prints in two_stage_pipeline.py",
+      "file": "src/two_stage_pipeline.py",
+      "lines": "scattered",
+      "description": "86 print statements in pipeline code. Some are progress indicators (acceptable), but many are debug artifacts like [PIPELINE] prefix.",
+      "fix": "Audit prints - keep user-facing progress, remove debug-level prints or convert to logger.debug().",
+      "lines_to_remove": 30,
+      "blocking": false
+    }
+  ],
+  "positive_notes": [
+    "Search API integration is valuable - server-side date filtering avoids fetching 338k+ conversations",
+    "Async methods enable true non-blocking I/O for FastAPI integration",
+    "_get_aiohttp_session() properly configures timeout and headers",
+    "Retry logic is correctly ported to async"
+  ],
+  "metrics": {
+    "lines_added": 400,
+    "lines_could_be": 150,
+    "bloat_percentage": 62,
+    "issues_blocking": 1,
+    "issues_total": 5
+  }
+}

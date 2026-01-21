@@ -1,0 +1,47 @@
+{
+  "reviewer": "Dmitri",
+  "round": 1,
+  "issues": [
+    {
+      "id": "D1",
+      "severity": "medium",
+      "confidence": 90,
+      "file": "src/story_tracking/services/story_creation_service.py",
+      "line": 399,
+      "title": "Unused parameter: original_signature in _create_story_with_evidence",
+      "description": "The `original_signature` parameter is declared but never used in _create_story_with_evidence(). It's passed to _generate_description() but that call doesn't use the 4th positional argument since only 3 arguments are passed (line 417-421).",
+      "suggestion": "Remove the `original_signature` parameter from _create_story_with_evidence() since it's not used. The parameter is only meaningful for split decisions which are handled by _create_story_from_subgroup()."
+    },
+    {
+      "id": "D2",
+      "severity": "medium",
+      "confidence": 85,
+      "file": "src/story_tracking/services/story_creation_service.py",
+      "line": 330,
+      "title": "Duplicated logic between _process_single_result_with_pipeline_run and _process_single_result",
+      "description": "_process_single_result_with_pipeline_run (lines 330-390) duplicates significant logic from _process_single_result (lines 513-534) and _handle_keep_together (lines 536-590). Both handle decision routing, conversation counting, and the keep_together vs split branching. The split handling in _process_single_result_with_pipeline_run (lines 369-386) even has a comment 'For now, fall through to keep_together behavior' suggesting it's identical to keep_together.",
+      "suggestion": "Consider refactoring to extract common decision-routing logic. One approach: have _process_single_result_with_pipeline_run call a shared internal method that both code paths use. The split handling on lines 369-386 is currently identical to keep_together - either remove the branch or don't implement dead code."
+    },
+    {
+      "id": "D3",
+      "severity": "low",
+      "confidence": 88,
+      "file": "src/story_tracking/services/story_creation_service.py",
+      "line": 369,
+      "title": "Dead code: split branch in _process_single_result_with_pipeline_run is identical to keep_together",
+      "description": "Lines 369-386 handle the 'split' decision but the comment on line 371 says 'For now, fall through to keep_together behavior'. The code block is identical to the keep_together block (lines 351-368). This is YAGNI - implementing structure for future functionality that duplicates existing code.",
+      "suggestion": "Remove the split branch entirely until PM review integration is actually implemented. The elif can be replaced with a simple log warning or error. Alternatively, combine both branches since they're identical: `if pm_result.decision in ('keep_together', 'split'):`"
+    },
+    {
+      "id": "D4",
+      "severity": "low",
+      "confidence": 82,
+      "file": "src/story_tracking/services/story_creation_service.py",
+      "line": 543,
+      "title": "Unused variable: conversation_ids in _handle_keep_together",
+      "description": "Line 543 creates `conversation_ids = [c.id for c in conversations]` but this variable is only used in the logger.info call on line 589 for display purposes. The list comprehension runs on every call but the result is only used for logging.",
+      "suggestion": "Move the conversation_ids creation inside the logging block or just use `len(conversations)` directly in the log message since that's all it's used for."
+    }
+  ],
+  "summary": "Found 4 simplicity issues: 1 unused parameter (original_signature), 2 instances of duplicated/dead code around split decision handling, and 1 minor efficiency issue with unused variable. The main concern is the duplication between _process_single_result_with_pipeline_run and the existing _process_single_result/_handle_keep_together methods - recommend refactoring to share common logic."
+}

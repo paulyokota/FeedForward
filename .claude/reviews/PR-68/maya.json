@@ -1,0 +1,67 @@
+{
+  "reviewer": "maya",
+  "pr": 68,
+  "round": 1,
+  "verdict": "pass_with_suggestions",
+  "issues": [
+    {
+      "id": "M1",
+      "severity": "medium",
+      "category": "implicit_assumptions",
+      "title": "Status state machine undocumented",
+      "files": ["src/api/routers/pipeline.py", "src/api/schemas/pipeline.py"],
+      "description": "Pipeline status transitions (running->stopping->stopped, running->completed, running->failed) exist only implicitly. No documentation explains valid transitions or recovery behavior."
+    },
+    {
+      "id": "M2",
+      "severity": "low",
+      "category": "magic_numbers",
+      "title": "Magic numbers without constants",
+      "files": [
+        "src/api/schemas/pipeline.py",
+        "webapp/src/app/pipeline/page.tsx"
+      ],
+      "description": "Configuration limits (90 days, 50 concurrency, 20 default) are scattered as magic numbers without named constants or explanation."
+    },
+    {
+      "id": "M3",
+      "severity": "low",
+      "category": "implicit_assumptions",
+      "title": "run_id=0 sentinel value unclear",
+      "files": ["src/api/routers/pipeline.py"],
+      "description": "Stop endpoint returns run_id=0 when no active run exists. Unclear if this is a valid ID or sentinel value."
+    },
+    {
+      "id": "M4",
+      "severity": "low",
+      "category": "missing_type_info",
+      "title": "callable type hint too loose",
+      "files": ["src/two_stage_pipeline.py"],
+      "description": "stop_checker parameter uses bare 'callable' instead of Callable[[], bool] which would document expected signature."
+    },
+    {
+      "id": "M5",
+      "severity": "low",
+      "category": "dry_violation",
+      "title": "Terminal status detection duplicated",
+      "files": ["webapp/src/app/pipeline/page.tsx"],
+      "description": "Terminal status checks (['completed', 'failed', 'stopped']) and active status checks are duplicated. Should be centralized in types.ts."
+    },
+    {
+      "id": "M6",
+      "severity": "low",
+      "category": "missing_comments",
+      "title": "Missing JSDoc on complex functions",
+      "files": ["webapp/src/app/pipeline/page.tsx"],
+      "description": "Helper functions (formatDuration, getStatusColor) lack documentation explaining edge cases and fallback behavior."
+    }
+  ],
+  "positives": [
+    "Good inline comment on in-memory state explaining MVP context",
+    "Well-structured TypeScript types for pipeline status",
+    "Descriptive API docstrings on FastAPI endpoints",
+    "Clear separation of backend/frontend concerns",
+    "STATUS_POLL_INTERVAL constant with explanatory comment"
+  ],
+  "summary": "Code is maintainable overall. Main concern is M1 (undocumented state machine) which could cause debugging confusion. Other issues are minor improvements for long-term clarity."
+}

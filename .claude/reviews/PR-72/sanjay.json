@@ -1,0 +1,100 @@
+{
+  "reviewer": "sanjay",
+  "pr_number": 72,
+  "round": 1,
+  "verdict": "pass_with_observations",
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "medium",
+      "category": "access_control",
+      "title": "No authentication on evidence decision endpoints",
+      "file": "src/api/routers/research.py",
+      "line_range": "438-535",
+      "description": "The accept/reject endpoints have no authentication or authorization. Any user can modify evidence decisions for any story. No audit trail records WHO made the decision.",
+      "recommendation": "Add authentication layer and record decided_by user ID. For internal tool, document this limitation.",
+      "blocking": false
+    },
+    {
+      "id": "S2",
+      "severity": "low",
+      "category": "access_control",
+      "title": "IDOR - can modify evidence for any story",
+      "file": "src/api/routers/research.py",
+      "line_range": "438-535",
+      "description": "Users can accept/reject evidence for any story by providing any story UUID. No ownership validation is performed.",
+      "recommendation": "If story ownership matters, add ownership validation before allowing decisions.",
+      "blocking": false
+    },
+    {
+      "id": "S3",
+      "severity": "low",
+      "category": "denial_of_service",
+      "title": "No rate limiting on decision endpoints",
+      "file": "src/api/routers/research.py",
+      "line_range": "438-535",
+      "description": "No rate limiting exists on evidence decision endpoints. An attacker could rapidly flip decisions or spam the database.",
+      "recommendation": "Add rate limiting (e.g., X decisions per minute per IP/session).",
+      "blocking": false
+    },
+    {
+      "id": "S4",
+      "severity": "low",
+      "category": "csrf",
+      "title": "No explicit CSRF protection",
+      "file": "src/api/routers/research.py",
+      "line_range": "438-535",
+      "description": "No explicit CSRF token validation on state-changing POST endpoints. Relies on browser SameSite defaults and JSON content type.",
+      "recommendation": "Verify CORS configuration and consider adding CSRF tokens for state-changing operations.",
+      "blocking": false
+    }
+  ],
+  "positive_findings": [
+    {
+      "category": "sql_injection",
+      "description": "All database queries use parameterized queries - no SQL injection vulnerabilities"
+    },
+    {
+      "category": "input_validation",
+      "description": "Comprehensive input validation: UUID typing for story_id, evidence_id parsing with source_type whitelist, database CHECK constraints"
+    },
+    {
+      "category": "xss_protection",
+      "description": "React automatically escapes user content. External links use rel=noopener noreferrer"
+    },
+    {
+      "category": "error_handling",
+      "description": "Error messages are generic - database details logged server-side, not exposed to clients"
+    },
+    {
+      "category": "database_design",
+      "description": "Strong database constraints: CHECK constraints on enums, foreign key with CASCADE, unique constraints"
+    },
+    {
+      "category": "test_coverage",
+      "description": "Comprehensive tests: validation tests, error handling, state transitions on backend; 21 tests covering all UI states on frontend"
+    }
+  ],
+  "files_reviewed": [
+    "src/api/routers/research.py",
+    "tests/test_research.py",
+    "webapp/src/lib/api.ts",
+    "webapp/src/components/SuggestedEvidence.tsx",
+    "webapp/src/components/__tests__/SuggestedEvidence.test.tsx",
+    "src/db/migrations/007_suggested_evidence_decisions.sql",
+    "src/research/models.py"
+  ],
+  "owasp_checklist": {
+    "A01_broken_access_control": "observe",
+    "A02_cryptographic_failures": "n/a",
+    "A03_injection": "pass",
+    "A04_insecure_design": "pass",
+    "A05_security_misconfiguration": "observe",
+    "A06_vulnerable_components": "n/a",
+    "A07_auth_failures": "observe",
+    "A08_data_integrity_failures": "pass",
+    "A09_logging_failures": "pass",
+    "A10_ssrf": "n/a"
+  },
+  "summary": "Code is well-written with proper input validation, parameterized queries, and reasonable error handling. Main gap is authentication/authorization which is a known documented limitation. Acceptable for internal tool; S1 must be addressed for production with sensitive data."
+}

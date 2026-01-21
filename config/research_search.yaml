@@ -9,11 +9,12 @@ search:
   max_limit: 100
 
   # Default minimum similarity threshold
-  default_min_similarity: 0.5
+  # Lowered to 0.2 to show results with sparse embeddings
+  default_min_similarity: 0.2
 
   # Server-enforced minimum similarity (cannot be overridden by client)
   # Prevents data exposure via similarity=0
-  server_min_similarity: 0.3
+  server_min_similarity: 0.1
 
 context_augmentation:
   # Maximum research results to inject into theme extraction prompts

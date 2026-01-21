@@ -1,0 +1,70 @@
+{
+  "reviewer": "quinn",
+  "pr": 68,
+  "round": 1,
+  "date": "2026-01-20",
+  "status": "changes_requested",
+  "functional_test_required": true,
+  "issues": [
+    {
+      "id": "Q1",
+      "severity": "high",
+      "title": "Stop signal ineffective during classification phase",
+      "category": "system_behavior",
+      "file": "src/two_stage_pipeline.py",
+      "description": "Stop checker only called during fetch loop and before classification starts. Once asyncio.gather starts, all 500+ classification tasks run to completion regardless of stop signal. User could wait 30+ seconds for stop to take effect.",
+      "recommendation": "Add stop check inside classify_conversation_async or implement task cancellation during gather phase"
+    },
+    {
+      "id": "Q2",
+      "severity": "high",
+      "title": "Coda pipeline ignores stop signal entirely",
+      "category": "missed_update",
+      "file": "src/two_stage_pipeline.py",
+      "lines": "467-598",
+      "description": "_run_coda_pipeline_async receives stop_checker and defines should_stop() but never calls it. Stop button has no effect on Coda pipeline runs.",
+      "recommendation": "Add stop checks during fetch, normalize, and classify phases mirroring Intercom pipeline"
+    },
+    {
+      "id": "Q3",
+      "severity": "low",
+      "title": "Type inconsistency in status schemas",
+      "category": "schema_consistency",
+      "file": "src/api/schemas/pipeline.py",
+      "description": "PipelineRunListItem uses 'str' for status field while PipelineStatus uses Literal type. Inconsistent validation.",
+      "recommendation": "Use same Literal type for both schemas"
+    },
+    {
+      "id": "Q4",
+      "severity": "medium",
+      "title": "No progress updates during classification phase",
+      "category": "user_experience",
+      "file": "src/two_stage_pipeline.py",
+      "description": "conversations_classified and conversations_stored remain 0 during entire classification phase (potentially 60+ seconds). Users see no progress indication.",
+      "recommendation": "Consider updating progress after each batch or adding intermediate status updates"
+    },
+    {
+      "id": "Q5",
+      "severity": "low",
+      "title": "Unused 'not_found' status in PipelineStopResponse",
+      "category": "api_consistency",
+      "file": "src/api/schemas/pipeline.py",
+      "description": "Schema includes 'not_found' as valid status but code only returns 'not_running', 'stopping', or 'stopped'",
+      "recommendation": "Remove 'not_found' from schema or add corresponding code path"
+    }
+  ],
+  "summary": {
+    "total_issues": 5,
+    "high": 2,
+    "medium": 1,
+    "low": 2,
+    "blocking": true,
+    "blocking_reason": "Q1 and Q2 are critical: stop mechanism is ineffective during classification and completely broken for Coda pipeline"
+  },
+  "functional_test_requirements": [
+    "Start pipeline, run to completion - verify normal path unaffected",
+    "Start pipeline, stop during fetch - verify partial results stored with 'stopped' status",
+    "Start pipeline, stop during classification - verify graceful behavior",
+    "Verify 'stopped' status displays correctly in history and frontend"
+  ]
+}

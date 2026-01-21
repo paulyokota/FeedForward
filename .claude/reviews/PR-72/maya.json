@@ -1,0 +1,97 @@
+{
+  "reviewer": "maya",
+  "pr_number": 72,
+  "round": 1,
+  "date": "2026-01-20",
+  "verdict": "needs_minor_improvements",
+  "issues": [
+    {
+      "id": "M1",
+      "severity": "medium",
+      "title": "Missing Documentation for State Machine",
+      "file": "src/api/routers/research.py",
+      "lines": "382-399",
+      "description": "The evidence decision state machine (suggested -> accepted/rejected, accepted <-> rejected) is implicit and not well documented. 'suggested' is a virtual state (absence of record) which may confuse future developers.",
+      "recommendation": "Add module-level documentation explaining that suggested = no DB record, and accepted/rejected = record exists with that decision value."
+    },
+    {
+      "id": "M2",
+      "severity": "low",
+      "title": "Magic String 'accepted'/'rejected' Without Constants",
+      "file": "src/api/routers/research.py",
+      "lines": "299, 303, 475, 526",
+      "description": "Decision values are hardcoded strings throughout backend and frontend without centralized constants.",
+      "recommendation": "Define an enum or constants class for EvidenceDecision states."
+    },
+    {
+      "id": "M3",
+      "severity": "medium",
+      "title": "Silent Error Swallowing in Frontend",
+      "file": "webapp/src/components/SuggestedEvidence.tsx",
+      "lines": "29-36, 55-57, 72-73",
+      "description": "Errors are logged to console but no user feedback is provided. User has no indication if accept/reject fails.",
+      "recommendation": "Add visible error feedback (toast or inline message) when API calls fail."
+    },
+    {
+      "id": "M4",
+      "severity": "medium",
+      "title": "evidence_id Format Implicit Coupling",
+      "file": "src/api/routers/research.py",
+      "lines": "331-363",
+      "description": "The evidence_id format 'source_type:source_id' is constructed in one place and parsed in another without explicit documentation of the format.",
+      "recommendation": "Add explicit format documentation at module level with examples."
+    },
+    {
+      "id": "M5",
+      "severity": "low",
+      "title": "Incomplete Test for source_id with Colons",
+      "file": "tests/test_research.py",
+      "lines": null,
+      "description": "No test exists for source_id values containing colons. The parsing handles this correctly but lacks regression test.",
+      "recommendation": "Add test case for evidence_id like 'coda_page:page:with:colons'."
+    },
+    {
+      "id": "M6",
+      "severity": "low",
+      "title": "Undo Button UX is Confusing",
+      "file": "webapp/src/components/SuggestedEvidence.tsx",
+      "lines": "254-272",
+      "description": "The 'Undo' button for accepted items calls handleReject, removing the item. UX expectation is to return to suggested state.",
+      "recommendation": "Either rename to 'Remove' or implement true undo that returns to suggested state."
+    },
+    {
+      "id": "M7",
+      "severity": "low",
+      "title": "VALID_SOURCE_TYPES Duplicated Definition",
+      "file": "src/api/routers/research.py",
+      "lines": "99-100, 151-152, 328",
+      "description": "The valid source types set is defined in three different places in the same file.",
+      "recommendation": "Use the module-level VALID_SOURCE_TYPES constant everywhere."
+    },
+    {
+      "id": "M8",
+      "severity": "low",
+      "title": "CSS Variable Fallbacks with Hardcoded Values",
+      "file": "webapp/src/components/SuggestedEvidence.tsx",
+      "lines": "491-493",
+      "description": "--accent-amber variables may not be defined in design system; hardcoded fallbacks could diverge from design system.",
+      "recommendation": "Either define these variables in global CSS or use existing design system variables."
+    }
+  ],
+  "summary": {
+    "total_issues": 8,
+    "by_severity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 3,
+      "low": 5
+    }
+  },
+  "positive_observations": [
+    "Comprehensive test coverage with 21 frontend tests and backend state transition tests",
+    "Clear API contract with EvidenceDecisionResponse model and OpenAPI documentation",
+    "Helpful error messages in _parse_evidence_id function",
+    "Accessibility considerations with aria-label attributes and focus states",
+    "Idempotent UPSERT behavior enables safe network retries"
+  ]
+}
