@@ -630,6 +630,7 @@ export default function PipelinePage() {
 
                 {/* Theme/Story extraction stats when available */}
                 {(activeStatus.themes_extracted > 0 ||
+                  activeStatus.themes_filtered > 0 ||
                   activeStatus.stories_created > 0) && (
                   <div className="status-grid secondary">
                     <div className="stat-item">
@@ -644,6 +645,14 @@ export default function PipelinePage() {
                       </span>
                       <span className="stat-label">New Signatures</span>
                     </div>
+                    {activeStatus.themes_filtered > 0 && (
+                      <div className="stat-item stat-filtered">
+                        <span className="stat-value">
+                          {activeStatus.themes_filtered}
+                        </span>
+                        <span className="stat-label">Filtered</span>
+                      </div>
+                    )}
                     <div className="stat-item">
                       <span className="stat-value">
                         {activeStatus.stories_created}
@@ -677,6 +686,29 @@ export default function PipelinePage() {
                 {activeStatus.error_message && (
                   <div className="error-message">
                     <strong>Error:</strong> {activeStatus.error_message}
+                  </div>
+                )}
+
+                {/* Quality gate warnings (#104) */}
+                {activeStatus.warnings && activeStatus.warnings.length > 0 && (
+                  <div className="warnings-section">
+                    <div className="warnings-header">
+                      <strong>
+                        Quality Warnings ({activeStatus.warnings.length})
+                      </strong>
+                    </div>
+                    <ul className="warnings-list">
+                      {activeStatus.warnings.slice(0, 5).map((warning, idx) => (
+                        <li key={idx} className="warning-item">
+                          {warning}
+                        </li>
+                      ))}
+                      {activeStatus.warnings.length > 5 && (
+                        <li className="warning-item warning-more">
+                          ... and {activeStatus.warnings.length - 5} more
+                        </li>
+                      )}
+                    </ul>
                   </div>
                 )}
               </div>
@@ -1135,6 +1167,41 @@ export default function PipelinePage() {
                     </p>
                   </div>
                 </>
+              ) : selectedRunStatus.themes_filtered > 0 ? (
+                /* Themes were filtered by quality gates (#104) */
+                <div className="filtered-themes-panel">
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  >
+                    <path d="M3 4h18l-8 9v7l-4 2v-9L3 4z" />
+                  </svg>
+                  <span className="filtered-title">All Themes Filtered</span>
+                  <span className="filtered-count">
+                    {selectedRunStatus.themes_filtered} theme(s) filtered by
+                    quality gates
+                  </span>
+                  <p className="filtered-explanation">
+                    Themes with low confidence or unknown vocabulary were
+                    filtered to prevent noise.
+                  </p>
+                  <div className="filtered-actions">
+                    <p className="filtered-suggestion">
+                      <strong>What to do:</strong>
+                    </p>
+                    <ul className="filtered-suggestions-list">
+                      <li>Run with more conversations for better signal</li>
+                      <li>Check theme vocabulary coverage in config</li>
+                      <li>
+                        Review warnings above for specific filtered themes
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               ) : (
                 /* No themes or stories - default empty state */
                 <div className="no-stories">
@@ -1495,6 +1562,47 @@ export default function PipelinePage() {
           border-radius: var(--radius-md);
           color: var(--accent-red);
           font-size: 13px;
+        }
+
+        /* Quality gate warnings (#104) */
+        .warnings-section {
+          margin-top: 12px;
+          padding: 12px;
+          background: rgba(255, 193, 7, 0.1);
+          border-radius: var(--radius-md);
+          border-left: 3px solid var(--accent-amber);
+        }
+
+        .warnings-header {
+          font-size: 13px;
+          color: var(--accent-amber);
+          margin-bottom: 8px;
+        }
+
+        .warnings-list {
+          margin: 0;
+          padding-left: 16px;
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+
+        .warning-item {
+          margin-bottom: 4px;
+          line-height: 1.4;
+        }
+
+        .warning-more {
+          color: var(--text-tertiary);
+          font-style: italic;
+        }
+
+        .stat-filtered .stat-value {
+          color: var(--accent-amber);
+        }
+
+        .stat-filtered .stat-label {
+          color: var(--accent-amber);
+          opacity: 0.8;
         }
 
         .no-active-run {
@@ -1869,6 +1977,70 @@ export default function PipelinePage() {
 
         .no-stories span {
           font-size: 14px;
+        }
+
+        /* Filtered themes panel (#104) */
+        .filtered-themes-panel {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+          gap: 8px;
+          color: var(--accent-amber);
+          background: rgba(255, 193, 7, 0.05);
+          border-radius: var(--radius-lg);
+        }
+
+        .filtered-themes-panel svg {
+          opacity: 0.7;
+          margin-bottom: 8px;
+        }
+
+        .filtered-title {
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .filtered-count {
+          font-size: 13px;
+          color: var(--text-secondary);
+        }
+
+        .filtered-explanation {
+          font-size: 12px;
+          color: var(--text-tertiary);
+          text-align: center;
+          max-width: 300px;
+          margin-top: 8px;
+          line-height: 1.5;
+        }
+
+        .filtered-actions {
+          margin-top: 16px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(255, 193, 7, 0.2);
+          text-align: left;
+          width: 100%;
+          max-width: 320px;
+        }
+
+        .filtered-suggestion {
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin-bottom: 8px;
+        }
+
+        .filtered-suggestions-list {
+          margin: 0;
+          padding-left: 20px;
+          font-size: 12px;
+          color: var(--text-tertiary);
+          line-height: 1.6;
+        }
+
+        .filtered-suggestions-list li {
+          margin-bottom: 4px;
         }
 
         /* Dry Run Preview Styles */

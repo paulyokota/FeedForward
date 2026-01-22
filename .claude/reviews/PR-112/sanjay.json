@@ -1,0 +1,80 @@
+{
+  "reviewer": "sanjay",
+  "pr_number": 112,
+  "review_round": 1,
+  "timestamp": "2026-01-22T19:45:00Z",
+  "verdict": "BLOCK",
+  "summary": "2 CRITICAL, 1 HIGH, 2 MEDIUM issues found",
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "CRITICAL",
+      "confidence": "high",
+      "category": "validation",
+      "file": "src/db/migrations/010_conversation_run_scoping.sql",
+      "lines": [9, 10],
+      "title": "Missing CASCADE behavior on foreign key creates data integrity risk",
+      "why": "Foreign key lacks ON DELETE/ON UPDATE specification, defaulting to NO ACTION. This prevents pipeline_run deletion and risks orphaned data if constraints are later disabled.",
+      "fix": "Add 'ON DELETE SET NULL' to preserve conversations after run deletion: 'ALTER TABLE conversations ADD COLUMN pipeline_run_id INTEGER REFERENCES pipeline_runs(id) ON DELETE SET NULL;'",
+      "verify": "Confirm business requirement: should conversations persist after pipeline_run deletion?",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S2",
+      "severity": "CRITICAL",
+      "confidence": "high",
+      "category": "auth",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [768, 850, 907, 960, 1008, 1022, 1065],
+      "title": "No authorization controls on pipeline endpoints - IDOR vulnerability",
+      "why": "All endpoints accept run_id without verifying user ownership. Attacker can enumerate sequential IDs to view/stop ANY pipeline run and exfiltrate conversation data from previews.",
+      "fix": "Add authentication middleware and user_id to pipeline_runs table. Create verify_run_access dependency to check ownership before allowing access.",
+      "verify": null,
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "S3",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "category": "injection",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [298, 438],
+      "title": "Reliance on framework type validation for SQL injection prevention",
+      "why": "Code relies solely on FastAPI type hints for input validation. If framework validation is bypassed or code is used in non-FastAPI context, SQL injection risk emerges.",
+      "fix": "Add explicit validation in endpoint: 'if not isinstance(run_id, int) or run_id < 1: raise HTTPException(400)'. Implement defense-in-depth validation.",
+      "verify": "Test with SQL injection payloads to confirm FastAPI blocks them",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S4",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "validation",
+      "file": "src/db/classification_storage.py",
+      "lines": [35, 179],
+      "title": "Missing input validation on pipeline_run_id in storage layer",
+      "why": "Storage functions accept pipeline_run_id without validation. Accepts None, negative integers, zero, and doesn't verify existence. Foreign key will catch invalid references but error messages leak schema info.",
+      "fix": "Add validation: 'if pipeline_run_id is not None: if not isinstance(pipeline_run_id, int) or pipeline_run_id < 1: raise ValueError(...)'",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S5",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "category": "validation",
+      "file": "src/db/migrations/010_conversation_run_scoping.sql",
+      "lines": [10],
+      "title": "Integer overflow risk on pipeline_run_id for high-frequency systems",
+      "why": "Using INTEGER type limits to 2.1B records. At 1M runs/day (high-frequency testing), system exhausts IDs in ~6 years. Attacker could trigger run spam to exhaust sequence (DoS).",
+      "fix": "Use BIGINT instead of INTEGER: 'pipeline_run_id BIGINT REFERENCES pipeline_runs(id)'. Storage cost minimal (4 extra bytes/row).",
+      "verify": "Check if pipeline_runs.id is BIGINT - type mismatch would be a bug",
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

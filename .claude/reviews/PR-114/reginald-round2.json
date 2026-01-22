@@ -1,0 +1,60 @@
+{
+  "reviewer": "Reginald",
+  "pr_number": 114,
+  "review_round": 2,
+  "timestamp": "2026-01-22T00:00:00Z",
+  "verdict": "BLOCK",
+  "summary": "1 Round 1 issue unfixed, 1 new correctness issue found",
+  "r1_issues_resolved": [
+    {
+      "id": "R1",
+      "status": "FIXED",
+      "comment": "Type annotations in PipelineRun model (lines 174-175) correctly use List[dict] and List[str] with Field defaults. Type safety improved."
+    },
+    {
+      "id": "R2",
+      "status": "NOT_FIXED",
+      "comment": "Line 682 still uses COALESCE(...) || %s::jsonb (append operator). Should replace with just %s::jsonb to prevent accumulation on retries. This is a correctness issue that persists from R1."
+    },
+    {
+      "id": "R3",
+      "status": "ACCEPTABLE",
+      "comment": "Test coverage adequate (22 tests passing). Edge cases for None confidence, case-insensitivity, and empty signatures are handled by code (lowercase call at line 91)."
+    }
+  ],
+  "new_issues": [
+    {
+      "id": "R2-1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "logic",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [320, 335],
+      "title": "Return dict inconsistency in _run_theme_extraction early returns",
+      "why": "Early return paths (no rows, stop signal) return {themes_extracted, themes_new} but main return includes {themes_extracted, themes_new, themes_filtered, warnings}. Caller uses .get() with defaults (lines 669-670), so no crash, but inconsistent contract makes code fragile.",
+      "fix": "Make all returns consistent. Either: (A) Add missing keys to early returns: {themes_extracted: 0, themes_new: 0, themes_filtered: 0, warnings: []} or (B) Update caller to handle missing keys explicitly.",
+      "verify": "Check all return statements in _run_theme_extraction match the function contract.",
+      "scope": "isolated but correctness-critical",
+      "see_verbose": true
+    }
+  ],
+  "other_fixes_verified": [
+    {
+      "id": "S1",
+      "status": "FIXED",
+      "comment": "Information disclosure fixed: lines 168-171 sanitize warnings to exclude conversation IDs. Only theme signature and reason exposed."
+    },
+    {
+      "id": "Q1",
+      "status": "FIXED",
+      "comment": "All Themes Filtered UX issue resolved: lines 1170-1204 in page.tsx now show filtered-themes-panel with explanation and actionable guidance."
+    },
+    {
+      "id": "M1",
+      "status": "FIXED",
+      "comment": "Variable naming clarity improved: line 388 uses high_quality_themes and low_quality_themes instead of ambiguous 'themes'."
+    }
+  ],
+  "regression_check": "No regressions detected. All quality gate tests pass (22/22). Memory cleanup for dry run previews works correctly. SQL injection prevention maintained via whitelist.",
+  "verdict_rationale": "BLOCK due to unfixed R2 and new R2-1 correctness issue. R2 (warnings accumulation) is a logic correctness problem that should be fixed before merge. R2-1 (return dict inconsistency) is medium severity but makes the code contract unclear. Both are easily fixable. Other fixes from Round 1 are excellent and well-implemented."
+}

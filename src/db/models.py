@@ -1,7 +1,7 @@
 """Pydantic models for database entities."""
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -156,17 +156,23 @@ class PipelineRun(BaseModel):
     # Results - Theme extraction phase
     themes_extracted: int = 0
     themes_new: int = 0
+    themes_filtered: int = 0  # Themes rejected by quality gates (#104)
 
     # Results - Story creation phase
     stories_created: int = 0
     orphans_created: int = 0
 
     # Story creation readiness
-    stories_ready: bool = False  # True when themes extracted, can create stories
+    # True only when themes_extracted > 0 (Fix #104)
+    stories_ready: bool = False
 
     # Status
     status: Literal["running", "stopping", "stopped", "completed", "failed"] = "running"
     error_message: Optional[str] = None
+
+    # Structured error tracking (#104)
+    errors: List[dict] = Field(default_factory=list)  # [{phase, message, details}, ...]
+    warnings: List[str] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

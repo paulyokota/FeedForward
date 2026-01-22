@@ -388,6 +388,12 @@ export interface PipelineRunResponse {
   message: string;
 }
 
+export interface PipelineError {
+  phase: string;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
 export interface PipelineStatus {
   id: number;
   started_at: string;
@@ -406,9 +412,13 @@ export interface PipelineStatus {
   auto_create_stories: boolean;
   themes_extracted: number;
   themes_new: number;
+  themes_filtered: number; // #104: Themes filtered by quality gates
   stories_created: number;
   orphans_created: number;
   stories_ready: boolean;
+  // Error tracking (#104)
+  errors: PipelineError[];
+  warnings: string[];
 }
 
 export interface PipelineRunListItem {
@@ -425,6 +435,7 @@ export interface PipelineRunListItem {
   themes_extracted: number;
   stories_created: number;
   stories_ready: boolean;
+  error_count: number; // #104: Number of errors
 }
 
 export interface PipelineStopResponse {

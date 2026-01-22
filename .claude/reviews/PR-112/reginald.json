@@ -1,0 +1,80 @@
+{
+  "reviewer": "reginald",
+  "pr_number": 112,
+  "review_round": 1,
+  "timestamp": "2026-01-22T00:00:00Z",
+  "verdict": "BLOCK",
+  "summary": "4 HIGH, 1 MEDIUM issues found. Core fix is correct but critical NULL handling and validation gaps will cause production failures.",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "logic",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [298, 298],
+      "title": "NULL pipeline_run_id breaks theme extraction query",
+      "why": "Query uses WHERE c.pipeline_run_id = %s but doesn't handle NULL values from pre-migration data. Conversations classified before migration have pipeline_run_id = NULL and will be excluded from theme extraction, causing silent data loss.",
+      "fix": "Add NULL handling: WHERE (c.pipeline_run_id = %s OR (c.pipeline_run_id IS NULL AND c.classified_at >= pr.started_at)) OR backfill migration to set pipeline_run_id for existing rows.",
+      "verify": "Check if production database has existing conversations with NULL pipeline_run_id",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "R2",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "logic",
+      "file": "src/db/classification_storage.py",
+      "lines": [179, 318],
+      "title": "Race condition: result dict pipeline_run_id ignored",
+      "why": "Function parameter pipeline_run_id always overwrites result dict value. If someone calls store_classification_results_batch(old_results, pipeline_run_id=new_id), conversations get reassigned to wrong run, corrupting run isolation.",
+      "fix": "Add validation: for each result, check if result.get('pipeline_run_id') matches function parameter. Raise ValueError on mismatch.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R3",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "error-handling",
+      "file": "src/db/classification_storage.py",
+      "lines": [317, 318],
+      "title": "Missing foreign key validation causes crashes",
+      "why": "If pipeline_run_id doesn't exist in pipeline_runs table, PostgreSQL raises foreign key violation. No error handling, exception bubbles up, batch storage fails, work lost.",
+      "fix": "Before batch insert, validate: SELECT 1 FROM pipeline_runs WHERE id = %s. Raise ValueError with clear message if run doesn't exist.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R4",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "category": "logic",
+      "file": "src/db/classification_storage.py",
+      "lines": [157, 315],
+      "title": "ON CONFLICT overwrites pipeline_run_id history",
+      "why": "When conversation is reclassified in different run, ON CONFLICT DO UPDATE overwrites pipeline_run_id. History of which run FIRST classified it is lost. Unclear if this is intended behavior.",
+      "fix": "Decide semantics: first run (immutable) or last run (current)? If first run, use COALESCE(conversations.pipeline_run_id, EXCLUDED.pipeline_run_id) in UPDATE.",
+      "verify": "Confirm intended semantics with product owner",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "R6",
+      "severity": "LOW",
+      "confidence": "low",
+      "category": "integration",
+      "file": "src/two_stage_pipeline.py",
+      "lines": [827, 827],
+      "title": "Sync pipeline batch_size not configurable",
+      "why": "Async pipeline accepts batch_size parameter but sync pipeline hardcodes BATCH_SIZE = 50. API inconsistency.",
+      "fix": "Add batch_size: int = 50 parameter to run_pipeline() for consistency.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    }
+  ]
+}
