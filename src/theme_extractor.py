@@ -11,7 +11,7 @@ import os
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .research.unified_search import UnifiedSearchService
@@ -38,6 +38,79 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     a = np.array(a)
     b = np.array(b)
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
+def validate_signature_specificity(
+    signature: str,
+    symptoms: Optional[List[str]] = None,
+) -> tuple[bool, Optional[str]]:
+    """
+    Validate that a signature is specific enough for the SAME_FIX test.
+
+    The SAME_FIX test: Two conversations should ONLY share a signature if:
+    1. One code change would fix BOTH
+    2. One developer could own the fix
+    3. One acceptance test verifies both are fixed
+
+    Returns:
+        (is_valid, suggestion) - suggestion is a more specific signature hint if invalid
+
+    Examples:
+        >>> validate_signature_specificity("pinterest_publishing_failure")
+        (False, "Consider more specific: pinterest_[specific_symptom]")
+
+        >>> validate_signature_specificity("pinterest_duplicate_pins")
+        (True, None)
+    """
+    # Broad failure indicators that suggest over-generalization
+    BROAD_SUFFIXES = [
+        '_failure',   # pinterest_publishing_failure
+        '_issue',     # scheduling_issue
+        '_problem',   # oauth_problem
+        '_error',     # api_error (unless specific like timeout_error)
+    ]
+
+    # Specific symptom indicators that are acceptable even with broad suffixes
+    SPECIFIC_PATTERNS = [
+        '_duplicate_',    # duplicate_pins
+        '_missing_',      # missing_pins
+        '_timeout_',      # timeout_error
+        '_permission_',   # permission_denied
+        '_encoding_',     # encoding_error
+        '_sync_',         # sync_failure (specific to sync)
+        '_oauth_',        # oauth_failure (specific to oauth)
+        '_connection_',   # connection_failure (specific to connection)
+        '_loading_',      # loading_failure (specific to loading)
+        '_upload_',       # upload_failure (specific to upload)
+        '_download_',     # download_failure (specific to download)
+        '_login_',        # login_failure (specific to login)
+        '_payment_',      # payment_failure (specific to payment)
+        '_generation_',   # generation_failure (specific to generation)
+        '_video_',        # video_upload_failure (specific to video)
+        '_image_',        # image_loading_failure (specific to image)
+        '_onboarding_',   # onboarding_error (specific to onboarding)
+        '_integration_',  # integration_loop (specific to integration)
+        '_scheduling_',   # scheduling_failure (when combined with specific scheduler)
+    ]
+
+    # Check if signature ends with a broad suffix
+    for suffix in BROAD_SUFFIXES:
+        if signature.endswith(suffix):
+            # Check if it has a specific pattern that makes it acceptable
+            has_specific = any(p in signature for p in SPECIFIC_PATTERNS)
+            if not has_specific:
+                # Extract the base (e.g., "pinterest_publishing" from "pinterest_publishing_failure")
+                base = signature[:-len(suffix)]
+                suggestion = f"Consider more specific: {base}_[specific_symptom]"
+                logger.warning(
+                    f"Signature '{signature}' may be too broad. "
+                    f"SAME_FIX test: Would one code change fix ALL conversations with this signature? "
+                    f"{suggestion}"
+                )
+                return False, suggestion
+
+    return True, None
+
 
 # Load product context
 PRODUCT_CONTEXT_PATH = Path(__file__).parent.parent / "context" / "product"
@@ -156,20 +229,49 @@ FLEXIBLE_SIGNATURE_INSTRUCTIONS = """IMPORTANT - Create SPECIFIC, ACTIONABLE sig
    b) If yes, use that exact signature
    c) If no match, create a new canonical signature following these rules:
 
+## CRITICAL: The SAME_FIX Test
+
+**Before assigning ANY signature, ask yourself: "Would ONE implementation fix ALL conversations with this signature?"**
+
+Two conversations should ONLY share a signature if:
+1. **One code change** would fix BOTH issues
+2. **One developer** could own the fix
+3. **One acceptance test** verifies both are fixed
+
+**Signature Granularity**:
+- Level 1 (TOO BROAD): `[platform]_[failure_category]`
+  - Example: `pinterest_publishing_failure` ← WRONG
+  - Problem: Groups duplicate pins, missing pins, and upload failures together
+
+- Level 2 (CORRECT): `[platform]_[specific_symptom]`
+  - Example: `pinterest_duplicate_pins` ← CORRECT
+  - Example: `pinterest_missing_pins` ← CORRECT
+  - Example: `pinterest_video_upload_failure` ← CORRECT
+
+**Disambiguation Questions**:
+Before assigning a signature, ask yourself:
+1. "If two users report this, would the SAME code change fix both?"
+2. "Would I need to look at DIFFERENT code paths to fix different reports?"
+
+If answer to #2 is YES → Create more specific signature
+
 **Signature Quality Rules**:
-   ✅ DO: Be specific about the PROBLEM
+   ✅ DO: Be specific about the SYMPTOM
       - "csv_import_encoding_error" (specific error type)
       - "ghostwriter_timeout_error" (specific failure mode)
       - "pinterest_board_permission_denied" (specific error and action)
+      - "pinterest_duplicate_pins" (specific symptom)
+      - "pinterest_missing_pins" (specific symptom)
 
-   ❌ DON'T: Use generic terms
+   ❌ DON'T: Use broad failure categories
+      - NOT "pinterest_publishing_failure" → use specific symptom like "pinterest_duplicate_pins"
+      - NOT "scheduling_issue" → use "scheduling_timezone_mismatch" or "scheduling_ui_drag_drop_failure"
       - NOT "account_settings_guidance" → "account_email_change_failure"
-      - NOT "scheduling_feature_question" → "pin_spacing_interval_unclear"
       - NOT "general_product_question" → identify specific product first
 
-   **Format**: [feature]_[specific_problem] (lowercase, underscores)
-   **Avoid**: "question", "inquiry", "guidance", "general", "issue"
-   **Include**: Actual error, symptom, or specific failure mode"""
+   **Format**: [feature]_[specific_symptom] (lowercase, underscores)
+   **Avoid**: Generic suffixes like "_failure", "_issue", "_problem", "_error" without specific symptom
+   **Include**: Actual symptom, specific error type, or observable behavior"""
 
 
 SIGNATURE_CANONICALIZATION_PROMPT = """You are normalizing issue signatures for a support ticket system.
