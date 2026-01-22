@@ -1,54 +1,46 @@
 # Last Session Summary
 
-**Date**: 2026-01-21 23:55
-**Branch**: main (PR #100 merged)
+**Date**: 2026-01-21
+**Branch**: main
 
-## Goal
+## What Was Done
 
-Complete 5-personality review for PR #100 (Pipeline Search API fix) and merge.
+### 1. Fixed Missing `story_orphans` Table (Bug from Run 28)
 
-## Progress
+Pipeline Run 28 completed classification successfully (91 conversations), but theme processing failed with:
 
-- Completed: 7 tasks
-- Pending: 0 tasks
+```
+Error processing theme group: relation "story_orphans" does not exist
+```
 
-### Completed
+**Root Cause**: Migration 005 (`src/db/migrations/005_add_story_orphans.sql`) was never applied. Migrations 001-004 existed but 005 was missed.
 
-1. Logged gate violation #7 (not using Kenji skill for testing)
-2. Launched 5-personality review Round 1 (all 5 reviewers returned BLOCK)
-3. Fixed Round 1 issues:
-   - Removed ~60 debug print statements from async methods
-   - Removed PID file tracking mechanism (YAGNI + security risk)
-   - Added sock_read timeout to aiohttp ClientTimeout
-   - Fixed deprecated datetime.utcnow() -> datetime.now(timezone.utc)
-4. Launched Round 2 review (all 5 reviewers returned APPROVE - CONVERGED)
-5. Posted CONVERGED comment to PR #100
-6. Merged PR #100 via squash merge
-7. Synced local main with remote
+**Fix**: Applied the migration manually:
 
-## Key Decisions
+```bash
+psql postgresql://localhost:5432/feedforward -f src/db/migrations/005_add_story_orphans.sql
+```
 
-1. **Remove PID file mechanism entirely** - Dmitri identified it as YAGNI (FastAPI BackgroundTasks run in-process, cannot orphan), Sanjay flagged security risk (TOCTOU)
-2. **Keep sync/async path divergence** - Documented as known limitation, separate follow-up
+Table created with all columns, indexes, and foreign key to `stories` table.
 
-## Session Notes
+### 2. Created "Senior Dev Bestie" Output Style
 
-**5-Personality Review Results:**
+Converted a 600-line mentorship persona document into a focused Output Style (~60 lines) at `.claude/output-styles/senior-bestie.md`.
 
-| Reviewer | Round 1 | Round 2 | Key Finding                              |
-| -------- | ------- | ------- | ---------------------------------------- |
-| Reginald | BLOCK   | APPROVE | Session management, sock_read timeout    |
-| Sanjay   | BLOCK   | APPROVE | PID file TOCTOU vulnerability (CRITICAL) |
-| Quinn    | BLOCK   | APPROVE | Cleared FUNCTIONAL_TEST_REQUIRED         |
-| Dmitri   | BLOCK   | APPROVE | ~216 lines of bloat removed              |
-| Maya     | BLOCK   | APPROVE | Debug prints blocking production code    |
+**Design decisions**:
 
-**Process Compliance:**
+- Set `keep-coding-instructions: true` (persona is for coding help)
+- Focused on voice/tone/interaction style, dropped teaching methodology
+- Kept "roast the work, never the person" guardrail
+- Added calibration rules (dial back when frustrated, admit uncertainty)
 
-- Used Kenji skill for test writing (after correction)
-- 5-personality review with 2 rounds until convergence
-- Learning loop: fixed own code issues
+**To activate**: `/output-style senior-bestie` (may require Claude Code restart to detect new styles)
+
+## Follow-up
+
+- Test output style activation after restart
+- Next pipeline run should complete story/orphan creation successfully
 
 ---
 
-_Session completed 2026-01-21 23:55_
+_Session ended 2026-01-21_
