@@ -57,7 +57,7 @@
           "wrong": "pinterest_publishing_failure",
           "why_wrong": "Duplicate pins vs no posting require different fixes - fails SAME_FIX test",
           "correct_a": "pinterest_duplicate_pins",
-          "correct_b": "pinterest_publishing_failure"
+          "correct_b": "pinterest_posts_not_appearing"
         },
         {
           "scenario": "User A: video upload timeout. User B: pins missing from boards",

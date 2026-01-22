@@ -124,8 +124,13 @@ def _truncate_at_word_boundary(text: str, max_length: int) -> str:
 
 
 @dataclass
-class PMReviewResult:
-    """A single PM review decision."""
+class FallbackPMReviewResult:
+    """Fallback PM review result when PMReviewService is unavailable.
+
+    Note: This is distinct from pm_review_service.PMReviewResult which is
+    imported as PMReviewResultType. This simpler class is used for default
+    keep_together decisions when PM review is disabled or encounters errors.
+    """
 
     signature: str
     decision: str  # "keep_together" or "split"
@@ -163,7 +168,8 @@ class ProcessingResult:
     quality_gate_rejections: int = 0  # Track groups rejected by quality gates
     orphan_fallbacks: int = 0  # Track orphan integration failures that fell back to direct creation
     # PM Review metrics (Improvement 2: PM Review Before Story Creation)
-    pm_review_splits: int = 0  # Groups that were split by PM review
+    pm_review_splits: int = 0  # Groups that were split into sub-groups by PM review
+    pm_review_rejects: int = 0  # Groups where all conversations rejected (routed to orphans)
     pm_review_kept: int = 0  # Groups kept together by PM review
     pm_review_skipped: int = 0  # Groups that bypassed PM review (disabled, timeout, or single-conv)
 
@@ -451,7 +457,7 @@ class StoryCreationService:
                             failure_reason=f"PM review rejected: {pm_review_result.reasoning}",
                             result=result,
                         )
-                        result.pm_review_splits += 1
+                        result.pm_review_rejects += 1
                         continue
                     else:
                         # Keep together - continue to story creation
@@ -485,7 +491,7 @@ class StoryCreationService:
             f"{result.orphans_updated} orphans updated, "
             f"{result.quality_gate_rejections} quality gate rejections, "
             f"PM review: {result.pm_review_kept} kept, {result.pm_review_splits} split, "
-            f"{result.pm_review_skipped} skipped"
+            f"{result.pm_review_rejects} rejected, {result.pm_review_skipped} skipped"
         )
 
         return result
@@ -850,9 +856,9 @@ class StoryCreationService:
         self,
         signature: str,
         conversation_count: int,
-    ) -> PMReviewResult:
+    ) -> FallbackPMReviewResult:
         """Generate default PM result (keep_together)."""
-        return PMReviewResult(
+        return FallbackPMReviewResult(
             signature=signature,
             decision="keep_together",
             reasoning="Auto-generated from pipeline (no PM review)",
@@ -862,7 +868,7 @@ class StoryCreationService:
 
     def _process_single_result_with_pipeline_run(
         self,
-        pm_result: PMReviewResult,
+        pm_result: FallbackPMReviewResult,
         conversations: List[ConversationData],
         result: ProcessingResult,
         pipeline_run_id: Optional[int] = None,
@@ -1078,7 +1084,7 @@ class StoryCreationService:
 
     def _process_single_result(
         self,
-        pm_result: PMReviewResult,
+        pm_result: FallbackPMReviewResult,
         conversations_by_signature: Dict[str, List[ConversationData]],
         result: ProcessingResult,
     ) -> None:
@@ -1101,7 +1107,7 @@ class StoryCreationService:
 
     def _handle_keep_together(
         self,
-        pm_result: PMReviewResult,
+        pm_result: FallbackPMReviewResult,
         conversations: List[ConversationData],
         result: ProcessingResult,
     ) -> None:
@@ -1157,7 +1163,7 @@ class StoryCreationService:
 
     def _handle_split(
         self,
-        pm_result: PMReviewResult,
+        pm_result: FallbackPMReviewResult,
         conversations: List[ConversationData],
         result: ProcessingResult,
     ) -> None:
@@ -1277,14 +1283,14 @@ class StoryCreationService:
                 f"({len(conversation_ids)} conversations)"
             )
 
-    def _load_pm_results(self, path: Path) -> List[PMReviewResult]:
+    def _load_pm_results(self, path: Path) -> List[FallbackPMReviewResult]:
         """Load PM review results from JSON file."""
         with open(path) as f:
             data = json.load(f)
 
         results = []
         for item in data:
-            results.append(PMReviewResult(
+            results.append(FallbackPMReviewResult(
                 signature=item.get("signature", "unknown"),
                 decision=item.get("decision", "error"),
                 reasoning=item.get("reasoning", ""),

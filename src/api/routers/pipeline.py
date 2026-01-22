@@ -462,6 +462,9 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         target_repo = os.environ.get("FEEDFORWARD_TARGET_REPO", "FeedForward")
 
         # PM Review settings (Improvement 2: PM Review Before Story Creation)
+        # PM_REVIEW_ENABLED: Set to "true" to enable PM coherence review before story creation.
+        # When enabled, theme groups are evaluated by an LLM to ensure all conversations
+        # would be fixed by the same implementation (SAME_FIX test). Default: disabled.
         pm_review_enabled = os.environ.get("PM_REVIEW_ENABLED", "false").lower() == "true"
         pm_review_service = None
 
@@ -500,6 +503,7 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         "stories_created": result.stories_created,
         "orphans_created": result.orphans_created,
         "pm_review_splits": result.pm_review_splits,
+        "pm_review_rejects": result.pm_review_rejects,
         "pm_review_kept": result.pm_review_kept,
         "pm_review_skipped": result.pm_review_skipped,
     }

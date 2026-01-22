@@ -32,7 +32,7 @@ from story_tracking.services import (
 )
 from story_tracking.services.story_creation_service import (
     ConversationData,
-    PMReviewResult,
+    FallbackPMReviewResult,
     ProcessingResult,
 )
 
@@ -570,8 +570,8 @@ class TestPMResultModels:
     """Tests for PM result data models."""
 
     def test_pm_review_result_dataclass(self):
-        """Test PMReviewResult dataclass."""
-        result = PMReviewResult(
+        """Test FallbackPMReviewResult dataclass."""
+        result = FallbackPMReviewResult(
             signature="test",
             decision="keep_together",
             reasoning="Test reasoning",
@@ -1501,7 +1501,7 @@ class TestGeneratePMResult:
 
         result = service._generate_pm_result("test_signature", conversation_count=5)
 
-        assert isinstance(result, PMReviewResult)
+        assert isinstance(result, FallbackPMReviewResult)
         assert result.signature == "test_signature"
         assert result.decision == "keep_together"
         assert result.conversation_count == 5

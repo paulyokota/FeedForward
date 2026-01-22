@@ -71,26 +71,22 @@ def validate_signature_specificity(
     ]
 
     # Specific symptom indicators that are acceptable even with broad suffixes
+    # NOTE: Keep this list focused on patterns with real usage evidence (YAGNI)
     SPECIFIC_PATTERNS = [
-        '_duplicate_',    # duplicate_pins
-        '_missing_',      # missing_pins
-        '_timeout_',      # timeout_error
-        '_permission_',   # permission_denied
-        '_encoding_',     # encoding_error
-        '_sync_',         # sync_failure (specific to sync)
-        '_oauth_',        # oauth_failure (specific to oauth)
-        '_connection_',   # connection_failure (specific to connection)
-        '_loading_',      # loading_failure (specific to loading)
-        '_upload_',       # upload_failure (specific to upload)
-        '_download_',     # download_failure (specific to download)
-        '_login_',        # login_failure (specific to login)
-        '_payment_',      # payment_failure (specific to payment)
-        '_generation_',   # generation_failure (specific to generation)
-        '_video_',        # video_upload_failure (specific to video)
-        '_image_',        # image_loading_failure (specific to image)
-        '_onboarding_',   # onboarding_error (specific to onboarding)
-        '_integration_',  # integration_loop (specific to integration)
-        '_scheduling_',   # scheduling_failure (when combined with specific scheduler)
+        # Core symptom patterns (high-frequency issues)
+        '_duplicate_',    # duplicate_pins - idempotency issues
+        '_missing_',      # missing_pins - data sync issues
+        '_timeout_',      # timeout_error - retry/timeout config
+        '_permission_',   # permission_denied - auth/access issues
+        '_encoding_',     # encoding_error - data format issues
+        # Component-specific patterns (tested in theme_extractor_specificity tests)
+        '_sync_',         # sync_failure - sync operations
+        '_oauth_',        # oauth_failure - auth flows
+        '_connection_',   # connection_failure - connectivity
+        '_upload_',       # upload_failure - file uploads
+        '_loading_',      # loading_failure - UI loading states
+        '_video_',        # video_upload - media type specific
+        '_image_',        # image_loading - media type specific
     ]
 
     # Check if signature ends with a broad suffix

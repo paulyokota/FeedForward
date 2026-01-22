@@ -347,7 +347,11 @@ class PMReviewService:
             # All conversations are too different - treat as reject
             decision = ReviewDecision.REJECT
             reasoning = f"Split suggested but no valid sub-groups: {reasoning}"
-            orphan_ids = [c.conversation_id for c in conversations]
+            # Preserve any orphan_ids from LLM, then add remaining conversations
+            existing_orphan_ids = set(orphan_ids)
+            for c in conversations:
+                if c.conversation_id not in existing_orphan_ids:
+                    orphan_ids.append(c.conversation_id)
 
         return PMReviewResult(
             original_signature=signature,
