@@ -385,11 +385,11 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
 
     # Apply quality gates (#104)
     # Filter themes that don't meet quality thresholds
-    themes, filtered_themes, warnings = filter_themes_by_quality(all_themes)
+    high_quality_themes, low_quality_themes, warnings = filter_themes_by_quality(all_themes)
 
-    if filtered_themes:
+    if low_quality_themes:
         logger.info(
-            f"Run {run_id}: Quality gates filtered {len(filtered_themes)} of "
+            f"Run {run_id}: Quality gates filtered {len(low_quality_themes)} of "
             f"{len(all_themes)} themes"
         )
 
@@ -399,7 +399,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
 
     with get_connection() as conn:
         with conn.cursor() as cur:
-            for theme in themes:
+            for theme in high_quality_themes:
                 # Calculate quality score for storage
                 quality_result = check_theme_quality(
                     issue_signature=theme.issue_signature,
@@ -440,13 +440,13 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                 ))
 
     logger.info(
-        f"Run {run_id}: Extracted {len(themes)} themes ({themes_new} new), "
-        f"filtered {len(filtered_themes)}"
+        f"Run {run_id}: Extracted {len(high_quality_themes)} themes ({themes_new} new), "
+        f"filtered {len(low_quality_themes)}"
     )
     return {
-        "themes_extracted": len(themes),
+        "themes_extracted": len(high_quality_themes),
         "themes_new": themes_new,
-        "themes_filtered": len(filtered_themes),
+        "themes_filtered": len(low_quality_themes),
         "warnings": warnings,
     }
 

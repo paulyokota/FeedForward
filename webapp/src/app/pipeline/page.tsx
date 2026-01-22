@@ -1187,9 +1187,20 @@ export default function PipelinePage() {
                   </span>
                   <p className="filtered-explanation">
                     Themes with low confidence or unknown vocabulary were
-                    filtered to prevent noise. Check pipeline warnings for
-                    details.
+                    filtered to prevent noise.
                   </p>
+                  <div className="filtered-actions">
+                    <p className="filtered-suggestion">
+                      <strong>What to do:</strong>
+                    </p>
+                    <ul className="filtered-suggestions-list">
+                      <li>Run with more conversations for better signal</li>
+                      <li>Check theme vocabulary coverage in config</li>
+                      <li>
+                        Review warnings above for specific filtered themes
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               ) : (
                 /* No themes or stories - default empty state */
@@ -2003,6 +2014,33 @@ export default function PipelinePage() {
           max-width: 300px;
           margin-top: 8px;
           line-height: 1.5;
+        }
+
+        .filtered-actions {
+          margin-top: 16px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(255, 193, 7, 0.2);
+          text-align: left;
+          width: 100%;
+          max-width: 320px;
+        }
+
+        .filtered-suggestion {
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin-bottom: 8px;
+        }
+
+        .filtered-suggestions-list {
+          margin: 0;
+          padding-left: 20px;
+          font-size: 12px;
+          color: var(--text-tertiary);
+          line-height: 1.6;
+        }
+
+        .filtered-suggestions-list li {
+          margin-bottom: 4px;
         }
 
         /* Dry Run Preview Styles */

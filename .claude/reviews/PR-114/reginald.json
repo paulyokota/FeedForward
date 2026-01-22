@@ -1,0 +1,52 @@
+{
+  "reviewer": "reginald",
+  "pr_number": 114,
+  "review_round": 1,
+  "timestamp": "2026-01-22T00:00:00Z",
+  "verdict": "APPROVE",
+  "summary": "2 MEDIUM correctness issues, 1 LOW observation",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "type-safety",
+      "file": "src/db/models.py",
+      "lines": [174, 175],
+      "title": "Type inconsistency between Pydantic model and JSONB columns",
+      "why": "PipelineRun.errors and .warnings declared as generic 'list' instead of List[dict]/List[str], bypassing type validation at model layer. Could allow invalid data structure.",
+      "fix": "Change to: errors: List[dict] = Field(default_factory=list) and warnings: List[str] = Field(default_factory=list)",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R2",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "logic",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [682],
+      "title": "Warnings array concatenation could grow unbounded",
+      "why": "Using COALESCE(...) || operator appends warnings without deduplication. If theme extraction retries, same warnings accumulate. Could result in thousands of duplicates.",
+      "fix": "Replace 'warnings = COALESCE(warnings, ...) || %s::jsonb' with 'warnings = %s::jsonb' to replace instead of append.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R3",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "testing",
+      "file": "tests/test_theme_quality.py",
+      "lines": [],
+      "title": "Test coverage gap for edge cases",
+      "why": "Missing tests for: None confidence, case-insensitive confidence, empty signature string. Code handles these but behavior not verified.",
+      "fix": "Add tests for: check_theme_quality with None confidence, uppercase confidence string, and empty signature.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

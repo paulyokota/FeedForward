@@ -1,0 +1,44 @@
+{
+  "reviewer": "quinn",
+  "pr_number": 112,
+  "review_round": 2,
+  "timestamp": "2026-01-22T00:00:00Z",
+  "verdict": "APPROVE",
+  "functional_test_required": false,
+  "round1_fixes_verified": ["Q1", "Q2", "Q3", "Q4"],
+  "new_issues": [],
+  "verification_details": {
+    "Q1_null_black_hole": {
+      "status": "FIXED",
+      "location": "src/api/routers/pipeline.py:301-302",
+      "verification": "Timestamp fallback added: OR (c.pipeline_run_id IS NULL AND c.classified_at >= pr.started_at)",
+      "quality": "Excellent inline comment explains backward compatibility"
+    },
+    "Q2_backfill_strategy": {
+      "status": "FIXED",
+      "location": "src/db/migrations/010_conversation_run_scoping.sql:8-11",
+      "verification": "Clear documentation of NULL strategy and fallback behavior",
+      "quality": "Migration comment explains both the problem and solution"
+    },
+    "Q3_coalesce_immutability": {
+      "status": "FIXED",
+      "location": "src/db/classification_storage.py:158, 319",
+      "verification": "Both upsert queries use COALESCE(conversations.pipeline_run_id, EXCLUDED.pipeline_run_id)",
+      "quality": "Inline comment clarifies immutability intent"
+    },
+    "Q4_null_safety_theme_extraction": {
+      "status": "FIXED",
+      "location": "src/api/routers/pipeline.py:303",
+      "verification": "COALESCE(c.stage2_type, c.stage1_type) used in WHERE clause",
+      "quality": "Consistent with SELECT clause fallback logic"
+    }
+  },
+  "code_quality_assessment": {
+    "coherence": "Excellent - all fixes work together to support backward compatibility",
+    "documentation": "Strong - migration and inline comments explain the strategy",
+    "consistency": "Good - COALESCE pattern used uniformly across codebase",
+    "edge_cases": "Handled - NULL fallback ensures pre-migration data still works",
+    "no_new_issues": true
+  },
+  "recommendation": "All Round 1 quality issues have been properly addressed. The fixes maintain backward compatibility while solving the core run scoping problem. No functional testing required - the changes are defensive (adding fallbacks) rather than changing behavior for existing data. APPROVE for merge."
+}

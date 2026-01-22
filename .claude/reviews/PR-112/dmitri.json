@@ -1,0 +1,52 @@
+{
+  "reviewer": "dmitri",
+  "pr_number": 112,
+  "review_round": 1,
+  "timestamp": "2026-01-22T21:00:00Z",
+  "verdict": "APPROVE",
+  "summary": "Core fix is clean and correct. Found 3 simplification opportunities: storage duplication (140 lines), magic numbers (2 lines), skipped tests (157 lines). Total reduction possible: ~300 lines (-27%). None are blockers.",
+  "issues": [
+    {
+      "id": "D1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "duplication",
+      "file": "src/db/classification_storage.py",
+      "lines": [31, 320],
+      "title": "Massive SQL duplication between single and batch insert functions",
+      "why": "store_classification_result() and store_classification_results_batch() contain identical 68-line SQL statements. Comment admits single-insert is test-only. Maintaining two implementations doubles maintenance burden.",
+      "fix": "Delete store_classification_result() entirely. Tests call store_classification_results_batch([single_result]). Reduces code by ~140 lines with zero functional loss.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "D2",
+      "severity": "LOW",
+      "confidence": "high",
+      "category": "duplication",
+      "file": "src/two_stage_pipeline.py",
+      "lines": [536, 727],
+      "title": "Magic number CLASSIFICATION_BATCH_SIZE duplicated across functions",
+      "why": "Same constant defined in two async functions with identical meaning (50). Module-level constant would eliminate duplication.",
+      "fix": "Extract to module-level: _CLASSIFICATION_BATCH_SIZE = 50. Use in both functions. Saves 2 lines, improves clarity.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    },
+    {
+      "id": "D3",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "yagni",
+      "file": "tests/test_run_scoping.py",
+      "lines": [145, 301],
+      "title": "Skipped integration tests add bulk without CI value",
+      "why": "157 lines of integration tests permanently skipped (requires manual DB). Signature tests already prove correctness. Skipped tests provide documentation value only.",
+      "fix": "Option A: Delete (saves 157 lines). Option B: Move to manual_tests/ directory. Option C: Keep for documentation. Judgment call based on project conventions.",
+      "verify": "Check if project has other skipped integration tests for precedent",
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 """Pydantic models for database entities."""
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -171,8 +171,8 @@ class PipelineRun(BaseModel):
     error_message: Optional[str] = None
 
     # Structured error tracking (#104)
-    errors: list = Field(default_factory=list)  # [{phase, message, details}, ...]
-    warnings: list = Field(default_factory=list)
+    errors: List[dict] = Field(default_factory=list)  # [{phase, message, details}, ...]
+    warnings: List[str] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

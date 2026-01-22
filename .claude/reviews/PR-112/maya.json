@@ -1,0 +1,66 @@
+{
+  "reviewer": "maya",
+  "pr_number": 112,
+  "review_round": 1,
+  "timestamp": "2026-01-22T00:00:00Z",
+  "verdict": "APPROVE",
+  "summary": "4 maintainability improvements: document magic constants, clarify ON CONFLICT semantics, improve error context, standardize variable names",
+  "issues": [
+    {
+      "id": "M1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "magic-number",
+      "file": "src/two_stage_pipeline.py",
+      "lines": [536, 727],
+      "title": "Magic batch size without explanation",
+      "why": "CLASSIFICATION_BATCH_SIZE = 50 appears twice but doesn't explain why 50, or what breaks if changed. Based on stop signal responsiveness? API limits? Memory?",
+      "fix": "Add comment explaining tradeoff: batch size balances stop signal responsiveness (~2.5s at 20 conv/sec) vs coordination overhead. Warn against increasing beyond 100.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "M2",
+      "severity": "HIGH",
+      "confidence": "high",
+      "category": "implicit-assumption",
+      "file": "src/db/classification_storage.py",
+      "lines": [156, 315],
+      "title": "Implicit assumption about pipeline_run_id in ON CONFLICT",
+      "why": "ON CONFLICT silently overwrites pipeline_run_id when re-classifying conversations. Unclear if this means: (1) re-classification intentional, (2) duplicate error, or (3) incremental update. Original run ID is lost.",
+      "fix": "Add comment explaining semantics: 'Most recent run wins. Original run is lost (intentional for now). If we need original_run_id later, add separate column.'",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "M3",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "error-context",
+      "file": "src/db/classification_storage.py",
+      "lines": [105, 279],
+      "title": "Missing error context for pipeline_run_id constraint violation",
+      "why": "If invalid pipeline_run_id is passed, FK constraint violation error is cryptic. Won't tell if run was deleted, wrong ID passed, or database state issue.",
+      "fix": "Add validation: SELECT 1 FROM pipeline_runs WHERE id = %s before insert. Raise ValueError with context: 'pipeline_run_id does not exist. Did run get deleted or invalid ID passed?'",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "M4",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "naming",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [285, 577],
+      "title": "Unclear variable name: run_id vs pipeline_run_id",
+      "why": "Function parameter is pipeline_run_id but local variable is run_id. Generic name 'run_id' could mean theme extraction run, pipeline run, or other run types if added later.",
+      "fix": "Rename local variable to match domain concept: use pipeline_run_id consistently throughout function to avoid confusion.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    }
+  ]
+}

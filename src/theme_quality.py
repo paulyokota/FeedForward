@@ -165,9 +165,10 @@ def filter_themes_by_quality(
             passed.append(theme)
         else:
             filtered.append(theme)
+            # Sanitize warning: don't expose conversation IDs (security)
+            # Just include theme signature and reason
             warnings.append(
-                f"Theme filtered ({result.reason}): {theme.issue_signature} "
-                f"for conversation {theme.conversation_id[:20]}..."
+                f"Theme filtered ({result.reason}): {theme.issue_signature}"
             )
             logger.info(
                 f"Quality gate filtered theme: {theme.issue_signature} "
