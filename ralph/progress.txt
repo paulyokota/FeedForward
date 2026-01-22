@@ -65,5 +65,57 @@
 
 === Slice Start: #89 Pipeline-critical tests for canonical flow ===
 - Date: 2026-01-22
-- Branch: (to be created)
+- Branch: ralph/m8-89-pipeline-tests
 - Notes: Next Phase 1 item per T-004 priority. Tests unblock #108, #109.
+
+=== Iteration 1: Test Suite Implementation Complete ===
+- Date: 2026-01-22
+- Changes:
+  1. Created tests/test_pipeline_canonical_flow.py (29 tests)
+     - TestPipelineFlowIntegration (4 tests):
+       * test_theme_groups_create_stories_when_large_enough
+       * test_theme_groups_create_orphans_when_too_small
+       * test_mixed_groups_processed_correctly
+       * test_processing_result_metrics_accurate
+     - TestStoryCreationServiceBehavior (5 tests):
+       * test_min_group_size_boundary_story (exactly MIN_GROUP_SIZE → story)
+       * test_min_group_size_boundary_orphan (MIN_GROUP_SIZE-1 → orphan)
+       * test_empty_conversation_id_rejected
+       * test_orphan_integration_used_when_available
+       * test_orphan_fallback_on_integration_failure
+     - TestQualityGateRegression (4 tests):
+       * test_confidence_score_stored_on_story
+       * test_confidence_below_threshold_creates_orphan
+       * test_evidence_validation_failure_routes_to_orphan
+       * test_quality_gate_result_captures_failure_reason
+     - TestEvidenceValidator (6 tests):
+       * test_valid_samples_pass
+       * test_missing_id_fails
+       * test_missing_excerpt_fails
+       * test_placeholder_excerpt_fails
+       * test_empty_samples_fails
+       * test_coverage_calculated_correctly
+     - TestRunScopingIsolation (3 tests):
+       * test_stories_linked_to_pipeline_run_id
+       * test_processing_result_tracks_story_ids
+       * test_separate_runs_create_separate_stories
+     - TestPMReviewMetrics (2 tests):
+       * test_pm_review_skipped_when_disabled
+       * test_pm_review_metrics_initialized
+     - TestErrorHandling (2 tests):
+       * test_exception_in_one_group_doesnt_stop_others
+       * test_story_service_exception_captured
+     - TestConstants (3 tests):
+       * test_min_group_size_is_3
+       * test_default_confidence_threshold_is_50
+       * test_processing_result_has_quality_gate_metrics
+- Test Results:
+  - All 29 new tests PASSED
+  - Full backend test suite: 840 passed, 11 skipped, 1 failed (pre-existing latency test)
+- Coverage per Issue Acceptance Criteria:
+  [x] Tests validate canonical pipeline flow end-to-end with minimal fixtures
+  [x] Quality gate logic is exercised (confidence, evidence validation, orphan path)
+  [x] Run scoping isolation is tested (no cross-contamination)
+  [x] Tests are stable and do not depend on live API calls
+- Commit: (pending)
+- Push: (pending)
