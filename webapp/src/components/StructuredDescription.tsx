@@ -12,42 +12,73 @@ interface Section {
   isLong: boolean;
 }
 
+// Known section headers that should be treated as top-level sections
+const KNOWN_SECTIONS = new Set([
+  "summary",
+  "impact",
+  "evidence",
+  "repro",
+  "reproduction",
+  "context",
+  "notes",
+  "description",
+  "problem",
+  "solution",
+  "acceptance criteria",
+  "user story",
+  "background",
+  "details",
+  "analysis",
+]);
+
 /**
  * Parse description text into structured sections.
- * Looks for markdown-style headers (e.g., **Summary**, **Impact**, **Evidence**).
+ * Only recognizes specific known headers to avoid over-fragmenting content.
+ * Falls back to showing raw content if no known sections found.
  */
 function parseDescription(description: string): Section[] | null {
-  // Split by markdown bold headers
-  const sectionPattern = /\*\*([^*]+)\*\*/g;
-  const parts: Array<{ title: string; index: number }> = [];
+  // Match markdown bold headers at start of line or after newline
+  const sectionPattern = /(?:^|\n)\s*\*\*([^*]+)\*\*:?\s*/g;
+  const parts: Array<{
+    title: string;
+    startIndex: number;
+    contentIndex: number;
+  }> = [];
 
   let match;
   while ((match = sectionPattern.exec(description)) !== null) {
-    parts.push({
-      title: match[1].trim(),
-      index: match.index + match[0].length,
-    });
+    const title = match[1].trim();
+    // Only include if it's a known section header
+    if (KNOWN_SECTIONS.has(title.toLowerCase())) {
+      parts.push({
+        title,
+        startIndex: match.index,
+        contentIndex: match.index + match[0].length,
+      });
+    }
   }
 
+  // If no known sections found, return null to show raw view
   if (parts.length === 0) {
-    return null; // No structured sections found
+    return null;
   }
 
   const sections: Section[] = parts.map((part, idx) => {
-    const nextIndex =
-      idx < parts.length - 1
-        ? parts[idx + 1].index - parts[idx + 1].title.length - 4
-        : description.length;
-    const content = description.substring(part.index, nextIndex).trim();
+    const nextStartIndex =
+      idx < parts.length - 1 ? parts[idx + 1].startIndex : description.length;
+    const content = description
+      .substring(part.contentIndex, nextStartIndex)
+      .trim();
 
-    // Consider content "long" if it has more than 3 lines
+    // Consider content "long" if it has more than 5 lines
     const lineCount = content.split("\n").filter((line) => line.trim()).length;
-    const isLong = lineCount > 3;
+    const isLong = lineCount > 5;
 
     return { title: part.title, content, isLong };
   });
 
-  return sections;
+  // Filter out empty sections
+  return sections.filter((s) => s.content.length > 0);
 }
 
 /**
@@ -56,35 +87,65 @@ function parseDescription(description: string): Section[] | null {
 function SectionContent({ section }: { section: Section }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Split into lines for progressive disclosure
+  // Split into paragraphs (double newline) or lines
   const lines = section.content.split("\n").filter((line) => line.trim());
   const shouldTruncate = section.isLong && !isExpanded;
-  const displayLines = shouldTruncate ? lines.slice(0, 3) : lines;
-  const remainingCount = lines.length - 3;
+  const displayLines = shouldTruncate ? lines.slice(0, 5) : lines;
+  const remainingCount = lines.length - 5;
+
+  // Group consecutive bullet points together
+  const renderContent = () => {
+    const elements: React.ReactElement[] = [];
+    let bulletGroup: string[] = [];
+
+    const flushBullets = () => {
+      if (bulletGroup.length > 0) {
+        elements.push(
+          <ul key={`bullets-${elements.length}`} className="bullet-list">
+            {bulletGroup.map((item, i) => (
+              <li key={i} className="bullet-item">
+                {item}
+              </li>
+            ))}
+          </ul>,
+        );
+        bulletGroup = [];
+      }
+    };
+
+    displayLines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      const isBullet =
+        trimmed.startsWith("-") ||
+        trimmed.startsWith("•") ||
+        trimmed.startsWith("*");
+
+      if (isBullet) {
+        // Remove bullet character and add to group
+        bulletGroup.push(trimmed.replace(/^[-•*]\s*/, ""));
+      } else {
+        flushBullets();
+        // Render bold text within paragraphs
+        const boldPattern = /\*\*([^*]+)\*\*/g;
+        const parts = trimmed.split(boldPattern);
+
+        elements.push(
+          <p key={idx} className="content-line">
+            {parts.map((part, i) =>
+              i % 2 === 1 ? <strong key={i}>{part}</strong> : part,
+            )}
+          </p>,
+        );
+      }
+    });
+
+    flushBullets();
+    return elements;
+  };
 
   return (
     <div className="section-content">
-      <div className="content-text">
-        {displayLines.map((line, idx) => {
-          const trimmed = line.trim();
-          // Detect if line is a bullet point
-          const isBullet = trimmed.startsWith("-") || trimmed.startsWith("•");
-
-          if (isBullet) {
-            return (
-              <li key={idx} className="bullet-item">
-                {trimmed.substring(1).trim()}
-              </li>
-            );
-          }
-
-          return (
-            <p key={idx} className="content-line">
-              {trimmed}
-            </p>
-          );
-        })}
-      </div>
+      <div className="content-text">{renderContent()}</div>
 
       {section.isLong && (
         <button
@@ -125,9 +186,16 @@ function SectionContent({ section }: { section: Section }) {
           margin-bottom: 0;
         }
 
+        .bullet-list {
+          margin: 8px 0;
+          padding-left: 20px;
+          list-style-type: disc;
+        }
+
         .bullet-item {
-          margin: 4px 0 4px 20px;
+          margin: 4px 0;
           color: var(--text-secondary);
+          line-height: 1.5;
         }
 
         .expand-btn {

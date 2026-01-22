@@ -59,11 +59,13 @@ Line 1
 Line 2
 Line 3
 Line 4
-Line 5`;
+Line 5
+Line 6
+Line 7`;
 
     render(<StructuredDescription description={description} />);
 
-    // Should show expand button
+    // Should show expand button (now triggers at >5 lines)
     expect(screen.getByText(/Show .+ more line/)).toBeTruthy();
   });
 
@@ -73,7 +75,9 @@ Line 1
 Line 2
 Line 3
 Line 4
-Line 5`;
+Line 5
+Line 6
+Line 7`;
 
     render(<StructuredDescription description={description} />);
 
@@ -103,7 +107,8 @@ Line 5`;
   });
 
   it("renders bullet points correctly", () => {
-    const description = `**Features**
+    // Using "Details" which is a known section header
+    const description = `**Details**
 - Feature 1
 - Feature 2
 • Feature 3`;
