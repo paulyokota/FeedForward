@@ -31,9 +31,10 @@ Done means:
   - Depends on: #103
   - Blocks: #106, #107, #108, #109, #110
   - **DONE**: PR #115 merged 2026-01-22
-- [ ] #106 Pipeline step: embedding generation for conversations
+- [x] #106 Pipeline step: embedding generation for conversations
   - Depends on: #105, #103
   - Blocks: #107, #108, #109, #110
+  - **DONE**: PR #116 merged 2026-01-22
 - [ ] #107 Pipeline step: facet extraction for conversations
   - Depends on: #105, #103
   - Blocks: #108, #109, #110
@@ -52,7 +53,7 @@ Done means:
 
 ## Current Slice (Single Issue)
 
-- [ ] #106 Pipeline step: embedding generation for conversations
+- [ ] #107 Pipeline step: facet extraction for conversations
 
 ## Notes
 
