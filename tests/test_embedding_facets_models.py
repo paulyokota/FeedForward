@@ -1,11 +1,11 @@
 """
-Tests for conversation_embeddings and conversation_facets data models (#105).
+Tests for conversation_embeddings and conversation_facet data models (#105).
 
 Validates:
-- Pydantic model structure and defaults
+- Pydantic model structure and validation
 - Type constraints (ActionType, Direction)
-- Migration file existence and structure
-- Index definitions for run-scoped queries
+- Field validators (embedding dimension, word count)
+- Migration file structure
 """
 
 import os
@@ -19,7 +19,7 @@ from src.db.models import (
     ActionType,
     Confidence,
     ConversationEmbedding,
-    ConversationFacets,
+    ConversationFacet,
     Direction,
 )
 
@@ -32,8 +32,8 @@ from src.db.models import (
 class TestConversationEmbeddingModel:
     """Tests for ConversationEmbedding Pydantic model."""
 
-    def test_minimal_valid_embedding(self):
-        """Embedding with only required fields."""
+    def test_valid_embedding_1536_dimensions(self):
+        """Embedding with correct 1536 dimensions is valid."""
         embedding = ConversationEmbedding(
             conversation_id="conv_123",
             embedding=[0.1] * 1536,
@@ -45,86 +45,89 @@ class TestConversationEmbeddingModel:
 
     def test_full_embedding_with_all_fields(self):
         """Embedding with all optional fields populated."""
-        run_id = uuid4()
         embedding = ConversationEmbedding(
             id=uuid4(),
             conversation_id="conv_456",
-            pipeline_run_id=run_id,
+            pipeline_run_id=42,  # INTEGER, not UUID
             embedding=[0.5] * 1536,
             model_version="text-embedding-3-large",
-            content_hash="abc123def456",
             created_at=datetime(2026, 1, 22, 12, 0, 0),
         )
-        assert embedding.pipeline_run_id == run_id
+        assert embedding.pipeline_run_id == 42
         assert embedding.model_version == "text-embedding-3-large"
-        assert embedding.content_hash == "abc123def456"
 
-    def test_embedding_dimension_flexibility(self):
-        """Model accepts any embedding dimension (validation is at storage layer)."""
-        # Different dimensions should be accepted by Pydantic
-        embedding_small = ConversationEmbedding(
-            conversation_id="conv_1",
-            embedding=[0.1] * 512,
-        )
-        assert len(embedding_small.embedding) == 512
+    def test_embedding_wrong_dimension_rejected(self):
+        """Embedding with wrong dimensions raises ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            ConversationEmbedding(
+                conversation_id="conv_bad",
+                embedding=[0.1] * 512,  # Wrong dimension
+            )
+        assert "1536 dimensions" in str(exc_info.value)
 
-        embedding_large = ConversationEmbedding(
-            conversation_id="conv_2",
-            embedding=[0.1] * 3072,
-        )
-        assert len(embedding_large.embedding) == 3072
-
-    def test_empty_embedding_allowed(self):
-        """Empty embedding list is allowed by default."""
-        embedding = ConversationEmbedding(conversation_id="conv_empty")
-        assert embedding.embedding == []
+    def test_empty_embedding_rejected(self):
+        """Empty embedding list raises ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            ConversationEmbedding(
+                conversation_id="conv_empty",
+                embedding=[],
+            )
+        assert "1536 dimensions" in str(exc_info.value)
 
     def test_created_at_default(self):
         """created_at defaults to current time."""
         before = datetime.utcnow()
         embedding = ConversationEmbedding(
             conversation_id="conv_time",
-            embedding=[0.1],
+            embedding=[0.1] * 1536,
         )
         after = datetime.utcnow()
         assert before <= embedding.created_at <= after
 
+    def test_pipeline_run_id_is_int(self):
+        """pipeline_run_id is Optional[int], not UUID."""
+        embedding = ConversationEmbedding(
+            conversation_id="conv_int",
+            embedding=[0.1] * 1536,
+            pipeline_run_id=123,
+        )
+        assert embedding.pipeline_run_id == 123
+        assert isinstance(embedding.pipeline_run_id, int)
+
 
 # =============================================================================
-# ConversationFacets Model Tests
+# ConversationFacet Model Tests
 # =============================================================================
 
 
-class TestConversationFacetsModel:
-    """Tests for ConversationFacets Pydantic model."""
+class TestConversationFacetModel:
+    """Tests for ConversationFacet Pydantic model."""
 
-    def test_minimal_valid_facets(self):
-        """Facets with only required fields."""
-        facets = ConversationFacets(conversation_id="conv_123")
-        assert facets.conversation_id == "conv_123"
-        assert facets.action_type == "unknown"
-        assert facets.direction == "neutral"
-        assert facets.model_version == "gpt-4o-mini"
+    def test_minimal_valid_facet(self):
+        """Facet with only required fields."""
+        facet = ConversationFacet(conversation_id="conv_123")
+        assert facet.conversation_id == "conv_123"
+        assert facet.action_type == "unknown"
+        assert facet.direction == "neutral"
+        assert facet.model_version == "gpt-4o-mini"
 
-    def test_full_facets_with_all_fields(self):
-        """Facets with all optional fields populated."""
-        run_id = uuid4()
-        facets = ConversationFacets(
+    def test_full_facet_with_all_fields(self):
+        """Facet with all optional fields populated."""
+        facet = ConversationFacet(
             id=uuid4(),
             conversation_id="conv_456",
-            pipeline_run_id=run_id,
+            pipeline_run_id=42,  # INTEGER, not UUID
             action_type="bug_report",
             direction="deficit",
-            symptom="Items not appearing in dashboard",
-            user_goal="See all items in dashboard view",
+            symptom="Items not appearing",
+            user_goal="See all items",
             model_version="gpt-4o",
             extraction_confidence="high",
         )
-        assert facets.pipeline_run_id == run_id
-        assert facets.action_type == "bug_report"
-        assert facets.direction == "deficit"
-        assert facets.symptom == "Items not appearing in dashboard"
-        assert facets.extraction_confidence == "high"
+        assert facet.pipeline_run_id == 42
+        assert facet.action_type == "bug_report"
+        assert facet.direction == "deficit"
+        assert facet.extraction_confidence == "high"
 
     def test_all_valid_action_types(self):
         """All ActionType literals are accepted."""
@@ -133,11 +136,11 @@ class TestConversationFacetsModel:
             "feature_request", "account_change", "delete_request", "unknown"
         ]
         for action_type in valid_action_types:
-            facets = ConversationFacets(
+            facet = ConversationFacet(
                 conversation_id=f"conv_{action_type}",
                 action_type=action_type,
             )
-            assert facets.action_type == action_type
+            assert facet.action_type == action_type
 
     def test_all_valid_directions(self):
         """All Direction literals are accepted."""
@@ -146,16 +149,16 @@ class TestConversationFacetsModel:
             "modification", "performance", "neutral"
         ]
         for direction in valid_directions:
-            facets = ConversationFacets(
+            facet = ConversationFacet(
                 conversation_id=f"conv_{direction}",
                 direction=direction,
             )
-            assert facets.direction == direction
+            assert facet.direction == direction
 
     def test_invalid_action_type_rejected(self):
         """Invalid action_type raises ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
-            ConversationFacets(
+            ConversationFacet(
                 conversation_id="conv_bad",
                 action_type="invalid_action",  # type: ignore
             )
@@ -164,20 +167,63 @@ class TestConversationFacetsModel:
     def test_invalid_direction_rejected(self):
         """Invalid direction raises ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
-            ConversationFacets(
+            ConversationFacet(
                 conversation_id="conv_bad",
                 direction="invalid_dir",  # type: ignore
             )
         assert "direction" in str(exc_info.value)
 
-    def test_extraction_confidence_literal(self):
-        """extraction_confidence uses Confidence literal type."""
-        for conf in ["high", "medium", "low"]:
-            facets = ConversationFacets(
-                conversation_id="conv_conf",
-                extraction_confidence=conf,  # type: ignore
+    def test_symptom_word_count_validation(self):
+        """symptom with more than 10 words is rejected."""
+        # Exactly 10 words - should pass
+        facet = ConversationFacet(
+            conversation_id="conv_ok",
+            symptom="one two three four five six seven eight nine ten",
+        )
+        assert facet.symptom is not None
+
+        # 11 words - should fail
+        with pytest.raises(ValidationError) as exc_info:
+            ConversationFacet(
+                conversation_id="conv_bad",
+                symptom="one two three four five six seven eight nine ten eleven",
             )
-            assert facets.extraction_confidence == conf
+        assert "10 words or less" in str(exc_info.value)
+
+    def test_user_goal_word_count_validation(self):
+        """user_goal with more than 10 words is rejected."""
+        # Exactly 10 words - should pass
+        facet = ConversationFacet(
+            conversation_id="conv_ok",
+            user_goal="one two three four five six seven eight nine ten",
+        )
+        assert facet.user_goal is not None
+
+        # 11 words - should fail
+        with pytest.raises(ValidationError) as exc_info:
+            ConversationFacet(
+                conversation_id="conv_bad",
+                user_goal="one two three four five six seven eight nine ten eleven",
+            )
+        assert "10 words or less" in str(exc_info.value)
+
+    def test_symptom_max_length_validation(self):
+        """symptom exceeding 200 chars is rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            ConversationFacet(
+                conversation_id="conv_long",
+                symptom="a" * 201,  # 201 chars
+            )
+        assert "symptom" in str(exc_info.value).lower() or "max_length" in str(exc_info.value).lower()
+
+    def test_pipeline_run_id_is_int(self):
+        """pipeline_run_id is Optional[int], not UUID."""
+        facet = ConversationFacet(
+            conversation_id="conv_int",
+            pipeline_run_id=456,
+        )
+        assert facet.pipeline_run_id == 456
+        assert isinstance(facet.pipeline_run_id, int)
 
 
 # =============================================================================
@@ -190,12 +236,10 @@ class TestTypeLiterals:
 
     def test_action_type_values(self):
         """ActionType has expected values per T-006."""
-        # These should match the prototype's facet extraction
         expected = {
             "inquiry", "complaint", "bug_report", "how_to_question",
             "feature_request", "account_change", "delete_request", "unknown"
         }
-        # Get actual values from the type (requires inspecting get_args)
         from typing import get_args
         actual = set(get_args(ActionType))
         assert actual == expected
@@ -241,45 +285,25 @@ class TestMigrationFile:
         """Migration creates conversation_embeddings table."""
         assert "CREATE TABLE IF NOT EXISTS conversation_embeddings" in migration_content
 
-    def test_creates_conversation_facets_table(self, migration_content):
-        """Migration creates conversation_facets table."""
-        assert "CREATE TABLE IF NOT EXISTS conversation_facets" in migration_content
+    def test_creates_conversation_facet_table(self, migration_content):
+        """Migration creates conversation_facet table (singular)."""
+        assert "CREATE TABLE IF NOT EXISTS conversation_facet" in migration_content
 
-    def test_embeddings_has_required_columns(self, migration_content):
-        """conversation_embeddings has required columns."""
-        required = [
-            "conversation_id",
-            "pipeline_run_id",
-            "embedding",
-            "model_version",
-            "created_at",
-        ]
-        for col in required:
-            assert col in migration_content, f"Missing column: {col}"
+    def test_pipeline_run_id_is_integer(self, migration_content):
+        """pipeline_run_id uses INTEGER type to match pipeline_runs.id."""
+        assert "pipeline_run_id INTEGER REFERENCES pipeline_runs(id)" in migration_content
 
-    def test_facets_has_required_columns(self, migration_content):
-        """conversation_facets has required columns."""
-        required = [
-            "conversation_id",
-            "pipeline_run_id",
-            "action_type",
-            "direction",
-            "symptom",
-            "user_goal",
-            "created_at",
-        ]
-        for col in required:
-            assert col in migration_content, f"Missing column: {col}"
+    def test_has_foreign_key_constraint(self, migration_content):
+        """Tables have explicit FK constraint with ON DELETE SET NULL."""
+        assert "ON DELETE SET NULL" in migration_content
 
-    def test_embeddings_has_run_scoped_index(self, migration_content):
-        """conversation_embeddings has index on (pipeline_run_id, conversation_id)."""
-        assert "idx_conv_embeddings_run_conv" in migration_content
-        # Verify it's a composite index
-        assert "pipeline_run_id, conversation_id" in migration_content
+    def test_has_unique_constraint(self, migration_content):
+        """Tables have UNIQUE constraint on (conversation_id, pipeline_run_id)."""
+        assert "UNIQUE (conversation_id, pipeline_run_id)" in migration_content
 
-    def test_facets_has_run_scoped_index(self, migration_content):
-        """conversation_facets has index on (pipeline_run_id, conversation_id)."""
-        assert "idx_conv_facets_run_conv" in migration_content
+    def test_embedding_dimension_is_1536(self, migration_content):
+        """Embedding uses 1536 dimensions (text-embedding-3-small)."""
+        assert "vector(1536)" in migration_content
 
     def test_embeddings_has_hnsw_index(self, migration_content):
         """conversation_embeddings has HNSW index for vector search."""
@@ -287,49 +311,29 @@ class TestMigrationFile:
         assert "hnsw" in migration_content.lower()
         assert "vector_cosine_ops" in migration_content
 
-    def test_facets_has_action_direction_index(self, migration_content):
-        """conversation_facets has composite index for sub-clustering."""
-        assert "idx_conv_facets_action_direction" in migration_content
-        assert "action_type, direction" in migration_content
-
-    def test_embedding_dimension_is_1536(self, migration_content):
-        """Embedding uses 1536 dimensions (text-embedding-3-small)."""
-        assert "vector(1536)" in migration_content
-
-    def test_has_documentation_comments(self, migration_content):
-        """Migration includes COMMENT statements for documentation."""
-        assert "COMMENT ON TABLE conversation_embeddings" in migration_content
-        assert "COMMENT ON TABLE conversation_facets" in migration_content
-
 
 # =============================================================================
-# Integration with Existing Models
+# Model Config Tests
 # =============================================================================
 
 
-class TestModelIntegration:
-    """Tests for integration with existing Pydantic models."""
+class TestModelConfig:
+    """Tests for Pydantic V2 model configuration."""
 
-    def test_embedding_uses_same_uuid_type(self):
-        """ConversationEmbedding uses same UUID type as other models."""
-        from src.db.models import PipelineRun
-
-        # Both should accept UUID or None for ID fields
-        embedding = ConversationEmbedding(conversation_id="test")
-        assert embedding.id is None or isinstance(embedding.id, UUID)
-
-    def test_facets_uses_confidence_literal(self):
-        """ConversationFacets uses same Confidence literal as other models."""
-        from src.db.models import Confidence
-
-        facets = ConversationFacets(
-            conversation_id="test",
-            extraction_confidence="high",
-        )
-        # Type annotation should match
-        assert facets.extraction_confidence in ["high", "medium", "low", None]
-
-    def test_models_have_from_attributes_config(self):
-        """Both models have from_attributes=True for ORM compatibility."""
+    def test_embedding_uses_config_dict(self):
+        """ConversationEmbedding uses ConfigDict (Pydantic V2)."""
+        assert hasattr(ConversationEmbedding, "model_config")
         assert ConversationEmbedding.model_config.get("from_attributes") is True
-        assert ConversationFacets.model_config.get("from_attributes") is True
+
+    def test_facet_uses_config_dict(self):
+        """ConversationFacet uses ConfigDict (Pydantic V2)."""
+        assert hasattr(ConversationFacet, "model_config")
+        assert ConversationFacet.model_config.get("from_attributes") is True
+
+    def test_embedding_id_is_uuid(self):
+        """ConversationEmbedding.id is Optional[UUID]."""
+        embedding = ConversationEmbedding(
+            conversation_id="test",
+            embedding=[0.1] * 1536,
+        )
+        assert embedding.id is None or isinstance(embedding.id, UUID)

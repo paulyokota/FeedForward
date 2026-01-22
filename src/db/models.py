@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # Classification output (matches classifier.py - legacy)
@@ -34,14 +34,27 @@ Urgency = Literal["critical", "high", "normal", "low"]
 DisambiguationLevel = Literal["high", "medium", "low", "none"]
 
 # Facet types for hybrid clustering (T-006)
+# ActionType: What kind of interaction this conversation represents
 ActionType = Literal[
-    "inquiry", "complaint", "bug_report", "how_to_question",
-    "feature_request", "account_change", "delete_request", "unknown"
+    "inquiry",          # Information request
+    "complaint",        # Dissatisfaction report
+    "bug_report",       # Technical issue
+    "how_to_question",  # Usage guidance needed
+    "feature_request",  # Capability request
+    "account_change",   # Account modification
+    "delete_request",   # Deletion request
+    "unknown",          # Unclassified
 ]
 
+# Direction: The directional aspect of the user's issue or goal
 Direction = Literal[
-    "excess", "deficit", "creation", "deletion",
-    "modification", "performance", "neutral"
+    "excess",       # Too much of something (duplicates, spam)
+    "deficit",      # Too little (missing items, features not working)
+    "creation",     # Create new entity
+    "deletion",     # Remove entity
+    "modification", # Change existing entity
+    "performance",  # Speed/efficiency issue
+    "neutral",      # No directional aspect
 ]
 
 
@@ -193,36 +206,42 @@ class PipelineRun(BaseModel):
 class ConversationEmbedding(BaseModel):
     """Vector embedding for a conversation (T-006 hybrid clustering)."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: Optional[UUID] = None
     conversation_id: str
-    pipeline_run_id: Optional[UUID] = None
+    pipeline_run_id: Optional[int] = None  # References pipeline_runs.id (INTEGER)
 
-    # Embedding data - stored as list of floats (1536 dimensions for text-embedding-3-small)
-    embedding: List[float] = Field(default_factory=list)
+    # Embedding data - must be exactly 1536 dimensions for text-embedding-3-small
+    embedding: List[float]
     model_version: str = "text-embedding-3-small"
-
-    # Content hash for change detection
-    content_hash: Optional[str] = None
 
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    class Config:
-        from_attributes = True
+    @field_validator("embedding")
+    @classmethod
+    def validate_embedding_dimension(cls, v: List[float]) -> List[float]:
+        """Validate embedding has correct dimensions for the model."""
+        if len(v) != 1536:
+            raise ValueError(f"Embedding must be exactly 1536 dimensions, got {len(v)}")
+        return v
 
 
-class ConversationFacets(BaseModel):
+class ConversationFacet(BaseModel):
     """Extracted facets for fine-grained sub-clustering (T-006 hybrid clustering)."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: Optional[UUID] = None
     conversation_id: str
-    pipeline_run_id: Optional[UUID] = None
+    pipeline_run_id: Optional[int] = None  # References pipeline_runs.id (INTEGER)
 
     # Facet data
     action_type: ActionType = "unknown"
     direction: Direction = "neutral"
-    symptom: Optional[str] = None  # 10 words max
-    user_goal: Optional[str] = None  # 10 words max
+    symptom: Optional[str] = Field(default=None, max_length=200)
+    user_goal: Optional[str] = Field(default=None, max_length=200)
 
     # Extraction metadata
     model_version: str = "gpt-4o-mini"
@@ -231,5 +250,12 @@ class ConversationFacets(BaseModel):
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    class Config:
-        from_attributes = True
+    @field_validator("symptom", "user_goal")
+    @classmethod
+    def validate_word_count(cls, v: Optional[str]) -> Optional[str]:
+        """Validate symptom/user_goal is 10 words or less."""
+        if v is not None:
+            word_count = len(v.split())
+            if word_count > 10:
+                raise ValueError(f"Must be 10 words or less, got {word_count}")
+        return v

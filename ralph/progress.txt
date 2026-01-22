@@ -224,3 +224,32 @@
 - Date: 2026-01-22
 - Branch: ralph/m8-105-data-model
 - Notes: First Phase 2 issue. Creates tables for embedding-based clustering infrastructure.
+
+=== Iteration 1: Implementation Complete ===
+- Date: 2026-01-22
+- Changes:
+  1. Created migration 012_conversation_embeddings_facets.sql
+     - conversation_embeddings table with vector(1536), HNSW index
+     - conversation_facets table with action_type, direction, symptom, user_goal
+     - Composite indexes on (pipeline_run_id, conversation_id) for run scoping
+     - Documentation comments on all tables/columns
+  2. Updated src/db/models.py
+     - Added ActionType literal (8 values per T-006)
+     - Added Direction literal (7 values per T-006)
+     - Added ConversationEmbedding model
+     - Added ConversationFacets model
+  3. Created tests/test_embedding_facets_models.py (28 tests)
+     - Model structure and defaults
+     - Type literal validation
+     - Migration file structure verification
+     - Index existence checks
+- Test Results:
+  - All 28 new tests PASSED
+  - Full backend suite: 890 passed, 2 failed (pre-existing latency test)
+- Commit: 9c758e4
+- Push: Complete (branch: ralph/m8-105-data-model)
+
+=== Iteration 2: PR + 5-Personality Review ===
+- Date: 2026-01-22
+- PR URL: https://github.com/paulyokota/FeedForward/pull/115
+- Review Round 1: Pending...
