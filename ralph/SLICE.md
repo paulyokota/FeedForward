@@ -20,9 +20,10 @@ Done means:
   - Depends on: none (but should follow #103 per T-004 priority)
   - Blocks: #108, #109
   - **DONE**: PR #113 merged 2026-01-22
-- [ ] #104 Theme extraction quality gates + error propagation to UI
+- [x] #104 Theme extraction quality gates + error propagation to UI
   - Depends on: #103, #89
   - Blocks: #110
+  - **DONE**: PR #114 merged 2026-01-22
 
 ### Phase 2: Infrastructure (depends on Phase 1)
 
@@ -50,7 +51,7 @@ Done means:
 
 ## Current Slice (Single Issue)
 
-- [ ] #104 Theme extraction quality gates + error propagation to UI
+- [ ] #105 Data model: conversation_embeddings and conversation_facets tables
 
 ## Notes
 

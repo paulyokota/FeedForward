@@ -2,8 +2,9 @@
 
 from datetime import datetime
 from typing import List, Literal, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # Classification output (matches classifier.py - legacy)
@@ -31,6 +32,30 @@ RoutingPriority = Literal["urgent", "high", "normal", "low"]
 Urgency = Literal["critical", "high", "normal", "low"]
 
 DisambiguationLevel = Literal["high", "medium", "low", "none"]
+
+# Facet types for hybrid clustering (T-006)
+# ActionType: What kind of interaction this conversation represents
+ActionType = Literal[
+    "inquiry",          # Information request
+    "complaint",        # Dissatisfaction report
+    "bug_report",       # Technical issue
+    "how_to_question",  # Usage guidance needed
+    "feature_request",  # Capability request
+    "account_change",   # Account modification
+    "delete_request",   # Deletion request
+    "unknown",          # Unclassified
+]
+
+# Direction: The directional aspect of the user's issue or goal
+Direction = Literal[
+    "excess",       # Too much of something (duplicates, spam)
+    "deficit",      # Too little (missing items, features not working)
+    "creation",     # Create new entity
+    "deletion",     # Remove entity
+    "modification", # Change existing entity
+    "performance",  # Speed/efficiency issue
+    "neutral",      # No directional aspect
+]
 
 
 class ClassificationResult(BaseModel):
@@ -176,3 +201,61 @@ class PipelineRun(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ConversationEmbedding(BaseModel):
+    """Vector embedding for a conversation (T-006 hybrid clustering)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: Optional[UUID] = None
+    conversation_id: str
+    pipeline_run_id: Optional[int] = None  # References pipeline_runs.id (INTEGER)
+
+    # Embedding data - must be exactly 1536 dimensions for text-embedding-3-small
+    embedding: List[float]
+    model_version: str = "text-embedding-3-small"
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @field_validator("embedding")
+    @classmethod
+    def validate_embedding_dimension(cls, v: List[float]) -> List[float]:
+        """Validate embedding has correct dimensions for the model."""
+        if len(v) != 1536:
+            raise ValueError(f"Embedding must be exactly 1536 dimensions, got {len(v)}")
+        return v
+
+
+class ConversationFacet(BaseModel):
+    """Extracted facets for fine-grained sub-clustering (T-006 hybrid clustering)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: Optional[UUID] = None
+    conversation_id: str
+    pipeline_run_id: Optional[int] = None  # References pipeline_runs.id (INTEGER)
+
+    # Facet data
+    action_type: ActionType = "unknown"
+    direction: Direction = "neutral"
+    symptom: Optional[str] = Field(default=None, max_length=200)
+    user_goal: Optional[str] = Field(default=None, max_length=200)
+
+    # Extraction metadata
+    model_version: str = "gpt-4o-mini"
+    extraction_confidence: Optional[Confidence] = None
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @field_validator("symptom", "user_goal")
+    @classmethod
+    def validate_word_count(cls, v: Optional[str]) -> Optional[str]:
+        """Validate symptom/user_goal is 10 words or less."""
+        if v is not None:
+            word_count = len(v.split())
+            if word_count > 10:
+                raise ValueError(f"Must be 10 words or less, got {word_count}")
+        return v
