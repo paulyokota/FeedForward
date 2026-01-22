@@ -40,6 +40,8 @@ from db.classification_storage import (
     store_classification_result,
     store_classification_results_batch
 )
+from db.connection import create_pipeline_run
+from db.models import PipelineRun
 from adapters import CodaAdapter, IntercomAdapter, NormalizedConversation
 from resolution_analyzer import ResolutionAnalyzer
 from knowledge_extractor import KnowledgeExtractor
@@ -909,6 +911,19 @@ def main():
 
     args = parser.parse_args()
 
+    # Create pipeline run for accurate run scoping (Fix #103)
+    pipeline_run_id = None
+    if not args.dry_run:
+        date_to = datetime.utcnow()
+        date_from = date_to - timedelta(days=args.days)
+        run = PipelineRun(
+            date_from=date_from,
+            date_to=date_to,
+            status="running",
+        )
+        pipeline_run_id = create_pipeline_run(run)
+        print(f"Created pipeline run: {pipeline_run_id}")
+
     if args.use_async:
         asyncio.run(run_pipeline_async(
             days=args.days,
@@ -917,6 +932,7 @@ def main():
             concurrency=args.concurrency,
             batch_size=args.batch_size,
             data_source=args.source,
+            pipeline_run_id=pipeline_run_id,
         ))
     else:
         run_pipeline(
@@ -924,6 +940,7 @@ def main():
             max_conversations=args.max,
             dry_run=args.dry_run,
             data_source=args.source,
+            pipeline_run_id=pipeline_run_id,
         )
 
 
