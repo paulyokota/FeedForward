@@ -51,6 +51,11 @@ When implementing backend features:
 <!-- Updated by Tech Lead after each session where Marcus runs -->
 <!-- Format: - YYYY-MM-DD: [Lesson description] -->
 
+- 2026-01-21: When adding optional dependencies, use import guards with graceful degradation. PR #101's `PM_REVIEW_SERVICE_AVAILABLE` flag allows the service to be optional without breaking callers who don't use it.
+- 2026-01-21: Feature flags should be disabled by default for new behavior (`pm_review_enabled=False`). Enable via environment variable (`PM_REVIEW_ENABLED`) for controlled rollout. Auto-disable if required service unavailable.
+- 2026-01-21: Fail-safe defaults matter for pipeline reliability. PM review defaults to `keep_together` on LLM errors to preserve throughput rather than blocking story creation.
+- 2026-01-21: Add observability metrics BEFORE enabling behavior changes. PR #101 added `pm_review_kept`, `pm_review_splits`, `pm_review_rejects`, `pm_review_skipped` to `ProcessingResult` allowing validation before production enablement.
+
 ---
 
 ## Working Patterns

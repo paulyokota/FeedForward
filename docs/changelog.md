@@ -8,6 +8,34 @@ Format: [ISO Date] - Summary of changes
 
 ## [Unreleased]
 
+### Added
+
+**Theme Quality Improvements - SAME_FIX Test + PM Review (2026-01-21)** - PR #101:
+
+- **SAME_FIX Test for Signature Specificity (Improvement 1)**:
+  - New `validate_signature_specificity()` function in `src/theme_extractor.py`
+  - Validates theme signatures for proper granularity at extraction time
+  - Rejects broad suffixes (`_failure`, `_error`, `_issue`, `_problem`) unless accompanied by specific symptom indicators
+  - Specific pattern allowlist: `_duplicate_`, `_missing_`, `_timeout_`, `_permission_`, `_sync_`, `_oauth_`, `_upload_`, etc.
+  - Added `signature_quality_guidelines` to `config/theme_vocabulary.json` with SAME_FIX test examples
+
+- **PM Review Before Story Creation (Improvement 2)**:
+  - New `PMReviewService` in `src/story_tracking/services/pm_review_service.py`
+  - LLM-based coherence evaluation: "Would ONE implementation fix ALL of these?"
+  - Feature flag `PM_REVIEW_ENABLED` for controlled rollout (default: disabled)
+  - Decision types: `keep_together` | `split` (creates sub-groups) | `reject` (all to orphans)
+  - Sub-groups with >=3 conversations become stories, smaller ones become orphans
+  - Integrated into `StoryCreationService.process_theme_groups()` after quality gates
+  - Error handling defaults to `keep_together` (fail-safe behavior)
+
+- **ProcessingResult PM Review Metrics**:
+  - `pm_review_kept`: Groups kept together by PM review
+  - `pm_review_splits`: Groups split into sub-groups by PM review
+  - `pm_review_rejects`: Groups where all conversations rejected (routed to orphans)
+  - `pm_review_skipped`: Groups that bypassed PM review (disabled, timeout, single-conv)
+
+- **Test Coverage**: 15 tests in `tests/test_story_creation_service_pm_review.py`
+
 ### Fixed
 
 **Pipeline Pagination Bug - Search API Integration (2026-01-21)**:

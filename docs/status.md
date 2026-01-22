@@ -12,8 +12,68 @@
 **Multi-Source Architecture: COMPLETE** ✅
 **Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
 **Milestone 6 (Canonical Pipeline Consolidation): COMPLETE** ✅
+**Theme Quality Architecture: IMPROVEMENTS 1 & 2 COMPLETE** ✅
 
-## Latest: Pipeline Pagination Fix - Search API Integration (2026-01-21)
+## Latest: Theme Quality Improvements - SAME_FIX Test + PM Review (2026-01-21)
+
+**PR #101 MERGED** - 5-Personality Review CONVERGED (2 rounds)
+
+### Session Summary
+
+Implemented two key improvements from `docs/theme-quality-architecture.md` to improve theme extraction specificity and add PM review validation before story creation. These changes prevent unrelated issues from being grouped together (e.g., "duplicate pins" vs "missing pins" no longer share a single signature).
+
+### What Was Done
+
+**Improvement 1: SAME_FIX Test for Signature Specificity**
+
+| Change                             | Description                                                                                                 |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `validate_signature_specificity()` | New function in `theme_extractor.py` validates signatures at extraction time                                |
+| Broad suffix detection             | Rejects `_failure`, `_error`, `_issue`, `_problem` suffixes unless accompanied by specific symptom patterns |
+| Specific pattern allowlist         | Allows `_duplicate_`, `_missing_`, `_timeout_`, `_permission_`, `_sync_`, `_oauth_`, `_upload_`, etc.       |
+| Vocabulary guidelines              | Added `signature_quality_guidelines` to `theme_vocabulary.json` with SAME_FIX examples                      |
+
+**Improvement 2: PM Review Before Story Creation**
+
+| Change             | Description                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `PMReviewService`  | New service in `pm_review_service.py` evaluates theme groups for coherence via LLM |
+| Feature flag       | `PM_REVIEW_ENABLED=true` activates PM review (default: disabled for rollout)       |
+| Decision types     | `keep_together`, `split` (creates sub-groups), `reject` (routes all to orphans)    |
+| Sub-group handling | Sub-groups with >=3 conversations become stories, smaller ones become orphans      |
+| Error handling     | Defaults to `keep_together` on LLM errors (fail-safe)                              |
+
+**ProcessingResult Metrics Extended**
+
+| Metric              | Purpose                                                      |
+| ------------------- | ------------------------------------------------------------ |
+| `pm_review_kept`    | Groups kept together by PM review                            |
+| `pm_review_splits`  | Groups split into sub-groups                                 |
+| `pm_review_rejects` | Groups where all conversations rejected                      |
+| `pm_review_skipped` | Groups that bypassed review (disabled, timeout, single-conv) |
+
+**5-Personality Review (2 Rounds)**:
+
+- Round 1: Review issues identified and fixed
+- Round 2: All 5 reviewers APPROVE, CONVERGED
+
+**Tests Added**: 15 tests in `test_story_creation_service_pm_review.py` covering:
+
+- PM review disabled/enabled behavior
+- Keep together, split, and reject decisions
+- Sub-group creation and orphan routing
+- Error handling and quality gate integration
+
+### Next Steps
+
+1. Enable PM review in production (`PM_REVIEW_ENABLED=true`) for controlled rollout
+2. Monitor `pm_review_splits` and `pm_review_rejects` metrics
+3. Continue with roadmap Track A/B as planned
+4. Issue #62 (coda_page adapter bug) remains priority
+
+---
+
+## Previous: Pipeline Pagination Fix - Search API Integration (2026-01-21)
 
 **PR #100 MERGED** - 5-Personality Review CONVERGED
 

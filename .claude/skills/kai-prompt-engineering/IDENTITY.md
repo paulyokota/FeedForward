@@ -52,6 +52,10 @@ When considering a prompt change:
 <!-- Updated by Tech Lead after each session where Kai runs -->
 <!-- Format: - YYYY-MM-DD: [Lesson description] -->
 
+- 2026-01-21: The SAME_FIX test is a powerful mental model for signature granularity. Ask: "Would one code change fix ALL conversations with this signature?" If not, the signature is too broad. Implemented in `validate_signature_specificity()` (PR #101).
+- 2026-01-21: Keep specific pattern allowlists focused (YAGNI). PR #101 started with 5 core patterns (`_duplicate_`, `_missing_`, `_timeout_`, `_permission_`, `_encoding_`) and expanded to 13 only after testing showed need for component-specific patterns.
+- 2026-01-21: Vocabulary examples are prompt guidance. Adding `signature_quality_guidelines` with good/bad examples to `theme_vocabulary.json` helps the LLM understand desired granularity without changing the extraction prompt itself.
+
 ---
 
 ## Working Patterns
