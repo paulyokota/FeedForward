@@ -298,6 +298,8 @@ async def _run_embedding_generation_async(
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Use pipeline_run_id for run scoping (per #103)
             # Filter to actionable types that need embeddings for clustering
+            # Note: conversations table does not have an 'excerpt' column.
+            # EmbeddingService._prepare_text supports excerpt but we use source_body.
             cur.execute("""
                 SELECT c.id, c.source_body
                 FROM conversations c
@@ -364,6 +366,10 @@ def _run_embedding_generation(run_id: int, stop_checker: Callable[[], bool]) -> 
     Synchronous wrapper for _run_embedding_generation_async.
 
     Bridges the sync pipeline task with async embedding service.
+
+    Note: asyncio.run() is safe here because _run_pipeline_task runs in a
+    separate background thread (via FastAPI BackgroundTasks), not in an
+    existing event loop. Each asyncio.run() call creates a fresh event loop.
     """
     import asyncio
 

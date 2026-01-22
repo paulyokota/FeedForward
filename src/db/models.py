@@ -6,6 +6,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# Embedding dimensions for text-embedding-3-small
+EMBEDDING_DIMENSIONS = 1536
+
 
 # Classification output (matches classifier.py - legacy)
 IssueType = Literal[
@@ -216,7 +219,7 @@ class ConversationEmbedding(BaseModel):
     conversation_id: str
     pipeline_run_id: Optional[int] = None  # References pipeline_runs.id (INTEGER)
 
-    # Embedding data - must be exactly 1536 dimensions for text-embedding-3-small
+    # Embedding data - must be exactly EMBEDDING_DIMENSIONS for text-embedding-3-small
     embedding: List[float]
     model_version: str = "text-embedding-3-small"
 
@@ -227,8 +230,8 @@ class ConversationEmbedding(BaseModel):
     @classmethod
     def validate_embedding_dimension(cls, v: List[float]) -> List[float]:
         """Validate embedding has correct dimensions for the model."""
-        if len(v) != 1536:
-            raise ValueError(f"Embedding must be exactly 1536 dimensions, got {len(v)}")
+        if len(v) != EMBEDDING_DIMENSIONS:
+            raise ValueError(f"Embedding must be exactly {EMBEDDING_DIMENSIONS} dimensions, got {len(v)}")
         return v
 
 

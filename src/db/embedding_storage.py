@@ -12,7 +12,7 @@ from typing import List, Optional
 from psycopg2.extras import execute_values
 
 from src.db.connection import get_connection
-from src.services.embedding_service import EmbeddingResult
+from src.services.embedding_service import EmbeddingResult, EMBEDDING_DIMENSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,8 @@ def store_embedding(
         pipeline_run_id: Pipeline run ID for scoping
         model_version: Model used to generate embedding
     """
-    if len(embedding) != 1536:
-        raise ValueError(f"Embedding must be 1536 dimensions, got {len(embedding)}")
+    if len(embedding) != EMBEDDING_DIMENSIONS:
+        raise ValueError(f"Embedding must be {EMBEDDING_DIMENSIONS} dimensions, got {len(embedding)}")
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -84,10 +84,10 @@ def store_embeddings_batch(
             # Prepare rows for batch insert
             rows = []
             for result in successful_results:
-                if len(result.embedding) != 1536:
+                if len(result.embedding) != EMBEDDING_DIMENSIONS:
                     logger.warning(
                         f"Skipping embedding for {result.conversation_id}: "
-                        f"wrong dimensions ({len(result.embedding)})"
+                        f"expected {EMBEDDING_DIMENSIONS} dimensions, got {len(result.embedding)}"
                     )
                     continue
 
@@ -159,9 +159,17 @@ def get_embeddings_for_run(
     for row in rows:
         # Parse pgvector string back to list
         embedding_str = row[1]
-        if embedding_str.startswith("[") and embedding_str.endswith("]"):
-            embedding = [float(x) for x in embedding_str[1:-1].split(",")]
-        else:
+        try:
+            if embedding_str.startswith("[") and embedding_str.endswith("]"):
+                embedding = [float(x) for x in embedding_str[1:-1].split(",")]
+            else:
+                logger.warning(
+                    f"Unexpected pgvector format for {row[0]}: "
+                    f"expected '[...]', got '{embedding_str[:50]}...'"
+                )
+                embedding = []
+        except (ValueError, AttributeError) as e:
+            logger.error(f"Failed to parse embedding for {row[0]}: {e}")
             embedding = []
 
         results.append(

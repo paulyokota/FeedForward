@@ -201,11 +201,18 @@ class TestSyncEmbeddingGeneration:
     @patch.object(EmbeddingService, "sync_client", new_callable=lambda: MagicMock())
     def test_generate_embeddings_sync_batches_large_input(self, mock_client):
         """Large inputs are processed in batches."""
-        mock_embedding = MagicMock()
-        mock_embedding.embedding = [0.1] * 1536
+        # Create mock embeddings with index attribute for sorting
+        def create_mock_embeddings(count):
+            embeddings = []
+            for i in range(count):
+                mock_embedding = MagicMock()
+                mock_embedding.embedding = [0.1] * 1536
+                mock_embedding.index = i
+                embeddings.append(mock_embedding)
+            return embeddings
 
         mock_response = MagicMock()
-        mock_response.data = [mock_embedding] * 25  # Return 25 embeddings per call
+        mock_response.data = create_mock_embeddings(25)
 
         mock_client.embeddings.create.return_value = mock_response
 
@@ -291,6 +298,7 @@ class TestAsyncConversationEmbeddings:
 
         mock_embedding = MagicMock()
         mock_embedding.embedding = [0.5] * 1536
+        mock_embedding.index = 0  # OpenAI returns index for ordering
 
         mock_response = MagicMock()
         mock_response.data = [mock_embedding]
@@ -333,7 +341,8 @@ class TestAsyncConversationEmbeddings:
         assert result.total_processed == 2
         assert result.total_success == 0
         assert result.total_failed == 2
-        assert "API Error" in result.failed[0].error
+        # Error message is sanitized for security - check it's a valid error message
+        assert "Embedding generation failed" in result.failed[0].error or "failed" in result.failed[0].error.lower()
 
 
 class TestEmbeddingStorage:
@@ -342,9 +351,10 @@ class TestEmbeddingStorage:
     def test_store_embedding_rejects_wrong_dimensions(self):
         """Embedding with wrong dimensions raises ValueError."""
         from src.db.embedding_storage import store_embedding
+        from src.services.embedding_service import EMBEDDING_DIMENSIONS
 
         # Wrong dimensions should fail validation
-        with pytest.raises(ValueError, match="must be 1536 dimensions"):
+        with pytest.raises(ValueError, match=f"must be {EMBEDDING_DIMENSIONS} dimensions"):
             store_embedding(
                 conversation_id="conv_123",
                 embedding=[0.1] * 100,  # Wrong dimensions

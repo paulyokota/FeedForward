@@ -26,6 +26,35 @@ DEFAULT_BATCH_SIZE = 50
 MAX_TEXT_CHARS = 32000
 
 
+def _sanitize_error_message(error: Exception) -> str:
+    """
+    Sanitize error message for safe logging and storage.
+
+    Removes potentially sensitive information like API keys, endpoints,
+    and internal system details from error messages.
+    """
+    error_str = str(error)
+
+    # Map known error patterns to safe messages
+    error_patterns = {
+        "rate_limit": "Rate limit exceeded - please retry later",
+        "invalid_api_key": "API authentication failed",
+        "insufficient_quota": "API quota exceeded",
+        "server_error": "OpenAI service temporarily unavailable",
+        "connection": "Network connection error",
+        "timeout": "Request timed out",
+    }
+
+    error_lower = error_str.lower()
+    for pattern, safe_message in error_patterns.items():
+        if pattern in error_lower:
+            return safe_message
+
+    # For unknown errors, return a generic message with error type
+    error_type = type(error).__name__
+    return f"Embedding generation failed ({error_type})"
+
+
 @dataclass
 class EmbeddingResult:
     """Result of embedding generation for a single conversation."""
@@ -97,7 +126,7 @@ class EmbeddingService:
         Prepare text for embedding.
 
         Uses excerpt if available (more focused), otherwise uses source_body.
-        Falls back to first 500 chars if nothing better available.
+        Returns empty string if neither is available.
         """
         if excerpt and excerpt.strip():
             return self._truncate_text(excerpt.strip())
@@ -146,7 +175,9 @@ class EmbeddingService:
                 input=batch,
             )
 
-            batch_embeddings = [data.embedding for data in response.data]
+            # Sort by index to ensure correct ordering (OpenAI may return in any order)
+            sorted_data = sorted(response.data, key=lambda x: x.index)
+            batch_embeddings = [data.embedding for data in sorted_data]
             all_embeddings.extend(batch_embeddings)
 
         return all_embeddings
@@ -190,7 +221,9 @@ class EmbeddingService:
                 input=batch,
             )
 
-            batch_embeddings = [data.embedding for data in response.data]
+            # Sort by index to ensure correct ordering (OpenAI may return in any order)
+            sorted_data = sorted(response.data, key=lambda x: x.index)
+            batch_embeddings = [data.embedding for data in sorted_data]
             all_embeddings.extend(batch_embeddings)
 
         return all_embeddings
@@ -295,18 +328,23 @@ class EmbeddingService:
                         input=batch_texts,
                     )
 
-                    # Map embeddings back to conversation IDs
-                    for j, data in enumerate(response.data):
+                    # Sort by index to ensure correct ordering (OpenAI may return in any order)
+                    sorted_data = sorted(response.data, key=lambda x: x.index)
+
+                    # Map embeddings back to conversation IDs using sorted order
+                    for data in sorted_data:
                         successful.append(
                             EmbeddingResult(
-                                conversation_id=batch_ids[j],
+                                conversation_id=batch_ids[data.index],
                                 embedding=data.embedding,
                                 success=True,
                             )
                         )
 
                 except Exception as e:
+                    # Log full error for debugging, but store sanitized message
                     logger.warning(f"Batch embedding failed: {e}")
+                    sanitized_error = _sanitize_error_message(e)
                     # Mark entire batch as failed
                     for conv_id in batch_ids:
                         failed.append(
@@ -314,12 +352,14 @@ class EmbeddingService:
                                 conversation_id=conv_id,
                                 embedding=[],
                                 success=False,
-                                error=str(e),
+                                error=sanitized_error,
                             )
                         )
 
         except Exception as e:
+            # Log full error for debugging, but store sanitized message
             logger.error(f"Embedding generation failed: {e}")
+            sanitized_error = _sanitize_error_message(e)
             # Mark all remaining as failed
             for conv_id in conv_ids[len(successful) + len(failed) :]:
                 failed.append(
@@ -327,7 +367,7 @@ class EmbeddingService:
                         conversation_id=conv_id,
                         embedding=[],
                         success=False,
-                        error=str(e),
+                        error=sanitized_error,
                     )
                 )
 
