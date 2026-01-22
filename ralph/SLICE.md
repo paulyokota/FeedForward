@@ -27,9 +27,10 @@ Done means:
 
 ### Phase 2: Infrastructure (depends on Phase 1)
 
-- [ ] #105 Data model: conversation_embeddings and conversation_facets tables
+- [x] #105 Data model: conversation_embeddings and conversation_facet tables
   - Depends on: #103
   - Blocks: #106, #107, #108, #109, #110
+  - **DONE**: PR #115 merged 2026-01-22
 - [ ] #106 Pipeline step: embedding generation for conversations
   - Depends on: #105, #103
   - Blocks: #107, #108, #109, #110
@@ -51,7 +52,7 @@ Done means:
 
 ## Current Slice (Single Issue)
 
-- [ ] #105 Data model: conversation_embeddings and conversation_facets tables
+- [ ] #106 Pipeline step: embedding generation for conversations
 
 ## Notes
 
