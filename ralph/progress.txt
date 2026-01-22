@@ -144,3 +144,8 @@
 - Summary: 29 pipeline-critical tests for canonical flow (classification → theme → story)
 - Unblocks: #108 (embedding clustering), #109 (PM review)
 - Next Slice: Select from SLICE.md
+
+=== Slice Start: #104 Theme extraction quality gates + error propagation to UI ===
+- Date: 2026-01-22
+- Branch: ralph/m8-104-quality-gates
+- Notes: Phase 1 issue per T-004 priority. Blocks #110.

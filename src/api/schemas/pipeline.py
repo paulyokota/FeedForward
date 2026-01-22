@@ -5,9 +5,17 @@ Pydantic models for pipeline run requests and responses.
 """
 
 from datetime import datetime
-from typing import Optional, Literal
+from typing import List, Optional, Literal
 
 from pydantic import BaseModel, Field
+
+
+class PipelineError(BaseModel):
+    """Structured error from pipeline phase."""
+
+    phase: str  # "classification", "theme_extraction", "story_creation"
+    message: str
+    details: Optional[dict] = None
 
 
 class PipelineRunRequest(BaseModel):
@@ -74,13 +82,19 @@ class PipelineStatus(BaseModel):
     # Progress/results - Theme extraction phase
     themes_extracted: int = 0
     themes_new: int = 0
+    themes_filtered: int = 0  # Themes filtered by quality gates (#104)
 
     # Progress/results - Story creation phase
     stories_created: int = 0
     orphans_created: int = 0
 
     # Story creation readiness
-    stories_ready: bool = False  # True when themes extracted, can create stories
+    # True only when themes_extracted > 0 (Fix #104: was incorrectly set True even with 0 themes)
+    stories_ready: bool = False
+
+    # Error tracking (#104: Structured error propagation)
+    errors: List[PipelineError] = []
+    warnings: List[str] = []
 
     # Computed
     duration_seconds: Optional[float] = None
@@ -103,6 +117,7 @@ class PipelineRunListItem(BaseModel):
     themes_extracted: int = 0
     stories_created: int = 0
     stories_ready: bool = False
+    error_count: int = 0  # Number of errors (#104)
     duration_seconds: Optional[float] = None
 
     class Config:

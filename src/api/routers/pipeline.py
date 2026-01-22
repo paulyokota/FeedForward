@@ -237,9 +237,11 @@ def _is_stopping(run_id: int) -> bool:
 
 # Whitelist of allowed fields for _update_phase to prevent SQL injection
 _ALLOWED_PHASE_FIELDS = frozenset({
-    "themes_extracted", "themes_new", "stories_created", "orphans_created",
+    "themes_extracted", "themes_new", "themes_filtered",
+    "stories_created", "orphans_created",
     "stories_ready", "auto_create_stories", "conversations_fetched",
     "conversations_classified", "conversations_stored", "conversations_filtered",
+    "warnings", "errors",  # #104: Structured error tracking
 })
 
 
@@ -275,10 +277,16 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
     """
     Run theme extraction on classified conversations from this pipeline run.
 
-    Returns dict with themes_extracted, themes_new counts.
+    Returns dict with themes_extracted, themes_new, themes_filtered counts and warnings.
+
+    Quality Gates (#104):
+    - Filters themes below confidence threshold
+    - Filters themes not in vocabulary with low confidence
+    - Logs filtered themes for observability
     """
     from src.db.connection import get_connection
     from src.theme_extractor import ThemeExtractor
+    from src.theme_quality import filter_themes_by_quality
     from src.db.models import Conversation
     from psycopg2.extras import RealDictCursor
 
@@ -348,7 +356,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
     extractor = ThemeExtractor()
     # Clear session signatures for clean batch canonicalization
     extractor.clear_session_signatures()
-    themes = []
+    all_themes = []
     themes_new = 0
 
     for conv in conversations:
@@ -358,7 +366,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
 
         try:
             theme = extractor.extract(conv, strict_mode=False)
-            themes.append(theme)
+            all_themes.append(theme)
 
             # Track if new theme was created
             if not theme.issue_signature.startswith("unclassified"):
@@ -375,18 +383,36 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
         except Exception as e:
             logger.warning(f"Failed to extract theme for {conv.id}: {e}")
 
-    # Store themes in database with pipeline_run_id
+    # Apply quality gates (#104)
+    # Filter themes that don't meet quality thresholds
+    themes, filtered_themes, warnings = filter_themes_by_quality(all_themes)
+
+    if filtered_themes:
+        logger.info(
+            f"Run {run_id}: Quality gates filtered {len(filtered_themes)} of "
+            f"{len(all_themes)} themes"
+        )
+
+    # Store themes in database with pipeline_run_id and quality metadata
     from psycopg2.extras import Json
+    from src.theme_quality import check_theme_quality
 
     with get_connection() as conn:
         with conn.cursor() as cur:
             for theme in themes:
+                # Calculate quality score for storage
+                quality_result = check_theme_quality(
+                    issue_signature=theme.issue_signature,
+                    matched_existing=theme.matched_existing,
+                    match_confidence=theme.match_confidence or "low",
+                )
+
                 cur.execute("""
                     INSERT INTO themes (
                         conversation_id, product_area, component, issue_signature,
                         user_intent, symptoms, affected_flow, root_cause_hypothesis,
-                        pipeline_run_id
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        pipeline_run_id, quality_score, quality_details
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (conversation_id) DO UPDATE SET
                         product_area = EXCLUDED.product_area,
                         component = EXCLUDED.component,
@@ -396,6 +422,8 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                         affected_flow = EXCLUDED.affected_flow,
                         root_cause_hypothesis = EXCLUDED.root_cause_hypothesis,
                         pipeline_run_id = EXCLUDED.pipeline_run_id,
+                        quality_score = EXCLUDED.quality_score,
+                        quality_details = EXCLUDED.quality_details,
                         extracted_at = NOW()
                 """, (
                     theme.conversation_id,
@@ -407,10 +435,20 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                     theme.affected_flow,
                     theme.root_cause_hypothesis,
                     run_id,
+                    quality_result.quality_score,
+                    Json(quality_result.details),
                 ))
 
-    logger.info(f"Run {run_id}: Extracted {len(themes)} themes ({themes_new} new)")
-    return {"themes_extracted": len(themes), "themes_new": themes_new}
+    logger.info(
+        f"Run {run_id}: Extracted {len(themes)} themes ({themes_new} new), "
+        f"filtered {len(filtered_themes)}"
+    )
+    return {
+        "themes_extracted": len(themes),
+        "themes_new": themes_new,
+        "themes_filtered": len(filtered_themes),
+        "warnings": warnings,
+    }
 
 
 def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bool]) -> dict:
@@ -626,17 +664,29 @@ def _run_pipeline_task(
         theme_result = _run_theme_extraction(run_id, stop_checker)
 
         # Update theme extraction results
+        # Fix #104: stories_ready only TRUE when themes_extracted > 0
+        themes_extracted = theme_result.get("themes_extracted", 0)
+        themes_filtered = theme_result.get("themes_filtered", 0)
+        theme_warnings = theme_result.get("warnings", [])
+
+        from psycopg2.extras import Json
+
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE pipeline_runs SET
                         themes_extracted = %s,
                         themes_new = %s,
-                        stories_ready = TRUE
+                        themes_filtered = %s,
+                        stories_ready = %s,
+                        warnings = COALESCE(warnings, '[]'::jsonb) || %s::jsonb
                     WHERE id = %s
                 """, (
-                    theme_result.get("themes_extracted", 0),
+                    themes_extracted,
                     theme_result.get("themes_new", 0),
+                    themes_filtered,
+                    themes_extracted > 0,  # Fix: only ready if themes exist
+                    Json(theme_warnings),
                     run_id,
                 ))
 
@@ -857,7 +907,7 @@ def get_pipeline_status(run_id: int, db=Depends(get_db)):
     Get status of a specific pipeline run.
 
     Returns current progress including conversation counts, theme stats,
-    story stats, and current phase.
+    story stats, current phase, and any errors/warnings (#104).
 
     Poll this endpoint to track long-running pipelines.
     """
@@ -867,9 +917,9 @@ def get_pipeline_status(run_id: int, db=Depends(get_db)):
                    conversations_fetched, conversations_filtered,
                    conversations_classified, conversations_stored,
                    current_phase, auto_create_stories,
-                   themes_extracted, themes_new,
+                   themes_extracted, themes_new, themes_filtered,
                    stories_created, orphans_created, stories_ready,
-                   status, error_message
+                   status, error_message, errors, warnings
             FROM pipeline_runs
             WHERE id = %s
         """, (run_id,))
@@ -885,6 +935,10 @@ def get_pipeline_status(run_id: int, db=Depends(get_db)):
     elif row["started_at"]:
         duration = (datetime.now(timezone.utc) - row["started_at"]).total_seconds()
 
+    # Parse JSONB fields (may be None for pre-migration runs)
+    errors = row.get("errors") or []
+    warnings = row.get("warnings") or []
+
     return PipelineStatus(
         id=row["id"],
         started_at=row["started_at"],
@@ -899,11 +953,14 @@ def get_pipeline_status(run_id: int, db=Depends(get_db)):
         conversations_stored=row["conversations_stored"] or 0,
         themes_extracted=row["themes_extracted"] or 0,
         themes_new=row["themes_new"] or 0,
+        themes_filtered=row.get("themes_filtered") or 0,  # #104
         stories_created=row["stories_created"] or 0,
         orphans_created=row["orphans_created"] or 0,
         stories_ready=row["stories_ready"] or False,
         status=row["status"],
         error_message=row["error_message"],
+        errors=errors,  # #104
+        warnings=warnings,  # #104
         duration_seconds=round(duration, 1) if duration else None,
     )
 
@@ -971,14 +1028,14 @@ def get_pipeline_history(
     Get list of recent pipeline runs.
 
     Returns runs ordered by start time (newest first).
-    Includes phase tracking and story creation stats.
+    Includes phase tracking, story creation stats, and error count (#104).
     """
     with db.cursor() as cur:
         cur.execute("""
             SELECT id, started_at, completed_at,
                    conversations_fetched, conversations_classified, conversations_stored,
                    current_phase, themes_extracted, stories_created, stories_ready,
-                   status
+                   status, COALESCE(jsonb_array_length(errors), 0) as error_count
             FROM pipeline_runs
             ORDER BY started_at DESC
             LIMIT %s OFFSET %s
@@ -1003,6 +1060,7 @@ def get_pipeline_history(
             themes_extracted=row["themes_extracted"] or 0,
             stories_created=row["stories_created"] or 0,
             stories_ready=row["stories_ready"] or False,
+            error_count=row.get("error_count") or 0,  # #104
             duration_seconds=round(duration, 1) if duration else None,
         ))
 
