@@ -38,7 +38,32 @@
   - Pipeline API tests: 30 passed
 - Commit: 6bf9c79
 - Push: Complete (branch: ralph/m8-103-run-scoping)
-- BLOCKED: Cannot create PR - gh CLI not authenticated
-  - Next steps: Run `gh auth login` or set GH_TOKEN env var
-  - Then create PR via: gh pr create --title "fix: Use pipeline_run_id for run scoping instead of timestamp heuristics (#103)" --base main
-  - Or manually create PR at: https://github.com/paulyokota/FeedForward/pull/new/ralph/m8-103-run-scoping
+
+=== Iteration 2: PR Created + 5-Personality Review ===
+- Date: 2026-01-22
+- PR URL: https://github.com/paulyokota/FeedForward/pull/112
+- Review Round 1:
+  - Reginald (Architect): BLOCK - 4 HIGH issues (NULL handling, ON CONFLICT, FK)
+  - Sanjay (Security): BLOCK - 2 CRITICAL issues (FK CASCADE, authorization)
+  - Quinn (Quality): BLOCK - 2 CRITICAL issues (NULL black hole, backfill)
+  - Dmitri (Pragmatist): APPROVE - 1 MEDIUM (pre-existing duplication)
+  - Maya (Maintainer): APPROVE - 1 HIGH (unclear ON CONFLICT semantics)
+- Fixes Applied (commit 9ab0441):
+  1. NULL handling: Added timestamp fallback for pre-migration conversations
+  2. ON CONFLICT: Use COALESCE to keep first run (immutable)
+  3. FK CASCADE: Added ON DELETE SET NULL
+  4. Documentation: Added backfill strategy and semantics comments
+- Review Round 2: All 5 reviewers APPROVE
+- Status: CONVERGED in 2 rounds
+- PR #112 MERGED (squash) to main
+
+=== Slice Complete: #103 ===
+- Date: 2026-01-22
+- Final Commit: a5d3327 (squash merge)
+- Summary: Fix run scoping with backward-compatible NULL fallback
+- Next Slice: #89 Pipeline-critical tests for canonical flow
+
+=== Slice Start: #89 Pipeline-critical tests for canonical flow ===
+- Date: 2026-01-22
+- Branch: (to be created)
+- Notes: Next Phase 1 item per T-004 priority. Tests unblock #108, #109.
