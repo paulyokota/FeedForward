@@ -35,9 +35,10 @@ Done means:
   - Depends on: #105, #103
   - Blocks: #107, #108, #109, #110
   - **DONE**: PR #116 merged 2026-01-22
-- [ ] #107 Pipeline step: facet extraction for conversations
+- [x] #107 Pipeline step: facet extraction for conversations
   - Depends on: #105, #103
   - Blocks: #108, #109, #110
+  - **DONE**: PR #117 merged 2026-01-22
 
 ### Phase 3: Integration (depends on Phase 2)
 
@@ -53,7 +54,7 @@ Done means:
 
 ## Current Slice (Single Issue)
 
-- [ ] #107 Pipeline step: facet extraction for conversations
+- [ ] #108 Hybrid clustering algorithm: embeddings + facet sub-grouping
 
 ## Notes
 

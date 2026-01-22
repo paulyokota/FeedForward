@@ -358,3 +358,72 @@
 - Date: 2026-01-22
 - Branch: ralph/m8-107-facet-extraction
 - Notes: Second Phase 2 pipeline step. Extracts facets via LLM for clustering sub-grouping.
+
+=== Iteration 1: Implementation Complete ===
+- Date: 2026-01-22
+- Changes:
+  1. Created src/services/facet_service.py
+     - FacetExtractionService with async batch extraction
+     - gpt-4o-mini for facet classification
+     - Extracts: action_type (8 types), direction (7 types), symptom, user_goal
+     - Direction critical for T-006: "duplicate pins" (excess) vs "missing pins" (deficit)
+  2. Created src/db/facet_storage.py
+     - store_facet() for single facets
+     - store_facets_batch() for batch upsert
+     - get_facets_for_run() / count_facets_for_run()
+  3. Created migration 014_facet_extraction_phase.sql
+     - Adds facets_extracted, facets_failed to pipeline_runs
+  4. Updated src/api/routers/pipeline.py
+     - Added _run_facet_extraction_async() phase
+     - Integrated between embedding generation and theme extraction
+  5. Updated schemas/models for facet fields
+  6. Created tests/test_facet_service.py (58 tests)
+- Test Results:
+  - All 58 facet service tests PASSED
+  - Full backend suite: 983 passed, 2 failed (pre-existing)
+- Commit: 58d3e1f
+- Push: Complete (branch: ralph/m8-107-facet-extraction)
+- PR URL: https://github.com/paulyokota/FeedForward/pull/117
+
+=== Iteration 2: PR + 5-Personality Review ===
+- Date: 2026-01-22
+- Review Round 1:
+  - Reginald: BLOCK - R1 (sequential async), R2 (unused column), R3 (NULL safety)
+  - Sanjay: BLOCK - S1 (HIGH: PII in logs), S2 (HIGH: prompt injection), S3 (length validation)
+  - Quinn: BLOCK - Q1 (sequential async), Q2 (integration tests), FUNCTIONAL_TEST_REQUIRED
+  - Dmitri: BLOCK - D2 (CRITICAL: unused sync methods)
+  - Maya: APPROVE - M1/M2 optional improvements
+- Fixes Applied (commit 8f0c3e9):
+  1. D2 (CRITICAL): Removed unused sync methods (YAGNI)
+  2. S1 (HIGH): Added _hash_conversation_id() for PII protection
+  3. S2 (HIGH): Added defensive prompt framing for prompt injection
+  4. S3: Added MAX_FIELD_CHARS=200 character limit
+  5. R1/Q1: Documented sequential processing rationale in module docstring
+  6. Updated tests: +4 new tests for hashing, defensive framing, char limits, async-only
+- Review Round 2: All 5 reviewers APPROVE
+  - Reginald: R1, R2, R3 RESOLVED
+  - Sanjay: S1, S2, S3 RESOLVED
+  - Quinn: Q1, Q2 RESOLVED
+  - Dmitri: D2 RESOLVED, code is lean
+  - Maya: Documentation improved
+- Status: CONVERGED in 2 rounds
+
+=== Iteration 3: Functional Test + Merge ===
+- Date: 2026-01-22
+- Functional Test Evidence:
+  - Single extraction: 4/4 passed (bug_report, feature_request, delete_request)
+  - Batch processing: 4/4 success, 0 failed
+  - Direction differentiation (T-006 critical):
+    * Duplicate notifications → direction=excess
+    * Missing pins → direction=deficit
+    * SUCCESS: Direction correctly differentiates opposite issues!
+- PR #117 MERGED (squash) to main
+
+=== Slice Complete: #107 ===
+- Date: 2026-01-22
+- Final Commit: e68c31c (squash merge)
+- Summary: Pipeline step for facet extraction via gpt-4o-mini
+  - Extracts action_type, direction, symptom, user_goal
+  - Direction facet enables sub-grouping of semantically similar but opposite issues
+- Unblocks: #108 (hybrid clustering algorithm)
+- Next Slice: #108 Hybrid clustering algorithm: embeddings + facet sub-grouping
