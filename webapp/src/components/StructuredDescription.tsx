@@ -14,6 +14,7 @@ interface Section {
 
 // Known section headers that should be treated as top-level sections
 const KNOWN_SECTIONS = new Set([
+  // Generic sections
   "summary",
   "impact",
   "evidence",
@@ -24,31 +25,36 @@ const KNOWN_SECTIONS = new Set([
   "description",
   "problem",
   "solution",
-  "acceptance criteria",
-  "user story",
   "background",
   "details",
   "analysis",
+  // Story-specific sections (from LLM output)
+  "user story",
+  "acceptance criteria",
+  "symptoms",
+  "symptoms (customer reported)",
+  "technical notes",
+  "invest check",
 ]);
 
 /**
  * Parse description text into structured sections.
+ * Supports both ## Header and **Bold** formats.
  * Only recognizes specific known headers to avoid over-fragmenting content.
  * Falls back to showing raw content if no known sections found.
  */
 function parseDescription(description: string): Section[] | null {
-  // Match markdown bold headers at start of line or after newline
-  const sectionPattern = /(?:^|\n)\s*\*\*([^*]+)\*\*:?\s*/g;
   const parts: Array<{
     title: string;
     startIndex: number;
     contentIndex: number;
   }> = [];
 
+  // Pattern 1: ## Markdown headers (e.g., "## User Story", "## Context")
+  const markdownHeaderPattern = /(?:^|\n)##\s+([^\n]+)/g;
   let match;
-  while ((match = sectionPattern.exec(description)) !== null) {
+  while ((match = markdownHeaderPattern.exec(description)) !== null) {
     const title = match[1].trim();
-    // Only include if it's a known section header
     if (KNOWN_SECTIONS.has(title.toLowerCase())) {
       parts.push({
         title,
@@ -57,6 +63,22 @@ function parseDescription(description: string): Section[] | null {
       });
     }
   }
+
+  // Pattern 2: **Bold** headers (e.g., "**Summary**", "**Impact**")
+  const boldHeaderPattern = /(?:^|\n)\s*\*\*([^*]+)\*\*:?\s*/g;
+  while ((match = boldHeaderPattern.exec(description)) !== null) {
+    const title = match[1].trim();
+    if (KNOWN_SECTIONS.has(title.toLowerCase())) {
+      parts.push({
+        title,
+        startIndex: match.index,
+        contentIndex: match.index + match[0].length,
+      });
+    }
+  }
+
+  // Sort by position in document
+  parts.sort((a, b) => a.startIndex - b.startIndex);
 
   // If no known sections found, return null to show raw view
   if (parts.length === 0) {
@@ -115,12 +137,27 @@ function SectionContent({ section }: { section: Section }) {
 
     displayLines.forEach((line, idx) => {
       const trimmed = line.trim();
+      // Check for checkbox items first
+      const checkboxMatch = trimmed.match(/^-\s*\[([ xX])\]\s*(.*)$/);
       const isBullet =
         trimmed.startsWith("-") ||
         trimmed.startsWith("•") ||
         trimmed.startsWith("*");
 
-      if (isBullet) {
+      if (checkboxMatch) {
+        // Flush any pending bullets first
+        flushBullets();
+        const isChecked = checkboxMatch[1].toLowerCase() === "x";
+        const text = checkboxMatch[2];
+        elements.push(
+          <div key={idx} className="checkbox-item">
+            <span className={`checkbox ${isChecked ? "checked" : ""}`}>
+              {isChecked ? "✓" : "○"}
+            </span>
+            <span className={isChecked ? "checked-text" : ""}>{text}</span>
+          </div>,
+        );
+      } else if (isBullet) {
         // Remove bullet character and add to group
         bulletGroup.push(trimmed.replace(/^[-•*]\s*/, ""));
       } else {
@@ -196,6 +233,39 @@ function SectionContent({ section }: { section: Section }) {
           margin: 4px 0;
           color: var(--text-secondary);
           line-height: 1.5;
+        }
+
+        .checkbox-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          margin: 6px 0;
+          color: var(--text-secondary);
+          line-height: 1.5;
+        }
+
+        .checkbox {
+          flex-shrink: 0;
+          width: 18px;
+          height: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+          font-size: 12px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-default);
+        }
+
+        .checkbox.checked {
+          background: var(--accent-teal, var(--accent-blue));
+          border-color: var(--accent-teal, var(--accent-blue));
+          color: white;
+        }
+
+        .checked-text {
+          text-decoration: line-through;
+          opacity: 0.7;
         }
 
         .expand-btn {

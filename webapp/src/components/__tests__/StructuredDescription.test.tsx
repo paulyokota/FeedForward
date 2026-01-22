@@ -119,4 +119,41 @@ Line 7`;
     expect(screen.getByText("Feature 2")).toBeTruthy();
     expect(screen.getByText("Feature 3")).toBeTruthy();
   });
+
+  it("parses ## markdown headers", () => {
+    const description = `## User Story
+
+As a user I want to do something.
+
+## Context
+
+Some context here.
+
+## Acceptance Criteria
+
+- [ ] First criterion
+- [x] Second criterion (done)`;
+
+    render(<StructuredDescription description={description} />);
+
+    expect(screen.getByText("User Story")).toBeTruthy();
+    expect(screen.getByText("Context")).toBeTruthy();
+    expect(screen.getByText("Acceptance Criteria")).toBeTruthy();
+    expect(screen.getByText("As a user I want to do something.")).toBeTruthy();
+  });
+
+  it("renders checkboxes correctly", () => {
+    const description = `## Acceptance Criteria
+
+- [ ] Unchecked item
+- [x] Checked item`;
+
+    render(<StructuredDescription description={description} />);
+
+    // Should render checkbox indicators
+    expect(screen.getByText("○")).toBeTruthy(); // Unchecked
+    expect(screen.getByText("✓")).toBeTruthy(); // Checked
+    expect(screen.getByText("Unchecked item")).toBeTruthy();
+    expect(screen.getByText("Checked item")).toBeTruthy();
+  });
 });

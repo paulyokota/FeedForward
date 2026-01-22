@@ -1,41 +1,40 @@
 ---
-name: voice
+name: voice-chat
 triggers:
   keywords:
-    - voice mode
-    - start voice
     - voice chat
     - talk to me
     - let's talk
-    - voice conversation
+    - relaxed voice
 dependencies:
   tools:
     - mcp__voice-mode__converse
 ---
 
-# Voice Mode Skill
+# Voice Chat Skill (Relaxed Settings)
 
 Start a voice conversation with relaxed silence detection settings.
 
 ## Purpose
 
-Quickly start voice mode with sensible defaults that work well for natural conversation, avoiding premature cutoffs from aggressive silence detection.
+Quickly start voice mode with patient defaults that work well for natural conversation, avoiding premature cutoffs from aggressive silence detection. Use this instead of `/voice` when you want more forgiving listening.
 
 ## Usage
 
-Invoke with `/voice` or `/voice [message]`
+Invoke with `/voice-chat` or `/voice-chat [message]`
 
 ### Examples
 
 ```
-/voice                          # Start listening for voice input
-/voice Hello, what's on your mind?  # Speak a message and listen
+/voice-chat                          # Start listening for voice input
+/voice-chat Hello, what's on your mind?  # Speak a message and listen
 ```
 
 ## Default Settings
 
 | Setting               | Value     | Reason                                              |
 | --------------------- | --------- | --------------------------------------------------- |
+| `voice`               | "af_sky"  | Preferred Kokoro voice                              |
 | `vad_aggressiveness`  | 0         | Least aggressive - won't cut off speech prematurely |
 | `listen_duration_min` | 4         | Wait at least 4 seconds before considering silence  |
 | `listen_duration_max` | 120       | Allow up to 2 minutes of speaking                   |
@@ -74,6 +73,7 @@ When this skill is invoked, use these tool parameters:
 mcp__voice-mode__converse(
     message="[user message or greeting]",
     wait_for_response=True,
+    voice="af_sky",
     vad_aggressiveness=0,
     listen_duration_min=4,
     listen_duration_max=120,
@@ -137,3 +137,12 @@ mcp__voice-mode__service("kokoro", "start")
 - Voice mode works best in quiet environments
 - Responses are transcribed via Whisper STT
 - TTS uses Kokoro or OpenAI depending on configuration
+
+### TTS Pronunciation Quirks
+
+Hyphens are often interpreted as "minus" by TTS:
+
+- "T-004" → "T minus 004" (say "T zero zero four" instead)
+- "8-10" → "8 minus 10" (say "8 to 10" instead)
+
+Be mindful of phrasing when the text will be spoken aloud.
