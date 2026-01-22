@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import List, Literal, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -31,6 +32,17 @@ RoutingPriority = Literal["urgent", "high", "normal", "low"]
 Urgency = Literal["critical", "high", "normal", "low"]
 
 DisambiguationLevel = Literal["high", "medium", "low", "none"]
+
+# Facet types for hybrid clustering (T-006)
+ActionType = Literal[
+    "inquiry", "complaint", "bug_report", "how_to_question",
+    "feature_request", "account_change", "delete_request", "unknown"
+]
+
+Direction = Literal[
+    "excess", "deficit", "creation", "deletion",
+    "modification", "performance", "neutral"
+]
 
 
 class ClassificationResult(BaseModel):
@@ -173,6 +185,51 @@ class PipelineRun(BaseModel):
     # Structured error tracking (#104)
     errors: List[dict] = Field(default_factory=list)  # [{phase, message, details}, ...]
     warnings: List[str] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+class ConversationEmbedding(BaseModel):
+    """Vector embedding for a conversation (T-006 hybrid clustering)."""
+
+    id: Optional[UUID] = None
+    conversation_id: str
+    pipeline_run_id: Optional[UUID] = None
+
+    # Embedding data - stored as list of floats (1536 dimensions for text-embedding-3-small)
+    embedding: List[float] = Field(default_factory=list)
+    model_version: str = "text-embedding-3-small"
+
+    # Content hash for change detection
+    content_hash: Optional[str] = None
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+
+class ConversationFacets(BaseModel):
+    """Extracted facets for fine-grained sub-clustering (T-006 hybrid clustering)."""
+
+    id: Optional[UUID] = None
+    conversation_id: str
+    pipeline_run_id: Optional[UUID] = None
+
+    # Facet data
+    action_type: ActionType = "unknown"
+    direction: Direction = "neutral"
+    symptom: Optional[str] = None  # 10 words max
+    user_goal: Optional[str] = None  # 10 words max
+
+    # Extraction metadata
+    model_version: str = "gpt-4o-mini"
+    extraction_confidence: Optional[Confidence] = None
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
         from_attributes = True

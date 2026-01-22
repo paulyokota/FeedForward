@@ -218,4 +218,9 @@
 - Final Commit: 80ff594 (squash merge)
 - Summary: Theme quality gates + error propagation + UI improvements
 - Unblocks: #110 (theme vocabulary expansion)
-- Next Slice: Select from SLICE.md
+- Next Slice: #105 Data model: conversation_embeddings and conversation_facets tables
+
+=== Slice Start: #105 Data model: conversation_embeddings and conversation_facets tables ===
+- Date: 2026-01-22
+- Branch: ralph/m8-105-data-model
+- Notes: First Phase 2 issue. Creates tables for embedding-based clustering infrastructure.
