@@ -1,9 +1,12 @@
 # Task: FeedForward Roadmap (Hybrid Plan)
 
 ## Scope
-- Execute the roadmap tasks in milestone order (Hybrid Week 1 → Week 4).
+- This loop is scoped to Milestone 8: Embedding-Based Story Clustering.
+- Each iteration completes one issue-sized slice (not the entire milestone).
+- The run should advance slice-by-slice across iterations until blocked or the milestone is complete.
 - ONLY DO ONE TASK AT A TIME.
 - Prefer small, shippable increments.
+- Use parallelization where appropriate (e.g., run independent tasks in parallel, or batch compatible work) without expanding scope beyond the current slice.
 
 ## Environment & Permissions
 You are running as an autonomous Claude Code agent via a bash loop.
@@ -17,31 +20,34 @@ Do NOT:
 - Access files outside this repo.
 - Call external services unless explicitly instructed in this document.
 
-## Success Criteria
-The task is complete only when:
+## Success Criteria (Slice-Based)
+A slice is complete only when:
 - All requirements below are met.
 - All tests pass (unit + integration, if they exist).
 - No linter or type-checker errors remain.
 - Any relevant docs are updated.
+
+## Success Criteria (Loop Completion)
+The Milestone 8 loop is complete only when:
+- All items in `ralph/SLICE.md` are checked complete.
 - You print `<promise>COMPLETE</promise>` in your final summary.
 
-## Roadmap Order (Authoritative)
-Use the milestones and issues below. Complete in order.
+## Completion and Stop Rules
+- Completion is defined per slice (single Milestone 8 issue only).
+- After completing a slice, prepare the next slice and continue to the next iteration.
+- The bash loop max-iterations cap is a safety net; if it triggers, stop and mark
+  the iteration BLOCKED in `ralph/progress.txt` with the next steps.
+- Project-level completion is a human decision; do not declare the whole project done.
+- After completing a slice, stop the loop and start a new cycle only after you:
+  - Update `ralph/SLICE.md` to select the next single issue.
+  - Add a new "Slice Start" entry in `ralph/progress.txt` for traceability.
+  - If no slices remain, mark the loop complete and exit.
 
-### Hybrid Week 1
-- #62 fix(research): coda_page adapter fails with "no such column: name"
-- #46 Implement repo sync + static codebase fallback
-
-### Hybrid Week 2
-- #53 Webapp pipeline control page + graceful stop
-- #44 Wire classification-guided exploration into story creation
-
-### Hybrid Week 3
-- #54 Run summary: new stories after pipeline run
-- #56 Story detail implementation context section
-
-### Hybrid Week 4
-- #55 Suggested evidence accept/reject workflow
+## Slice Definition (Authoritative)
+Use `ralph/SLICE.md` as the source of truth for the current slice. Each cycle
+must select exactly one Milestone 8 issue in the "Current Slice" section and
+work until it is complete. Do not add new scope outside that file without
+explicit instruction.
 
 ## Quality Gates (MANDATORY)
 Before committing, run ALL applicable checks for the touched area.
@@ -87,16 +93,22 @@ PR creation requirement:
 On **every** run:
 1. Re-read this `ralph/PROMPT.md`.
 2. Read `ralph/progress.txt` to understand history and current state.
-3. Inspect relevant parts of the codebase.
-4. Plan the smallest next step that moves toward completion.
-5. Execute that step (edit files, run tests, update docs).
-6. Append a new entry in `ralph/progress.txt` describing:
+3. Read `ralph/SLICE.md` and pick the next unchecked item.
+4. Inspect relevant parts of the codebase.
+5. Plan the smallest next step that moves toward completion.
+6. Execute that step (edit files, run tests, update docs).
+7. Append a new entry in `ralph/progress.txt` describing:
    - What changed.
    - Test results.
    - Remaining work.
-7. If and only if all success criteria are met:
+8. If and only if all success criteria are met:
    - Summarize the work.
-   - Print `<promise>COMPLETE</promise>` in the summary.
+   - If the entire milestone is complete, print `<promise>COMPLETE</promise>`.
+9. When a slice is complete:
+   - Mark the issue complete in `ralph/SLICE.md`.
+   - Select the next issue as "Current Slice" (or note none remain).
+   - Add a new "Slice Start" entry in `ralph/progress.txt`.
+   - Continue to the next iteration unless blocked.
 
 ONLY DO ONE TASK AT A TIME.
 Prefer multiple small commits over one large commit.
