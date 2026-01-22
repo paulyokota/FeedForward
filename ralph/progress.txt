@@ -338,14 +338,23 @@
 - Status: CONVERGED in 2 rounds
 - FUNCTIONAL_TEST_REQUIRED: Quinn flagged - new pipeline phase needs functional test evidence
 
-=== BLOCKED: Awaiting Functional Test ===
+=== Iteration 3: Functional Test + Merge ===
 - Date: 2026-01-22
-- PR URL: https://github.com/paulyokota/FeedForward/pull/116
-- Reason: Quinn flagged FUNCTIONAL_TEST_REQUIRED for new pipeline phase
-- Required: Run pipeline with embedding generation enabled, attach evidence
-- Next Steps:
-  1. Run functional test: python -m src.two_stage_pipeline --days 1 --max 5
-  2. Verify embeddings stored in conversation_embeddings table
-  3. Attach evidence to PR per docs/process-playbook/gates/functional-testing-gate.md
-  4. Merge PR
-  5. Update SLICE.md and continue to next issue
+- Functional Test Evidence: Attached to PR #116
+  - Pipeline run ID: 42
+  - Embeddings generated: 1 (for actionable product_issue)
+  - Model: text-embedding-3-small (1536 dimensions)
+  - Storage verified in conversation_embeddings table
+- PR #116 MERGED (squash) to main
+
+=== Slice Complete: #106 ===
+- Date: 2026-01-22
+- Final Commit: b7b4a21 (squash merge)
+- Summary: Pipeline step for embedding generation via OpenAI API
+- Unblocks: #107 (facet extraction), #108 (hybrid clustering)
+- Next Slice: #107 Pipeline step: facet extraction for conversations
+
+=== Slice Start: #107 Pipeline step: facet extraction for conversations ===
+- Date: 2026-01-22
+- Branch: ralph/m8-107-facet-extraction
+- Notes: Second Phase 2 pipeline step. Extracts facets via LLM for clustering sub-grouping.

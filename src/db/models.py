@@ -173,7 +173,7 @@ class PipelineRun(BaseModel):
     auto_create_stories: bool = False
 
     # Phase tracking
-    current_phase: str = "classification"  # classification, embedding_generation, theme_extraction, pm_review, story_creation, completed
+    current_phase: str = "classification"  # classification, embedding_generation, facet_extraction, theme_extraction, pm_review, story_creation, completed
 
     # Results - Classification phase
     conversations_fetched: int = 0
@@ -184,6 +184,10 @@ class PipelineRun(BaseModel):
     # Results - Embedding generation phase (#106)
     embeddings_generated: int = 0
     embeddings_failed: int = 0
+
+    # Results - Facet extraction phase (#107)
+    facets_extracted: int = 0
+    facets_failed: int = 0
 
     # Results - Theme extraction phase
     themes_extracted: int = 0

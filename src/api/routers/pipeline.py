@@ -242,6 +242,7 @@ _ALLOWED_PHASE_FIELDS = frozenset({
     "stories_ready", "auto_create_stories", "conversations_fetched",
     "conversations_classified", "conversations_stored", "conversations_filtered",
     "embeddings_generated", "embeddings_failed",  # #106: Embedding generation phase
+    "facets_extracted", "facets_failed",  # #107: Facet extraction phase
     "warnings", "errors",  # #104: Structured error tracking
 })
 
@@ -374,6 +375,112 @@ def _run_embedding_generation(run_id: int, stop_checker: Callable[[], bool]) -> 
     import asyncio
 
     return asyncio.run(_run_embedding_generation_async(run_id, stop_checker))
+
+
+async def _run_facet_extraction_async(
+    run_id: int, stop_checker: Callable[[], bool]
+) -> dict:
+    """
+    Extract facets from classified conversations for hybrid clustering.
+
+    Returns dict with facets_extracted and facets_failed counts.
+
+    Issue #107: Pipeline step for facet extraction.
+    Facets are extracted for actionable conversation types:
+    product_issue, feature_request, how_to_question.
+
+    Facets include:
+    - action_type: inquiry, complaint, bug_report, etc.
+    - direction: excess, deficit, creation, etc. (critical for clustering)
+    - symptom: Brief description of user issue
+    - user_goal: What user is trying to accomplish
+    """
+    from src.db.connection import get_connection
+    from src.services.facet_service import FacetExtractionService
+    from src.db.facet_storage import store_facets_batch
+    from psycopg2.extras import RealDictCursor
+
+    logger.info(f"Run {run_id}: Starting facet extraction")
+
+    # Get conversations classified in this run (same query as embedding generation)
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Use pipeline_run_id for run scoping (per #103)
+            # Filter to actionable types that need facets for clustering
+            cur.execute("""
+                SELECT c.id, c.source_body
+                FROM conversations c
+                JOIN pipeline_runs pr ON pr.id = %s
+                WHERE (c.pipeline_run_id = %s
+                       OR (c.pipeline_run_id IS NULL AND c.classified_at >= pr.started_at))
+                  AND COALESCE(c.stage2_type, c.stage1_type) IN (
+                      'product_issue', 'feature_request', 'how_to_question'
+                  )
+                ORDER BY c.created_at DESC
+            """, (run_id, run_id))
+            rows = cur.fetchall()
+
+    if not rows:
+        logger.info(f"Run {run_id}: No actionable conversations for facet extraction")
+        return {"facets_extracted": 0, "facets_failed": 0}
+
+    # Prepare conversations for facet service
+    conversations = [
+        {"id": row["id"], "source_body": row["source_body"]}
+        for row in rows
+    ]
+
+    logger.info(f"Run {run_id}: Extracting facets for {len(conversations)} conversations")
+
+    # Extract facets
+    service = FacetExtractionService()
+    result = await service.extract_facets_batch_async(
+        conversations=conversations,
+        stop_checker=stop_checker,
+    )
+
+    # Store successful facets
+    if result.successful:
+        stored_count = store_facets_batch(
+            results=result.successful,
+            pipeline_run_id=run_id,
+        )
+        logger.info(f"Run {run_id}: Stored {stored_count} facets")
+    else:
+        stored_count = 0
+
+    # Log failures for observability
+    if result.failed:
+        failed_ids = [r.conversation_id for r in result.failed[:5]]  # First 5 for brevity
+        logger.warning(
+            f"Run {run_id}: Failed to extract facets for {len(result.failed)} conversations. "
+            f"Sample IDs: {failed_ids}"
+        )
+
+    logger.info(
+        f"Run {run_id}: Facet extraction complete. "
+        f"Extracted: {result.total_success}, Failed: {result.total_failed}"
+    )
+
+    return {
+        "facets_extracted": result.total_success,
+        "facets_failed": result.total_failed,
+    }
+
+
+def _run_facet_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict:
+    """
+    Synchronous wrapper for _run_facet_extraction_async.
+
+    Bridges the sync pipeline task with async facet service.
+
+    Note: asyncio.run() is safe here because _run_pipeline_task runs in a
+    separate background thread (via FastAPI BackgroundTasks), not in an
+    existing event loop. Each asyncio.run() call creates a fresh event loop.
+    """
+    import asyncio
+
+    return asyncio.run(_run_facet_extraction_async(run_id, stop_checker))
 
 
 def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict:
@@ -787,9 +894,38 @@ def _run_pipeline_task(
             _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result)
             return
 
-        # ==== PHASE 3: Theme Extraction ====
+        # ==== PHASE 3: Facet Extraction (#107) ====
+        facet_result = {"facets_extracted": 0, "facets_failed": 0}
+
         if stop_checker():
-            _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result)
+            _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result, facet_result)
+            return
+
+        _update_phase(run_id, "facet_extraction")
+
+        facet_result = _run_facet_extraction(run_id, stop_checker)
+
+        # Update facet results in database
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE pipeline_runs SET
+                        facets_extracted = %s,
+                        facets_failed = %s
+                    WHERE id = %s
+                """, (
+                    facet_result.get("facets_extracted", 0),
+                    facet_result.get("facets_failed", 0),
+                    run_id,
+                ))
+
+        if stop_checker():
+            _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result, facet_result)
+            return
+
+        # ==== PHASE 4: Theme Extraction ====
+        if stop_checker():
+            _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result, facet_result)
             return
 
         _update_phase(run_id, "theme_extraction")
@@ -824,10 +960,10 @@ def _run_pipeline_task(
                 ))
 
         if stop_checker():
-            _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result)
+            _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result, facet_result)
             return
 
-        # ==== PHASE 4: PM Review + Story Creation (optional) ====
+        # ==== PHASE 5: PM Review + Story Creation (optional) ====
         if auto_create_stories and theme_result.get("themes_extracted", 0) > 0:
             _update_phase(run_id, "story_creation")
 
@@ -848,11 +984,11 @@ def _run_pipeline_task(
                     ))
 
             if stop_checker():
-                _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result)
+                _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result, facet_result)
                 return
 
         # ==== COMPLETED ====
-        _finalize_completed_run(run_id, result, theme_result, story_result, embedding_result)
+        _finalize_completed_run(run_id, result, theme_result, story_result, embedding_result, facet_result)
 
     except Exception as e:
         # Update with error
@@ -877,11 +1013,13 @@ def _finalize_completed_run(
     theme_result: dict,
     story_result: dict,
     embedding_result: Optional[dict] = None,
+    facet_result: Optional[dict] = None,
 ):
     """Finalize a successfully completed run."""
     from src.db.connection import get_connection
 
     embedding_result = embedding_result or {"embeddings_generated": 0, "embeddings_failed": 0}
+    facet_result = facet_result or {"facets_extracted": 0, "facets_failed": 0}
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -895,6 +1033,8 @@ def _finalize_completed_run(
                     conversations_stored = %s,
                     embeddings_generated = %s,
                     embeddings_failed = %s,
+                    facets_extracted = %s,
+                    facets_failed = %s,
                     themes_extracted = %s,
                     themes_new = %s,
                     stories_created = %s,
@@ -909,6 +1049,8 @@ def _finalize_completed_run(
                 result.get("stored", 0),
                 embedding_result.get("embeddings_generated", 0),
                 embedding_result.get("embeddings_failed", 0),
+                facet_result.get("facets_extracted", 0),
+                facet_result.get("facets_failed", 0),
                 theme_result.get("themes_extracted", 0),
                 theme_result.get("themes_new", 0),
                 story_result.get("stories_created", 0),
@@ -926,6 +1068,7 @@ def _finalize_stopped_run(
     theme_result: Optional[dict] = None,
     story_result: Optional[dict] = None,
     embedding_result: Optional[dict] = None,
+    facet_result: Optional[dict] = None,
 ):
     """Finalize a run that was stopped gracefully."""
     from src.db.connection import get_connection
@@ -933,6 +1076,7 @@ def _finalize_stopped_run(
     theme_result = theme_result or {"themes_extracted": 0, "themes_new": 0}
     story_result = story_result or {"stories_created": 0, "orphans_created": 0}
     embedding_result = embedding_result or {"embeddings_generated": 0, "embeddings_failed": 0}
+    facet_result = facet_result or {"facets_extracted": 0, "facets_failed": 0}
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -945,6 +1089,8 @@ def _finalize_stopped_run(
                     conversations_stored = %s,
                     embeddings_generated = %s,
                     embeddings_failed = %s,
+                    facets_extracted = %s,
+                    facets_failed = %s,
                     themes_extracted = %s,
                     themes_new = %s,
                     stories_created = %s,
@@ -959,6 +1105,8 @@ def _finalize_stopped_run(
                 result.get("stored", 0),
                 embedding_result.get("embeddings_generated", 0),
                 embedding_result.get("embeddings_failed", 0),
+                facet_result.get("facets_extracted", 0),
+                facet_result.get("facets_failed", 0),
                 theme_result.get("themes_extracted", 0),
                 theme_result.get("themes_new", 0),
                 story_result.get("stories_created", 0),
