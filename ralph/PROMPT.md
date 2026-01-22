@@ -2,7 +2,8 @@
 
 ## Scope
 - This loop is scoped to Milestone 8: Embedding-Based Story Clustering.
-- Each cycle completes one issue-sized slice (not the entire milestone).
+- Each iteration completes one issue-sized slice (not the entire milestone).
+- The run should advance slice-by-slice across iterations until blocked or the milestone is complete.
 - ONLY DO ONE TASK AT A TIME.
 - Prefer small, shippable increments.
 - Use parallelization where appropriate (e.g., run independent tasks in parallel, or batch compatible work) without expanding scope beyond the current slice.
@@ -20,24 +21,27 @@ Do NOT:
 - Call external services unless explicitly instructed in this document.
 
 ## Success Criteria (Slice-Based)
-The slice is complete only when:
+A slice is complete only when:
 - All requirements below are met.
-- All items in `ralph/SLICE.md` are checked complete.
 - All tests pass (unit + integration, if they exist).
 - No linter or type-checker errors remain.
 - Any relevant docs are updated.
+
+## Success Criteria (Loop Completion)
+The Milestone 8 loop is complete only when:
+- All items in `ralph/SLICE.md` are checked complete.
 - You print `<promise>COMPLETE</promise>` in your final summary.
 
 ## Completion and Stop Rules
 - Completion is defined per slice (single Milestone 8 issue only).
-- The loop may end naturally once the slice has no remaining unchecked items.
+- After completing a slice, prepare the next slice and continue to the next iteration.
 - The bash loop max-iterations cap is a safety net; if it triggers, stop and mark
   the iteration BLOCKED in `ralph/progress.txt` with the next steps.
 - Project-level completion is a human decision; do not declare the whole project done.
 - After completing a slice, stop the loop and start a new cycle only after you:
   - Update `ralph/SLICE.md` to select the next single issue.
-  - Create a fresh branch for that slice (one branch per issue).
   - Add a new "Slice Start" entry in `ralph/progress.txt` for traceability.
+  - If no slices remain, mark the loop complete and exit.
 
 ## Slice Definition (Authoritative)
 Use `ralph/SLICE.md` as the source of truth for the current slice. Each cycle
@@ -99,8 +103,12 @@ On **every** run:
    - Remaining work.
 8. If and only if all success criteria are met:
    - Summarize the work.
-   - Print `<promise>COMPLETE</promise>` in the summary.
-9. When a slice is complete, stop. Do not start the next issue in the same cycle.
+   - If the entire milestone is complete, print `<promise>COMPLETE</promise>`.
+9. When a slice is complete:
+   - Mark the issue complete in `ralph/SLICE.md`.
+   - Select the next issue as "Current Slice" (or note none remain).
+   - Add a new "Slice Start" entry in `ralph/progress.txt`.
+   - Continue to the next iteration unless blocked.
 
 ONLY DO ONE TASK AT A TIME.
 Prefer multiple small commits over one large commit.
