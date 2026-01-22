@@ -188,6 +188,15 @@ def mixed_theme_groups():
                 "affected_flow": "publishing",
                 "excerpt": "Cannot find my pins",
             },
+            {
+                "id": "conv_7",
+                "product_area": "publishing",
+                "component": "pinterest",
+                "user_intent": "Orphan issue",
+                "symptoms": ["other issue"],
+                "affected_flow": "publishing",
+                "excerpt": "Different issue entirely",
+            },
         ],
     }
 
@@ -406,6 +415,92 @@ class TestPMReviewSplit:
         assert result.stories_created == 1
         # Orphans should be created
         assert result.orphans_created >= 1
+
+    def test_pm_review_split_prevents_duplicate_assignments(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+        mixed_theme_groups,
+    ):
+        """Test that duplicate conversation assignments are prevented.
+
+        Regression test for bug where same conversation could end up in multiple stories
+        if LLM assigned it to multiple sub-groups. First assignment wins.
+        """
+        # Configure mock PM review to return split with duplicate conv_id in sub-groups
+        mock_pm_review_service.review_group.return_value = PMReviewResult(
+            original_signature="pinterest_publishing_failure",
+            conversation_count=7,
+            decision=ReviewDecision.SPLIT,
+            reasoning="Conversations have different symptoms",
+            sub_groups=[
+                SubGroupSuggestion(
+                    suggested_signature="pinterest_duplicate_pins",
+                    # conv_3 appears in both sub-groups (LLM bug)
+                    conversation_ids=["conv_1", "conv_2", "conv_3"],
+                    rationale="All about duplicate pins",
+                ),
+                SubGroupSuggestion(
+                    suggested_signature="pinterest_missing_pins",
+                    # conv_3 appears again here (should be skipped on second assignment)
+                    # After skipping conv_3, this has 3 conversations (still valid)
+                    conversation_ids=["conv_3", "conv_4", "conv_5", "conv_6"],
+                    rationale="All about missing pins",
+                ),
+            ],
+            orphan_conversation_ids=["conv_7"],
+        )
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,
+        )
+
+        # Track conversations passed to _create_story_with_evidence
+        created_story_conversations = []
+        original_create_story = service._create_story_with_evidence
+
+        def track_conversations(*args, **kwargs):
+            # Capture the conversations parameter
+            conversations = kwargs.get('conversations') or args[1]  # Second positional arg
+            created_story_conversations.append([c.id for c in conversations])
+            # Call original method
+            return original_create_story(*args, **kwargs)
+
+        # Patch the method to track calls
+        with patch.object(service, '_create_story_with_evidence', side_effect=track_conversations):
+            result = service.process_theme_groups(mixed_theme_groups)
+
+        assert result.pm_review_splits == 1
+        # First sub-group has 3 convs (conv_1, conv_2, conv_3) -> story
+        # Second sub-group has 3 convs (conv_4, conv_5, conv_6) after conv_3 skipped -> story
+        assert result.stories_created == 2
+
+        # Verify conversation_ids passed to _create_story_with_evidence don't overlap
+        # Flatten all conversation IDs from both story creation calls
+        all_conv_ids = []
+        for conv_ids in created_story_conversations:
+            all_conv_ids.extend(conv_ids)
+
+        # Verify no duplicates (conv_3 should only appear once)
+        assert len(all_conv_ids) == len(set(all_conv_ids)), \
+            f"Found duplicate conversation IDs: {all_conv_ids}"
+
+        # Specifically verify conv_3 appears exactly once
+        assert all_conv_ids.count("conv_3") == 1, \
+            f"conv_3 should appear exactly once, found {all_conv_ids.count('conv_3')} times"
+
+        # Verify the expected conversations in each story
+        # First story should have conv_1, conv_2, conv_3 (in order from sub_groups)
+        assert set(created_story_conversations[0]) == {"conv_1", "conv_2", "conv_3"}, \
+            f"First story should have conv_1, conv_2, conv_3, got {created_story_conversations[0]}"
+
+        # Second story should have conv_4, conv_5, conv_6 (conv_3 skipped)
+        assert set(created_story_conversations[1]) == {"conv_4", "conv_5", "conv_6"}, \
+            f"Second story should have conv_4, conv_5, conv_6, got {created_story_conversations[1]}"
 
 
 # -----------------------------------------------------------------------------
