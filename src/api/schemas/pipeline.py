@@ -71,13 +71,17 @@ class PipelineStatus(BaseModel):
     auto_create_stories: bool = False
 
     # Phase tracking
-    current_phase: str = "classification"  # classification, theme_extraction, pm_review, story_creation, completed
+    current_phase: str = "classification"  # classification, embedding_generation, theme_extraction, pm_review, story_creation, completed
 
     # Progress/results - Classification phase
     conversations_fetched: int = 0
     conversations_filtered: int = 0
     conversations_classified: int = 0
     conversations_stored: int = 0
+
+    # Progress/results - Embedding generation phase (#106)
+    embeddings_generated: int = 0
+    embeddings_failed: int = 0
 
     # Progress/results - Theme extraction phase
     themes_extracted: int = 0
@@ -114,6 +118,7 @@ class PipelineRunListItem(BaseModel):
     conversations_fetched: int = 0
     conversations_classified: int = 0
     conversations_stored: int = 0
+    embeddings_generated: int = 0  # #106
     themes_extracted: int = 0
     stories_created: int = 0
     stories_ready: bool = False
