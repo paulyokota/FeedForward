@@ -5,59 +5,56 @@
 
 ## Goal
 
-Fix pipeline signature fragmentation and enable session-scoped canonicalization.
+Bug fixes and UI improvements for story tracking pipeline
 
-## What Was Done
+## Progress
 
-### 1. Fixed Pipeline Configuration (PR settings)
+- Completed: 4 tasks
+- Pending: 0 tasks
 
-- Changed `PM_REVIEW_ENABLED` default from "false" to "true"
-- Changed `strict_mode` from `True` to `False` in theme extraction
-- Run 35 had 61% unclassified themes due to strict_mode forcing vocabulary-only matches
+## Completed Work
 
-### 2. Implemented Session-Scoped Signature Canonicalization
+### 1. Fixed Duplicate Conversation Assignment Bug (PR commit f24c56b)
 
-- **Problem**: Run 38 had 87 orphans with too many unique signatures (1 conversation per signature)
-- **Root Cause**: Canonicalization only checked DB signatures, not signatures from current batch
-- **Solution**: Added `_session_signatures` dict to track signatures during extraction batch
-  - `add_session_signature()` - adds signature to session cache after extraction
-  - `clear_session_signatures()` - clears cache at batch start
-  - `get_existing_signatures()` now includes session signatures for matching
-  - Changed canonicalization from `elif canonicalize and not self.use_vocabulary:` to `elif canonicalize:`
-- **Result**: Run 39 orphans dropped from 87 to 40 (53% reduction)
+- **Problem**: When PM review split a theme group into sub-groups, the same conversation could end up in multiple stories if the LLM assigned it to multiple sub-groups
+- **Solution**: Defense-in-depth fix:
+  1. Added prompt constraint requiring each conversation_id to appear in exactly ONE place
+  2. Changed `_handle_pm_split()` to use `pop()` instead of `dict.get()` - first assignment wins
+  3. Added warning logs when duplicate assignments are attempted
+- **Impact**: Fixes conversation 215472742755019 appearing in both stories d3ee3a9c and a4b79d95
+- **Files**: `src/story_tracking/services/story_creation_service.py`, `src/prompts/pm_review.py`
+- **Tests**: Added regression test in `tests/test_story_creation_service_pm_review.py`
 
-### 3. Verified Canonicalization Works
+### 2. StructuredDescription Component (PR #102)
 
-- Test with 5 similar analytics conversations all got same signature `analytics_counter_bug`
-- `pinterest_missing_pins` successfully grouped 9 conversations
+- **Purpose**: Better rendering of LLM-generated story descriptions in webapp
+- **Features**:
+  - Parses `## Header` and `**Bold**` markdown formats
+  - Expand/collapse for sections >5 lines
+  - Checkbox rendering for acceptance criteria (`- [ ]` / `- [x]`)
+  - Structured/Raw view toggle
+  - Copy button with success/error feedback
+- **Known section headers**: Summary, Impact, Evidence, User Story, Acceptance Criteria, Symptoms, Technical Notes, INVEST Check
+- **Files**: `webapp/src/components/StructuredDescription.tsx` (570 lines)
+- **Tests**: `webapp/src/components/__tests__/StructuredDescription.test.tsx`
 
-## Commits (unpushed)
+### 3. Session-Scoped Signature Canonicalization (commit b8a8a38)
 
-1. `c59ba30` - fix(pipeline): Enable PM review by default, disable strict mode
-2. `b8a8a38` - feat(canonicalize): Enable session-scoped signature canonicalization
+- **Problem**: Same issue getting different signatures across conversations in same batch (e.g., `analytics_stats_bug` vs `analytics_counter_bug`)
+- **Solution**: Track signatures created during extraction session in `_session_signatures` dict
+- **Impact**: Run 39 orphans dropped from 87 to 40
+- **Files**: `src/theme_extractor.py`
 
-## Files Changed
+### 4. Streamlit Frontend Removal (commit 45fe154)
 
-| File                                        | Change                                                                         |
-| ------------------------------------------- | ------------------------------------------------------------------------------ |
-| `src/theme_extractor.py`                    | Added session signature tracking, enabled canonicalization for vocabulary mode |
-| `src/api/routers/pipeline.py`               | Clear session signatures before extraction, added PM review logging            |
-| `tests/test_theme_extractor_specificity.py` | Updated test for `_question` banned pattern                                    |
+- Removed deprecated `frontend/` directory (Streamlit UI)
+- Project now uses Next.js webapp exclusively at `webapp/`
+- Updated docs to reflect Next.js as the frontend
 
-## Key Metrics
+## Session Notes
 
-| Run               | Unclassified % | Unique Signatures | Orphans | Stories |
-| ----------------- | -------------- | ----------------- | ------- | ------- |
-| 35 (before)       | 61%            | 24                | -       | 3       |
-| 38 (strict off)   | 0%             | 100               | 87      | 2       |
-| 39 (canonicalize) | 0%             | 100               | 40      | 2       |
-
-## Next Steps
-
-1. Push commits to remote
-2. Monitor signature consolidation in production runs
-3. Consider further tuning canonicalization similarity threshold
+All bug fixes have corresponding tests. Pipeline stability improved with duplicate prevention and better canonicalization.
 
 ---
 
-_Auto-generated by Developer Kit session management_
+_Updated by Theo (Documentation)_

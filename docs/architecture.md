@@ -830,26 +830,28 @@ Optional:
 - `tools/test_url_context_live.py` - Live data validation
 - `tools/theme_labeler.py` - Streamlit UI for manual labeling
 
-### 12. API and Frontend Layer (NEW - 2026-01-09)
+### 12. API and Frontend Layer (Updated 2026-01-22)
 
 **Purpose**: Operational visibility into the pipeline - kick off runs, check status, browse themes.
 
-**Architecture Decision**: FastAPI backend + Streamlit frontend because:
+**Architecture Decision**: FastAPI backend + Next.js frontend because:
 
 - API layer survives frontend changes
 - Enables future CLI/mobile clients
 - Supports future multi-source ingestion (research repos beyond Intercom)
+- Next.js provides better performance and TypeScript support than Streamlit
 
 **System Design**:
 
 ```
 ┌─────────────────────┐     ┌─────────────────────┐
-│  Streamlit Frontend │────►│   FastAPI Backend   │
-│  (localhost:8501)   │     │   (localhost:8000)  │
+│  Next.js Frontend   │────►│   FastAPI Backend   │
+│  (localhost:3000)   │     │   (localhost:8000)  │
 │                     │     │                     │
-│  - Dashboard        │     │  - /api/analytics   │
-│  - Pipeline         │     │  - /api/pipeline    │
-│  - Themes           │     │  - /api/themes      │
+│  - Board view       │     │  - /api/analytics   │
+│  - Story detail     │     │  - /api/pipeline    │
+│  - Pipeline         │     │  - /api/themes      │
+│  - Research         │     │  - /api/stories     │
 └─────────────────────┘     └──────────┬──────────┘
                                        │
                                        ▼
@@ -873,13 +875,15 @@ Optional:
 | Sync      | `/api/sync/shortcut/push`, `/pull`, `/webhook`, `/status/{id}`                              |
 | Labels    | `/api/labels`, `/api/labels/import`                                                         |
 
-**Frontend Pages**:
+**Frontend Pages** (Next.js):
 
-| Page      | Purpose                                             |
-| --------- | --------------------------------------------------- |
-| Dashboard | Metrics overview, classification distribution, runs |
-| Pipeline  | Run configuration, status polling, history          |
-| Themes    | Trending/orphan/singleton tabs, filtering           |
+| Route         | Purpose                                            |
+| ------------- | -------------------------------------------------- |
+| `/`           | Board view - kanban with drag-and-drop             |
+| `/story/[id]` | Story detail + edit mode                           |
+| `/pipeline`   | Run configuration, status polling, dry run preview |
+| `/research`   | Semantic search across Coda + Intercom             |
+| `/analytics`  | Metrics overview, charts, trends                   |
 
 **Files**:
 
@@ -894,25 +898,26 @@ src/api/
 │   └── themes.py     # Trending/orphans
 └── schemas/          # Pydantic models
 
-frontend/
-├── app.py            # Streamlit entry
-├── api_client.py     # API wrapper
-└── pages/
-    ├── 1_Dashboard.py
-    ├── 2_Pipeline.py
-    └── 3_Themes.py
+webapp/               # Next.js frontend (replaced Streamlit)
+├── src/app/
+│   ├── page.tsx      # Board view
+│   ├── story/[id]/   # Story detail + edit
+│   ├── pipeline/     # Pipeline control
+│   └── research/     # Semantic search
+└── src/components/
+    └── StructuredDescription.tsx  # Markdown section parsing
 ```
 
 **Running**:
 
 ```bash
-# Terminal 1
+# Terminal 1: API
 uvicorn src.api.main:app --reload --port 8000
 
-# Terminal 2
-streamlit run frontend/app.py
+# Terminal 2: Frontend
+cd webapp && npm run dev
 
-# Then open http://localhost:8501
+# Then open http://localhost:3000
 ```
 
 API docs at http://localhost:8000/docs
@@ -1086,6 +1091,8 @@ webapp/                  # Next.js frontend
 ├── src/app/
 │   ├── page.tsx         # Board view
 │   └── story/[id]/      # Story detail + edit
+├── src/components/
+│   └── StructuredDescription.tsx  # Markdown section parsing, expand/collapse
 └── src/lib/
     └── types.ts         # StatusKey, STATUS_ORDER
 ```
@@ -1376,7 +1383,7 @@ scripts/validate_domain_classifier.py        # Manual validation
 ✅ Phase 5 Ground Truth Validation (64.5% family accuracy)
 ✅ Vocabulary feedback loop for drift monitoring
 ✅ Story Grouping baseline (45% purity, validation pipeline)
-✅ FastAPI + Streamlit frontend (25+ API endpoints, 3 UI pages)
+✅ FastAPI + Next.js frontend (25+ API endpoints, webapp at localhost:3000)
 ✅ Coda research repository exploration (API access verified, content analyzed)
 ✅ Story Tracking Web App (Next.js) - Phases 1-2.5 complete
 ✅ Phase 3: Bidirectional Shortcut Sync (SyncService, LabelRegistryService)

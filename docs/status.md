@@ -1396,7 +1396,9 @@ Explore Coda research repository as a future data source for multi-source theme 
 
 ## Previous: FastAPI + Streamlit Frontend (2026-01-09)
 
-### What Was Built
+> **Note**: Streamlit frontend was removed on 2026-01-22. The project now uses Next.js webapp exclusively at `webapp/`. See architecture.md Section 14 for current frontend.
+
+### What Was Built (Historical)
 
 **Operational dashboard** for pipeline visibility:
 

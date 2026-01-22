@@ -12,6 +12,9 @@ interface Section {
   isLong: boolean;
 }
 
+// Threshold for collapsing long sections (number of lines)
+const LONG_SECTION_THRESHOLD = 5;
+
 // Known section headers that should be treated as top-level sections
 const KNOWN_SECTIONS = new Set([
   // Generic sections
@@ -92,9 +95,9 @@ function parseDescription(description: string): Section[] | null {
       .substring(part.contentIndex, nextStartIndex)
       .trim();
 
-    // Consider content "long" if it has more than 5 lines
+    // Consider content "long" if it exceeds threshold
     const lineCount = content.split("\n").filter((line) => line.trim()).length;
-    const isLong = lineCount > 5;
+    const isLong = lineCount > LONG_SECTION_THRESHOLD;
 
     return { title: part.title, content, isLong };
   });
@@ -112,8 +115,10 @@ function SectionContent({ section }: { section: Section }) {
   // Split into paragraphs (double newline) or lines
   const lines = section.content.split("\n").filter((line) => line.trim());
   const shouldTruncate = section.isLong && !isExpanded;
-  const displayLines = shouldTruncate ? lines.slice(0, 5) : lines;
-  const remainingCount = lines.length - 5;
+  const displayLines = shouldTruncate
+    ? lines.slice(0, LONG_SECTION_THRESHOLD)
+    : lines;
+  const remainingCount = lines.length - LONG_SECTION_THRESHOLD;
 
   // Group consecutive bullet points together
   const renderContent = () => {
@@ -297,7 +302,9 @@ export function StructuredDescription({
   description,
 }: StructuredDescriptionProps) {
   const [viewMode, setViewMode] = useState<"structured" | "raw">("structured");
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "success" | "error">(
+    "idle",
+  );
 
   const sections = parseDescription(description);
   const shouldUseStructured = sections !== null && sections.length > 0;
@@ -305,10 +312,12 @@ export function StructuredDescription({
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(description);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
+      setCopyState("success");
+      setTimeout(() => setCopyState("idle"), 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
+      setCopyState("error");
+      setTimeout(() => setCopyState("idle"), 2000);
     }
   };
 
@@ -336,14 +345,19 @@ export function StructuredDescription({
 
         <button
           type="button"
-          className="copy-btn"
+          className={`copy-btn ${copyState === "error" ? "error" : ""}`}
           onClick={handleCopy}
           title="Copy raw description"
         >
-          {copySuccess ? (
+          {copyState === "success" ? (
             <>
               <CheckIcon />
               Copied!
+            </>
+          ) : copyState === "error" ? (
+            <>
+              <CopyIcon />
+              Failed
             </>
           ) : (
             <>
@@ -432,6 +446,11 @@ export function StructuredDescription({
           background: var(--bg-hover);
           color: var(--text-primary);
           border-color: var(--accent-teal, var(--accent-blue));
+        }
+
+        .copy-btn.error {
+          color: var(--status-error, #dc2626);
+          border-color: var(--status-error, #dc2626);
         }
 
         .structured-view {
