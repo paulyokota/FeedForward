@@ -89,4 +89,8 @@ if grep -qi "issue #[0-9].*complete" "$OUTPUT_FILE" && ! grep -qi "PR URL:" "$OU
   exit 1
 fi
 
+if grep -qF "<promise>COMPLETE</promise>" "$OUTPUT_FILE"; then
+  echo "✅ Completion promise found."
+fi
+
 echo "Output written to $OUTPUT_FILE"

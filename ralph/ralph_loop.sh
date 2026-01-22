@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROMPT_FILE="${PROMPT_FILE:-ralph/PROMPT.md}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-40}"
-COMPLETION_PROMISE="${COMPLETION_PROMISE:-COMPLETE}"
+COMPLETION_PROMISE="${COMPLETION_PROMISE:-<promise>COMPLETE</promise>}"
 TIMEOUT_MINUTES="${TIMEOUT_MINUTES:-30}"
 CHECKPOINT_DIR="${CHECKPOINT_DIR:-ralph/checkpoints}"
 PROGRESS_FILE="${PROGRESS_FILE:-ralph/progress.txt}"
@@ -105,8 +105,8 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     exit 1
   fi
 
-  if grep -q "$COMPLETION_PROMISE" "$OUTPUT_FILE"; then
-    echo "✅ Completion promise '$COMPLETION_PROMISE' found on iteration $i"
+  if grep -qF "$COMPLETION_PROMISE" "$OUTPUT_FILE"; then
+    echo "✅ Completion promise found on iteration $i"
     exit 0
   fi
 
