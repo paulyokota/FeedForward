@@ -80,7 +80,7 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     exit 1
   fi
 
-  if rg -qi "Rebasing|CONFLICT|not possible to fast-forward|could not apply" "$OUTPUT_FILE"; then
+  if grep -qiE "Rebasing|CONFLICT|not possible to fast-forward|could not apply" "$OUTPUT_FILE"; then
     PREV_COUNT=0
     if [ -f "$REBASE_STATE_FILE" ]; then
       PREV_COUNT="$(cat "$REBASE_STATE_FILE" 2>/dev/null || echo 0)"
@@ -95,7 +95,7 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     rm -f "$REBASE_STATE_FILE"
   fi
 
-  if [ -f "$PROGRESS_FILE" ] && tail -n 20 "$PROGRESS_FILE" | rg -qi "blocked"; then
+  if [ -f "$PROGRESS_FILE" ] && tail -n 20 "$PROGRESS_FILE" | grep -qi "blocked"; then
     echo "❌ Ralph output indicates BLOCKED state in $PROGRESS_FILE. Stopping iteration."
     exit 1
   fi
