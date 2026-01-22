@@ -354,6 +354,8 @@ class TestStoryCreationServiceBehavior:
         # Should have an error for the empty ID
         assert len(result.errors) > 0
         assert any("empty" in err.lower() or "id" in err.lower() for err in result.errors)
+        # Verify no story was created with bad data
+        assert mock_story_service.create.call_count == 0
 
     def test_orphan_integration_used_when_available(
         self,
@@ -398,8 +400,10 @@ class TestStoryCreationServiceBehavior:
 
         result = service.process_theme_groups({"fallback_group": convs})
 
-        # Should have used fallback and created orphan
-        assert result.orphan_fallbacks == 1 or result.orphans_created == 1
+        # Should have used fallback (integration failed)
+        assert result.orphan_fallbacks == 1
+        # And created orphan via fallback mechanism
+        assert result.orphans_created == 1 or result.orphans_updated == 1
 
 
 # =============================================================================
@@ -495,9 +499,11 @@ class TestQualityGateRegression:
 
         result = service.process_theme_groups({"bad_evidence": convs})
 
-        # Should be rejected by quality gates
+        # Should be rejected by quality gates and NOT create a story
         assert result.quality_gate_rejections == 1
         assert result.stories_created == 0
+        # Orphan should be created via fallback/integration
+        assert result.orphans_created == 1 or mock_orphan_service.create.called
 
     def test_quality_gate_result_captures_failure_reason(
         self,
@@ -623,11 +629,13 @@ class TestRunScopingIsolation:
         mock_orphan_service,
     ):
         """Stories should be linkable to their pipeline_run_id."""
-        # Mock DB connection for linking
-        mock_db = Mock()
-        mock_cursor = Mock()
-        mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
-        mock_db.cursor.return_value.__exit__ = Mock(return_value=False)
+        # Mock DB connection with proper context manager pattern
+        mock_db = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor_ctx = MagicMock()
+        mock_cursor_ctx.__enter__.return_value = mock_cursor
+        mock_cursor_ctx.__exit__.return_value = False
+        mock_db.cursor.return_value = mock_cursor_ctx
         mock_story_service.db = mock_db
 
         service = StoryCreationService(
@@ -685,11 +693,13 @@ class TestRunScopingIsolation:
         mock_orphan_service,
     ):
         """Different pipeline runs should create separate stories."""
-        # Mock the DB for linking
-        mock_db = Mock()
-        mock_cursor = Mock()
-        mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
-        mock_db.cursor.return_value.__exit__ = Mock(return_value=False)
+        # Mock the DB with proper context manager pattern
+        mock_db = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor_ctx = MagicMock()
+        mock_cursor_ctx.__enter__.return_value = mock_cursor
+        mock_cursor_ctx.__exit__.return_value = False
+        mock_db.cursor.return_value = mock_cursor_ctx
         mock_story_service.db = mock_db
 
         service = StoryCreationService(
