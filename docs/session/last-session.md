@@ -1,68 +1,63 @@
 # Last Session Summary
 
-**Date**: 2026-01-21
-**Branch**: feature/theme-quality-improvements → merged to main as PR #101
+**Date**: 2026-01-22
+**Branch**: main
 
 ## Goal
 
-Improve theme grouping quality by implementing SAME_FIX test and PM review before story creation.
+Fix pipeline signature fragmentation and enable session-scoped canonicalization.
 
-## What Was Accomplished
+## What Was Done
 
-### PR #101: Theme Quality Improvements - SAME_FIX Test + PM Review
+### 1. Fixed Pipeline Configuration (PR settings)
 
-**Merged** after 2-round 5-personality code review.
+- Changed `PM_REVIEW_ENABLED` default from "false" to "true"
+- Changed `strict_mode` from `True` to `False` in theme extraction
+- Run 35 had 61% unclassified themes due to strict_mode forcing vocabulary-only matches
 
-#### Changes
+### 2. Implemented Session-Scoped Signature Canonicalization
 
-1. **SAME_FIX Test (Improvement 1)**
-   - Added `validate_signature_specificity()` to `src/theme_extractor.py`
-   - Rejects broad signatures like `pinterest_publishing_failure`
-   - Requires specific symptom indicators (e.g., `_duplicate_`, `_timeout_`, `_oauth_`)
+- **Problem**: Run 38 had 87 orphans with too many unique signatures (1 conversation per signature)
+- **Root Cause**: Canonicalization only checked DB signatures, not signatures from current batch
+- **Solution**: Added `_session_signatures` dict to track signatures during extraction batch
+  - `add_session_signature()` - adds signature to session cache after extraction
+  - `clear_session_signatures()` - clears cache at batch start
+  - `get_existing_signatures()` now includes session signatures for matching
+  - Changed canonicalization from `elif canonicalize and not self.use_vocabulary:` to `elif canonicalize:`
+- **Result**: Run 39 orphans dropped from 87 to 40 (53% reduction)
 
-2. **PM Review Before Story Creation (Improvement 2)**
-   - New `src/story_tracking/services/pm_review_service.py`
-   - LLM evaluates theme groups for coherence before story creation
-   - Decisions: `KEEP_TOGETHER`, `SPLIT`, `REJECT`
-   - Opt-in via `PM_REVIEW_ENABLED=true` env var
+### 3. Verified Canonicalization Works
 
-3. **ProcessingResult Metrics**
-   - `pm_review_splits` - Groups split into sub-groups
-   - `pm_review_rejects` - Groups where all conversations rejected
-   - `pm_review_kept` - Groups kept together
-   - `pm_review_skipped` - Groups that bypassed review
+- Test with 5 similar analytics conversations all got same signature `analytics_counter_bug`
+- `pinterest_missing_pins` successfully grouped 9 conversations
 
-### Post-Merge
+## Commits (unpushed)
 
-- Cleaned up poorly grouped `pinterest_publishing_failure` story from database
-- Updated skill memories (Kai, Marcus, Theo IDENTITY.md files)
-- Created reflection file: `.claude/skills/theo-documentation/memories/2026-01-21-pr101-theme-quality.md`
+1. `c59ba30` - fix(pipeline): Enable PM review by default, disable strict mode
+2. `b8a8a38` - feat(canonicalize): Enable session-scoped signature canonicalization
 
-## 5-Personality Review Summary
+## Files Changed
 
-| Reviewer | Round 1                                               | Round 2              |
-| -------- | ----------------------------------------------------- | -------------------- |
-| Reginald | HIGH: metrics inconsistency, MEDIUM: orphan edge case | 1 test assertion fix |
-| Sanjay   | No critical issues                                    | No new issues        |
-| Quinn    | MEDIUM: error visibility                              | No new issues        |
-| Dmitri   | MEDIUM: YAGNI patterns                                | No new issues        |
-| Maya     | HIGH: naming collision, MEDIUM: undocumented env var  | No new issues        |
+| File                                        | Change                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `src/theme_extractor.py`                    | Added session signature tracking, enabled canonicalization for vocabulary mode |
+| `src/api/routers/pipeline.py`               | Clear session signatures before extraction, added PM review logging            |
+| `tests/test_theme_extractor_specificity.py` | Updated test for `_question` banned pattern                                    |
 
-**CONVERGED** after Round 2 with all issues addressed.
+## Key Metrics
 
-## Key Decisions
+| Run               | Unclassified % | Unique Signatures | Orphans | Stories |
+| ----------------- | -------------- | ----------------- | ------- | ------- |
+| 35 (before)       | 61%            | 24                | -       | 3       |
+| 38 (strict off)   | 0%             | 100               | 87      | 2       |
+| 39 (canonicalize) | 0%             | 100               | 40      | 2       |
 
-1. **Separate `pm_review_rejects` counter** - Distinguishes groups rejected entirely vs split into sub-groups
-2. **Renamed `FallbackPMReviewResult`** - Avoids confusion with imported `PMReviewResult`
-3. **YAGNI on pattern allowlist** - Kept 12 patterns with test coverage, added comment explaining rationale
-4. **PM review disabled by default** - Safe rollout via feature flag
+## Next Steps
 
-## Follow-Up Items
-
-1. Enable `PM_REVIEW_ENABLED=true` in production when ready
-2. Monitor PM review metrics to tune split/reject thresholds
-3. Consider async PM review for large batches (currently sequential)
+1. Push commits to remote
+2. Monitor signature consolidation in production runs
+3. Consider further tuning canonicalization similarity threshold
 
 ---
 
-_Session ended: 2026-01-21_
+_Auto-generated by Developer Kit session management_
