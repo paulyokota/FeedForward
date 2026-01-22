@@ -395,6 +395,10 @@ class ThemeExtractor:
         self._vocabulary = None
         self.use_vocabulary = use_vocabulary
         self._search_service = search_service
+        # Session-scoped signature cache for batch canonicalization
+        # Tracks signatures created during this extraction session so new
+        # signatures can be canonicalized against both DB and current batch
+        self._session_signatures: dict[str, dict] = {}
 
     @property
     def vocabulary(self):
@@ -454,18 +458,33 @@ class ThemeExtractor:
             logger.warning(f"Research context unavailable: {e}")
             return ""
 
-    def get_existing_signatures(self, product_area: str = None) -> list[dict]:
+    def get_existing_signatures(self, product_area: str = None, include_session: bool = True) -> list[dict]:
         """
-        Fetch existing signatures from database for canonicalization.
+        Fetch existing signatures from database + current session for canonicalization.
 
         Args:
             product_area: If provided, only fetch signatures from this area.
                          Falls back to all signatures for better matching.
+            include_session: If True, include signatures from current extraction session.
+                            This ensures new signatures can canonicalize against each other.
         """
         try:
             from .db.connection import get_connection
         except ImportError:
             from db.connection import get_connection
+
+        signatures = []
+
+        # Include session signatures first (higher priority for current batch)
+        if include_session and self._session_signatures:
+            for sig, info in self._session_signatures.items():
+                if product_area is None or info.get("product_area") == product_area:
+                    signatures.append({
+                        "signature": sig,
+                        "product_area": info.get("product_area", "other"),
+                        "component": info.get("component", "unknown"),
+                        "count": info.get("count", 1),  # Session signatures start at 1
+                    })
 
         try:
             with get_connection() as conn:
@@ -488,18 +507,40 @@ class ThemeExtractor:
                             FROM theme_aggregates
                             ORDER BY occurrence_count DESC
                         """)
-                    return [
-                        {
-                            "signature": row[0],
-                            "product_area": row[1],
-                            "component": row[2],
-                            "count": row[3]
-                        }
-                        for row in cur.fetchall()
-                    ]
+
+                    # Add DB signatures, avoiding duplicates with session
+                    session_sigs = set(self._session_signatures.keys())
+                    for row in cur.fetchall():
+                        if row[0] not in session_sigs:
+                            signatures.append({
+                                "signature": row[0],
+                                "product_area": row[1],
+                                "component": row[2],
+                                "count": row[3]
+                            })
         except Exception as e:
             logger.warning(f"Could not fetch existing signatures: {e}")
-            return []
+
+        return signatures
+
+    def add_session_signature(self, signature: str, product_area: str, component: str) -> None:
+        """
+        Add a signature to the current session cache.
+
+        Called after extracting a theme to track signatures for batch canonicalization.
+        """
+        if signature in self._session_signatures:
+            self._session_signatures[signature]["count"] += 1
+        else:
+            self._session_signatures[signature] = {
+                "product_area": product_area,
+                "component": component,
+                "count": 1,
+            }
+
+    def clear_session_signatures(self) -> None:
+        """Clear the session signature cache. Call at start of new extraction batch."""
+        self._session_signatures.clear()
 
     def get_embedding(self, text: str) -> list[float]:
         """Get embedding for a text string."""
@@ -761,12 +802,16 @@ The user was on a page related to **{url_matched_product_area}** when they start
                     )
                     logger.info(f"Auto-added to vocabulary: {proposed_signature}")
 
-        # Phase 2: Canonicalize signature (skip if vocabulary matched)
+        # Phase 2: Canonicalize signature
+        # - If vocabulary matched an existing theme, use as-is (already canonical)
+        # - If LLM created a new signature, canonicalize against existing signatures
+        #   to prevent duplicates like analytics_stats_accuracy vs analytics_performance_accuracy
         if self.use_vocabulary and matched_existing:
             # Vocabulary already handled matching - use as-is
             final_signature = proposed_signature
-        elif canonicalize and not self.use_vocabulary:
-            # Legacy canonicalization for non-vocabulary mode
+        elif canonicalize:
+            # Canonicalize new signatures against existing ones in theme_aggregates
+            # This runs for both vocabulary mode (new signatures) and non-vocabulary mode
             final_signature = self.canonicalize_signature(
                 proposed_signature=proposed_signature,
                 product_area=product_area,
@@ -777,6 +822,10 @@ The user was on a page related to **{url_matched_product_area}** when they start
             )
         else:
             final_signature = proposed_signature
+
+        # Add to session cache for batch canonicalization
+        # This allows subsequent extractions to canonicalize against this signature
+        self.add_session_signature(final_signature, product_area, component)
 
         return Theme(
             conversation_id=conv.id,
@@ -807,6 +856,9 @@ The user was on a page related to **{url_matched_product_area}** when they start
             canonicalize: If True, run through canonicalization (non-vocabulary mode)
             strict_mode: If True, force vocabulary-only matching (for backfill)
         """
+        # Clear session signatures at start of batch for clean canonicalization
+        self.clear_session_signatures()
+
         themes = []
         for conv in conversations:
             try:

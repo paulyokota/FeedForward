@@ -343,6 +343,8 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
 
     # Extract themes
     extractor = ThemeExtractor()
+    # Clear session signatures for clean batch canonicalization
+    extractor.clear_session_signatures()
     themes = []
     themes_new = 0
 
@@ -512,7 +514,9 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
 
     logger.info(
         f"Run {run_id}: Created {result.stories_created} stories, "
-        f"{result.orphans_created} orphans"
+        f"{result.orphans_created} orphans. "
+        f"PM review: {result.pm_review_splits} splits, {result.pm_review_kept} kept, "
+        f"{result.pm_review_rejects} rejects, {result.pm_review_skipped} skipped"
     )
 
     # Include PM review metrics in return value
