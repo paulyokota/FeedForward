@@ -278,3 +278,74 @@
 - Summary: Data model for embedding-based clustering (conversation_embeddings + conversation_facet)
 - Unblocks: #106 (embedding generation), #107 (facet extraction)
 - Next Slice: #106 Pipeline step: embedding generation for conversations
+
+=== Slice Start: #106 Pipeline step: embedding generation for conversations ===
+- Date: 2026-01-22
+- Branch: ralph/m8-106-embedding-generation
+- Notes: First Phase 2 pipeline step. Generates embeddings via OpenAI API.
+
+=== Iteration 1: Implementation Complete ===
+- Date: 2026-01-22
+- Changes:
+  1. Created src/services/embedding_service.py
+     - EmbeddingService with batch async/sync generation
+     - OpenAI text-embedding-3-small (1536 dimensions)
+     - DEFAULT_BATCH_SIZE = 50 for rate limit safety
+     - _sanitize_error_message() for secure error handling
+     - Response ordering fix (sort by index)
+  2. Created src/db/embedding_storage.py
+     - store_embedding() for single embeddings
+     - store_embeddings_batch() for batch upsert (~50x faster)
+     - get_embeddings_for_run() with error handling
+     - Uses EMBEDDING_DIMENSIONS constant
+  3. Created migration 013_embedding_generation_phase.sql
+     - Adds embeddings_generated, embeddings_failed to pipeline_runs
+  4. Updated src/api/routers/pipeline.py
+     - Added _run_embedding_generation_async() phase
+     - Integrated between classification and theme extraction
+     - Documented asyncio.run() safety (background thread)
+  5. Updated schemas/models for embedding fields
+  6. Created tests/test_embedding_service.py (34 tests)
+- Test Results:
+  - All 34 embedding service tests PASSED
+  - Full backend suite: 925 passed, 2 failed (pre-existing)
+- Commit: ca980c0
+- Push: Complete (branch: ralph/m8-106-embedding-generation)
+
+=== Iteration 2: PR + 5-Personality Review ===
+- Date: 2026-01-22
+- PR URL: https://github.com/paulyokota/FeedForward/pull/116
+- Review Round 1:
+  - Reginald: BLOCK - 1 HIGH (R2: response ordering), 2 MEDIUM (R4/R5)
+  - Sanjay: BLOCK - 3 MEDIUM (S-1/S-2/S-4: error exposure, resources, rate limits)
+  - Quinn: BLOCK - 1 HIGH (Q-002: asyncio.run nesting), FUNCTIONAL_TEST_REQUIRED
+  - Dmitri: CHANGES_REQUESTED - 7 YAGNI issues (deferred for clustering phase)
+  - Maya: CHANGES_REQUESTED - 7 maintainability issues (M1/M3/M5 fixed)
+- Fixes Applied (commit 2709a8b):
+  1. R2: Sort response.data by index before mapping
+  2. R4: Add try/except with logging for pgvector parsing
+  3. M3/R5/Q-001: Use EMBEDDING_DIMENSIONS constant consistently
+  4. M5: Fix misleading _prepare_text docstring
+  5. S-1: Add _sanitize_error_message() for secure errors
+  6. Q-002: Document asyncio.run() safety (background thread context)
+  7. Updated tests for index attribute and sanitized errors
+- Review Round 2: All 5 reviewers APPROVE
+  - Reginald: All blocking issues resolved
+  - Sanjay: S-1 fix verified
+  - Quinn: APPROVE (pending functional test), Q-006 (LOW) deferred
+  - Dmitri: No new complexity
+  - Maya: Fixes verified
+- Status: CONVERGED in 2 rounds
+- FUNCTIONAL_TEST_REQUIRED: Quinn flagged - new pipeline phase needs functional test evidence
+
+=== BLOCKED: Awaiting Functional Test ===
+- Date: 2026-01-22
+- PR URL: https://github.com/paulyokota/FeedForward/pull/116
+- Reason: Quinn flagged FUNCTIONAL_TEST_REQUIRED for new pipeline phase
+- Required: Run pipeline with embedding generation enabled, attach evidence
+- Next Steps:
+  1. Run functional test: python -m src.two_stage_pipeline --days 1 --max 5
+  2. Verify embeddings stored in conversation_embeddings table
+  3. Attach evidence to PR per docs/process-playbook/gates/functional-testing-gate.md
+  4. Merge PR
+  5. Update SLICE.md and continue to next issue
