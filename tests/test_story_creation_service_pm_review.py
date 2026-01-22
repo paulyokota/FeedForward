@@ -442,7 +442,7 @@ class TestPMReviewReject:
 
         result = service.process_theme_groups(sample_theme_groups)
 
-        assert result.pm_review_splits == 1  # Reject counts as split
+        assert result.pm_review_rejects == 1  # REJECT increments rejects counter
         assert result.stories_created == 0  # No stories
         assert result.orphans_created >= 1 or result.orphans_updated >= 1
 

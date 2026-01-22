@@ -601,8 +601,9 @@ class StoryCreationService:
         Now includes PM review step when enabled.
 
         ProcessingResult extended with:
-        - pm_review_splits: int  # Groups that were split by PM review
-        - pm_review_kept: int    # Groups kept together by PM review
+        - pm_review_splits: int   # Groups that were split into sub-groups by PM review
+        - pm_review_rejects: int  # Groups where all conversations rejected (routed to orphans)
+        - pm_review_kept: int     # Groups kept together by PM review
         """
         ...
 
@@ -620,9 +621,10 @@ class ProcessingResult:
     quality_gate_rejections: int = 0
     orphan_fallbacks: int = 0
     # NEW: PM Review metrics
-    pm_review_splits: int = 0
-    pm_review_kept: int = 0
-    pm_review_skipped: int = 0  # Groups that bypassed review
+    pm_review_splits: int = 0   # Groups that were split into sub-groups by PM review
+    pm_review_rejects: int = 0  # Groups where all conversations rejected (routed to orphans)
+    pm_review_kept: int = 0     # Groups kept together by PM review
+    pm_review_skipped: int = 0  # Groups that bypassed review (disabled, timeout, or single-conv)
 ```
 
 ### Theme Extractor Enhancements
@@ -742,7 +744,7 @@ class ThemeExtractor:
 
 - All go to `orphan_integration_service`
 - No story created
-- Log as `pm_review_splits` but not `stories_created`
+- Log as `pm_review_splits` (if sub-groups created) or `pm_review_rejects` (if all orphaned)
 
 ### 3. Circular Signature Suggestions
 
@@ -825,7 +827,7 @@ class ThemeExtractor:
 
 8. **Given**: Pipeline run with PM review enabled
    **When**: Processing completes
-   **Then**: `ProcessingResult` includes `pm_review_splits`, `pm_review_kept`, `pm_review_skipped`
+   **Then**: `ProcessingResult` includes `pm_review_splits`, `pm_review_rejects`, `pm_review_kept`, `pm_review_skipped`
 
 9. **Given**: Any PM review execution
    **When**: Review completes
