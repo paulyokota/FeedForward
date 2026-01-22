@@ -449,7 +449,10 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         return {"stories_created": 0, "orphans_created": 0}
 
     # Initialize services and process through StoryCreationService
+    # Set cursor_factory at connection level so all cursors return dicts
+    # (services use row["field"] access pattern)
     with get_connection() as conn:
+        conn.cursor_factory = RealDictCursor
         story_service = StoryService(conn)
         orphan_service = OrphanService(conn)
         evidence_service = EvidenceService(conn)
@@ -458,12 +461,30 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         dual_format_enabled = os.environ.get("FEEDFORWARD_DUAL_FORMAT", "false").lower() == "true"
         target_repo = os.environ.get("FEEDFORWARD_TARGET_REPO", "FeedForward")
 
+        # PM Review settings (Improvement 2: PM Review Before Story Creation)
+        # PM_REVIEW_ENABLED: Set to "true" to enable PM coherence review before story creation.
+        # When enabled, theme groups are evaluated by an LLM to ensure all conversations
+        # would be fixed by the same implementation (SAME_FIX test). Default: disabled.
+        pm_review_enabled = os.environ.get("PM_REVIEW_ENABLED", "false").lower() == "true"
+        pm_review_service = None
+
+        if pm_review_enabled:
+            try:
+                from src.story_tracking.services.pm_review_service import PMReviewService
+                pm_review_service = PMReviewService()
+                logger.info(f"Run {run_id}: PM review enabled")
+            except ImportError:
+                logger.warning(f"Run {run_id}: PM review requested but service not available")
+                pm_review_enabled = False
+
         story_creation_service = StoryCreationService(
             story_service=story_service,
             orphan_service=orphan_service,
             evidence_service=evidence_service,
             dual_format_enabled=dual_format_enabled,
             target_repo=target_repo,
+            pm_review_service=pm_review_service,
+            pm_review_enabled=pm_review_enabled,
         )
 
         # Process all theme groups through the service
@@ -477,9 +498,14 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         f"{result.orphans_created} orphans"
     )
 
+    # Include PM review metrics in return value
     return {
         "stories_created": result.stories_created,
         "orphans_created": result.orphans_created,
+        "pm_review_splits": result.pm_review_splits,
+        "pm_review_rejects": result.pm_review_rejects,
+        "pm_review_kept": result.pm_review_kept,
+        "pm_review_skipped": result.pm_review_skipped,
     }
 
 

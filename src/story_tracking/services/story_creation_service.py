@@ -64,6 +64,24 @@ except ImportError:
     ClassificationResult = None
     DUAL_FORMAT_AVAILABLE = False
 
+# PM Review Service (optional - graceful degradation if unavailable)
+try:
+    from .pm_review_service import (
+        PMReviewService,
+        PMReviewResult as PMReviewResultType,
+        ReviewDecision,
+        ConversationContext as PMConversationContext,
+        SubGroupSuggestion,
+    )
+    PM_REVIEW_SERVICE_AVAILABLE = True
+except ImportError:
+    PMReviewService = None
+    PMReviewResultType = None
+    ReviewDecision = None
+    PMConversationContext = None
+    SubGroupSuggestion = None
+    PM_REVIEW_SERVICE_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Constants for data limits (used in theme data building and story generation)
@@ -106,8 +124,13 @@ def _truncate_at_word_boundary(text: str, max_length: int) -> str:
 
 
 @dataclass
-class PMReviewResult:
-    """A single PM review decision."""
+class FallbackPMReviewResult:
+    """Fallback PM review result when PMReviewService is unavailable.
+
+    Note: This is distinct from pm_review_service.PMReviewResult which is
+    imported as PMReviewResultType. This simpler class is used for default
+    keep_together decisions when PM review is disabled or encounters errors.
+    """
 
     signature: str
     decision: str  # "keep_together" or "split"
@@ -144,6 +167,11 @@ class ProcessingResult:
     created_orphan_ids: List[UUID] = field(default_factory=list)
     quality_gate_rejections: int = 0  # Track groups rejected by quality gates
     orphan_fallbacks: int = 0  # Track orphan integration failures that fell back to direct creation
+    # PM Review metrics (Improvement 2: PM Review Before Story Creation)
+    pm_review_splits: int = 0  # Groups that were split into sub-groups by PM review
+    pm_review_rejects: int = 0  # Groups where all conversations rejected (routed to orphans)
+    pm_review_kept: int = 0  # Groups kept together by PM review
+    pm_review_skipped: int = 0  # Groups that bypassed PM review (disabled, timeout, or single-conv)
 
 
 @dataclass
@@ -210,6 +238,8 @@ class StoryCreationService:
         validation_enabled: bool = DEFAULT_VALIDATION_ENABLED,
         dual_format_enabled: bool = False,
         target_repo: Optional[str] = None,
+        pm_review_service: Optional["PMReviewService"] = None,
+        pm_review_enabled: bool = False,
     ):
         """
         Initialize the story creation service.
@@ -229,6 +259,10 @@ class StoryCreationService:
             dual_format_enabled: If True, generate dual-format stories (v2) with
                                 codebase context. Default False for backward compatibility.
             target_repo: Repository name for codebase exploration (required if dual_format_enabled)
+            pm_review_service: Service for PM review of theme groups (optional).
+                              Required if pm_review_enabled=True.
+            pm_review_enabled: If True, run PM review before story creation (default: False).
+                              Feature flag for controlled rollout.
         """
         self.story_service = story_service
         self.orphan_service = orphan_service
@@ -242,6 +276,10 @@ class StoryCreationService:
         self.confidence_threshold = confidence_threshold
         self.validation_enabled = validation_enabled
 
+        # PM Review configuration (Improvement 2)
+        self.pm_review_service = pm_review_service
+        self.pm_review_enabled = pm_review_enabled
+
         # Log quality gate configuration
         if confidence_scorer:
             logger.info(
@@ -253,6 +291,17 @@ class StoryCreationService:
 
         if orphan_integration_service:
             logger.debug("OrphanIntegrationService provided for unified orphan routing")
+
+        # Log PM review configuration
+        if pm_review_enabled:
+            if pm_review_service and PM_REVIEW_SERVICE_AVAILABLE:
+                logger.info("PM review enabled for theme group coherence validation")
+            else:
+                logger.warning(
+                    "PM review enabled but service not available. "
+                    "PM review will be skipped."
+                )
+                self.pm_review_enabled = False
 
         # Initialize optional dual-format components
         if dual_format_enabled:
@@ -385,6 +434,38 @@ class StoryCreationService:
                     result.quality_gate_rejections += 1
                     continue
 
+                # PM REVIEW GATE: Evaluate group coherence (after quality gates pass)
+                if self.pm_review_enabled and self.pm_review_service:
+                    pm_review_result = self._run_pm_review(signature, conversations)
+
+                    if pm_review_result.decision == ReviewDecision.SPLIT:
+                        # Handle split: process sub-groups and orphans
+                        self._handle_pm_split(
+                            pm_review_result,
+                            conversations,
+                            result,
+                            pipeline_run_id,
+                            gate_result.confidence_score,
+                        )
+                        result.pm_review_splits += 1
+                        continue
+                    elif pm_review_result.decision == ReviewDecision.REJECT:
+                        # All conversations are too different - route all to orphans
+                        self._route_to_orphan_integration(
+                            signature=signature,
+                            conversations=conversations,
+                            failure_reason=f"PM review rejected: {pm_review_result.reasoning}",
+                            result=result,
+                        )
+                        result.pm_review_rejects += 1
+                        continue
+                    else:
+                        # Keep together - continue to story creation
+                        result.pm_review_kept += 1
+                else:
+                    # PM review disabled or not available
+                    result.pm_review_skipped += 1
+
                 # Generate default PM result (keep_together)
                 pm_result = self._generate_pm_result(signature, len(conversations))
 
@@ -408,7 +489,9 @@ class StoryCreationService:
             f"Processed theme groups: {result.stories_created} stories created, "
             f"{result.orphans_created} orphans created, "
             f"{result.orphans_updated} orphans updated, "
-            f"{result.quality_gate_rejections} quality gate rejections"
+            f"{result.quality_gate_rejections} quality gate rejections, "
+            f"PM review: {result.pm_review_kept} kept, {result.pm_review_splits} split, "
+            f"{result.pm_review_rejects} rejected, {result.pm_review_skipped} skipped"
         )
 
         return result
@@ -607,6 +690,145 @@ class StoryCreationService:
             result=result,
         )
 
+    def _run_pm_review(
+        self,
+        signature: str,
+        conversations: List[ConversationData],
+    ) -> "PMReviewResultType":
+        """
+        Run PM review on a theme group.
+
+        Converts ConversationData to PMConversationContext and calls
+        PMReviewService.review_group().
+
+        Args:
+            signature: Issue signature for the group
+            conversations: List of ConversationData objects
+
+        Returns:
+            PMReviewResult from the PM review service
+        """
+        if not PM_REVIEW_SERVICE_AVAILABLE or not self.pm_review_service:
+            # Return a default keep_together result
+            logger.warning(f"PM review not available for '{signature}', defaulting to keep_together")
+            return PMReviewResultType(
+                original_signature=signature,
+                conversation_count=len(conversations),
+                decision=ReviewDecision.KEEP_TOGETHER,
+                reasoning="PM review service not available",
+            )
+
+        # Convert ConversationData to PMConversationContext
+        pm_contexts = []
+        for conv in conversations:
+            pm_context = PMConversationContext(
+                conversation_id=conv.id,
+                user_intent=conv.user_intent or "",
+                symptoms=conv.symptoms or [],
+                affected_flow=conv.affected_flow or "",
+                excerpt=conv.excerpt or "",
+                product_area=conv.product_area or "",
+                component=conv.component or "",
+            )
+            pm_contexts.append(pm_context)
+
+        try:
+            return self.pm_review_service.review_group(signature, pm_contexts)
+        except Exception as e:
+            # Edge case: Timeout or error during PM review -> mark as skipped
+            logger.warning(f"PM review error for '{signature}': {e}")
+            return PMReviewResultType(
+                original_signature=signature,
+                conversation_count=len(conversations),
+                decision=ReviewDecision.KEEP_TOGETHER,
+                reasoning=f"PM review error (defaulting to keep_together): {str(e)}",
+            )
+
+    def _handle_pm_split(
+        self,
+        pm_review_result: "PMReviewResultType",
+        conversations: List[ConversationData],
+        result: ProcessingResult,
+        pipeline_run_id: Optional[int] = None,
+        confidence_score: Optional[float] = None,
+    ) -> None:
+        """
+        Handle PM review split decision by creating sub-group stories and orphans.
+
+        Sub-groups with >= MIN_GROUP_SIZE conversations become stories.
+        Sub-groups with < MIN_GROUP_SIZE conversations become orphans.
+
+        Args:
+            pm_review_result: Result from PM review with sub_groups and orphans
+            conversations: Original list of ConversationData objects
+            result: ProcessingResult to update
+            pipeline_run_id: Optional pipeline run ID to link stories to
+            confidence_score: Optional confidence score from quality gates
+        """
+        # Build conversation lookup by ID
+        conv_by_id: Dict[str, ConversationData] = {c.id: c for c in conversations}
+
+        # Process each sub-group
+        for sub_group in pm_review_result.sub_groups:
+            # Get conversations for this sub-group
+            sub_convs = []
+            for conv_id in sub_group.conversation_ids:
+                if conv_id in conv_by_id:
+                    sub_convs.append(conv_by_id[conv_id])
+                else:
+                    logger.warning(
+                        f"Sub-group conversation ID '{conv_id}' not found in original group"
+                    )
+
+            if len(sub_convs) >= MIN_GROUP_SIZE:
+                # Create story for this sub-group
+                self._create_story_with_evidence(
+                    signature=sub_group.suggested_signature,
+                    conversations=sub_convs,
+                    reasoning=sub_group.rationale,
+                    result=result,
+                    pipeline_run_id=pipeline_run_id,
+                    original_signature=pm_review_result.original_signature,
+                    confidence_score=confidence_score,
+                )
+                logger.info(
+                    f"Created story from PM split sub-group: '{sub_group.suggested_signature}' "
+                    f"({len(sub_convs)} conversations)"
+                )
+            else:
+                # Route to orphan integration (sub-group too small)
+                self._route_to_orphan_integration(
+                    signature=sub_group.suggested_signature,
+                    conversations=sub_convs,
+                    failure_reason=f"PM split sub-group has {len(sub_convs)} conversations (min: {MIN_GROUP_SIZE})",
+                    result=result,
+                )
+                logger.info(
+                    f"Routed PM split sub-group to orphans: '{sub_group.suggested_signature}' "
+                    f"({len(sub_convs)} conversations)"
+                )
+
+        # Handle orphan conversations (don't fit any sub-group)
+        if pm_review_result.orphan_conversation_ids:
+            orphan_convs = [
+                conv_by_id[cid]
+                for cid in pm_review_result.orphan_conversation_ids
+                if cid in conv_by_id
+            ]
+            if orphan_convs:
+                self._route_to_orphan_integration(
+                    signature=pm_review_result.original_signature,
+                    conversations=orphan_convs,
+                    failure_reason="PM review classified as orphan (no matching sub-group)",
+                    result=result,
+                )
+                logger.info(
+                    f"Routed {len(orphan_convs)} orphan conversations from PM split"
+                )
+
+        # Edge case: All conversations become orphans after split
+        # (handled by REJECT decision in process_theme_groups)
+
     def _dict_to_conversation_data(
         self,
         conv_dict: Dict[str, Any],
@@ -634,9 +856,9 @@ class StoryCreationService:
         self,
         signature: str,
         conversation_count: int,
-    ) -> PMReviewResult:
+    ) -> FallbackPMReviewResult:
         """Generate default PM result (keep_together)."""
-        return PMReviewResult(
+        return FallbackPMReviewResult(
             signature=signature,
             decision="keep_together",
             reasoning="Auto-generated from pipeline (no PM review)",
@@ -646,7 +868,7 @@ class StoryCreationService:
 
     def _process_single_result_with_pipeline_run(
         self,
-        pm_result: PMReviewResult,
+        pm_result: FallbackPMReviewResult,
         conversations: List[ConversationData],
         result: ProcessingResult,
         pipeline_run_id: Optional[int] = None,
@@ -862,7 +1084,7 @@ class StoryCreationService:
 
     def _process_single_result(
         self,
-        pm_result: PMReviewResult,
+        pm_result: FallbackPMReviewResult,
         conversations_by_signature: Dict[str, List[ConversationData]],
         result: ProcessingResult,
     ) -> None:
@@ -885,7 +1107,7 @@ class StoryCreationService:
 
     def _handle_keep_together(
         self,
-        pm_result: PMReviewResult,
+        pm_result: FallbackPMReviewResult,
         conversations: List[ConversationData],
         result: ProcessingResult,
     ) -> None:
@@ -941,7 +1163,7 @@ class StoryCreationService:
 
     def _handle_split(
         self,
-        pm_result: PMReviewResult,
+        pm_result: FallbackPMReviewResult,
         conversations: List[ConversationData],
         result: ProcessingResult,
     ) -> None:
@@ -1061,14 +1283,14 @@ class StoryCreationService:
                 f"({len(conversation_ids)} conversations)"
             )
 
-    def _load_pm_results(self, path: Path) -> List[PMReviewResult]:
+    def _load_pm_results(self, path: Path) -> List[FallbackPMReviewResult]:
         """Load PM review results from JSON file."""
         with open(path) as f:
             data = json.load(f)
 
         results = []
         for item in data:
-            results.append(PMReviewResult(
+            results.append(FallbackPMReviewResult(
                 signature=item.get("signature", "unknown"),
                 decision=item.get("decision", "error"),
                 reasoning=item.get("reasoning", ""),

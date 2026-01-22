@@ -31,6 +31,13 @@ from .orphan_integration import (
     create_orphan_integration_hook,
 )
 from .orphan_service import OrphanService
+from .pm_review_service import (
+    ConversationContext as PMConversationContext,
+    PMReviewResult,
+    PMReviewService,
+    ReviewDecision,
+    SubGroupSuggestion,
+)
 from .story_creation_service import StoryCreationService
 from .story_service import StoryService
 from .sync_service import SyncService
@@ -46,9 +53,14 @@ __all__ = [
     "OrphanIntegrationResult",
     "OrphanIntegrationService",
     "OrphanService",
+    "PMConversationContext",
+    "PMReviewResult",
+    "PMReviewService",
+    "ReviewDecision",
     "StaticContext",
     "StoryCreationService",
     "StoryService",
+    "SubGroupSuggestion",
     "SyncResult",
     "SyncService",
     "create_orphan_integration_hook",

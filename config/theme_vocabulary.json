@@ -43,58 +43,100 @@
     "/consulting": "Professional Services"
   },
   "signature_quality_guidelines": {
-    "_comment": "Examples of good vs bad signatures to guide LLM theme extraction",
+    "_comment": "Examples of good vs bad signatures to guide LLM theme extraction using the SAME_FIX test",
+    "same_fix_test": {
+      "description": "Signatures must pass the SAME_FIX test: one code change fixes all conversations with that signature",
+      "criteria": [
+        "One code change would fix ALL conversations with this signature",
+        "One developer could own the entire fix",
+        "One acceptance test would verify ALL are fixed"
+      ],
+      "examples": [
+        {
+          "scenario": "User A: pins posted twice. User B: pins not posting at all",
+          "wrong": "pinterest_publishing_failure",
+          "why_wrong": "Duplicate pins vs no posting require different fixes - fails SAME_FIX test",
+          "correct_a": "pinterest_duplicate_pins",
+          "correct_b": "pinterest_posts_not_appearing"
+        },
+        {
+          "scenario": "User A: video upload timeout. User B: pins missing from boards",
+          "wrong": "pinterest_publishing_failure",
+          "why_wrong": "Video upload timeouts vs missing pins are completely different code paths",
+          "correct_a": "pinterest_video_upload_timeout",
+          "correct_b": "pinterest_missing_pins"
+        }
+      ]
+    },
     "good_examples": [
       {
+        "signature": "pinterest_duplicate_pins",
+        "why": "Specific symptom - pins appearing twice. Passes SAME_FIX test."
+      },
+      {
+        "signature": "pinterest_missing_pins",
+        "why": "Specific symptom - pins disappeared. Passes SAME_FIX test."
+      },
+      {
+        "signature": "pinterest_video_upload_failure",
+        "why": "Specific content type (video) + failure mode. Passes SAME_FIX test."
+      },
+      {
         "signature": "billing_cancellation_request",
-        "why": "Specific action (cancellation) within billing"
+        "why": "Specific action (cancellation) within billing. Passes SAME_FIX test."
       },
       {
         "signature": "csv_import_encoding_error",
-        "why": "Specific error type (encoding) within CSV import"
+        "why": "Specific error type (encoding) within CSV import. Passes SAME_FIX test."
       },
       {
         "signature": "pinterest_board_permission_denied",
-        "why": "Specific error (permission denied) for specific action (board access)"
+        "why": "Specific error (permission denied) for specific action (board access). Passes SAME_FIX test."
       },
       {
         "signature": "ghostwriter_timeout_error",
-        "why": "Specific failure mode (timeout) for feature"
+        "why": "Specific failure mode (timeout) for feature. Passes SAME_FIX test."
       },
       {
-        "signature": "pinterest_publishing_failure",
-        "why": "Clear failure in specific publishing flow"
-      },
-      {
-        "signature": "multinetwork_scheduling_failure",
-        "why": "Specific scheduler (multi-network) with clear failure mode"
+        "signature": "scheduling_timezone_mismatch",
+        "why": "Specific symptom (timezone) in scheduling. Passes SAME_FIX test."
       }
     ],
     "bad_examples": [
       {
+        "signature": "pinterest_publishing_failure",
+        "why_bad": "Groups different symptoms: duplicates, missing pins, timeouts, auth errors - each needs different fix. Fails SAME_FIX test.",
+        "better": "Use symptom-specific: pinterest_duplicate_pins, pinterest_missing_pins, pinterest_video_upload_timeout"
+      },
+      {
+        "signature": "scheduling_issue",
+        "why_bad": "Could be timing, UI, auth, or calendar issues - all need different fixes. Fails SAME_FIX test.",
+        "better": "scheduling_timezone_mismatch, scheduling_ui_drag_drop_failure, scheduling_auth_expired"
+      },
+      {
         "signature": "account_settings_guidance",
-        "why_bad": "Too generic - what specific setting? What problem?",
-        "better": "account_email_change_failure"
+        "why_bad": "Too generic - what specific setting? What problem? Fails SAME_FIX test.",
+        "better": "account_email_change_failure, account_password_reset_blocked"
       },
       {
         "signature": "scheduling_feature_question",
-        "why_bad": "Generic 'question' - what specific aspect of scheduling?",
-        "better": "pin_spacing_interval_unclear"
+        "why_bad": "Generic 'question' - what specific aspect of scheduling? Fails SAME_FIX test.",
+        "better": "pin_spacing_interval_unclear, smartschedule_time_selection"
       },
       {
         "signature": "general_product_question",
-        "why_bad": "Completely generic - no product area or problem specified",
+        "why_bad": "Completely generic - no product area or problem specified. Fails SAME_FIX test.",
         "better": "identify_specific_product_first"
       },
       {
         "signature": "professional_services_inquiry",
-        "why_bad": "Just restates category - not specific about what user needs",
+        "why_bad": "Just restates category - not specific about what user needs. Fails SAME_FIX test.",
         "better": "done_for_you_services_inquiry or consulting_inquiry"
       },
       {
         "signature": "integration_feature_question",
-        "why_bad": "Generic 'question' - which integration? What about it?",
-        "better": "canva_integration_oauth_failure"
+        "why_bad": "Generic 'question' - which integration? What about it? Fails SAME_FIX test.",
+        "better": "canva_integration_oauth_failure, browser_extension_not_loading"
       }
     ]
   },
