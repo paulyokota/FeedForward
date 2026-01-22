@@ -449,7 +449,10 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         return {"stories_created": 0, "orphans_created": 0}
 
     # Initialize services and process through StoryCreationService
+    # Set cursor_factory at connection level so all cursors return dicts
+    # (services use row["field"] access pattern)
     with get_connection() as conn:
+        conn.cursor_factory = RealDictCursor
         story_service = StoryService(conn)
         orphan_service = OrphanService(conn)
         evidence_service = EvidenceService(conn)
