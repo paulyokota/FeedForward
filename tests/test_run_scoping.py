@@ -108,20 +108,20 @@ class TestThemeExtractionQueryUsesExplicitRunId:
         pipeline_path = Path(__file__).parent.parent / "src/api/routers/pipeline.py"
         content = pipeline_path.read_text()
 
-        # The fix should have replaced the timestamp heuristic
-        # Old: JOIN pipeline_runs pr ON c.classified_at >= pr.started_at
-        # New: WHERE c.pipeline_run_id = %s
+        # The fix should use explicit pipeline_run_id with timestamp fallback for NULL values
+        # New conversations: WHERE c.pipeline_run_id = %s
+        # Pre-migration conversations (NULL): OR (c.pipeline_run_id IS NULL AND c.classified_at >= pr.started_at)
+        # This preserves backward compatibility while fixing run scoping for new runs.
 
         assert "c.pipeline_run_id = %s" in content, (
-            "Theme extraction should query by c.pipeline_run_id instead of timestamp heuristic"
+            "Theme extraction should query by c.pipeline_run_id for new conversations"
         )
 
-        # Make sure the old heuristic is gone from theme extraction
-        # (it may exist elsewhere for backward compat, but theme extraction should use explicit ID)
-        # We check that the specific pattern is not in _run_theme_extraction
+        # The timestamp heuristic should now be used ONLY as fallback for NULL pipeline_run_id
+        # Check that we have the NULL fallback pattern
         import re
 
-        # Find the _run_theme_extraction function and check it doesn't use the heuristic
+        # Find the _run_theme_extraction function
         theme_func_match = re.search(
             r'def _run_theme_extraction\([^)]+\)[^:]*:.*?(?=\ndef |\Z)',
             content,
@@ -129,8 +129,13 @@ class TestThemeExtractionQueryUsesExplicitRunId:
         )
         if theme_func_match:
             theme_func_content = theme_func_match.group(0)
-            assert "c.classified_at >= pr.started_at" not in theme_func_content, (
-                "Theme extraction should NOT use timestamp heuristic (c.classified_at >= pr.started_at)"
+            # Should have explicit run_id check
+            assert "c.pipeline_run_id = %s" in theme_func_content, (
+                "Theme extraction should use explicit c.pipeline_run_id = %s"
+            )
+            # Should have NULL fallback for backward compatibility
+            assert "c.pipeline_run_id IS NULL" in theme_func_content, (
+                "Theme extraction should have NULL fallback for pre-migration conversations"
             )
 
 
