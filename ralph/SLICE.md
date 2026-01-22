@@ -16,9 +16,10 @@ Done means:
   - Depends on: none
   - Blocks: #105, #106, #107, #108, #109, #110
   - **DONE**: PR #112 merged 2026-01-22
-- [ ] #89 Pipeline-critical tests for canonical flow
+- [x] #89 Pipeline-critical tests for canonical flow
   - Depends on: none (but should follow #103 per T-004 priority)
   - Blocks: #108, #109
+  - **DONE**: PR #113 merged 2026-01-22
 - [ ] #104 Theme extraction quality gates + error propagation to UI
   - Depends on: #103, #89
   - Blocks: #110
@@ -49,7 +50,7 @@ Done means:
 
 ## Current Slice (Single Issue)
 
-- [ ] #89 Pipeline-critical tests for canonical flow
+- [ ] #104 Theme extraction quality gates + error propagation to UI
 
 ## Notes
 
