@@ -36,5 +36,9 @@
   - All 7 run scoping tests PASSED (2 skipped - require DB)
   - Full backend test suite: 782 passed, 11 skipped, 1 failed (unrelated latency test)
   - Pipeline API tests: 30 passed
-- Commit: a719755
-- Remaining: Push, PR, review
+- Commit: 6bf9c79
+- Push: Complete (branch: ralph/m8-103-run-scoping)
+- BLOCKED: Cannot create PR - gh CLI not authenticated
+  - Next steps: Run `gh auth login` or set GH_TOKEN env var
+  - Then create PR via: gh pr create --title "fix: Use pipeline_run_id for run scoping instead of timestamp heuristics (#103)" --base main
+  - Or manually create PR at: https://github.com/paulyokota/FeedForward/pull/new/ralph/m8-103-run-scoping
