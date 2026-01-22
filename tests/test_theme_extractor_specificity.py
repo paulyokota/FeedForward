@@ -133,11 +133,11 @@ class TestValidateSignatureSpecificity:
         assert is_valid is True
         assert suggestion is None
 
-    def test_feature_question_accepted(self):
-        """scheduling_feature_question has no broad suffix - passes."""
+    def test_feature_question_rejected(self):
+        """scheduling_feature_question uses banned _question suffix - rejected."""
         is_valid, suggestion = validate_signature_specificity("scheduling_feature_question")
-        assert is_valid is True
-        assert suggestion is None
+        assert is_valid is False
+        assert "BANNED" in suggestion
 
     def test_dashboard_loading_accepted(self):
         """dashboard_loading has no broad suffix - passes."""

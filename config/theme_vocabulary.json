@@ -1,7 +1,7 @@
 {
-  "version": "2.14",
-  "updated_at": "2026-01-07T19:30:00.000000",
-  "description": "v2.14: Added Professional Services product area (consulting, done-for-you, training) + improved signature quality guidelines to reduce generic signatures",
+  "version": "2.15",
+  "updated_at": "2026-01-22T02:50:00.000000",
+  "description": "v2.15: Deprecated overly broad catch-all signatures (general_product_question, create_design_question, scheduling_feature_question, integration_feature_question) to force more specific theme extraction",
   "url_context_mapping": {
     "_comment": "Maps Intercom source.url patterns to Product Areas for disambiguating vague messages. Three schedulers: Pin Scheduler (Next Publisher, Pinterest-only new), Legacy Publisher (Pinterest-only old), Multi-Network (cross-platform).",
     "/insights/pinterest/": "Analytics",
@@ -361,10 +361,11 @@
         "What's the best way to write prompts?"
       ],
       "engineering_fix": "Documentation, UI copy, onboarding, tooltips",
-      "status": "active",
+      "status": "deprecated",
+      "deprecation_reason": "Too broad - groups unrelated Ghostwriter questions. Need specific signatures per feature question.",
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
-      "updated_at": "2025-01-06T00:00:00"
+      "updated_at": "2026-01-21T00:00:00"
     },
     "billing_flow_error": {
       "issue_signature": "billing_flow_error",
@@ -494,10 +495,11 @@
         "When does my subscription renew?"
       ],
       "engineering_fix": "Billing settings UI discoverability, self-service options, clearer navigation",
-      "status": "active",
+      "status": "deprecated",
+      "deprecation_reason": "Too broad - groups unrelated billing questions (update card, view invoices, renewal date). Need specific signatures per task.",
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
-      "updated_at": "2025-01-06T00:00:00"
+      "updated_at": "2026-01-21T00:00:00"
     },
     "account_settings_guidance": {
       "issue_signature": "account_settings_guidance",
@@ -522,10 +524,11 @@
         "How do I remove a connected account?"
       ],
       "engineering_fix": "Account settings UI, self-service flows, clearer navigation",
-      "status": "active",
+      "status": "deprecated",
+      "deprecation_reason": "Too broad - groups unrelated actions (disconnect, delete, change email). Listed as bad example in signature_quality_guidelines. Need specific signatures per action.",
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
-      "updated_at": "2025-01-06T00:00:00"
+      "updated_at": "2026-01-21T00:00:00"
     },
     "csv_import_failure": {
       "issue_signature": "csv_import_failure",
@@ -637,10 +640,11 @@
         "What's the difference between auto-post and SMS reminder?"
       ],
       "engineering_fix": "Documentation, onboarding flow, tooltips, feature discoverability for multi-network scheduling",
-      "status": "active",
+      "status": "deprecated",
+      "deprecation_reason": "Too broad - groups Instagram Stories, Facebook scheduling, carousel posts, SMS reminders. Need specific signatures per feature.",
       "merged_into": null,
       "created_at": "2026-01-07T00:00:00",
-      "updated_at": "2026-01-07T00:00:00"
+      "updated_at": "2026-01-21T00:00:00"
     },
     "scheduling_failure": {
       "issue_signature": "scheduling_failure",
@@ -731,10 +735,11 @@
         "How does pin spacing work?"
       ],
       "engineering_fix": "Documentation, UI tooltips, onboarding, feature discoverability",
-      "status": "active",
+      "status": "deprecated",
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
-      "updated_at": "2025-01-06T00:00:00"
+      "updated_at": "2025-01-06T00:00:00",
+      "deprecation_reason": "Too broad - groups timezone, queue, and scheduling questions. Create specific signatures."
     },
     "smartloop_pin_loading_failure": {
       "issue_signature": "smartloop_pin_loading_failure",
@@ -889,10 +894,11 @@
         "No visits - is this working?"
       ],
       "engineering_fix": "In-app explanations, tooltips, help docs, benchmarks, contextual guidance",
-      "status": "active",
+      "status": "deprecated",
+      "deprecation_reason": "Too broad - groups unrelated issues like pin history lookup, turbo/keyword bugs, keyword feature questions, and UI color questions. Need specific signatures per symptom.",
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
-      "updated_at": "2025-01-06T00:00:00"
+      "updated_at": "2026-01-21T00:00:00"
     },
     "integration_connection_failure": {
       "issue_signature": "integration_connection_failure",
@@ -945,10 +951,11 @@
         "How do I use the browser extension?"
       ],
       "engineering_fix": "Integration documentation, feature education, marketing clarity",
-      "status": "active",
+      "status": "deprecated",
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
-      "updated_at": "2025-01-06T00:00:00"
+      "updated_at": "2025-01-06T00:00:00",
+      "deprecation_reason": "Too broad - groups Canva, extension, and import questions. Create specific signatures."
     },
     "extension_ui_bug": {
       "issue_signature": "extension_ui_bug",
@@ -1408,10 +1415,11 @@
         "How do I join a Tailwind Community?"
       ],
       "engineering_fix": "Communities UX, loading performance, onboarding, feature education",
-      "status": "active",
+      "status": "deprecated",
+      "deprecation_reason": "Too broad - groups how-it-works, joining, preview loading, submitting content. Need specific signatures per action/symptom.",
       "merged_into": null,
       "created_at": "2026-01-06T00:00:00",
-      "updated_at": "2026-01-06T00:00:00"
+      "updated_at": "2026-01-21T00:00:00"
     },
     "ai_language_mismatch": {
       "issue_signature": "ai_language_mismatch",
@@ -1451,10 +1459,11 @@
       ],
       "example_intents": ["What can Tailwind do?", "How do I get started?"],
       "engineering_fix": "Onboarding improvement, marketing site clarity, help center, feature education",
-      "status": "active",
+      "status": "deprecated",
       "merged_into": null,
       "created_at": "2025-01-06T00:00:00",
-      "updated_at": "2026-01-06T00:00:00"
+      "updated_at": "2026-01-06T00:00:00",
+      "deprecation_reason": "Too broad - groups unrelated questions. LLM should create specific signatures instead."
     },
     "misdirected_inquiry": {
       "issue_signature": "misdirected_inquiry",
@@ -1570,10 +1579,11 @@
         "What can CoPilot do for me?"
       ],
       "engineering_fix": "Documentation, onboarding, feature education, tooltips",
-      "status": "active",
+      "status": "deprecated",
+      "deprecation_reason": "Too broad - groups what-is-copilot, how-to-use, marketing plan. Need specific signatures per feature/question type.",
       "merged_into": null,
       "created_at": "2026-01-07T00:00:00",
-      "updated_at": "2026-01-07T00:00:00"
+      "updated_at": "2026-01-21T00:00:00"
     },
     "create_image_loading_failure": {
       "issue_signature": "create_image_loading_failure",
@@ -1621,10 +1631,11 @@
         "Where are my saved designs?"
       ],
       "engineering_fix": "Documentation, tooltips, onboarding, UI discoverability",
-      "status": "active",
+      "status": "deprecated",
       "merged_into": null,
       "created_at": "2026-01-07T00:00:00",
-      "updated_at": "2026-01-07T00:00:00"
+      "updated_at": "2026-01-07T00:00:00",
+      "deprecation_reason": "Too broad - groups video, template, and design questions together. Create specific signatures like video_upload_question, template_usage_question."
     },
     "create_template_issue": {
       "issue_signature": "create_template_issue",

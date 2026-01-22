@@ -288,13 +288,18 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Get conversations from the date range of this run
+            # Use COALESCE(stage2_type, stage1_type) as the final classification
+            # New classifier types: product_issue, feature_request, how_to_question
             cur.execute("""
                 SELECT c.id, c.created_at, c.source_body, c.source_url,
-                       c.issue_type, c.sentiment, c.priority, c.churn_risk
+                       COALESCE(c.stage2_type, c.stage1_type) as issue_type,
+                       c.sentiment, c.priority, c.churn_risk
                 FROM conversations c
                 JOIN pipeline_runs pr ON c.classified_at >= pr.started_at
                 WHERE pr.id = %s
-                  AND c.issue_type IN ('bug_report', 'feature_request', 'product_question')
+                  AND COALESCE(c.stage2_type, c.stage1_type) IN (
+                      'product_issue', 'feature_request', 'how_to_question'
+                  )
                 ORDER BY c.created_at DESC
             """, (run_id,))
             rows = cur.fetchall()
@@ -303,6 +308,14 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
         logger.info(f"Run {run_id}: No actionable conversations to extract themes from")
         return {"themes_extracted": 0, "themes_new": 0}
 
+    # Map new classifier types to legacy IssueType for Conversation model
+    # New → Legacy: product_issue → bug_report, how_to_question → product_question
+    NEW_TO_LEGACY_TYPE = {
+        "product_issue": "bug_report",
+        "feature_request": "feature_request",
+        "how_to_question": "product_question",
+    }
+
     # Convert to Conversation objects
     conversations = []
     for row in rows:
@@ -310,12 +323,16 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
             logger.info(f"Run {run_id}: Stop signal received during theme extraction")
             return {"themes_extracted": 0, "themes_new": 0}
 
+        # Map new type to legacy type for Pydantic model compatibility
+        new_type = row["issue_type"]
+        legacy_type = NEW_TO_LEGACY_TYPE.get(new_type, "other")
+
         conv = Conversation(
             id=row["id"],
             created_at=row["created_at"],
             source_body=row["source_body"],
             source_url=row.get("source_url"),
-            issue_type=row["issue_type"],
+            issue_type=legacy_type,
             sentiment=row["sentiment"],
             priority=row["priority"],
             churn_risk=row["churn_risk"],
@@ -326,6 +343,8 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
 
     # Extract themes
     extractor = ThemeExtractor()
+    # Clear session signatures for clean batch canonicalization
+    extractor.clear_session_signatures()
     themes = []
     themes_new = 0
 
@@ -335,7 +354,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
             break
 
         try:
-            theme = extractor.extract(conv, strict_mode=True)
+            theme = extractor.extract(conv, strict_mode=False)
             themes.append(theme)
 
             # Track if new theme was created
@@ -462,10 +481,10 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         target_repo = os.environ.get("FEEDFORWARD_TARGET_REPO", "FeedForward")
 
         # PM Review settings (Improvement 2: PM Review Before Story Creation)
-        # PM_REVIEW_ENABLED: Set to "true" to enable PM coherence review before story creation.
+        # PM_REVIEW_ENABLED: Controls PM coherence review before story creation.
         # When enabled, theme groups are evaluated by an LLM to ensure all conversations
-        # would be fixed by the same implementation (SAME_FIX test). Default: disabled.
-        pm_review_enabled = os.environ.get("PM_REVIEW_ENABLED", "false").lower() == "true"
+        # would be fixed by the same implementation (SAME_FIX test). Default: enabled.
+        pm_review_enabled = os.environ.get("PM_REVIEW_ENABLED", "true").lower() == "true"
         pm_review_service = None
 
         if pm_review_enabled:
@@ -495,7 +514,9 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
 
     logger.info(
         f"Run {run_id}: Created {result.stories_created} stories, "
-        f"{result.orphans_created} orphans"
+        f"{result.orphans_created} orphans. "
+        f"PM review: {result.pm_review_splits} splits, {result.pm_review_kept} kept, "
+        f"{result.pm_review_rejects} rejects, {result.pm_review_skipped} skipped"
     )
 
     # Include PM review metrics in return value

@@ -10,7 +10,7 @@ LLM-powered Intercom conversation analysis pipeline for extracting product insig
 
 ## Tech Stack
 
-- **Language**: Python 3.11, **Framework**: FastAPI + Streamlit
+- **Language**: Python 3.11, **Framework**: FastAPI + Next.js
 - **LLM**: OpenAI (gpt-4o-mini for cost efficiency)
 - **Database**: PostgreSQL for data, **pytest** for testing
 - Key commands: `pytest tests/ -v`, `uvicorn src.api.main:app --reload --port 8000`
@@ -21,7 +21,7 @@ LLM-powered Intercom conversation analysis pipeline for extracting product insig
 | ------------------------ | --------------------------- |
 | `src/`                   | Core pipeline code          |
 | `src/api/`               | FastAPI backend (19 routes) |
-| `frontend/`              | Streamlit UI                |
+| `webapp/`                | Next.js frontend            |
 | `tests/`                 | pytest test suite           |
 | `config/`                | Theme vocabulary, settings  |
 | `docs/`                  | Project documentation       |
@@ -95,7 +95,7 @@ You (Claude Code) are the **Tech Lead**. Deploy skills via the Task tool.
 | Skill                    | Identity   | Domain                                    | Location                                 |
 | ------------------------ | ---------- | ----------------------------------------- | ---------------------------------------- |
 | `marcus-backend`         | **Marcus** | `src/`, database, API                     | `.claude/skills/marcus-backend/`         |
-| `sophia-frontend`        | **Sophia** | `frontend/`, `webapp/`, UI                | `.claude/skills/sophia-frontend/`        |
+| `sophia-frontend`        | **Sophia** | `webapp/`, UI                             | `.claude/skills/sophia-frontend/`        |
 | `kai-prompt-engineering` | **Kai**    | Theme extraction, classification, prompts | `.claude/skills/kai-prompt-engineering/` |
 | `kenji-testing`          | **Kenji**  | Tests, edge cases                         | `.claude/skills/kenji-testing/`          |
 | `priya-architecture`     | **Priya**  | Upfront design + conflict resolution      | `.claude/skills/priya-architecture/`     |
@@ -224,9 +224,9 @@ GitHub Issues: https://github.com/paulyokota/FeedForward/issues
 ```bash
 # Start the frontend stack (requires two terminals)
 uvicorn src.api.main:app --reload --port 8000  # Terminal 1: API
-streamlit run frontend/app.py                   # Terminal 2: UI
+cd webapp && npm run dev                        # Terminal 2: UI
 
-# Then open http://localhost:8501
+# Then open http://localhost:3000
 
 # Run the canonical two-stage classification pipeline
 python -m src.two_stage_pipeline --days 7              # Last 7 days

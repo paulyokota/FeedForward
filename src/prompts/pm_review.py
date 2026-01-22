@@ -68,6 +68,8 @@ Respond with valid JSON only. No markdown code blocks.
 }}
 
 Important:
+- Each conversation_id MUST appear in exactly ONE place: either in ONE sub_group OR in orphans (never both, never multiple sub_groups)
+- If a conversation is ambiguous and could fit multiple sub_groups, assign it to the MOST specific sub_group that fits
 - If conversations have DIFFERENT symptoms (duplicates vs missing), they MUST be split
 - A sub-group needs at least 3 conversations to become a ticket (others become orphans)
 - Be specific in suggested signatures: `pinterest_duplicate_pins` not `pinterest_issue`

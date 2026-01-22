@@ -8,6 +8,77 @@ Format: [ISO Date] - Summary of changes
 
 ## [Unreleased]
 
+### Added
+
+**StructuredDescription Component (2026-01-22)** - PR #102:
+
+- New `webapp/src/components/StructuredDescription.tsx` for rendering LLM-generated story descriptions
+- Parses both `## Header` and `**Bold**` markdown formats into structured sections
+- Progressive disclosure: Expand/collapse for sections exceeding 5 lines
+- Checkbox rendering for acceptance criteria (`- [ ]` unchecked, `- [x]` checked with strikethrough)
+- Structured/Raw view toggle for switching between parsed and original content
+- Copy button with success/error feedback states
+- Known section headers: Summary, Impact, Evidence, User Story, Acceptance Criteria, Symptoms, Technical Notes, INVEST Check
+- Falls back to raw view when no known sections detected
+- Test coverage: `webapp/src/components/__tests__/StructuredDescription.test.tsx`
+
+**Session-Scoped Signature Canonicalization (2026-01-22)**:
+
+- Track signatures created during extraction session in `_session_signatures` dict
+- `get_existing_signatures()` now includes session signatures for within-batch matching
+- Canonicalization runs for both vocabulary and non-vocabulary extraction modes
+- Prevents signature fragmentation (e.g., `analytics_stats_bug` vs `analytics_counter_bug` for same issue)
+- Result: Run 39 orphans dropped from 87 to 40 with this change
+
+### Fixed
+
+**Duplicate Conversation Assignment Bug (2026-01-22)**:
+
+- Fixed bug where PM review splits could assign same conversation to multiple stories
+- Root cause: LLM sometimes assigned conversation_id to multiple sub_groups
+- Defense-in-depth fix:
+  1. Prompt constraint: Each conversation_id MUST appear in exactly ONE place
+  2. Code change: `_handle_pm_split()` uses `pop()` instead of `dict.get()` (first assignment wins)
+  3. Warning logs when duplicate assignments are attempted
+- Regression test added: `tests/test_story_creation_service_pm_review.py`
+- Fixes conversation 215472742755019 appearing in both stories d3ee3a9c and a4b79d95
+
+### Changed
+
+**Streamlit Frontend Removal (2026-01-22)**:
+
+- Removed deprecated `frontend/` directory (Streamlit UI)
+- Project now uses Next.js webapp exclusively at `webapp/`
+- Commands updated: Use `npm run dev` in `webapp/` instead of `streamlit run frontend/app.py`
+
+### Added
+
+**Theme Quality Improvements - SAME_FIX Test + PM Review (2026-01-21)** - PR #101:
+
+- **SAME_FIX Test for Signature Specificity (Improvement 1)**:
+  - New `validate_signature_specificity()` function in `src/theme_extractor.py`
+  - Validates theme signatures for proper granularity at extraction time
+  - Rejects broad suffixes (`_failure`, `_error`, `_issue`, `_problem`) unless accompanied by specific symptom indicators
+  - Specific pattern allowlist: `_duplicate_`, `_missing_`, `_timeout_`, `_permission_`, `_sync_`, `_oauth_`, `_upload_`, etc.
+  - Added `signature_quality_guidelines` to `config/theme_vocabulary.json` with SAME_FIX test examples
+
+- **PM Review Before Story Creation (Improvement 2)**:
+  - New `PMReviewService` in `src/story_tracking/services/pm_review_service.py`
+  - LLM-based coherence evaluation: "Would ONE implementation fix ALL of these?"
+  - Feature flag `PM_REVIEW_ENABLED` for controlled rollout (default: disabled)
+  - Decision types: `keep_together` | `split` (creates sub-groups) | `reject` (all to orphans)
+  - Sub-groups with >=3 conversations become stories, smaller ones become orphans
+  - Integrated into `StoryCreationService.process_theme_groups()` after quality gates
+  - Error handling defaults to `keep_together` (fail-safe behavior)
+
+- **ProcessingResult PM Review Metrics**:
+  - `pm_review_kept`: Groups kept together by PM review
+  - `pm_review_splits`: Groups split into sub-groups by PM review
+  - `pm_review_rejects`: Groups where all conversations rejected (routed to orphans)
+  - `pm_review_skipped`: Groups that bypassed PM review (disabled, timeout, single-conv)
+
+- **Test Coverage**: 15 tests in `tests/test_story_creation_service_pm_review.py`
+
 ### Fixed
 
 **Pipeline Pagination Bug - Search API Integration (2026-01-21)**:

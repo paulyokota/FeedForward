@@ -773,11 +773,15 @@ class StoryCreationService:
             # Get conversations for this sub-group
             sub_convs = []
             for conv_id in sub_group.conversation_ids:
-                if conv_id in conv_by_id:
-                    sub_convs.append(conv_by_id[conv_id])
+                # Use pop() to get-and-remove, preventing duplicate assignments
+                conv = conv_by_id.pop(conv_id, None)
+                if conv is not None:
+                    sub_convs.append(conv)
                 else:
+                    # Conversation not found - either already assigned or invalid ID
                     logger.warning(
-                        f"Sub-group conversation ID '{conv_id}' not found in original group"
+                        f"Sub-group conversation ID '{conv_id}' not found in original group "
+                        f"(already assigned to another sub-group or invalid ID)"
                     )
 
             if len(sub_convs) >= MIN_GROUP_SIZE:
@@ -810,11 +814,17 @@ class StoryCreationService:
 
         # Handle orphan conversations (don't fit any sub-group)
         if pm_review_result.orphan_conversation_ids:
-            orphan_convs = [
-                conv_by_id[cid]
-                for cid in pm_review_result.orphan_conversation_ids
-                if cid in conv_by_id
-            ]
+            orphan_convs = []
+            for cid in pm_review_result.orphan_conversation_ids:
+                # Use pop() to prevent duplicate assignments
+                conv = conv_by_id.pop(cid, None)
+                if conv is not None:
+                    orphan_convs.append(conv)
+                else:
+                    logger.warning(
+                        f"Orphan conversation ID '{cid}' not found in original group "
+                        f"(already assigned to a sub-group or invalid ID)"
+                    )
             if orphan_convs:
                 self._route_to_orphan_integration(
                     signature=pm_review_result.original_signature,

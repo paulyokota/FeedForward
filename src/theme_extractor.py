@@ -62,6 +62,30 @@ def validate_signature_specificity(
         >>> validate_signature_specificity("pinterest_duplicate_pins")
         (True, None)
     """
+    # BANNED PATTERNS - These are ALWAYS too broad (no exceptions)
+    BANNED_SUFFIXES = [
+        '_question',      # feature_question, analytics_question
+        '_guidance',      # settings_guidance, usage_guidance
+    ]
+    BANNED_CONTAINS = [
+        '_interpretation_',  # analytics_interpretation_question
+        'general_',          # general_product_question
+    ]
+
+    # Check banned patterns first (hard reject)
+    for suffix in BANNED_SUFFIXES:
+        if signature.endswith(suffix):
+            base = signature[:-len(suffix)]
+            suggestion = f"BANNED pattern: {suffix}. Use specific signature like {base}_[specific_action]"
+            logger.warning(f"Signature '{signature}' uses banned pattern '{suffix}'. {suggestion}")
+            return False, suggestion
+
+    for pattern in BANNED_CONTAINS:
+        if pattern in signature:
+            suggestion = f"BANNED pattern: {pattern}. Create a specific signature for the actual issue."
+            logger.warning(f"Signature '{signature}' uses banned pattern '{pattern}'. {suggestion}")
+            return False, suggestion
+
     # Broad failure indicators that suggest over-generalization
     BROAD_SUFFIXES = [
         '_failure',   # pinterest_publishing_failure
@@ -267,7 +291,20 @@ If answer to #2 is YES → Create more specific signature
 
    **Format**: [feature]_[specific_symptom] (lowercase, underscores)
    **Avoid**: Generic suffixes like "_failure", "_issue", "_problem", "_error" without specific symptom
-   **Include**: Actual symptom, specific error type, or observable behavior"""
+   **Include**: Actual symptom, specific error type, or observable behavior
+
+## BANNED SIGNATURE PATTERNS (Never create these):
+   ❌ `*_question` - e.g., "feature_question", "analytics_question" → TOO BROAD
+   ❌ `*_guidance` - e.g., "settings_guidance", "usage_guidance" → TOO BROAD
+   ❌ `*_interpretation_*` - e.g., "analytics_interpretation_question" → TOO BROAD
+   ❌ `general_*` or `*_general` - e.g., "general_product_question" → TOO BROAD
+
+   These patterns group unrelated issues. Instead, identify the SPECIFIC action or symptom:
+   - NOT "analytics_question" → "pin_history_date_lookup" or "ui_color_legend_unclear"
+   - NOT "settings_guidance" → "credit_card_update_flow" or "invoice_download_location"
+   - NOT "feature_question" → "[feature]_[specific_aspect]_unclear" or "[feature]_[specific_action]_how_to"
+
+   When in doubt, prefer `unclassified_needs_review` over a broad catch-all."""
 
 
 SIGNATURE_CANONICALIZATION_PROMPT = """You are normalizing issue signatures for a support ticket system.
@@ -317,6 +354,10 @@ class Theme:
     symptoms: list[str]
     affected_flow: str
     root_cause_hypothesis: str
+    # LLM decision observability
+    matched_existing: bool = False  # Did LLM match to vocabulary theme?
+    match_reasoning: str = ""       # Why LLM chose this signature
+    match_confidence: str = ""      # high/medium/low confidence in match
     extracted_at: datetime = None
 
     def __post_init__(self):
@@ -354,6 +395,10 @@ class ThemeExtractor:
         self._vocabulary = None
         self.use_vocabulary = use_vocabulary
         self._search_service = search_service
+        # Session-scoped signature cache for batch canonicalization
+        # Tracks signatures created during this extraction session so new
+        # signatures can be canonicalized against both DB and current batch
+        self._session_signatures: dict[str, dict] = {}
 
     @property
     def vocabulary(self):
@@ -413,18 +458,33 @@ class ThemeExtractor:
             logger.warning(f"Research context unavailable: {e}")
             return ""
 
-    def get_existing_signatures(self, product_area: str = None) -> list[dict]:
+    def get_existing_signatures(self, product_area: str = None, include_session: bool = True) -> list[dict]:
         """
-        Fetch existing signatures from database for canonicalization.
+        Fetch existing signatures from database + current session for canonicalization.
 
         Args:
             product_area: If provided, only fetch signatures from this area.
                          Falls back to all signatures for better matching.
+            include_session: If True, include signatures from current extraction session.
+                            This ensures new signatures can canonicalize against each other.
         """
         try:
             from .db.connection import get_connection
         except ImportError:
             from db.connection import get_connection
+
+        signatures = []
+
+        # Include session signatures first (higher priority for current batch)
+        if include_session and self._session_signatures:
+            for sig, info in self._session_signatures.items():
+                if product_area is None or info.get("product_area") == product_area:
+                    signatures.append({
+                        "signature": sig,
+                        "product_area": info.get("product_area", "other"),
+                        "component": info.get("component", "unknown"),
+                        "count": info.get("count", 1),  # Session signatures start at 1
+                    })
 
         try:
             with get_connection() as conn:
@@ -447,18 +507,40 @@ class ThemeExtractor:
                             FROM theme_aggregates
                             ORDER BY occurrence_count DESC
                         """)
-                    return [
-                        {
-                            "signature": row[0],
-                            "product_area": row[1],
-                            "component": row[2],
-                            "count": row[3]
-                        }
-                        for row in cur.fetchall()
-                    ]
+
+                    # Add DB signatures, avoiding duplicates with session
+                    session_sigs = set(self._session_signatures.keys())
+                    for row in cur.fetchall():
+                        if row[0] not in session_sigs:
+                            signatures.append({
+                                "signature": row[0],
+                                "product_area": row[1],
+                                "component": row[2],
+                                "count": row[3]
+                            })
         except Exception as e:
             logger.warning(f"Could not fetch existing signatures: {e}")
-            return []
+
+        return signatures
+
+    def add_session_signature(self, signature: str, product_area: str, component: str) -> None:
+        """
+        Add a signature to the current session cache.
+
+        Called after extracting a theme to track signatures for batch canonicalization.
+        """
+        if signature in self._session_signatures:
+            self._session_signatures[signature]["count"] += 1
+        else:
+            self._session_signatures[signature] = {
+                "product_area": product_area,
+                "component": component,
+                "count": 1,
+            }
+
+    def clear_session_signatures(self) -> None:
+        """Clear the session signature cache. Call at start of new extraction batch."""
+        self._session_signatures.clear()
 
     def get_embedding(self, text: str) -> list[float]:
         """Get embedding for a text string."""
@@ -682,18 +764,31 @@ The user was on a page related to **{url_matched_product_area}** when they start
         matched_existing = result.get("matched_existing", False)
         match_reasoning = result.get("match_reasoning", "")
 
+        # Get match confidence
+        match_confidence = result.get("match_confidence", "")
+
+        # OBSERVABILITY: Log LLM decision trail prominently
+        logger.info(
+            f"🔍 THEME EXTRACTION DECISION:\n"
+            f"   Conversation: {conv.id[:20]}...\n"
+            f"   User message: {(conv.source_body or '')[:100]}...\n"
+            f"   → Signature: {proposed_signature}\n"
+            f"   → Matched existing: {matched_existing}\n"
+            f"   → Confidence: {match_confidence}\n"
+            f"   → Reasoning: {match_reasoning}"
+        )
+
         # Log vocabulary match status and lookup vocabulary metadata
         if self.use_vocabulary:
             if matched_existing:
-                logger.info(f"Matched vocabulary theme: {proposed_signature}")
                 # When matched, use vocabulary product_area and component instead of LLM response
                 vocab_theme = self.vocabulary._themes.get(proposed_signature)
                 if vocab_theme:
                     product_area = vocab_theme.product_area
                     component = vocab_theme.component
-                    logger.info(f"Using vocabulary metadata: product_area={product_area}, component={component}")
+                    logger.info(f"   → Using vocab metadata: {product_area}/{component}")
             else:
-                logger.info(f"New theme proposed: {proposed_signature} - {match_reasoning}")
+                logger.info(f"   → NEW THEME (not in vocabulary)")
 
                 # Optionally add new themes to vocabulary
                 if auto_add_to_vocabulary and self.vocabulary:
@@ -707,12 +802,16 @@ The user was on a page related to **{url_matched_product_area}** when they start
                     )
                     logger.info(f"Auto-added to vocabulary: {proposed_signature}")
 
-        # Phase 2: Canonicalize signature (skip if vocabulary matched)
+        # Phase 2: Canonicalize signature
+        # - If vocabulary matched an existing theme, use as-is (already canonical)
+        # - If LLM created a new signature, canonicalize against existing signatures
+        #   to prevent duplicates like analytics_stats_accuracy vs analytics_performance_accuracy
         if self.use_vocabulary and matched_existing:
             # Vocabulary already handled matching - use as-is
             final_signature = proposed_signature
-        elif canonicalize and not self.use_vocabulary:
-            # Legacy canonicalization for non-vocabulary mode
+        elif canonicalize:
+            # Canonicalize new signatures against existing ones in theme_aggregates
+            # This runs for both vocabulary mode (new signatures) and non-vocabulary mode
             final_signature = self.canonicalize_signature(
                 proposed_signature=proposed_signature,
                 product_area=product_area,
@@ -724,6 +823,10 @@ The user was on a page related to **{url_matched_product_area}** when they start
         else:
             final_signature = proposed_signature
 
+        # Add to session cache for batch canonicalization
+        # This allows subsequent extractions to canonicalize against this signature
+        self.add_session_signature(final_signature, product_area, component)
+
         return Theme(
             conversation_id=conv.id,
             product_area=product_area,
@@ -733,6 +836,10 @@ The user was on a page related to **{url_matched_product_area}** when they start
             symptoms=symptoms,
             affected_flow=result.get("affected_flow", ""),
             root_cause_hypothesis=result.get("root_cause_hypothesis", ""),
+            # LLM decision observability
+            matched_existing=matched_existing,
+            match_reasoning=match_reasoning,
+            match_confidence=result.get("match_confidence", ""),
         )
 
     def extract_batch(
@@ -749,6 +856,9 @@ The user was on a page related to **{url_matched_product_area}** when they start
             canonicalize: If True, run through canonicalization (non-vocabulary mode)
             strict_mode: If True, force vocabulary-only matching (for backfill)
         """
+        # Clear session signatures at start of batch for clean canonicalization
+        self.clear_session_signatures()
+
         themes = []
         for conv in conversations:
             try:
