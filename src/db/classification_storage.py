@@ -31,7 +31,8 @@ def store_classification_result(
     stage2_result: Optional[Dict[str, Any]] = None,
     support_messages: Optional[list] = None,
     resolution_signal: Optional[Dict[str, Any]] = None,
-    story_id: Optional[str] = None
+    story_id: Optional[str] = None,
+    pipeline_run_id: Optional[int] = None
 ) -> None:
     """
     Store complete two-stage classification result in database.
@@ -49,6 +50,7 @@ def store_classification_result(
         support_messages: List of support responses
         resolution_signal: Resolution pattern detection result
         story_id: Shortcut story/ticket ID (for ground truth clustering analysis)
+        pipeline_run_id: Pipeline run ID that classified this conversation (for run scoping)
     """
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -114,7 +116,8 @@ def store_classification_result(
                 resolution_action, resolution_detected,
                 support_insights,
                 story_id,
-                classifier_version
+                classifier_version,
+                pipeline_run_id
             ) VALUES (
                 %s, %s, %s,
                 %s, %s, %s,
@@ -126,6 +129,7 @@ def store_classification_result(
                 %s, %s,
                 %s, %s,
                 %s, %s,
+                %s,
                 %s,
                 %s,
                 %s
@@ -148,7 +152,8 @@ def store_classification_result(
                 resolution_action = EXCLUDED.resolution_action,
                 resolution_detected = EXCLUDED.resolution_detected,
                 support_insights = EXCLUDED.support_insights,
-                story_id = EXCLUDED.story_id
+                story_id = EXCLUDED.story_id,
+                pipeline_run_id = EXCLUDED.pipeline_run_id
             """, (
                 conversation_id, created_at, datetime.utcnow(),
                 source_body, source_type, source_url,
@@ -162,13 +167,17 @@ def store_classification_result(
                 resolution_action, resolution_detected,
                 support_insights_json,
                 story_id,
-                "v2.0-two-stage"
+                "v2.0-two-stage",
+                pipeline_run_id
                 ))
 
             conn.commit()
 
 
-def store_classification_results_batch(results: List[Dict[str, Any]]) -> int:
+def store_classification_results_batch(
+    results: List[Dict[str, Any]],
+    pipeline_run_id: Optional[int] = None
+) -> int:
     """
     Store multiple classification results in a single batch operation.
 
@@ -176,6 +185,7 @@ def store_classification_results_batch(results: List[Dict[str, Any]]) -> int:
 
     Args:
         results: List of dictionaries with keys matching store_classification_result params
+        pipeline_run_id: Pipeline run ID that classified these conversations (for run scoping)
 
     Returns:
         Number of rows inserted/updated
@@ -262,6 +272,7 @@ def store_classification_results_batch(results: List[Dict[str, Any]]) -> int:
                     support_insights_json,
                     r.get("story_id"),
                     "v2.0-two-stage",
+                    pipeline_run_id,
                 ))
 
             # Batch upsert using execute_values
@@ -279,7 +290,8 @@ def store_classification_results_batch(results: List[Dict[str, Any]]) -> int:
                 resolution_action, resolution_detected,
                 support_insights,
                 story_id,
-                classifier_version
+                classifier_version,
+                pipeline_run_id
             ) VALUES %s
             ON CONFLICT (id) DO UPDATE SET
                 classified_at = EXCLUDED.classified_at,
@@ -299,7 +311,8 @@ def store_classification_results_batch(results: List[Dict[str, Any]]) -> int:
                 resolution_action = EXCLUDED.resolution_action,
                 resolution_detected = EXCLUDED.resolution_detected,
                 support_insights = EXCLUDED.support_insights,
-                story_id = EXCLUDED.story_id
+                story_id = EXCLUDED.story_id,
+                pipeline_run_id = EXCLUDED.pipeline_run_id
             """
             execute_values(cur, sql, rows)
             conn.commit()

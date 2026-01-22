@@ -418,6 +418,7 @@ async def run_pipeline_async(
     batch_size: int = 50,
     data_source: str = "intercom",
     stop_checker: Optional[callable] = None,
+    pipeline_run_id: Optional[int] = None,
 ) -> Dict[str, int]:
     """
     Run the two-stage classification pipeline with async parallelization.
@@ -432,6 +433,7 @@ async def run_pipeline_async(
         batch_size: DB batch insert size (default 50)
         data_source: Source to process ("intercom" or "coda")
         stop_checker: Optional callable returning True if pipeline should stop
+        pipeline_run_id: Pipeline run ID for accurate run scoping (links conversations to run)
 
     Returns:
         Statistics dictionary
@@ -463,6 +465,7 @@ async def run_pipeline_async(
             batch_size=batch_size,
             semaphore=semaphore,
             stop_checker=stop_checker,
+            pipeline_run_id=pipeline_run_id,
         )
 
     # Default: Intercom pipeline
@@ -570,7 +573,7 @@ async def run_pipeline_async(
 
         for i in range(0, len(results), batch_size):
             batch = results[i:i + batch_size]
-            stored = store_classification_results_batch(batch)
+            stored = store_classification_results_batch(batch, pipeline_run_id=pipeline_run_id)
             stats["stored"] += stored
             print(f"  Stored batch {i//batch_size + 1}: {stored} rows")
 
@@ -602,12 +605,16 @@ async def _run_coda_pipeline_async(
     batch_size: int = 50,
     semaphore: asyncio.Semaphore = None,
     stop_checker: Optional[callable] = None,
+    pipeline_run_id: Optional[int] = None,
 ) -> Dict[str, int]:
     """
     Run classification pipeline for Coda research data.
 
     Coda data is evergreen (not time-bounded like Intercom),
     so we process all available research content.
+
+    Args:
+        pipeline_run_id: Pipeline run ID for accurate run scoping
     """
     def should_stop() -> bool:
         return stop_checker is not None and stop_checker()
@@ -754,7 +761,7 @@ Return JSON with:
         print(f"\nPhase 4: Storing {len(results)} results...")
         for i in range(0, len(results), batch_size):
             batch = results[i:i + batch_size]
-            stored = store_classification_results_batch(batch)
+            stored = store_classification_results_batch(batch, pipeline_run_id=pipeline_run_id)
             stats["stored"] += stored
             print(f"  Stored batch {i//batch_size + 1}: {stored} rows")
 
@@ -777,6 +784,7 @@ def run_pipeline(
     max_conversations: Optional[int] = None,
     dry_run: bool = False,
     data_source: str = "intercom",
+    pipeline_run_id: Optional[int] = None,
 ) -> Dict[str, int]:
     """
     Run the full two-stage classification pipeline (sync version).
@@ -787,6 +795,7 @@ def run_pipeline(
         days: Number of days to look back
         max_conversations: Maximum conversations to process
         dry_run: If True, don't store to database
+        pipeline_run_id: Pipeline run ID for accurate run scoping
 
     Returns:
         Statistics dictionary
@@ -848,7 +857,7 @@ def run_pipeline(
 
             # Batch insert when we hit batch size
             if len(results_batch) >= BATCH_SIZE:
-                stored = store_classification_results_batch(results_batch)
+                stored = store_classification_results_batch(results_batch, pipeline_run_id=pipeline_run_id)
                 stats["stored"] += stored
                 print(f"  [Batch] Stored {stored} results")
                 results_batch = []
@@ -861,7 +870,7 @@ def run_pipeline(
 
     # Store remaining results
     if results_batch and not dry_run:
-        stored = store_classification_results_batch(results_batch)
+        stored = store_classification_results_batch(results_batch, pipeline_run_id=pipeline_run_id)
         stats["stored"] += stored
         print(f"  [Batch] Stored final {stored} results")
 

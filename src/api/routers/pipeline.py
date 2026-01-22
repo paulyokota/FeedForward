@@ -287,7 +287,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
     # Get conversations classified in this run
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Get conversations from the date range of this run
+            # Fix #103: Use explicit pipeline_run_id instead of timestamp heuristics
             # Use COALESCE(stage2_type, stage1_type) as the final classification
             # New classifier types: product_issue, feature_request, how_to_question
             cur.execute("""
@@ -295,8 +295,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                        COALESCE(c.stage2_type, c.stage1_type) as issue_type,
                        c.sentiment, c.priority, c.churn_risk
                 FROM conversations c
-                JOIN pipeline_runs pr ON c.classified_at >= pr.started_at
-                WHERE pr.id = %s
+                WHERE c.pipeline_run_id = %s
                   AND COALESCE(c.stage2_type, c.stage1_type) IN (
                       'product_issue', 'feature_request', 'how_to_question'
                   )
@@ -575,6 +574,7 @@ def _run_pipeline_task(
             dry_run=dry_run,
             concurrency=concurrency,
             stop_checker=stop_checker,
+            pipeline_run_id=run_id,
         ))
 
         if stop_checker():

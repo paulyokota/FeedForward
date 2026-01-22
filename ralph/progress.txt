@@ -3,5 +3,38 @@
 
 === Slice Start: #103 Fix run scoping: use pipeline_run_id instead of timestamp heuristics ===
 - Date: 2026-01-22
-- Branch: main
+- Branch: ralph/m8-103-run-scoping
 - Notes: Initialized per-issue slice for Milestone 8.
+
+=== Iteration 1: Implementation Complete ===
+- Date: 2026-01-22
+- Changes:
+  1. Created migration 010_conversation_run_scoping.sql
+     - Adds pipeline_run_id column to conversations table
+     - Creates index for efficient run-scoped queries
+  2. Updated src/db/classification_storage.py
+     - store_classification_result() now accepts pipeline_run_id parameter
+     - store_classification_results_batch() now accepts pipeline_run_id parameter
+     - Both functions store pipeline_run_id in conversations table
+  3. Updated src/two_stage_pipeline.py
+     - run_pipeline_async() now accepts and passes pipeline_run_id
+     - run_pipeline() (sync version) now accepts and passes pipeline_run_id
+     - _run_coda_pipeline_async() now accepts and passes pipeline_run_id
+     - All store_classification_results_batch() calls pass pipeline_run_id
+  4. Updated src/api/routers/pipeline.py
+     - _run_pipeline_task() passes run_id to run_pipeline_async()
+     - Fixed timestamp heuristic in _run_theme_extraction():
+       OLD: JOIN pipeline_runs pr ON c.classified_at >= pr.started_at
+       NEW: WHERE c.pipeline_run_id = %s
+  5. Created tests/test_run_scoping.py
+     - Tests for storage function signatures
+     - Tests for pipeline function signatures
+     - Tests for migration existence
+     - Tests for theme extraction query fix
+     - Integration tests (skipped - require DB)
+- Test Results:
+  - All 7 run scoping tests PASSED (2 skipped - require DB)
+  - Full backend test suite: 782 passed, 11 skipped, 1 failed (unrelated latency test)
+  - Pipeline API tests: 30 passed
+- Commit: a719755
+- Remaining: Push, PR, review
