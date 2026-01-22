@@ -241,6 +241,7 @@ _ALLOWED_PHASE_FIELDS = frozenset({
     "stories_created", "orphans_created",
     "stories_ready", "auto_create_stories", "conversations_fetched",
     "conversations_classified", "conversations_stored", "conversations_filtered",
+    "embeddings_generated", "embeddings_failed",  # #106: Embedding generation phase
     "warnings", "errors",  # #104: Structured error tracking
 })
 
@@ -271,6 +272,102 @@ def _update_phase(run_id: int, phase: str, **extra_fields) -> None:
             """, values)
 
     logger.info(f"Run {run_id}: Phase updated to '{phase}'")
+
+
+async def _run_embedding_generation_async(
+    run_id: int, stop_checker: Callable[[], bool]
+) -> dict:
+    """
+    Generate embeddings for classified conversations from this pipeline run.
+
+    Returns dict with embeddings_generated and embeddings_failed counts.
+
+    Issue #106: Pipeline step for embedding generation.
+    Embeddings are generated for actionable conversation types:
+    product_issue, feature_request, how_to_question.
+    """
+    from src.db.connection import get_connection
+    from src.services.embedding_service import EmbeddingService
+    from src.db.embedding_storage import store_embeddings_batch
+    from psycopg2.extras import RealDictCursor
+
+    logger.info(f"Run {run_id}: Starting embedding generation")
+
+    # Get conversations classified in this run (same query as theme extraction)
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Use pipeline_run_id for run scoping (per #103)
+            # Filter to actionable types that need embeddings for clustering
+            cur.execute("""
+                SELECT c.id, c.source_body
+                FROM conversations c
+                JOIN pipeline_runs pr ON pr.id = %s
+                WHERE (c.pipeline_run_id = %s
+                       OR (c.pipeline_run_id IS NULL AND c.classified_at >= pr.started_at))
+                  AND COALESCE(c.stage2_type, c.stage1_type) IN (
+                      'product_issue', 'feature_request', 'how_to_question'
+                  )
+                ORDER BY c.created_at DESC
+            """, (run_id, run_id))
+            rows = cur.fetchall()
+
+    if not rows:
+        logger.info(f"Run {run_id}: No actionable conversations for embedding generation")
+        return {"embeddings_generated": 0, "embeddings_failed": 0}
+
+    # Prepare conversations for embedding service
+    conversations = [
+        {"id": row["id"], "source_body": row["source_body"]}
+        for row in rows
+    ]
+
+    logger.info(f"Run {run_id}: Generating embeddings for {len(conversations)} conversations")
+
+    # Generate embeddings
+    service = EmbeddingService()
+    result = await service.generate_conversation_embeddings_async(
+        conversations=conversations,
+        stop_checker=stop_checker,
+    )
+
+    # Store successful embeddings
+    if result.successful:
+        stored_count = store_embeddings_batch(
+            results=result.successful,
+            pipeline_run_id=run_id,
+        )
+        logger.info(f"Run {run_id}: Stored {stored_count} embeddings")
+    else:
+        stored_count = 0
+
+    # Log failures for observability
+    if result.failed:
+        failed_ids = [r.conversation_id for r in result.failed[:5]]  # First 5 for brevity
+        logger.warning(
+            f"Run {run_id}: Failed to generate embeddings for {len(result.failed)} conversations. "
+            f"Sample IDs: {failed_ids}"
+        )
+
+    logger.info(
+        f"Run {run_id}: Embedding generation complete. "
+        f"Generated: {result.total_success}, Failed: {result.total_failed}"
+    )
+
+    return {
+        "embeddings_generated": result.total_success,
+        "embeddings_failed": result.total_failed,
+    }
+
+
+def _run_embedding_generation(run_id: int, stop_checker: Callable[[], bool]) -> dict:
+    """
+    Synchronous wrapper for _run_embedding_generation_async.
+
+    Bridges the sync pipeline task with async embedding service.
+    """
+    import asyncio
+
+    return asyncio.run(_run_embedding_generation_async(run_id, stop_checker))
 
 
 def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict:
@@ -584,8 +681,9 @@ def _run_pipeline_task(
 
     Phases:
     1. Classification - Fetch and classify conversations
-    2. Theme Extraction - Extract themes from actionable conversations
-    3. (Optional) PM Review + Story Creation - Create stories from theme groups
+    2. Embedding Generation (#106) - Generate embeddings for actionable conversations
+    3. Theme Extraction - Extract themes from actionable conversations
+    4. (Optional) PM Review + Story Creation - Create stories from theme groups
 
     Updates the pipeline_runs table with progress and results.
     Checks for stop signal between phases and exits gracefully if stopping.
@@ -643,7 +741,7 @@ def _run_pipeline_task(
 
         # Skip subsequent phases if dry run or no conversations stored
         if dry_run or result.get("stored", 0) == 0:
-            logger.info(f"Run {run_id}: Skipping theme extraction (dry_run={dry_run}, stored={result.get('stored', 0)})")
+            logger.info(f"Run {run_id}: Skipping embedding generation (dry_run={dry_run}, stored={result.get('stored', 0)})")
 
             # Store dry run preview for later retrieval (Issue #75)
             if dry_run:
@@ -654,9 +752,38 @@ def _run_pipeline_task(
             _finalize_completed_run(run_id, result, theme_result, story_result)
             return
 
-        # ==== PHASE 2: Theme Extraction ====
+        # ==== PHASE 2: Embedding Generation (#106) ====
+        embedding_result = {"embeddings_generated": 0, "embeddings_failed": 0}
+
         if stop_checker():
-            _finalize_stopped_run(run_id, result, theme_result, story_result)
+            _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result)
+            return
+
+        _update_phase(run_id, "embedding_generation")
+
+        embedding_result = _run_embedding_generation(run_id, stop_checker)
+
+        # Update embedding results in database
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE pipeline_runs SET
+                        embeddings_generated = %s,
+                        embeddings_failed = %s
+                    WHERE id = %s
+                """, (
+                    embedding_result.get("embeddings_generated", 0),
+                    embedding_result.get("embeddings_failed", 0),
+                    run_id,
+                ))
+
+        if stop_checker():
+            _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result)
+            return
+
+        # ==== PHASE 3: Theme Extraction ====
+        if stop_checker():
+            _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result)
             return
 
         _update_phase(run_id, "theme_extraction")
@@ -691,10 +818,10 @@ def _run_pipeline_task(
                 ))
 
         if stop_checker():
-            _finalize_stopped_run(run_id, result, theme_result, story_result)
+            _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result)
             return
 
-        # ==== PHASE 3: PM Review + Story Creation (optional) ====
+        # ==== PHASE 4: PM Review + Story Creation (optional) ====
         if auto_create_stories and theme_result.get("themes_extracted", 0) > 0:
             _update_phase(run_id, "story_creation")
 
@@ -715,11 +842,11 @@ def _run_pipeline_task(
                     ))
 
             if stop_checker():
-                _finalize_stopped_run(run_id, result, theme_result, story_result)
+                _finalize_stopped_run(run_id, result, theme_result, story_result, embedding_result)
                 return
 
         # ==== COMPLETED ====
-        _finalize_completed_run(run_id, result, theme_result, story_result)
+        _finalize_completed_run(run_id, result, theme_result, story_result, embedding_result)
 
     except Exception as e:
         # Update with error
@@ -738,9 +865,17 @@ def _run_pipeline_task(
         raise
 
 
-def _finalize_completed_run(run_id: int, result: dict, theme_result: dict, story_result: dict):
+def _finalize_completed_run(
+    run_id: int,
+    result: dict,
+    theme_result: dict,
+    story_result: dict,
+    embedding_result: Optional[dict] = None,
+):
     """Finalize a successfully completed run."""
     from src.db.connection import get_connection
+
+    embedding_result = embedding_result or {"embeddings_generated": 0, "embeddings_failed": 0}
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -752,6 +887,8 @@ def _finalize_completed_run(run_id: int, result: dict, theme_result: dict, story
                     conversations_filtered = %s,
                     conversations_classified = %s,
                     conversations_stored = %s,
+                    embeddings_generated = %s,
+                    embeddings_failed = %s,
                     themes_extracted = %s,
                     themes_new = %s,
                     stories_created = %s,
@@ -764,6 +901,8 @@ def _finalize_completed_run(run_id: int, result: dict, theme_result: dict, story
                 result.get("filtered", 0),
                 result.get("classified", 0),
                 result.get("stored", 0),
+                embedding_result.get("embeddings_generated", 0),
+                embedding_result.get("embeddings_failed", 0),
                 theme_result.get("themes_extracted", 0),
                 theme_result.get("themes_new", 0),
                 story_result.get("stories_created", 0),
@@ -780,12 +919,14 @@ def _finalize_stopped_run(
     result: dict,
     theme_result: Optional[dict] = None,
     story_result: Optional[dict] = None,
+    embedding_result: Optional[dict] = None,
 ):
     """Finalize a run that was stopped gracefully."""
     from src.db.connection import get_connection
 
     theme_result = theme_result or {"themes_extracted": 0, "themes_new": 0}
     story_result = story_result or {"stories_created": 0, "orphans_created": 0}
+    embedding_result = embedding_result or {"embeddings_generated": 0, "embeddings_failed": 0}
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -796,6 +937,8 @@ def _finalize_stopped_run(
                     conversations_filtered = %s,
                     conversations_classified = %s,
                     conversations_stored = %s,
+                    embeddings_generated = %s,
+                    embeddings_failed = %s,
                     themes_extracted = %s,
                     themes_new = %s,
                     stories_created = %s,
@@ -808,6 +951,8 @@ def _finalize_stopped_run(
                 result.get("filtered", 0),
                 result.get("classified", 0),
                 result.get("stored", 0),
+                embedding_result.get("embeddings_generated", 0),
+                embedding_result.get("embeddings_failed", 0),
                 theme_result.get("themes_extracted", 0),
                 theme_result.get("themes_new", 0),
                 story_result.get("stories_created", 0),
@@ -916,6 +1061,7 @@ def get_pipeline_status(run_id: int, db=Depends(get_db)):
             SELECT id, started_at, completed_at, date_from, date_to,
                    conversations_fetched, conversations_filtered,
                    conversations_classified, conversations_stored,
+                   embeddings_generated, embeddings_failed,
                    current_phase, auto_create_stories,
                    themes_extracted, themes_new, themes_filtered,
                    stories_created, orphans_created, stories_ready,
@@ -951,6 +1097,8 @@ def get_pipeline_status(run_id: int, db=Depends(get_db)):
         conversations_filtered=row["conversations_filtered"] or 0,
         conversations_classified=row["conversations_classified"] or 0,
         conversations_stored=row["conversations_stored"] or 0,
+        embeddings_generated=row.get("embeddings_generated") or 0,  # #106
+        embeddings_failed=row.get("embeddings_failed") or 0,  # #106
         themes_extracted=row["themes_extracted"] or 0,
         themes_new=row["themes_new"] or 0,
         themes_filtered=row.get("themes_filtered") or 0,  # #104
@@ -1034,6 +1182,7 @@ def get_pipeline_history(
         cur.execute("""
             SELECT id, started_at, completed_at,
                    conversations_fetched, conversations_classified, conversations_stored,
+                   embeddings_generated,
                    current_phase, themes_extracted, stories_created, stories_ready,
                    status, COALESCE(jsonb_array_length(errors), 0) as error_count
             FROM pipeline_runs
@@ -1057,6 +1206,7 @@ def get_pipeline_history(
             conversations_fetched=row["conversations_fetched"] or 0,
             conversations_classified=row["conversations_classified"] or 0,
             conversations_stored=row["conversations_stored"] or 0,
+            embeddings_generated=row.get("embeddings_generated") or 0,  # #106
             themes_extracted=row["themes_extracted"] or 0,
             stories_created=row["stories_created"] or 0,
             stories_ready=row["stories_ready"] or False,
