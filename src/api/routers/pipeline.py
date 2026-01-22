@@ -317,7 +317,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
 
     if not rows:
         logger.info(f"Run {run_id}: No actionable conversations to extract themes from")
-        return {"themes_extracted": 0, "themes_new": 0}
+        return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "warnings": []}
 
     # Map new classifier types to legacy IssueType for Conversation model
     # New → Legacy: product_issue → bug_report, how_to_question → product_question
@@ -332,7 +332,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
     for row in rows:
         if stop_checker():
             logger.info(f"Run {run_id}: Stop signal received during theme extraction")
-            return {"themes_extracted": 0, "themes_new": 0}
+            return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "warnings": []}
 
         # Map new type to legacy type for Pydantic model compatibility
         new_type = row["issue_type"]
