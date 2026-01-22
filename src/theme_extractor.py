@@ -62,6 +62,30 @@ def validate_signature_specificity(
         >>> validate_signature_specificity("pinterest_duplicate_pins")
         (True, None)
     """
+    # BANNED PATTERNS - These are ALWAYS too broad (no exceptions)
+    BANNED_SUFFIXES = [
+        '_question',      # feature_question, analytics_question
+        '_guidance',      # settings_guidance, usage_guidance
+    ]
+    BANNED_CONTAINS = [
+        '_interpretation_',  # analytics_interpretation_question
+        'general_',          # general_product_question
+    ]
+
+    # Check banned patterns first (hard reject)
+    for suffix in BANNED_SUFFIXES:
+        if signature.endswith(suffix):
+            base = signature[:-len(suffix)]
+            suggestion = f"BANNED pattern: {suffix}. Use specific signature like {base}_[specific_action]"
+            logger.warning(f"Signature '{signature}' uses banned pattern '{suffix}'. {suggestion}")
+            return False, suggestion
+
+    for pattern in BANNED_CONTAINS:
+        if pattern in signature:
+            suggestion = f"BANNED pattern: {pattern}. Create a specific signature for the actual issue."
+            logger.warning(f"Signature '{signature}' uses banned pattern '{pattern}'. {suggestion}")
+            return False, suggestion
+
     # Broad failure indicators that suggest over-generalization
     BROAD_SUFFIXES = [
         '_failure',   # pinterest_publishing_failure
@@ -267,7 +291,20 @@ If answer to #2 is YES → Create more specific signature
 
    **Format**: [feature]_[specific_symptom] (lowercase, underscores)
    **Avoid**: Generic suffixes like "_failure", "_issue", "_problem", "_error" without specific symptom
-   **Include**: Actual symptom, specific error type, or observable behavior"""
+   **Include**: Actual symptom, specific error type, or observable behavior
+
+## BANNED SIGNATURE PATTERNS (Never create these):
+   ❌ `*_question` - e.g., "feature_question", "analytics_question" → TOO BROAD
+   ❌ `*_guidance` - e.g., "settings_guidance", "usage_guidance" → TOO BROAD
+   ❌ `*_interpretation_*` - e.g., "analytics_interpretation_question" → TOO BROAD
+   ❌ `general_*` or `*_general` - e.g., "general_product_question" → TOO BROAD
+
+   These patterns group unrelated issues. Instead, identify the SPECIFIC action or symptom:
+   - NOT "analytics_question" → "pin_history_date_lookup" or "ui_color_legend_unclear"
+   - NOT "settings_guidance" → "credit_card_update_flow" or "invoice_download_location"
+   - NOT "feature_question" → "[feature]_[specific_aspect]_unclear" or "[feature]_[specific_action]_how_to"
+
+   When in doubt, prefer `unclassified_needs_review` over a broad catch-all."""
 
 
 SIGNATURE_CANONICALIZATION_PROMPT = """You are normalizing issue signatures for a support ticket system.
@@ -317,6 +354,10 @@ class Theme:
     symptoms: list[str]
     affected_flow: str
     root_cause_hypothesis: str
+    # LLM decision observability
+    matched_existing: bool = False  # Did LLM match to vocabulary theme?
+    match_reasoning: str = ""       # Why LLM chose this signature
+    match_confidence: str = ""      # high/medium/low confidence in match
     extracted_at: datetime = None
 
     def __post_init__(self):
@@ -682,18 +723,31 @@ The user was on a page related to **{url_matched_product_area}** when they start
         matched_existing = result.get("matched_existing", False)
         match_reasoning = result.get("match_reasoning", "")
 
+        # Get match confidence
+        match_confidence = result.get("match_confidence", "")
+
+        # OBSERVABILITY: Log LLM decision trail prominently
+        logger.info(
+            f"🔍 THEME EXTRACTION DECISION:\n"
+            f"   Conversation: {conv.id[:20]}...\n"
+            f"   User message: {(conv.source_body or '')[:100]}...\n"
+            f"   → Signature: {proposed_signature}\n"
+            f"   → Matched existing: {matched_existing}\n"
+            f"   → Confidence: {match_confidence}\n"
+            f"   → Reasoning: {match_reasoning}"
+        )
+
         # Log vocabulary match status and lookup vocabulary metadata
         if self.use_vocabulary:
             if matched_existing:
-                logger.info(f"Matched vocabulary theme: {proposed_signature}")
                 # When matched, use vocabulary product_area and component instead of LLM response
                 vocab_theme = self.vocabulary._themes.get(proposed_signature)
                 if vocab_theme:
                     product_area = vocab_theme.product_area
                     component = vocab_theme.component
-                    logger.info(f"Using vocabulary metadata: product_area={product_area}, component={component}")
+                    logger.info(f"   → Using vocab metadata: {product_area}/{component}")
             else:
-                logger.info(f"New theme proposed: {proposed_signature} - {match_reasoning}")
+                logger.info(f"   → NEW THEME (not in vocabulary)")
 
                 # Optionally add new themes to vocabulary
                 if auto_add_to_vocabulary and self.vocabulary:
@@ -733,6 +787,10 @@ The user was on a page related to **{url_matched_product_area}** when they start
             symptoms=symptoms,
             affected_flow=result.get("affected_flow", ""),
             root_cause_hypothesis=result.get("root_cause_hypothesis", ""),
+            # LLM decision observability
+            matched_existing=matched_existing,
+            match_reasoning=match_reasoning,
+            match_confidence=result.get("match_confidence", ""),
         )
 
     def extract_batch(

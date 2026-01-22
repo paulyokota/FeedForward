@@ -34,6 +34,7 @@ class VocabularyTheme:
     engineering_fix: str = ""  # What engineering work would address this
     status: str = "active"  # active, deprecated, merged
     merged_into: Optional[str] = None  # If merged, the target signature
+    deprecation_reason: Optional[str] = None  # Why this theme was deprecated
     support_solution: Optional[str] = None  # How support resolved this (for documentation)
     root_cause: Optional[str] = None  # Identified root cause (for engineering)
     created_at: datetime = None
