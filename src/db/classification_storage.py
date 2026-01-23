@@ -5,7 +5,7 @@ Database storage for two-stage classification results.
 Stores Stage 1 and Stage 2 classification data in PostgreSQL.
 """
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 import psycopg2
 from psycopg2.extras import Json, execute_values
 
@@ -157,7 +157,7 @@ def store_classification_result(
                 -- Each run processes its own batch of conversations for theme extraction.
                 pipeline_run_id = EXCLUDED.pipeline_run_id
             """, (
-                conversation_id, created_at, datetime.utcnow(),
+                conversation_id, created_at, datetime.now(timezone.utc),
                 source_body, source_type, source_url,
                 contact_email, contact_id,
                 issue_type, sentiment, churn_risk, priority,
@@ -246,7 +246,7 @@ def store_classification_results_batch(
                 rows.append((
                     r["conversation_id"],
                     r["created_at"],
-                    datetime.utcnow(),  # classified_at
+                    datetime.now(timezone.utc),  # classified_at
                     r.get("source_body"),
                     r.get("source_type"),
                     r.get("source_url"),
@@ -446,7 +446,7 @@ def get_classification_stats(days: int = 30) -> Dict[str, Any]:
 
 def main():
     """Test database storage."""
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     # Test data
     test_id = "test_conversation_001"
@@ -477,7 +477,7 @@ def main():
     print("Testing database storage...")
     store_classification_result(
         conversation_id=test_id,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         source_body="I want to cancel my subscription",
         source_type="conversation",
         source_url=None,

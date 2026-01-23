@@ -744,7 +744,12 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
 
         # Determine dual format settings from environment
         dual_format_enabled = os.environ.get("FEEDFORWARD_DUAL_FORMAT", "true").lower() == "true"
-        target_repo = os.environ.get("FEEDFORWARD_TARGET_REPO", "FeedForward")
+        # ⚠️  READ BEFORE CHANGING: target_repo MUST default to None.
+        # "FeedForward" is THIS repo (the pipeline itself), NOT a product repo.
+        # Valid product repos are in APPROVED_REPOS: aero, tack, charlotte, ghostwriter, zuck.
+        # When target_repo=None, the classifier dynamically suggests the right repo.
+        # Hardcoding "FeedForward" here breaks codebase exploration with a validation error.
+        target_repo = os.environ.get("FEEDFORWARD_TARGET_REPO") or None
 
         # PM Review settings
         pm_review_enabled = os.environ.get("PM_REVIEW_ENABLED", "true").lower() == "true"

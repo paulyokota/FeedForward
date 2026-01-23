@@ -14,8 +14,13 @@ API Documentation available at:
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
+
+# Load .env from project root so env vars like HYBRID_CLUSTERING_ENABLED are available
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routers import analytics, health, labels, pipeline, research, stories, sync, themes
