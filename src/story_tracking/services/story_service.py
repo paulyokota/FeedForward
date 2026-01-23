@@ -15,6 +15,7 @@ from uuid import UUID
 MAX_CODE_CONTEXT_SIZE = 1_000_000  # 1MB
 
 from ..models import (
+    ClusterMetadata,
     CodeContext,
     CodeContextClassification,
     CodeContextFile,
@@ -61,16 +62,22 @@ class StoryService:
                 truncated_context["code_snippets"] = []
                 code_context_json = json.dumps(truncated_context)
 
+        # Serialize cluster_metadata to JSON if present (#109)
+        cluster_metadata_json = None
+        if story.cluster_metadata is not None:
+            cluster_metadata_json = json.dumps(story.cluster_metadata)
+
         with self.db.cursor() as cur:
             cur.execute("""
                 INSERT INTO stories (
                     title, description, labels, priority, severity,
                     product_area, technical_area, status, confidence_score,
-                    code_context
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    code_context, grouping_method, cluster_id, cluster_metadata
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, title, description, labels, priority, severity,
                           product_area, technical_area, status, confidence_score,
                           code_context, evidence_count, conversation_count,
+                          grouping_method, cluster_id, cluster_metadata,
                           created_at, updated_at
             """, (
                 story.title,
@@ -83,6 +90,9 @@ class StoryService:
                 story.status,
                 story.confidence_score,
                 code_context_json,
+                story.grouping_method,
+                story.cluster_id,
+                cluster_metadata_json,
             ))
             row = cur.fetchone()
             return self._row_to_story(row)
@@ -95,6 +105,7 @@ class StoryService:
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
                        code_context, evidence_count, conversation_count,
+                       grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
                 WHERE id = %s
@@ -189,6 +200,16 @@ class StoryService:
                 code_context_json = json.dumps(truncated_context)
             update_fields.append("code_context = %s")
             values.append(code_context_json)
+        # Hybrid clustering fields (#109)
+        if updates.grouping_method is not None:
+            update_fields.append("grouping_method = %s")
+            values.append(updates.grouping_method)
+        if updates.cluster_id is not None:
+            update_fields.append("cluster_id = %s")
+            values.append(updates.cluster_id)
+        if updates.cluster_metadata is not None:
+            update_fields.append("cluster_metadata = %s")
+            values.append(json.dumps(updates.cluster_metadata))
 
         if not update_fields:
             # No fields to update, just return current story
@@ -204,6 +225,7 @@ class StoryService:
                 RETURNING id, title, description, labels, priority, severity,
                           product_area, technical_area, status, confidence_score,
                           code_context, evidence_count, conversation_count,
+                          grouping_method, cluster_id, cluster_metadata,
                           created_at, updated_at
             """, values)
             row = cur.fetchone()
@@ -262,6 +284,7 @@ class StoryService:
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
                        code_context, evidence_count, conversation_count,
+                       grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
                 {where_clause}
@@ -286,6 +309,7 @@ class StoryService:
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
                        code_context, evidence_count, conversation_count,
+                       grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
                 WHERE status = %s
@@ -301,6 +325,7 @@ class StoryService:
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
                        code_context, evidence_count, conversation_count,
+                       grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
                 ORDER BY confidence_score DESC NULLS LAST, updated_at DESC
@@ -326,6 +351,7 @@ class StoryService:
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
                        code_context, evidence_count, conversation_count,
+                       grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
                 WHERE title ILIKE %s OR description ILIKE %s
@@ -377,6 +403,7 @@ class StoryService:
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
                        code_context, evidence_count, conversation_count,
+                       grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
                 WHERE id = %s
@@ -388,6 +415,9 @@ class StoryService:
         """Convert database row to Story model."""
         # Parse code_context JSONB
         code_context = self._parse_code_context(row.get("code_context"))
+
+        # Parse cluster_metadata JSONB (#109)
+        cluster_metadata = self._parse_cluster_metadata(row.get("cluster_metadata"))
 
         return Story(
             id=row["id"],
@@ -403,9 +433,47 @@ class StoryService:
             code_context=code_context,
             evidence_count=row["evidence_count"],
             conversation_count=row["conversation_count"],
+            grouping_method=row.get("grouping_method", "signature"),
+            cluster_id=row.get("cluster_id"),
+            cluster_metadata=cluster_metadata,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
+
+    def _parse_cluster_metadata(self, raw_data) -> Optional[ClusterMetadata]:
+        """
+        Parse cluster_metadata JSONB from database into ClusterMetadata model.
+
+        Args:
+            raw_data: JSONB data from database (dict or str or None)
+
+        Returns:
+            ClusterMetadata model or None if no data
+        """
+        if raw_data is None:
+            return None
+
+        # Parse JSON string if needed
+        if isinstance(raw_data, str):
+            try:
+                raw_data = json.loads(raw_data)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse cluster_metadata JSON string")
+                return None
+
+        if not isinstance(raw_data, dict):
+            return None
+
+        try:
+            return ClusterMetadata(
+                embedding_cluster=raw_data.get("embedding_cluster", 0),
+                action_type=raw_data.get("action_type", "unknown"),
+                direction=raw_data.get("direction", "neutral"),
+                conversation_count=raw_data.get("conversation_count", 0),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to parse cluster_metadata: {e}")
+            return None
 
     def _parse_code_context(self, raw_data) -> Optional[CodeContext]:
         """
