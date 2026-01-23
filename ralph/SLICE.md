@@ -42,9 +42,10 @@ Done means:
 
 ### Phase 3: Integration (depends on Phase 2)
 
-- [ ] #108 Hybrid clustering algorithm: embeddings + facet sub-grouping
+- [x] #108 Hybrid clustering algorithm: embeddings + facet sub-grouping
   - Depends on: #103, #105, #106, #107, #89
   - Blocks: #109, #110
+  - **DONE**: PR #118 merged 2026-01-23
 - [ ] #109 Story creation: integrate hybrid cluster output
   - Depends on: #103, #108, #89, #104
   - Blocks: #110
@@ -54,7 +55,7 @@ Done means:
 
 ## Current Slice (Single Issue)
 
-- [ ] #108 Hybrid clustering algorithm: embeddings + facet sub-grouping
+- [ ] #109 Story creation: integrate hybrid cluster output
 
 ## Notes
 

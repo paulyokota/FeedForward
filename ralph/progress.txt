@@ -427,3 +427,68 @@
   - Direction facet enables sub-grouping of semantically similar but opposite issues
 - Unblocks: #108 (hybrid clustering algorithm)
 - Next Slice: #108 Hybrid clustering algorithm: embeddings + facet sub-grouping
+
+=== Slice Start: #108 Hybrid clustering algorithm: embeddings + facet sub-grouping ===
+- Date: 2026-01-22
+- Branch: ralph/m8-108-hybrid-clustering
+- Notes: Phase 3 cornerstone issue. Combines embedding similarity with facet sub-grouping.
+
+=== Iteration 1: Implementation Complete ===
+- Date: 2026-01-22
+- Changes:
+  1. Created src/services/hybrid_clustering_service.py
+     - HybridClusteringService with two-stage algorithm
+     - Stage 1: Agglomerative clustering on embeddings (cosine distance)
+     - Stage 2: Facet sub-grouping by action_type + direction within clusters
+     - T-006 validation: Separates "duplicate pins" (excess) vs "missing pins" (deficit)
+     - DEFAULT_DISTANCE_THRESHOLD = 0.5 (validated on 127 conversations)
+     - Memory complexity documented: O(n²) for distance matrix
+  2. Created tests/test_hybrid_clustering_service.py (31 tests)
+     - Embedding clustering tests
+     - Facet sub-grouping tests
+     - Error handling tests (DB errors, clustering exceptions)
+     - T-006 integration test
+- Test Results:
+  - All 31 tests PASSED
+  - Full backend suite: 1011 passed, 2 failed (pre-existing)
+- Commit: 8b4a68f
+- Push: Complete (branch: ralph/m8-108-hybrid-clustering)
+- PR URL: https://github.com/paulyokota/FeedForward/pull/118
+
+=== Iteration 2: PR + 5-Personality Review ===
+- Date: 2026-01-23
+- Review Round 1:
+  - Reginald: CHANGES_REQUESTED - CRITICAL (any → Any), HIGH (memory docs, zero vectors)
+  - Sanjay: APPROVE - 3 MEDIUM suggestions
+  - Quinn: CHANGES_REQUESTED - CRITICAL (DB failure tests), HIGH (malformed data tests)
+  - Dmitri: BLOCK - CRITICAL (unused ClusteredConversation dataclass)
+  - Maya: APPROVE - MEDIUM (any → Any type)
+- Fixes Applied (commit 29d89ba):
+  1. CRITICAL: Fixed any → Any type annotations
+  2. CRITICAL: Removed unused ClusteredConversation dataclass
+  3. HIGH: Added memory complexity documentation to docstring
+  4. HIGH: Added error handling tests (DB, clustering)
+- Review Round 2:
+  - Reginald: APPROVE - All issues resolved
+  - Sanjay: APPROVE - No new security concerns
+  - Quinn: BLOCK - Error tests validate crash, not graceful handling
+  - Dmitri: APPROVE - Dead code removed
+  - Maya: APPROVE - Type annotation fixed
+- Round 2 Fixes (commit a6ab840):
+  1. Added try-catch around DB calls in cluster_for_run()
+  2. Fixed DB error test to validate graceful handling
+  3. Fixed clustering exception test to mock _cluster_embeddings
+- Review Round 3:
+  - Quinn: APPROVE - All error handling issues resolved
+- Status: CONVERGED in 3 rounds
+- PR #118 MERGED (squash) to main
+
+=== Slice Complete: #108 ===
+- Date: 2026-01-23
+- Final Commit: 060ece7 (squash merge)
+- Summary: Hybrid clustering algorithm for story grouping
+  - Two-stage clustering: embeddings + facet sub-grouping
+  - Enables T-006 critical separation of opposite issues
+  - 31 tests with comprehensive error handling
+- Unblocks: #109 (integrate clustering into story creation)
+- Next Slice: Select from SLICE.md
