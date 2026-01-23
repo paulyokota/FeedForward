@@ -80,7 +80,11 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     exit 1
   fi
 
-  if grep -qiE "Rebasing|CONFLICT \(|merge conflict|not possible to fast-forward|could not apply" "$OUTPUT_FILE"; then
+  # Check for actual git conflicts using git ls-files -u (unmerged files)
+  # This is more reliable than grepping output for "CONFLICT" strings which
+  # can match SQL code like "ON CONFLICT" in migrations
+  if [ -n "$(git ls-files -u)" ]; then
+    # Unmerged files exist - real git conflict
     PREV_COUNT=0
     if [ -f "$REBASE_STATE_FILE" ]; then
       PREV_COUNT="$(cat "$REBASE_STATE_FILE" 2>/dev/null || echo 0)"
@@ -88,10 +92,13 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     COUNT=$((PREV_COUNT + 1))
     echo "$COUNT" > "$REBASE_STATE_FILE"
     if [ "$COUNT" -ge 2 ]; then
-      echo "❌ Rebase/pull failed in consecutive iterations. Stopping to avoid loop."
+      echo "❌ Git merge conflict detected in consecutive iterations. Stopping to avoid loop."
+      echo "   Unmerged files: $(git ls-files -u | awk '{print $4}' | sort -u | tr '\n' ' ')"
       exit 1
     fi
+    echo "⚠️  Git merge conflict detected (attempt $COUNT/2). Will retry once."
   else
+    # No conflicts - clear the counter
     rm -f "$REBASE_STATE_FILE"
   fi
 
