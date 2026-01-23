@@ -70,6 +70,27 @@ BEFORE these actions, STOP and answer:
 | **PR with prompt/pipeline changes** | Functional test run and verified?     | Run test, attach evidence   |
 | **Executing architect output**      | Is it deleting code not in scope?     | Flag for user approval      |
 | **Session ending**                  | BACKLOG_FLAGs to file? TODOs in code? | Review and file issues      |
+| **Running pipeline**                | Pre-flight passed? (see below)        | Run pre-flight first        |
+
+### Pipeline Pre-Flight (MANDATORY)
+
+**Pipeline runs are EXPENSIVE.** Before ANY pipeline execution:
+
+```bash
+# 1. Am I running the RIGHT thing?
+#    - two_stage_pipeline.py = ONLY classification
+#    - Full pipeline = POST /api/pipeline/run
+
+# 2. Pre-flight check (run this EVERY TIME):
+echo "=== PIPELINE PRE-FLIGHT ===" && \
+curl -s "http://localhost:8000/api/pipeline/active" && echo "" && \
+git log --oneline -1 && \
+ps aux | grep "uvicorn.*8000" | grep -v grep | awk '{print "Server PID:", $2, "Started:", $9}'
+
+# 3. If commit timestamp > server start time → RESTART SERVER
+```
+
+**Lesson learned (2026-01-23):** Two wasted runs - wrong command, then stale server code.
 
 ---
 

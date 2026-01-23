@@ -94,6 +94,44 @@ When implementing backend features:
 4. Handle partial failures gracefully
 5. Log progress for monitoring
 
+### BEFORE Running Any Pipeline (MANDATORY PRE-FLIGHT)
+
+**Pipeline runs are EXPENSIVE. Time is the limited resource. DO NOT skip these checks.**
+
+⚠️ **STOP** before triggering ANY pipeline execution and verify:
+
+1. **Am I running the RIGHT thing?**
+   - `two_stage_pipeline.py` = ONLY classification (NOT full pipeline)
+   - Full pipeline = API endpoint: `POST /api/pipeline/run`
+   - If confused, check `docs/architecture.md` for pipeline stages
+
+2. **Is the server running CURRENT code?**
+
+   ```bash
+   # Check server start time
+   ps aux | grep "uvicorn src.api.main" | grep -v grep
+   # Check last commit time
+   git log --oneline -1
+   # If commit is AFTER server start → RESTART SERVER FIRST
+   ```
+
+3. **Is there already an active run?**
+
+   ```bash
+   curl -s "http://localhost:8000/api/pipeline/active"
+   ```
+
+4. **Validation command (run this, don't skip):**
+   ```bash
+   # Pre-flight check - copy/paste this before any pipeline run
+   echo "=== PIPELINE PRE-FLIGHT ===" && \
+   curl -s "http://localhost:8000/api/pipeline/active" && \
+   echo "" && git log --oneline -1 && \
+   ps aux | grep "uvicorn.*8000" | grep -v grep | awk '{print "Server started:", $9}'
+   ```
+
+**Why this matters:** Two wasted runs in one session (Jan 23, 2026) - ran wrong command, then ran before server restart. Each run costs ~3 minutes + pollutes data.
+
 ### For Story Creation Service Changes
 
 **CRITICAL PATTERN** (learned from PR #120 bug):
