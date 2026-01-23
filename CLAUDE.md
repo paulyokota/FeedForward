@@ -279,14 +279,28 @@ pytest tests/ -v
 
 ## Slash Commands
 
-| Command                       | Purpose                                            |
-| ----------------------------- | -------------------------------------------------- |
-| `/update-docs`                | Update all project docs after making changes       |
-| `/session-end [summary]`      | End-of-session cleanup, status update, and commit  |
-| `/create-issues [source]`     | Generate GitHub Issues from spec, file, or prompt  |
-| `/prompt-iteration [version]` | Log new classification prompt version with metrics |
-| `/voice [message]`            | Start voice mode with relaxed silence detection    |
-| `/voice-stop`                 | End voice mode and return to text                  |
+| Command                       | Purpose                                                              |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `/checkpoint`                 | **USE OFTEN** - Four-question verification before action (see below) |
+| `/update-docs`                | Update all project docs after making changes                         |
+| `/session-end [summary]`      | End-of-session cleanup, status update, and commit                    |
+| `/create-issues [source]`     | Generate GitHub Issues from spec, file, or prompt                    |
+| `/prompt-iteration [version]` | Log new classification prompt version with metrics                   |
+| `/voice [message]`            | Start voice mode with relaxed silence detection                      |
+| `/voice-stop`                 | End voice mode and return to text                                    |
+
+### /checkpoint - The Four Questions
+
+Invoke `/checkpoint` at task start, after compaction, or when sensing drift. Forces verification before action.
+
+| Question       | What to answer                                           |
+| -------------- | -------------------------------------------------------- |
+| **PERMISSION** | Did user ask to DO or UNDERSTAND? If unclear, ask.       |
+| **VERIFIED**   | What am I assuming? Have I checked schema/callers/files? |
+| **VALUE**      | Does this help the GOAL or just move a METRIC?           |
+| **RECOVERY**   | If wrong, can we recover? If not, confirm with user.     |
+
+**This skill exists because of 17+ logged violations.** See `.claude/skills/checkpoint/SKILL.md` for full protocol.
 
 ---
 
@@ -294,11 +308,12 @@ pytest tests/ -v
 
 Auto-invoked skills that handle FeedForward-specific tasks. Claude decides when to use them based on context.
 
-| Skill                  | Purpose                                         | Location                               |
-| ---------------------- | ----------------------------------------------- | -------------------------------------- |
-| `prompt-tester`        | Tests classification prompts, measures accuracy | `.claude/skills/prompt-tester/`        |
-| `schema-validator`     | Validates Pydantic/DB/LLM schema consistency    | `.claude/skills/schema-validator/`     |
-| `escalation-validator` | Validates escalation rules and edge cases       | `.claude/skills/escalation-validator/` |
+| Skill                  | Purpose                                            | Location                               |
+| ---------------------- | -------------------------------------------------- | -------------------------------------- |
+| `checkpoint`           | **User-invoked** - Four-question verification gate | `.claude/skills/checkpoint/`           |
+| `prompt-tester`        | Tests classification prompts, measures accuracy    | `.claude/skills/prompt-tester/`        |
+| `schema-validator`     | Validates Pydantic/DB/LLM schema consistency       | `.claude/skills/schema-validator/`     |
+| `escalation-validator` | Validates escalation rules and edge cases          | `.claude/skills/escalation-validator/` |
 
 ---
 
