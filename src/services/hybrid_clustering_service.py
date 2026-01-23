@@ -28,7 +28,7 @@ Dependencies:
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering
@@ -43,19 +43,6 @@ logger = logging.getLogger(__name__)
 # Default clustering parameters (validated in prototype on 127 conversations)
 DEFAULT_DISTANCE_THRESHOLD = 0.5
 DEFAULT_LINKAGE = "average"
-
-
-@dataclass
-class ClusteredConversation:
-    """A conversation with its embedding cluster and facet sub-group assignments."""
-
-    conversation_id: str
-    embedding_cluster: int  # Stage 1 cluster assignment
-    facet_key: str  # Stage 2 sub-group key: "action_type | direction"
-    action_type: str
-    direction: str
-    symptom: Optional[str] = None
-    user_goal: Optional[str] = None
 
 
 @dataclass
@@ -230,6 +217,12 @@ class HybridClusteringService:
 
         Returns:
             Array of cluster labels (one per conversation)
+
+        Performance Notes:
+            - Memory: O(n²) due to precomputed distance matrix
+            - 10k conversations: ~800 MB peak memory
+            - 100k+ conversations: Consider batching or alternative algorithms
+            - Validated on 127 conversations (prototype dataset)
         """
         if len(embeddings) < 2:
             # Single conversation gets its own cluster
@@ -336,8 +329,8 @@ class HybridClusteringService:
 
     def cluster_with_data(
         self,
-        embeddings: List[Dict[str, any]],
-        facets: List[Dict[str, any]],
+        embeddings: List[Dict[str, Any]],
+        facets: List[Dict[str, Any]],
     ) -> ClusteringResult:
         """
         Run hybrid clustering with provided data (for testing or batch processing).
