@@ -496,6 +496,374 @@ class StoryCreationService:
 
         return result
 
+    def process_hybrid_clusters(
+        self,
+        clustering_result: Any,  # ClusteringResult from hybrid_clustering_service
+        conversation_data: Dict[str, Dict[str, Any]],
+        pipeline_run_id: Optional[int] = None,
+    ) -> ProcessingResult:
+        """
+        Process hybrid cluster output to create stories and orphans.
+
+        This is the new entry point for #109 hybrid clustering integration.
+        Replaces signature-based grouping with embedding + facet clustering.
+
+        Args:
+            clustering_result: ClusteringResult from HybridClusteringService containing:
+                - clusters: List[HybridCluster] with cluster_id, action_type,
+                  direction, and conversation_ids
+                - fallback_conversations: List of conversation IDs missing data
+            conversation_data: Dict mapping conversation_id -> conversation dict
+                with fields: product_area, component, user_intent, symptoms,
+                affected_flow, excerpt
+            pipeline_run_id: Optional pipeline run ID to link stories to
+
+        Returns:
+            ProcessingResult with counts and any errors
+        """
+        result = ProcessingResult()
+
+        if not clustering_result.success:
+            for error in clustering_result.errors:
+                result.errors.append(f"Clustering error: {error}")
+            logger.error(
+                f"Hybrid clustering failed with {len(clustering_result.errors)} errors"
+            )
+            return result
+
+        logger.info(
+            f"Processing {len(clustering_result.clusters)} hybrid clusters "
+            f"({clustering_result.total_conversations} conversations)"
+        )
+
+        # Process each hybrid cluster
+        for cluster in clustering_result.clusters:
+            try:
+                self._process_hybrid_cluster(
+                    cluster=cluster,
+                    conversation_data=conversation_data,
+                    result=result,
+                    pipeline_run_id=pipeline_run_id,
+                )
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception as e:
+                error_msg = f"Error processing cluster '{cluster.cluster_id}': {e}"
+                logger.error(error_msg)
+                result.errors.append(error_msg)
+
+        # Handle fallback conversations (missing embeddings/facets)
+        if clustering_result.fallback_conversations:
+            logger.info(
+                f"Processing {len(clustering_result.fallback_conversations)} "
+                "fallback conversations"
+            )
+            self._process_fallback_conversations(
+                conversation_ids=clustering_result.fallback_conversations,
+                conversation_data=conversation_data,
+                result=result,
+                pipeline_run_id=pipeline_run_id,
+            )
+
+        logger.info(
+            f"Processed hybrid clusters: {result.stories_created} stories created, "
+            f"{result.orphans_created} orphans created, "
+            f"{result.orphans_updated} orphans updated"
+        )
+
+        return result
+
+    def _process_hybrid_cluster(
+        self,
+        cluster: Any,  # HybridCluster from hybrid_clustering_service
+        conversation_data: Dict[str, Dict[str, Any]],
+        result: ProcessingResult,
+        pipeline_run_id: Optional[int] = None,
+    ) -> None:
+        """
+        Process a single hybrid cluster to create story or orphan.
+
+        Args:
+            cluster: HybridCluster with cluster_id, action_type, direction,
+                    embedding_cluster, and conversation_ids
+            conversation_data: Dict mapping conversation_id -> conversation dict
+            result: ProcessingResult to update
+            pipeline_run_id: Optional pipeline run ID
+        """
+        # Build conversation list for this cluster
+        conversations = []
+        conv_dicts = []
+        for conv_id in cluster.conversation_ids:
+            conv_dict = conversation_data.get(conv_id)
+            if conv_dict:
+                conv_dicts.append(conv_dict)
+                conversations.append(
+                    self._dict_to_conversation_data(conv_dict, cluster.cluster_id)
+                )
+            else:
+                logger.warning(
+                    f"Conversation {conv_id} not found in conversation_data "
+                    f"for cluster {cluster.cluster_id}"
+                )
+
+        if not conversations:
+            logger.warning(f"No valid conversations for cluster {cluster.cluster_id}")
+            return
+
+        # Apply quality gates (same as signature-based flow)
+        gate_result = self._apply_quality_gates(
+            cluster.cluster_id, conversations, conv_dicts
+        )
+
+        if not gate_result.passed:
+            # Route to orphan integration
+            self._route_to_orphan_integration(
+                signature=cluster.cluster_id,
+                conversations=conversations,
+                failure_reason=gate_result.failure_reason or "Quality gate failed",
+                result=result,
+            )
+            result.quality_gate_rejections += 1
+            return
+
+        # Skip PM review for hybrid clusters - clustering already ensures coherence
+        # by grouping by action_type + direction within semantic clusters
+        result.pm_review_skipped += 1
+
+        # Check minimum group size
+        if len(conversations) < MIN_GROUP_SIZE:
+            self._route_to_orphan_integration(
+                signature=cluster.cluster_id,
+                conversations=conversations,
+                failure_reason=f"Cluster has {len(conversations)} conversations (min: {MIN_GROUP_SIZE})",
+                result=result,
+            )
+            return
+
+        # Create story from hybrid cluster
+        self._create_story_from_hybrid_cluster(
+            cluster=cluster,
+            conversations=conversations,
+            result=result,
+            pipeline_run_id=pipeline_run_id,
+            confidence_score=gate_result.confidence_score,
+        )
+
+    def _create_story_from_hybrid_cluster(
+        self,
+        cluster: Any,  # HybridCluster
+        conversations: List["ConversationData"],
+        result: ProcessingResult,
+        pipeline_run_id: Optional[int] = None,
+        confidence_score: Optional[float] = None,
+    ) -> None:
+        """
+        Create a story from a hybrid cluster.
+
+        Generates title from facet data and sample conversations.
+        Stores cluster metadata for audit/tracing.
+
+        Args:
+            cluster: HybridCluster with action_type, direction, etc.
+            conversations: List of ConversationData objects
+            result: ProcessingResult to update
+            pipeline_run_id: Optional pipeline run ID
+            confidence_score: Optional confidence score from quality gates
+        """
+        # Build theme data from conversations
+        theme_data = self._build_theme_data(conversations)
+
+        # Generate title from cluster facets + theme data
+        title = self._generate_hybrid_cluster_title(cluster, theme_data)
+
+        # Build cluster metadata for storage
+        cluster_metadata = {
+            "embedding_cluster": cluster.embedding_cluster,
+            "action_type": cluster.action_type,
+            "direction": cluster.direction,
+            "conversation_count": len(conversations),
+        }
+
+        # Generate description
+        description = self._generate_hybrid_cluster_description(
+            cluster=cluster,
+            theme_data=theme_data,
+        )
+
+        # Explore codebase with classification (Issue #44)
+        code_context = None
+        if self.dual_format_enabled:
+            code_context = self._explore_codebase_with_classification(theme_data)
+
+        # Create story with hybrid cluster metadata
+        story = self.story_service.create(StoryCreate(
+            title=title,
+            description=description,
+            labels=[],
+            confidence_score=confidence_score,
+            product_area=theme_data.get("product_area"),
+            technical_area=theme_data.get("component"),
+            status="candidate",
+            code_context=code_context,
+            # Hybrid clustering fields (#109)
+            grouping_method="hybrid_cluster",
+            cluster_id=cluster.cluster_id,
+            cluster_metadata=cluster_metadata,
+        ))
+
+        result.stories_created += 1
+        result.created_story_ids.append(story.id)
+
+        # Link to pipeline run if provided
+        if pipeline_run_id is not None:
+            if not self._link_story_to_pipeline_run(story.id, pipeline_run_id):
+                result.errors.append(
+                    f"Story {story.id} created but failed to link to pipeline run {pipeline_run_id}"
+                )
+
+        # Create evidence bundle
+        if self.evidence_service:
+            if not self._create_evidence_for_story(
+                story_id=story.id,
+                signature=cluster.cluster_id,
+                conversations=conversations,
+                theme_data=theme_data,
+            ):
+                result.errors.append(
+                    f"Story {story.id} created but failed to create evidence bundle"
+                )
+
+        logger.info(
+            f"Created hybrid cluster story {story.id}: '{title}' "
+            f"(cluster={cluster.cluster_id}, {len(conversations)} conversations)"
+        )
+
+    def _generate_hybrid_cluster_title(
+        self,
+        cluster: Any,  # HybridCluster
+        theme_data: Dict[str, Any],
+    ) -> str:
+        """
+        Generate story title from hybrid cluster data.
+
+        Strategy:
+        1. If user_intent available and meaningful, use it
+        2. Otherwise, generate from action_type + direction + symptoms
+
+        Args:
+            cluster: HybridCluster with action_type, direction
+            theme_data: Aggregated theme data from conversations
+
+        Returns:
+            Human-readable story title
+        """
+        # Try user_intent first
+        user_intent = theme_data.get("user_intent")
+        if user_intent and len(user_intent.strip()) > MIN_USER_INTENT_LENGTH:
+            return _truncate_at_word_boundary(user_intent.strip(), MAX_TITLE_LENGTH)
+
+        # Build title from facets
+        action_type = cluster.action_type.replace("_", " ").title()
+        direction = cluster.direction.replace("_", " ")
+
+        # Add symptom context if available
+        symptoms = theme_data.get("symptoms", [])
+        if symptoms:
+            symptom_hint = symptoms[0][:50]  # First symptom, truncated
+            title = f"{action_type}: {symptom_hint}"
+        else:
+            # Fallback to action + direction
+            if direction and direction != "neutral":
+                title = f"{action_type} ({direction})"
+            else:
+                title = action_type
+
+        return _truncate_at_word_boundary(title, MAX_TITLE_LENGTH)
+
+    def _generate_hybrid_cluster_description(
+        self,
+        cluster: Any,  # HybridCluster
+        theme_data: Dict[str, Any],
+    ) -> str:
+        """
+        Generate story description from hybrid cluster data.
+
+        Includes facet information and aggregated conversation data.
+
+        Args:
+            cluster: HybridCluster with action_type, direction
+            theme_data: Aggregated theme data from conversations
+
+        Returns:
+            Markdown-formatted story description
+        """
+        parts = []
+
+        # Cluster facet info
+        parts.append(f"**Action Type**: {cluster.action_type}")
+        parts.append(f"**Direction**: {cluster.direction}")
+
+        # Theme data
+        if user_intent := theme_data.get("user_intent"):
+            parts.append(f"\n**User Intent**: {user_intent}")
+
+        if symptoms := theme_data.get("symptoms"):
+            parts.append(f"**Symptoms**: {', '.join(symptoms[:MAX_SYMPTOMS_IN_DESCRIPTION])}")
+
+        if product_area := theme_data.get("product_area"):
+            parts.append(f"**Product Area**: {product_area}")
+
+        if component := theme_data.get("component"):
+            parts.append(f"**Component**: {component}")
+
+        if affected_flow := theme_data.get("affected_flow"):
+            parts.append(f"**Affected Flow**: {affected_flow}")
+
+        # Cluster metadata
+        parts.append(f"\n*Cluster ID*: `{cluster.cluster_id}`")
+        parts.append(f"*Grouping Method*: `hybrid_cluster`")
+
+        return "\n\n".join(parts)
+
+    def _process_fallback_conversations(
+        self,
+        conversation_ids: List[str],
+        conversation_data: Dict[str, Dict[str, Any]],
+        result: ProcessingResult,
+        pipeline_run_id: Optional[int] = None,
+    ) -> None:
+        """
+        Process fallback conversations (missing embeddings/facets).
+
+        Routes these to orphan integration since they couldn't be clustered.
+
+        Args:
+            conversation_ids: List of conversation IDs without embeddings/facets
+            conversation_data: Dict mapping conversation_id -> conversation dict
+            result: ProcessingResult to update
+            pipeline_run_id: Optional pipeline run ID
+        """
+        for conv_id in conversation_ids:
+            conv_dict = conversation_data.get(conv_id)
+            if not conv_dict:
+                logger.warning(f"Fallback conversation {conv_id} not found in data")
+                continue
+
+            # Use the issue_signature from theme extraction as the orphan signature
+            signature = conv_dict.get("issue_signature", f"fallback_{conv_id}")
+
+            try:
+                conversation = self._dict_to_conversation_data(conv_dict, signature)
+                self._route_to_orphan_integration(
+                    signature=signature,
+                    conversations=[conversation],
+                    failure_reason="Missing embeddings/facets for clustering",
+                    result=result,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to process fallback conversation {conv_id}: {e}")
+                result.errors.append(f"Fallback conversation {conv_id} error: {e}")
+
     def _apply_quality_gates(
         self,
         signature: str,

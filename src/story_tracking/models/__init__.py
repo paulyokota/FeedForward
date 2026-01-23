@@ -114,6 +114,10 @@ class StoryCreate(StoryBase):
 
     confidence_score: Optional[float] = None
     code_context: Optional[Dict[str, Any]] = None  # JSONB for code exploration results
+    # Hybrid clustering fields (#109)
+    grouping_method: str = "signature"  # "signature" or "hybrid_cluster"
+    cluster_id: Optional[str] = None  # Format: emb_{n}_facet_{action_type}_{direction}
+    cluster_metadata: Optional[Dict[str, Any]] = None  # Facet info for hybrid clusters
 
 
 class StoryUpdate(BaseModel):
@@ -129,6 +133,18 @@ class StoryUpdate(BaseModel):
     status: Optional[str] = None
     confidence_score: Optional[float] = None
     code_context: Optional[Dict[str, Any]] = None
+    grouping_method: Optional[str] = None
+    cluster_id: Optional[str] = None
+    cluster_metadata: Optional[Dict[str, Any]] = None
+
+
+class ClusterMetadata(BaseModel):
+    """Metadata about hybrid cluster that generated a story."""
+
+    embedding_cluster: int
+    action_type: str
+    direction: str
+    conversation_count: int = 0
 
 
 class Story(StoryBase):
@@ -141,6 +157,10 @@ class Story(StoryBase):
     code_context: Optional[CodeContext] = None
     evidence_count: int = 0
     conversation_count: int = 0
+    # Hybrid clustering fields (#109)
+    grouping_method: str = "signature"
+    cluster_id: Optional[str] = None
+    cluster_metadata: Optional[ClusterMetadata] = None
     created_at: datetime
     updated_at: datetime
 

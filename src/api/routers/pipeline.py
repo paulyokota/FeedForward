@@ -663,10 +663,18 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
 
 def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bool]) -> dict:
     """
-    Run PM review on theme groups and create stories.
+    Run story creation from theme groups, optionally using hybrid clustering.
+
+    When HYBRID_CLUSTERING_ENABLED=true (default: true):
+    - Uses HybridClusteringService to group conversations by embedding + facets
+    - Groups by semantic similarity + action_type/direction for coherent stories
+    - Falls back to signature-based grouping if clustering fails
+
+    When HYBRID_CLUSTERING_ENABLED=false:
+    - Uses legacy signature-based grouping
+    - PM review evaluates group coherence (if enabled)
 
     Uses StoryCreationService for proper story/orphan handling with:
-    - PM review split/keep logic (future: when PM review is enabled)
     - Evidence bundle creation
     - Proper orphan lifecycle via OrphanService
 
@@ -676,9 +684,14 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
     from src.db.connection import get_connection
     from psycopg2.extras import RealDictCursor
 
-    logger.info(f"Run {run_id}: Starting PM review and story creation")
+    logger.info(f"Run {run_id}: Starting story creation")
 
-    # Get themes from this run grouped by signature
+    # Check if hybrid clustering is enabled (default: true for #109)
+    hybrid_clustering_enabled = os.environ.get(
+        "HYBRID_CLUSTERING_ENABLED", "true"
+    ).lower() == "true"
+
+    # Get themes from this run
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
@@ -697,30 +710,32 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         logger.info(f"Run {run_id}: No themes to create stories from")
         return {"stories_created": 0, "orphans_created": 0}
 
-    # Group by signature (same format as before)
+    # Build conversation data lookup (needed for both paths)
+    conversation_data: dict[str, dict] = {}
     groups: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
-        groups[row["issue_signature"]].append({
+        conv_dict = {
             "id": row["conversation_id"],
+            "issue_signature": row["issue_signature"],
             "product_area": row["product_area"],
             "component": row["component"],
             "user_intent": row["user_intent"],
             "symptoms": row["symptoms"],
             "affected_flow": row["affected_flow"],
             "excerpt": (row["source_body"] or "")[:500],
-        })
+        }
+        conversation_data[row["conversation_id"]] = conv_dict
+        groups[row["issue_signature"]].append(conv_dict)
 
     logger.info(
         f"Run {run_id}: {len(groups)} theme groups, "
-        f"{sum(len(v) for v in groups.values())} total conversations"
+        f"{len(conversation_data)} conversations"
     )
 
     if stop_checker():
         return {"stories_created": 0, "orphans_created": 0}
 
-    # Initialize services and process through StoryCreationService
-    # Set cursor_factory at connection level so all cursors return dicts
-    # (services use row["field"] access pattern)
+    # Initialize services
     with get_connection() as conn:
         conn.cursor_factory = RealDictCursor
         story_service = StoryService(conn)
@@ -731,14 +746,12 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         dual_format_enabled = os.environ.get("FEEDFORWARD_DUAL_FORMAT", "false").lower() == "true"
         target_repo = os.environ.get("FEEDFORWARD_TARGET_REPO", "FeedForward")
 
-        # PM Review settings (Improvement 2: PM Review Before Story Creation)
-        # PM_REVIEW_ENABLED: Controls PM coherence review before story creation.
-        # When enabled, theme groups are evaluated by an LLM to ensure all conversations
-        # would be fixed by the same implementation (SAME_FIX test). Default: enabled.
+        # PM Review settings (only used for signature-based grouping)
         pm_review_enabled = os.environ.get("PM_REVIEW_ENABLED", "true").lower() == "true"
         pm_review_service = None
 
-        if pm_review_enabled:
+        # Only initialize PM review for signature-based path
+        if not hybrid_clustering_enabled and pm_review_enabled:
             try:
                 from src.story_tracking.services.pm_review_service import PMReviewService
                 pm_review_service = PMReviewService()
@@ -754,10 +767,39 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             dual_format_enabled=dual_format_enabled,
             target_repo=target_repo,
             pm_review_service=pm_review_service,
-            pm_review_enabled=pm_review_enabled,
+            pm_review_enabled=pm_review_enabled and not hybrid_clustering_enabled,
         )
 
-        # Process all theme groups through the service
+        # Try hybrid clustering if enabled
+        if hybrid_clustering_enabled:
+            result = _try_hybrid_clustering_story_creation(
+                run_id=run_id,
+                conversation_data=conversation_data,
+                story_creation_service=story_creation_service,
+            )
+
+            # If clustering succeeded, use those results
+            if result is not None:
+                logger.info(
+                    f"Run {run_id}: Hybrid clustering created {result.stories_created} stories, "
+                    f"{result.orphans_created} orphans"
+                )
+                return {
+                    "stories_created": result.stories_created,
+                    "orphans_created": result.orphans_created,
+                    "grouping_method": "hybrid_cluster",
+                    "pm_review_splits": result.pm_review_splits,
+                    "pm_review_rejects": result.pm_review_rejects,
+                    "pm_review_kept": result.pm_review_kept,
+                    "pm_review_skipped": result.pm_review_skipped,
+                }
+
+            # Fall back to signature-based if clustering failed
+            logger.warning(
+                f"Run {run_id}: Hybrid clustering failed, falling back to signature-based grouping"
+            )
+
+        # Signature-based grouping (legacy path)
         result = story_creation_service.process_theme_groups(
             theme_groups=groups,
             pipeline_run_id=run_id,
@@ -774,11 +816,80 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
     return {
         "stories_created": result.stories_created,
         "orphans_created": result.orphans_created,
+        "grouping_method": "signature",
         "pm_review_splits": result.pm_review_splits,
         "pm_review_rejects": result.pm_review_rejects,
         "pm_review_kept": result.pm_review_kept,
         "pm_review_skipped": result.pm_review_skipped,
     }
+
+
+def _try_hybrid_clustering_story_creation(
+    run_id: int,
+    conversation_data: dict[str, dict],
+    story_creation_service: "StoryCreationService",
+) -> Optional["ProcessingResult"]:
+    """
+    Attempt hybrid clustering story creation.
+
+    Uses HybridClusteringService to cluster conversations by embedding + facets,
+    then creates stories from the resulting clusters.
+
+    Args:
+        run_id: Pipeline run ID
+        conversation_data: Dict mapping conversation_id -> conversation dict
+        story_creation_service: StoryCreationService instance
+
+    Returns:
+        ProcessingResult if successful, None if clustering failed/unavailable
+    """
+    try:
+        from src.services.hybrid_clustering_service import HybridClusteringService
+
+        # Get conversation IDs from this pipeline run
+        conversation_ids = list(conversation_data.keys())
+
+        if not conversation_ids:
+            logger.warning(f"Run {run_id}: No conversation IDs for hybrid clustering")
+            return None
+
+        # Run hybrid clustering
+        clustering_service = HybridClusteringService()
+        clustering_result = clustering_service.cluster_conversations(
+            conversation_ids=conversation_ids,
+            pipeline_run_id=run_id,
+        )
+
+        if not clustering_result.success:
+            logger.warning(
+                f"Run {run_id}: Hybrid clustering failed: {clustering_result.errors}"
+            )
+            return None
+
+        if not clustering_result.clusters:
+            logger.info(f"Run {run_id}: Hybrid clustering produced no clusters")
+            return None
+
+        logger.info(
+            f"Run {run_id}: Hybrid clustering produced {len(clustering_result.clusters)} clusters "
+            f"with {clustering_result.total_conversations} conversations"
+        )
+
+        # Process clusters through StoryCreationService
+        result = story_creation_service.process_hybrid_clusters(
+            clustering_result=clustering_result,
+            conversation_data=conversation_data,
+            pipeline_run_id=run_id,
+        )
+
+        return result
+
+    except ImportError as e:
+        logger.warning(f"Run {run_id}: HybridClusteringService not available: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Run {run_id}: Hybrid clustering error: {e}")
+        return None
 
 
 def _run_pipeline_task(
