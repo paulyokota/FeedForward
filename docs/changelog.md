@@ -32,6 +32,24 @@ Format: [ISO Date] - Summary of changes
 
 ### Fixed
 
+**Critical Hybrid Clustering Bugs (2026-01-22)** - Commit d88624d:
+
+- **Conversations stuck on first run**: Removed `COALESCE(pipeline_run_id)` wrapper that prevented re-classification
+  - Root cause: Conversations stayed linked to first run (e.g., run 45), so runs 46-50 had 0 linked conversations
+  - Impact: Embedding/facet/theme phases found nothing (query by `pipeline_run_id = current_run`)
+  - Fix: Update `pipeline_run_id` to current run on re-classification in `classification_storage.py`
+- **Hybrid clustering never ran**: Fixed wrong method call `cluster_conversations()` → `cluster_for_run()`
+  - Root cause: Method doesn't exist, silent failure via try/except, fell back to signature grouping
+  - Fix: Call correct method name in `pipeline.py` line 851
+- **PM review disabled for hybrid clusters**: Removed `and not hybrid_clustering_enabled` gate
+  - Root cause: Line 770 disabled PM review when hybrid clustering enabled
+  - Impact: Run 54 grouped 5 unrelated bugs in one story (images, credits, billing, scheduler)
+  - Fix: Enable PM review for both signature and hybrid clustering paths
+- **Classification hangs and crashes**: Added 30s timeout + exception handling
+  - Root cause: No timeout on OpenAI API calls → infinite hang (run 48)
+  - Root cause: No `return_exceptions=True` in `asyncio.gather()` → silent crash (run 48)
+  - Fix: Add `asyncio.wait_for(..., timeout=30.0)` and `return_exceptions=True` in `two_stage_pipeline.py`
+
 **Duplicate Conversation Assignment Bug (2026-01-22)**:
 
 - Fixed bug where PM review splits could assign same conversation to multiple stories
