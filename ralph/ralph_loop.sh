@@ -80,7 +80,7 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     exit 1
   fi
 
-  if grep -qiE "Rebasing|CONFLICT|not possible to fast-forward|could not apply" "$OUTPUT_FILE"; then
+  if grep -qiE "Rebasing|CONFLICT \(|merge conflict|not possible to fast-forward|could not apply" "$OUTPUT_FILE"; then
     PREV_COUNT=0
     if [ -f "$REBASE_STATE_FILE" ]; then
       PREV_COUNT="$(cat "$REBASE_STATE_FILE" 2>/dev/null || echo 0)"
