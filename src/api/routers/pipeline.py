@@ -906,7 +906,7 @@ def _run_pipeline_task(
     """
     import asyncio
     from src.db.connection import get_connection
-    from src.two_stage_pipeline import run_pipeline_async
+    from src.classification_pipeline import run_pipeline_async
 
     try:
         _active_runs[run_id] = "running"

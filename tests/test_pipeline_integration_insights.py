@@ -15,7 +15,7 @@ import sys
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from two_stage_pipeline import (
+from classification_pipeline import (
     detect_resolution_signal,
     get_full_resolution_analysis,
     extract_knowledge,
@@ -99,7 +99,7 @@ class TestGetFullResolutionAnalysis:
             "I've processed your refund and it should appear in 3-5 business days."
         ]
 
-        with patch('two_stage_pipeline.get_resolution_analyzer') as mock_get_analyzer:
+        with patch('classification_pipeline.get_resolution_analyzer') as mock_get_analyzer:
             # Mock the analyzer
             mock_analyzer = Mock()
             mock_analyzer.analyze_conversation.return_value = {
@@ -145,7 +145,7 @@ class TestGetFullResolutionAnalysis:
         """Verify handling when no actions detected."""
         support_messages = ["Thanks for reaching out!"]
 
-        with patch('two_stage_pipeline.get_resolution_analyzer') as mock_get_analyzer:
+        with patch('classification_pipeline.get_resolution_analyzer') as mock_get_analyzer:
             mock_analyzer = Mock()
             mock_analyzer.analyze_conversation.return_value = {
                 "primary_action": None,
@@ -182,7 +182,7 @@ class TestExtractKnowledge:
             "I've gone ahead and initialized that cancellation for you."
         ]
 
-        with patch('two_stage_pipeline.get_knowledge_extractor') as mock_get_extractor:
+        with patch('classification_pipeline.get_knowledge_extractor') as mock_get_extractor:
             mock_extractor = Mock()
             mock_extractor.extract_from_conversation.return_value = {
                 "conversation_type": "billing_question",
@@ -231,7 +231,7 @@ class TestExtractKnowledge:
             "You can reset your password by visiting the login page and clicking 'Forgot Password'."
         ]
 
-        with patch('two_stage_pipeline.get_knowledge_extractor') as mock_get_extractor:
+        with patch('classification_pipeline.get_knowledge_extractor') as mock_get_extractor:
             mock_extractor = Mock()
             mock_extractor.extract_from_conversation.return_value = {
                 "conversation_type": "how_to_question",
@@ -265,7 +265,7 @@ class TestSupportInsightsIntegration:
 
     def test_support_insights_structure_with_messages(self):
         """Verify support_insights structure when support messages exist."""
-        from two_stage_pipeline import extract_support_messages
+        from classification_pipeline import extract_support_messages
 
         # Test extract_support_messages helper
         raw_conversation = {
@@ -299,7 +299,7 @@ class TestSupportInsightsIntegration:
 
     def test_support_insights_structure_no_messages(self):
         """Verify support_insights handling when no support messages."""
-        from two_stage_pipeline import extract_support_messages
+        from classification_pipeline import extract_support_messages
 
         raw_conversation = {
             "conversation_parts": {
@@ -365,7 +365,7 @@ class TestSupportInsightsIntegration:
             }
         }
 
-        from two_stage_pipeline import extract_support_messages
+        from classification_pipeline import extract_support_messages
         messages = extract_support_messages(raw_conversation)
 
         # Should only extract admin and bot comments (not notes, not user)
@@ -484,7 +484,7 @@ class TestHelperEdgeCases:
             "I've created a ticket for engineering and sent you the help doc."
         ]
 
-        with patch('two_stage_pipeline.get_resolution_analyzer') as mock_get_analyzer:
+        with patch('classification_pipeline.get_resolution_analyzer') as mock_get_analyzer:
             mock_analyzer = Mock()
             mock_analyzer.analyze_conversation.return_value = {
                 "primary_action": {

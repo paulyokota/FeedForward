@@ -101,7 +101,7 @@ When implementing backend features:
 ⚠️ **STOP** before triggering ANY pipeline execution and verify:
 
 1. **Am I running the RIGHT thing?**
-   - `two_stage_pipeline.py` = ONLY classification (NOT full pipeline)
+   - `classification_pipeline.py` = ONLY classification (NOT full pipeline)
    - Full pipeline = API endpoint: `POST /api/pipeline/run`
    - If confused, check `docs/architecture.md` for pipeline stages
 

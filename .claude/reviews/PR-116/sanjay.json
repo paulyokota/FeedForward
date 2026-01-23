@@ -1,0 +1,72 @@
+{
+  "reviewer": "sanjay",
+  "personality": "Security Auditor",
+  "pr_number": 116,
+  "round": 2,
+  "date": "2026-01-22",
+  "verdict": "APPROVED",
+  "issues": [
+    {
+      "id": "S-1",
+      "severity": "MEDIUM",
+      "category": "sensitive_data_exposure",
+      "title": "Error Messages May Leak Sensitive Information",
+      "file": "src/services/embedding_service.py",
+      "lines": [29, 55, 347, 362],
+      "description": "Exception messages are captured verbatim and stored in error results, then potentially logged and exposed via API responses.",
+      "recommendation": "Sanitize exception messages before storage.",
+      "status": "RESOLVED",
+      "resolution": "Added _sanitize_error_message() function that maps known error patterns to safe generic messages and falls back to error type only for unknown errors."
+    },
+    {
+      "id": "S-2",
+      "severity": "MEDIUM",
+      "category": "resource_exhaustion",
+      "title": "Unbounded Input Size Can Cause Resource Exhaustion",
+      "file": "src/services/embedding_service.py",
+      "lines": [231, 265],
+      "description": "No limit on number of conversations passed to generate_conversation_embeddings_async.",
+      "recommendation": "Add max_conversations parameter with reasonable default.",
+      "status": "FOLLOW_UP"
+    },
+    {
+      "id": "S-3",
+      "severity": "LOW",
+      "category": "sql_injection",
+      "title": "SQL Injection Possible via Field Whitelist Bypass",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [249, 272],
+      "description": "Field names are interpolated directly into SQL queries.",
+      "recommendation": "Add explicit regex validation that field names match ^[a-z_]+$ pattern.",
+      "status": "FOLLOW_UP"
+    },
+    {
+      "id": "S-4",
+      "severity": "MEDIUM",
+      "category": "rate_limiting",
+      "title": "Missing Rate Limiting on Embedding Generation",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [277, 359],
+      "description": "Embedding generation makes external API calls to OpenAI without rate limiting or cost tracking.",
+      "recommendation": "Add budget/cost tracking with configurable limits.",
+      "status": "FOLLOW_UP"
+    }
+  ],
+  "positive_patterns": [
+    "Parameterized SQL queries in embedding_storage.py for values",
+    "Input validation via Pydantic models with dimension checks",
+    "Lazy client initialization reduces attack surface during import",
+    "Stop checker pattern allows graceful shutdown",
+    "Well-implemented error sanitization with pattern matching"
+  ],
+  "summary": {
+    "total_issues": 4,
+    "by_severity": {
+      "HIGH": 0,
+      "MEDIUM": 3,
+      "LOW": 1
+    },
+    "resolved_issues": ["S-1"],
+    "follow_up_issues": ["S-2", "S-3", "S-4"]
+  }
+}

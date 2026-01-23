@@ -1,0 +1,114 @@
+{
+  "reviewer": "Quinn",
+  "pr_number": 116,
+  "round": 2,
+  "date": "2026-01-22",
+  "functional_test_required": true,
+  "verdict": "APPROVE_PENDING_FUNCTIONAL_TEST",
+  "issues": [
+    {
+      "id": "Q-001",
+      "severity": "MEDIUM",
+      "title": "Excerpt field not fetched despite _prepare_text supporting it",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "300-321",
+      "description": "The _prepare_text() method in EmbeddingService prefers excerpt over source_body, but the pipeline query only fetches id and source_body. The excerpt parameter is never used.",
+      "impact": "Potential missed optimization - if conversations have meaningful excerpts, we're using the full source_body instead of a more focused excerpt for embeddings.",
+      "recommendation": "Either add excerpt to the query if the field exists, or remove the excerpt parameter from _prepare_text() to clarify intent.",
+      "status": "OPEN",
+      "round_1": true
+    },
+    {
+      "id": "Q-002",
+      "severity": "HIGH",
+      "title": "asyncio.run() nesting risk in background task",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "364-376",
+      "description": "The _run_embedding_generation function uses asyncio.run() which creates a new event loop. This is called from _run_pipeline_task which already calls asyncio.run() for classification.",
+      "impact": "Could cause runtime errors depending on ASGI server configuration and event loop state.",
+      "recommendation": "Document why the pattern is safe (background thread context).",
+      "status": "FIXED",
+      "round_1": true,
+      "fix_verified": true,
+      "fix_notes": "Clear documentation added explaining that asyncio.run() is safe because _run_pipeline_task runs in a separate background thread via FastAPI BackgroundTasks."
+    },
+    {
+      "id": "Q-003",
+      "severity": "MEDIUM",
+      "title": "Missing test coverage for pipeline integration function",
+      "file": "tests/test_embedding_service.py",
+      "lines": "N/A",
+      "description": "No tests exist for _run_embedding_generation_async() which handles database queries, type filtering, and storage integration. The function is a critical pipeline integration point.",
+      "impact": "Errors in the SQL query, type filtering (product_issue, feature_request, how_to_question), or storage integration could slip through to production.",
+      "recommendation": "Add integration tests verifying: (1) SQL query returns expected conversations, (2) filtering logic works correctly, (3) embeddings are stored with correct pipeline_run_id.",
+      "status": "DEFERRED",
+      "round_1": true,
+      "deferred_reason": "Acknowledged, to be addressed in separate follow-up PR"
+    },
+    {
+      "id": "Q-004",
+      "severity": "LOW",
+      "title": "Inconsistent dimension validation behavior",
+      "file": "src/db/embedding_storage.py",
+      "lines": "35-36, 87-92",
+      "description": "Dimension validation behavior differs: store_embedding() raises ValueError, store_embeddings_batch() logs warning and skips, ConversationEmbedding model raises ValueError. Inconsistent handling could lead to silent data loss or confusing error behavior.",
+      "impact": "Low practical impact since OpenAI always returns 1536 dimensions, but inconsistency could mask issues during model version changes.",
+      "recommendation": "Standardize on one behavior (probably raise error) or document why batch operations silently skip.",
+      "status": "OPEN",
+      "round_1": true
+    },
+    {
+      "id": "Q-005",
+      "severity": "LOW",
+      "title": "Missing embeddings_failed in history endpoint",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "1181-1191",
+      "description": "The /history endpoint query and PipelineRunListItem schema include embeddings_generated but not embeddings_failed, unlike PipelineStatus which has both.",
+      "impact": "Reduced observability - users viewing pipeline history cannot see embedding failure counts for debugging.",
+      "recommendation": "Add embeddings_failed to both the history query and PipelineRunListItem schema for consistency.",
+      "status": "OPEN",
+      "round_1": true
+    },
+    {
+      "id": "Q-006",
+      "severity": "LOW",
+      "title": "EMBEDDING_DIMENSIONS duplicated across files",
+      "file": "src/services/embedding_service.py, src/db/models.py",
+      "lines": "19, 10",
+      "description": "EMBEDDING_DIMENSIONS constant is defined in both embedding_service.py (line 19) and models.py (line 10). While both are currently 1536, this creates maintenance risk.",
+      "impact": "Low immediate risk, but if the embedding model changes, developers might update one file but not the other, causing divergence.",
+      "recommendation": "Consolidate to a single source of truth: either have models.py import from embedding_service.py, or create a shared constants module.",
+      "status": "NEW",
+      "round_1": false,
+      "discovered_during": "Round 2 fix verification - noticed during Q-001/R5/M3 constant usage check"
+    }
+  ],
+  "round_1_fixes_verified": {
+    "Q-001_R5_M3": {
+      "claim": "EMBEDDING_DIMENSIONS constant now used consistently",
+      "result": "PARTIALLY_FIXED",
+      "notes": "Constant is used in both files, but defined separately in each. embedding_storage.py imports from embedding_service.py, but models.py has its own copy."
+    },
+    "Q-002": {
+      "claim": "asyncio.run() documented as safe (runs in background thread)",
+      "result": "FIXED",
+      "notes": "Clear comment added at lines 364-376 explaining why asyncio.run() is safe in this context."
+    },
+    "Q-003": {
+      "claim": "Noted for follow-up (test coverage)",
+      "result": "DEFERRED",
+      "notes": "As expected, this was acknowledged but not addressed in this PR."
+    }
+  },
+  "summary": {
+    "total_issues": 6,
+    "high_severity": 1,
+    "medium_severity": 2,
+    "low_severity": 3,
+    "fixed": 1,
+    "deferred": 1,
+    "open": 3,
+    "new_in_round_2": 1,
+    "functional_test_justification": "New pipeline phase with OpenAI embedding API integration requires functional test evidence per docs/process-playbook/gates/functional-testing-gate.md. Need to verify: (1) end-to-end embedding generation, (2) correct storage in conversation_embeddings table, (3) accurate pipeline_run tracking column updates, (4) correct integration with existing phases."
+  }
+}

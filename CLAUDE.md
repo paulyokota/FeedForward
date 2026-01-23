@@ -78,7 +78,7 @@ BEFORE these actions, STOP and answer:
 
 ```bash
 # 1. Am I running the RIGHT thing?
-#    - two_stage_pipeline.py = ONLY classification
+#    - classification_pipeline.py = ONLY classification (NOT full pipeline)
 #    - Full pipeline = POST /api/pipeline/run
 
 # 2. Pre-flight check (run this EVERY TIME):
@@ -249,11 +249,16 @@ cd webapp && npm run dev                        # Terminal 2: UI
 
 # Then open http://localhost:3000
 
-# Run the canonical two-stage classification pipeline
-python -m src.two_stage_pipeline --days 7              # Last 7 days
-python -m src.two_stage_pipeline --days 1 --max 10     # Test with 10 conversations
-python -m src.two_stage_pipeline --dry-run             # No DB writes
-python -m src.two_stage_pipeline --async --concurrency 20  # Async mode (faster)
+# Classification ONLY (NOT the full pipeline - use API for full runs)
+# See "Pipeline Pre-Flight" section before running anything
+python -m src.classification_pipeline --days 7              # Last 7 days
+python -m src.classification_pipeline --days 1 --max 10     # Test with 10 conversations
+python -m src.classification_pipeline --dry-run             # No DB writes
+python -m src.classification_pipeline --async --concurrency 20  # Async mode (faster)
+
+# FULL PIPELINE (classification → embedding → themes → stories)
+# Use the API endpoint - see "Pipeline Pre-Flight" section first
+curl -X POST "http://localhost:8000/api/pipeline/run" -H "Content-Type: application/json"
 
 # CLI commands
 python src/cli.py themes           # List all themes

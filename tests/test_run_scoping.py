@@ -45,7 +45,7 @@ class TestPipelinePassesPipelineRunId:
 
     def test_run_pipeline_async_accepts_pipeline_run_id(self):
         """run_pipeline_async should accept pipeline_run_id parameter."""
-        from src.two_stage_pipeline import run_pipeline_async
+        from src.classification_pipeline import run_pipeline_async
         import inspect
 
         sig = inspect.signature(run_pipeline_async)
@@ -57,7 +57,7 @@ class TestPipelinePassesPipelineRunId:
 
     def test_run_pipeline_sync_accepts_pipeline_run_id(self):
         """run_pipeline should accept pipeline_run_id parameter."""
-        from src.two_stage_pipeline import run_pipeline
+        from src.classification_pipeline import run_pipeline
         import inspect
 
         sig = inspect.signature(run_pipeline)
