@@ -46,16 +46,17 @@ Done means:
   - Depends on: #103, #105, #106, #107, #89
   - Blocks: #109, #110
   - **DONE**: PR #118 merged 2026-01-23
-- [ ] #109 Story creation: integrate hybrid cluster output
+- [x] #109 Story creation: integrate hybrid cluster output
   - Depends on: #103, #108, #89, #104
   - Blocks: #110
+  - **DONE**: PR #119 merged 2026-01-23
 - [ ] #110 Integration testing: hybrid clustering pipeline validation
   - Depends on: #103, #104, #105, #106, #107, #108, #109, #89
   - Blocks: none
 
 ## Current Slice (Single Issue)
 
-- [ ] #109 Story creation: integrate hybrid cluster output
+- [ ] #110 Integration testing: hybrid clustering pipeline validation
 
 ## Notes
 
