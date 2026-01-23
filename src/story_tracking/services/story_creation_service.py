@@ -610,15 +610,27 @@ class StoryCreationService:
             logger.warning(f"No valid conversations for cluster {cluster.cluster_id}")
             return
 
+        # Compute stable signature for orphan accumulation (cross-run deterministic)
+        # This replaces run-local emb_X_facet_Y_Z with semantic-based signature
+        stable_signature = self._compute_stable_hybrid_signature(cluster, conversations)
+        logger.debug(
+            f"Hybrid cluster stable signature: {stable_signature} "
+            f"(cluster_id={cluster.cluster_id})"
+        )
+
         # Apply quality gates (same as signature-based flow)
         gate_result = self._apply_quality_gates(
             cluster.cluster_id, conversations, conv_dicts
         )
 
         if not gate_result.passed:
-            # Route to orphan integration
+            # Route to orphan integration with stable signature for cross-run accumulation
+            logger.info(
+                f"Routing hybrid cluster to orphan (quality gate): "
+                f"stable={stable_signature}, cluster_id={cluster.cluster_id}"
+            )
             self._route_to_orphan_integration(
-                signature=cluster.cluster_id,
+                signature=stable_signature,
                 conversations=conversations,
                 failure_reason=gate_result.failure_reason or "Quality gate failed",
                 result=result,
@@ -628,8 +640,13 @@ class StoryCreationService:
 
         # Check minimum group size before PM review
         if len(conversations) < MIN_GROUP_SIZE:
+            logger.info(
+                f"Routing hybrid cluster to orphan (below MIN_GROUP_SIZE): "
+                f"stable={stable_signature}, cluster_id={cluster.cluster_id}, "
+                f"count={len(conversations)}"
+            )
             self._route_to_orphan_integration(
-                signature=cluster.cluster_id,
+                signature=stable_signature,
                 conversations=conversations,
                 failure_reason=f"Cluster has {len(conversations)} conversations (min: {MIN_GROUP_SIZE})",
                 result=result,
@@ -656,8 +673,12 @@ class StoryCreationService:
                 return
             elif pm_review_result.decision == ReviewDecision.REJECT:
                 # All conversations are too different - route all to orphans
+                logger.info(
+                    f"Routing hybrid cluster to orphan (PM rejected): "
+                    f"stable={stable_signature}, cluster_id={cluster.cluster_id}"
+                )
                 self._route_to_orphan_integration(
-                    signature=cluster.cluster_id,
+                    signature=stable_signature,
                     conversations=conversations,
                     failure_reason=f"PM review rejected: {pm_review_result.reasoning}",
                     result=result,
@@ -855,6 +876,96 @@ class StoryCreationService:
         parts.append(f"*Grouping Method*: `hybrid_cluster`")
 
         return "\n\n".join(parts)
+
+    def _compute_stable_hybrid_signature(
+        self,
+        cluster: Any,  # HybridCluster
+        conversations: List["ConversationData"],
+    ) -> str:
+        """
+        Compute a stable semantic signature for hybrid cluster orphans.
+
+        Unlike cluster_id (emb_X_facet_Y_Z) which is run-local, this signature
+        is deterministic based on semantic content, enabling cross-run accumulation.
+
+        Format: hybrid_{action_type}_{direction}_{product_area}_{component}_{issue_part}
+
+        Priority for issue_part (most stable to least stable):
+        1. issue_signature (from theme extraction) - most stable
+        2. symptoms fallback - only if issue_signature unavailable
+
+        IMPORTANT: issue_signature in hybrid clusters is often set to cluster_id
+        (emb_*), which is run-local. We must skip those to maintain stability.
+
+        Args:
+            cluster: HybridCluster with action_type and direction
+            conversations: List of ConversationData with product_area, component, etc.
+
+        Returns:
+            Stable signature string for orphan matching
+        """
+        from collections import Counter
+
+        def most_common_deterministic(values: list, fallback: str) -> str:
+            """Pick most common value with deterministic tie-breaking (alphabetical)."""
+            if not values:
+                return fallback
+            counts = Counter(values)
+            top = counts.most_common()
+            max_count = top[0][1]
+            # Sort tied values alphabetically for determinism
+            tied = sorted([v for v, c in top if c == max_count])
+            return tied[0]
+
+        action_type = cluster.action_type or "unknown"
+        direction = cluster.direction or "neutral"
+
+        # Get most common product_area (deterministic on ties)
+        product_areas = [c.product_area for c in conversations if c.product_area]
+        product_area = most_common_deterministic(product_areas, "general")
+        product_area = product_area.lower().replace(" ", "_").replace("-", "_")
+
+        # Get most common component (deterministic on ties)
+        components = [c.component for c in conversations if c.component]
+        component = most_common_deterministic(components, "unknown")
+        component = component.lower().replace(" ", "_").replace("-", "_")
+
+        # Prefer issue_signature over symptoms (more stable across runs)
+        # Skip:
+        # - "unclassified" signatures (not meaningful)
+        # - "emb_*" signatures (run-local cluster IDs, NOT stable)
+        issue_sig = next(
+            (
+                c.issue_signature
+                for c in conversations
+                if c.issue_signature
+                and "unclassified" not in c.issue_signature.lower()
+                and not c.issue_signature.startswith("emb_")  # skip run-local IDs
+            ),
+            None,
+        )
+
+        if issue_sig:
+            # Use issue_signature (most stable)
+            issue_part = issue_sig.lower().replace(" ", "_").replace("-", "_")[:40]
+        else:
+            # Fallback to symptoms (less stable, but better than nothing)
+            all_symptoms = []
+            for c in conversations:
+                if c.symptoms:
+                    all_symptoms.extend(c.symptoms)
+
+            if all_symptoms:
+                top_symptoms = [s for s, _ in Counter(all_symptoms).most_common(2)]
+                top_symptoms.sort()
+                issue_part = "_".join(
+                    s.lower().replace(" ", "_").replace("-", "_")[:20]
+                    for s in top_symptoms
+                )
+            else:
+                issue_part = "unspecified"
+
+        return f"hybrid_{action_type}_{direction}_{product_area}_{component}_{issue_part}"
 
     def _process_fallback_conversations(
         self,

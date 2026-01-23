@@ -138,7 +138,7 @@ def story_creation_service(mock_story_service, mock_orphan_service, mock_evidenc
         orphan_service=mock_orphan_service,
         evidence_service=mock_evidence_service,
         dual_format_enabled=False,
-        target_repo="FeedForward",
+        target_repo=None,  # Let classifier suggest repos dynamically
         pm_review_service=None,
         pm_review_enabled=False,
     )

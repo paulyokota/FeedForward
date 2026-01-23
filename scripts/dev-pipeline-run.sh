@@ -168,6 +168,16 @@ if [ "$SKIP_CLEANUP" = false ]; then
     python3 << 'CLEANUP_SCRIPT'
 from src.db.connection import get_connection
 
+def table_exists(cur, table):
+    """Check if table exists in database."""
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables
+            WHERE table_name = %s
+        )
+    """, (table,))
+    return cur.fetchone()[0]
+
 with get_connection() as conn:
     with conn.cursor() as cur:
         # Delete orphans
@@ -182,13 +192,19 @@ with get_connection() as conn:
         cur.execute("DELETE FROM themes")
         themes_deleted = cur.rowcount
 
-        # Delete facets (from bad runs)
-        cur.execute("DELETE FROM conversation_facets")
-        facets_deleted = cur.rowcount
+        # Delete facets (from bad runs) - table is singular: conversation_facet
+        if table_exists(cur, "conversation_facet"):
+            cur.execute("DELETE FROM conversation_facet")
+            facets_deleted = cur.rowcount
+        else:
+            facets_deleted = 0
 
-        # Delete embeddings (from bad runs)
-        cur.execute("DELETE FROM conversation_embeddings")
-        embeddings_deleted = cur.rowcount
+        # Delete embeddings (from bad runs) - table may not exist yet
+        if table_exists(cur, "conversation_embeddings"):
+            cur.execute("DELETE FROM conversation_embeddings")
+            embeddings_deleted = cur.rowcount
+        else:
+            embeddings_deleted = 0
 
         # Unlink conversations from runs
         cur.execute("UPDATE conversations SET pipeline_run_id = NULL")
