@@ -626,11 +626,7 @@ class StoryCreationService:
             result.quality_gate_rejections += 1
             return
 
-        # Skip PM review for hybrid clusters - clustering already ensures coherence
-        # by grouping by action_type + direction within semantic clusters
-        result.pm_review_skipped += 1
-
-        # Check minimum group size
+        # Check minimum group size before PM review
         if len(conversations) < MIN_GROUP_SIZE:
             self._route_to_orphan_integration(
                 signature=cluster.cluster_id,
@@ -640,7 +636,42 @@ class StoryCreationService:
             )
             return
 
-        # Create story from hybrid cluster
+        # PM REVIEW GATE: Validate hybrid cluster coherence
+        # Even though clustering groups by embeddings + facets, PM review
+        # catches edge cases where semantically similar conversations need
+        # different implementations (e.g., DB query vs network latency issues)
+        if self.pm_review_enabled and self.pm_review_service:
+            pm_review_result = self._run_pm_review(cluster.cluster_id, conversations)
+
+            if pm_review_result.decision == ReviewDecision.SPLIT:
+                # Handle split: process sub-groups and orphans
+                self._handle_pm_split(
+                    pm_review_result,
+                    conversations,
+                    result,
+                    pipeline_run_id,
+                    gate_result.confidence_score,
+                )
+                result.pm_review_splits += 1
+                return
+            elif pm_review_result.decision == ReviewDecision.REJECT:
+                # All conversations are too different - route all to orphans
+                self._route_to_orphan_integration(
+                    signature=cluster.cluster_id,
+                    conversations=conversations,
+                    failure_reason=f"PM review rejected: {pm_review_result.reasoning}",
+                    result=result,
+                )
+                result.pm_review_rejects += 1
+                return
+            else:
+                # PM review approved - continue to story creation
+                result.pm_review_kept += 1
+        else:
+            # PM review disabled - skip check
+            result.pm_review_skipped += 1
+
+        # Create story from hybrid cluster (after PM review approval or skip)
         self._create_story_from_hybrid_cluster(
             cluster=cluster,
             conversations=conversations,
