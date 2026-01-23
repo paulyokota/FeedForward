@@ -95,30 +95,49 @@ LAST_COMMIT_MSG=$(git log -1 --format=%s 2>/dev/null || echo "unknown")
 SERVER_PID=$(pgrep -f "uvicorn src.api.main:app" | head -1 || echo "")
 
 if [ -z "$SERVER_PID" ]; then
-    echo -e "${RED}ERROR: Could not find uvicorn process${NC}"
-    exit 1
-fi
+    echo -e "${YELLOW}No server running. Starting one...${NC}"
+    uvicorn src.api.main:app --reload --port 8000 &
+    STARTED_SERVER=true
+    sleep 5
 
-# On macOS, get process start time
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    SERVER_START=$(ps -p "$SERVER_PID" -o lstart= | xargs -I{} date -j -f "%a %b %d %T %Y" "{}" "+%s" 2>/dev/null || echo "0")
-else
-    SERVER_START=$(stat -c %Y /proc/"$SERVER_PID" 2>/dev/null || echo "0")
-fi
-
-if [ "$LAST_COMMIT" -gt "$SERVER_START" ] 2>/dev/null; then
-    echo -e "${RED}WARNING: Code changed after server started!${NC}"
-    echo -e "${RED}Last commit: $LAST_COMMIT_MSG${NC}"
-    echo -e "${RED}Restart the server to pick up changes:${NC}"
-    echo -e "${RED}  pkill -f 'uvicorn src.api.main' && uvicorn src.api.main:app --reload --port 8000${NC}"
-    echo ""
-    read -p "Continue anyway? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    # Verify it started
+    if ! curl -s "$API_URL/api/pipeline/active" > /dev/null 2>&1; then
+        echo -e "${RED}ERROR: Failed to start server${NC}"
         exit 1
     fi
+    echo -e "${GREEN}✓ Server started${NC}"
 else
-    echo -e "${GREEN}✓ Server appears to have current code${NC}"
+    STARTED_SERVER=false
+
+    # On macOS, get process start time
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        SERVER_START=$(ps -p "$SERVER_PID" -o lstart= | xargs -I{} date -j -f "%a %b %d %T %Y" "{}" "+%s" 2>/dev/null || echo "0")
+    else
+        SERVER_START=$(stat -c %Y /proc/"$SERVER_PID" 2>/dev/null || echo "0")
+    fi
+
+    if [ "$LAST_COMMIT" -gt "$SERVER_START" ] 2>/dev/null; then
+        echo -e "${YELLOW}Code changed after server started. Auto-restarting...${NC}"
+        echo -e "${YELLOW}Last commit: $LAST_COMMIT_MSG${NC}"
+
+        # Kill old server
+        pkill -f "uvicorn src.api.main:app" 2>/dev/null || true
+        sleep 2
+
+        # Start new server
+        uvicorn src.api.main:app --reload --port 8000 &
+        STARTED_SERVER=true
+        sleep 5
+
+        # Verify it started
+        if ! curl -s "$API_URL/api/pipeline/active" > /dev/null 2>&1; then
+            echo -e "${RED}ERROR: Failed to restart server${NC}"
+            exit 1
+        fi
+        echo -e "${GREEN}✓ Server restarted with current code${NC}"
+    else
+        echo -e "${GREEN}✓ Server has current code${NC}"
+    fi
 fi
 
 # ============================================
