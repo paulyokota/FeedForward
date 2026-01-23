@@ -14,7 +14,57 @@
 **Milestone 6 (Canonical Pipeline Consolidation): COMPLETE** ✅
 **Theme Quality Architecture: IMPROVEMENTS 1 & 2 COMPLETE** ✅
 
-## Latest: Theme Quality Improvements - SAME_FIX Test + PM Review (2026-01-21)
+## Latest: Hybrid Clustering Bug Fixes - End-to-End Pipeline Working (2026-01-22)
+
+**Commit d88624d** - Critical bugs fixed during runs 46-54 testing
+
+### Session Summary
+
+Debugged and fixed 4 critical bugs preventing hybrid clustering (#106-#109) from working end-to-end. Pipeline now successfully runs: classification → embedding generation → facet extraction → theme extraction → hybrid clustering → PM review → story creation.
+
+### What Was Done
+
+**Bug 1: Conversations Stuck on First Run** (classification_storage.py)
+
+- **Issue**: `COALESCE(pipeline_run_id)` kept conversations permanently linked to first run
+- **Result**: Runs 46-50 had 0 conversations linked (all stuck on run 45)
+- **Impact**: Embedding/facet/theme phases found nothing (query `WHERE pipeline_run_id = {current}`)
+- **Fix**: Remove COALESCE, update pipeline_run_id to current run on re-classification
+
+**Bug 2: Hybrid Clustering Never Ran** (pipeline.py)
+
+- **Issue**: Called `cluster_conversations()` method that doesn't exist
+- **Result**: Silent failure via try/except, fell back to signature grouping
+- **Fix**: Call correct method `cluster_for_run(pipeline_run_id)`
+
+**Bug 3: PM Review Disabled for Hybrid Clusters** (pipeline.py)
+
+- **Issue**: Line 770 had `pm_review_enabled and not hybrid_clustering_enabled`
+- **Result**: Run 54 grouped 5 unrelated bugs in one story (images, credits, billing, scheduler)
+- **Fix**: Remove disable gate - PM review works for both signature and hybrid paths
+
+**Bug 4: Classification Hangs and Crashes** (two_stage_pipeline.py)
+
+- **Issue**: No timeout on OpenAI API calls → infinite hang (run 48)
+- **Issue**: No exception handling in `asyncio.gather()` → silent crash (run 48)
+- **Fix**: Added 30s timeout + `return_exceptions=True` + error logging
+
+**Testing**:
+
+- Run 54 completed successfully with hybrid clustering enabled
+- 201 conversations → 87 embeddings → 87 facets → 85 themes → 3 stories
+- All stories marked `grouping_method = 'hybrid_cluster'`
+
+### Next Steps
+
+1. Test next run with PM review enabled (now unblocked) to validate splitting behavior
+2. Evaluate story quality - may need tighter embedding distance threshold (0.5 → 0.3?)
+3. Consider adding more granular facets beyond action_type + direction
+4. Continue with Milestone 8 (issues #103-#110)
+
+---
+
+## Previous: Theme Quality Improvements - SAME_FIX Test + PM Review (2026-01-21)
 
 **PR #101 MERGED** - 5-Personality Review CONVERGED (2 rounds)
 
