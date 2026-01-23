@@ -38,7 +38,7 @@ from typing import Any, Dict, List, Optional
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from services.embedding_service import EmbeddingService, EMBEDDING_DIMENSIONS
+from services.embedding_service import EmbeddingService
 from services.facet_service import FacetExtractionService
 from services.hybrid_clustering_service import HybridClusteringService
 
