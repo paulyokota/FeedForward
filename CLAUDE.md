@@ -72,25 +72,31 @@ BEFORE these actions, STOP and answer:
 | **Session ending**                  | BACKLOG_FLAGs to file? TODOs in code? | Review and file issues      |
 | **Running pipeline**                | Pre-flight passed? (see below)        | Run pre-flight first        |
 
-### Pipeline Pre-Flight (MANDATORY)
+### Pipeline Execution (DEV MODE)
 
-**Pipeline runs are EXPENSIVE.** Before ANY pipeline execution:
+**Pipeline runs are EXPENSIVE.** Use the dev-mode script which handles all safety checks:
 
 ```bash
-# 1. Am I running the RIGHT thing?
-#    - classification_pipeline.py = ONLY classification (NOT full pipeline)
-#    - Full pipeline = POST /api/pipeline/run
+# DEV MODE: Use this script - it does pre-flight checks AND auto-cleanup
+./scripts/dev-pipeline-run.sh
 
-# 2. Pre-flight check (run this EVERY TIME):
-echo "=== PIPELINE PRE-FLIGHT ===" && \
-curl -s "http://localhost:8000/api/pipeline/active" && echo "" && \
-git log --oneline -1 && \
-ps aux | grep "uvicorn.*8000" | grep -v grep | awk '{print "Server PID:", $2, "Started:", $9}'
-
-# 3. If commit timestamp > server start time → RESTART SERVER
+# Options:
+./scripts/dev-pipeline-run.sh --days 7        # Process 7 days of conversations
+./scripts/dev-pipeline-run.sh --skip-cleanup  # Skip cleanup (NOT recommended in dev)
+./scripts/dev-pipeline-run.sh --help          # Show all options
 ```
 
-**Lesson learned (2026-01-23):** Two wasted runs - wrong command, then stale server code.
+**The script automatically:**
+
+1. Checks server is running with current code
+2. Verifies no active pipeline run
+3. Cleans stale data (orphans, themes, stories)
+4. Triggers full pipeline via API
+5. Monitors progress until completion
+
+**DO NOT run pipeline any other way during development.**
+
+**Lesson learned (2026-01-23):** Many wasted runs over 2 days from wrong commands and stale code.
 
 ---
 
