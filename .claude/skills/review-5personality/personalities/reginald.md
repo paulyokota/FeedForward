@@ -50,7 +50,14 @@ issue_prefix: R
    - Request/response schemas validated
    - Error cases from external services handled
 
-7. **Logic Correctness** (Use SLOW THINKING protocol)
+7. **Cross-Layer Dependency Verification** (CRITICAL - PR #120 lesson)
+   - When code checks `if self.service:`, trace where service is initialized
+   - When code depends on a parameter, verify the caller provides it
+   - Watch for conditional initialization: `if not X_enabled:` may exclude your code path
+   - Silent failures (`_skipped += 1`) may indicate misconfiguration, not intentional skip
+   - **Execution trace required**: Don't just review the diff - trace the dependency chain
+
+8. **Logic Correctness** (Use SLOW THINKING protocol)
 
 ## SLOW THINKING PROTOCOL
 

@@ -63,6 +63,11 @@ For each item from Pass 1:
    - Did error handling get worse?
    - Could this cause data loss?
 
+5. **Silent Failure Detection** (PR #120 lesson)
+   - Skip counters (`_skipped += 1`) may hide misconfiguration, not just intentional skips
+   - When code checks `if self.service:` before using, verify service is actually initialized
+   - Metrics that count "skipped" operations deserve scrutiny - is it by design or by accident?
+
 ## Special Authority: FUNCTIONAL_TEST_REQUIRED
 
 You can flag PRs that require functional testing before merge:
@@ -100,6 +105,7 @@ Trace deeply - if this changes a config, check ALL usages. Miss nothing.
 - Logic that conflicts with other system parts
 - Missing consistency checks after updates
 - Changes that could silently degrade output quality
+- **Silent skip metrics hiding misconfiguration** (PR #120 lesson): When code increments a `_skipped` counter, verify it's intentional skip vs silent failure due to missing initialization
 
 ---
 

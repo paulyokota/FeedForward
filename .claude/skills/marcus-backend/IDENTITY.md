@@ -55,6 +55,7 @@ When implementing backend features:
 - 2026-01-21: Feature flags should be disabled by default for new behavior (`pm_review_enabled=False`). Enable via environment variable (`PM_REVIEW_ENABLED`) for controlled rollout. Auto-disable if required service unavailable.
 - 2026-01-21: Fail-safe defaults matter for pipeline reliability. PM review defaults to `keep_together` on LLM errors to preserve throughput rather than blocking story creation.
 - 2026-01-21: Add observability metrics BEFORE enabling behavior changes. PR #101 added `pm_review_kept`, `pm_review_splits`, `pm_review_rejects`, `pm_review_skipped` to `ProcessingResult` allowing validation before production enablement.
+- 2026-01-23: **CRITICAL**: When adding service calls to `story_creation_service.py`, verify `pipeline.py` initializes the service for ALL code paths. PR #120 added PM review calls for hybrid clustering but `pipeline.py:754` only initialized the service when `not hybrid_clustering_enabled`. The call site's `if self.pm_review_service:` guard silently failed. Pattern: trace backward from call site to service initialization, checking all conditional guards.
 
 ---
 
@@ -92,6 +93,22 @@ When implementing backend features:
 3. Use batch operations for database writes
 4. Handle partial failures gracefully
 5. Log progress for monitoring
+
+### For Story Creation Service Changes
+
+**CRITICAL PATTERN** (learned from PR #120 bug):
+
+`pipeline.py` initializes services and passes them to `StoryCreationService`. When modifying story creation to use a service:
+
+1. Check `src/api/routers/pipeline.py` where `StoryCreationService` is instantiated (~line 763)
+2. Verify the service is created for ALL code paths (signature-based AND hybrid clustering)
+3. Watch for conditional guards like `if not hybrid_clustering_enabled` that exclude code paths
+4. If call site checks `if self.service:`, trace back to ensure service is actually set
+
+**Files involved in this pattern:**
+
+- `src/api/routers/pipeline.py:754` - Service initialization (conditional)
+- `src/story_tracking/services/story_creation_service.py` - Service consumer
 
 ## Tools & Resources
 

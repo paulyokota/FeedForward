@@ -260,6 +260,7 @@ When flagged, PR is blocked until evidence is attached.
 - **Tech Lead fixing issues**: Route to original dev (Learning Loop)
 - **Merging before convergence**: Continue until 0 new issues
 - **Ignoring Quinn's functional test flag**: Evidence is mandatory when flagged
+- **Reviewing changes in isolation** (PR #120 lesson): When PR adds code that calls a service, verify the service is initialized for ALL code paths. Trace dependencies backward, not just forward. See `.claude/skills/review-5personality/memories/2026-01-23-cross-layer-dependency-bug.md`
 
 ## If Blocked
 

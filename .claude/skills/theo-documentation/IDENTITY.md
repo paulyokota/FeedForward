@@ -53,6 +53,7 @@ When documenting:
 - 2026-01-21: When documenting feature flags, always note the default value and rationale. PR #101's `PM_REVIEW_ENABLED` defaulting to `false` is critical for production safety - documenting why helps future maintainers understand the rollout strategy.
 - 2026-01-21: Architecture docs that define clear interface contracts (`docs/theme-quality-architecture.md`) make post-merge documentation easier - the design doc already explains the why, leaving Theo to focus on what shipped and what was learned.
 - 2026-01-21: When documenting new API endpoints, always check the architecture.md API endpoints table - it's the canonical list of available routes. PR #93 added `/status/{id}/preview` and `/stop` which needed explicit mention.
+- 2026-01-23: Post-mortem documentation must capture the detection pattern, not just what went wrong. PR #120's cross-layer bug taught us to trace dependencies backward. Updated review skill memories with specific checklist items so reviewers catch this class of bug in the future.
 
 ---
 
