@@ -491,4 +491,68 @@
   - Enables T-006 critical separation of opposite issues
   - 31 tests with comprehensive error handling
 - Unblocks: #109 (integrate clustering into story creation)
-- Next Slice: Select from SLICE.md
+- Next Slice: #109 Story creation: integrate hybrid cluster output
+
+=== Slice Start: #109 Story creation: integrate hybrid cluster output ===
+- Date: 2026-01-23
+- Branch: ralph/m8-109-hybrid-story-creation
+- Notes: Integrates hybrid clustering (#108) output into StoryCreationService.
+
+=== Iteration 1: Implementation Complete ===
+- Date: 2026-01-23
+- Changes:
+  1. Created migration 015_hybrid_story_creation.sql
+     - Adds grouping_method column (signature/hybrid_cluster)
+     - Adds cluster_id column (format: emb_{n}_facet_{action_type}_{direction})
+     - Adds cluster_metadata JSONB column
+     - Index on grouping_method for queries
+  2. Updated src/story_tracking/models/__init__.py
+     - Added ClusterMetadata model
+     - Updated StoryCreate/StoryUpdate with cluster fields
+     - Updated Story model with grouping_method, cluster_id, cluster_metadata
+  3. Updated src/story_tracking/services/story_service.py
+     - Create/update/list now handles cluster fields
+     - _parse_cluster_metadata() for JSONB parsing
+  4. Updated src/story_tracking/services/story_creation_service.py
+     - New process_hybrid_clusters() method for hybrid cluster input
+     - _process_hybrid_cluster() for individual cluster processing
+     - _create_story_from_hybrid_cluster() with cluster metadata
+     - _generate_hybrid_cluster_title() and _generate_hybrid_cluster_description()
+     - _process_fallback_conversations() for ungrouped conversations
+  5. Updated src/api/routers/pipeline.py
+     - Modified _run_pm_review_and_story_creation() to use hybrid clustering
+     - Added _try_hybrid_clustering_story_creation() helper
+     - Controlled by HYBRID_CLUSTERING_ENABLED env var (default: true)
+     - Falls back to signature-based grouping if clustering fails
+  6. Created tests/test_hybrid_story_creation.py (10 tests)
+     - TestProcessHybridClusters: story creation, orphan routing, grouping method
+     - TestHybridClusterTitleGeneration: user_intent, facet-based titles
+     - TestStoryClusterFields: model fields, defaults
+- Test Results:
+  - All 10 hybrid cluster tests PASSED
+  - All 121 story-related tests PASSED
+  - Full backend suite: 1026 passed, 2 failed (pre-existing latency tests)
+- Commit: 16f262a
+- Push: Complete (branch: ralph/m8-109-hybrid-story-creation)
+- PR URL: https://github.com/paulyokota/FeedForward/pull/119
+
+=== Iteration 2: PR + 5-Personality Review ===
+- Date: 2026-01-23
+- Review Round 1:
+  - Reginald: APPROVE - 1 MEDIUM (fallback grouping)
+  - Sanjay: APPROVE - 2 LOW (env parsing, cluster_id validation)
+  - Quinn: APPROVE - 1 HIGH (PM bypass needs functional test), 2 MEDIUM/LOW
+  - Dmitri: APPROVE - No YAGNI violations
+  - Maya: APPROVE - 2 MEDIUM (docs), 2 LOW (naming)
+- Status: CONVERGED in 1 round (all 5 APPROVE)
+- FUNCTIONAL_TEST_REQUIRED: Quinn flagged - PM review bypass assumption needs validation
+- Next Steps: Run functional test to validate hybrid cluster coherence, then merge
+
+=== BLOCKED: Awaiting Functional Test ===
+- Reason: PR #119 requires functional test evidence before merge per review protocol
+- Required Test: Run pipeline with HYBRID_CLUSTERING_ENABLED=true on recent conversations
+  - Sample 5-10 stories from hybrid clusters
+  - Verify all conversations in each story would be fixed by the same implementation
+  - Compare quality with signature-based stories
+- Unblock Action: Human runs functional test and attaches evidence to PR #119
+- If blocked >24h, escalate to user for manual intervention
