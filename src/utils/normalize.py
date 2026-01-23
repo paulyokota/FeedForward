@@ -26,7 +26,8 @@ COMPONENT_ALIASES: dict[str, dict[str, str]] = {
     # Scheduling variants - same feature, different LLM output formats
     "scheduling": {
         "smartschedule": "smart_schedule",
-        "smartpin": "smart_schedule",  # same feature
+        # NOTE: smartpin is NOT smart_schedule - it's about pin deletion, not scheduling
+        # Removed incorrect alias per Codex review 2026-01-23
     },
     # Catch-all for any product area (use sparingly)
     "*": {

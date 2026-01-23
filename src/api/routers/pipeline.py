@@ -606,7 +606,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
     # Store themes in database with pipeline_run_id and quality metadata
     from psycopg2.extras import Json
     from src.theme_quality import check_theme_quality
-    from src.utils.normalize import normalize_component, normalize_product_area
+    from src.utils.normalize import normalize_product_area, canonicalize_component
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -618,12 +618,20 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                     match_confidence=theme.match_confidence or "low",
                 )
 
+                # Store raw LLM output for audit, normalize/canonicalize for grouping
+                # Order matters: normalize product_area first, then canonicalize component
+                product_area_raw = theme.product_area
+                component_raw = theme.component
+                product_area_normalized = normalize_product_area(product_area_raw)
+                component_canonical = canonicalize_component(component_raw, product_area_normalized)
+
                 cur.execute("""
                     INSERT INTO themes (
                         conversation_id, product_area, component, issue_signature,
                         user_intent, symptoms, affected_flow, root_cause_hypothesis,
-                        pipeline_run_id, quality_score, quality_details
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        pipeline_run_id, quality_score, quality_details,
+                        product_area_raw, component_raw
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (conversation_id) DO UPDATE SET
                         product_area = EXCLUDED.product_area,
                         component = EXCLUDED.component,
@@ -635,11 +643,13 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                         pipeline_run_id = EXCLUDED.pipeline_run_id,
                         quality_score = EXCLUDED.quality_score,
                         quality_details = EXCLUDED.quality_details,
+                        product_area_raw = EXCLUDED.product_area_raw,
+                        component_raw = EXCLUDED.component_raw,
                         extracted_at = NOW()
                 """, (
                     theme.conversation_id,
-                    normalize_product_area(theme.product_area),
-                    normalize_component(theme.component),
+                    product_area_normalized,
+                    component_canonical,
                     theme.issue_signature,
                     theme.user_intent,
                     Json(theme.symptoms),  # Wrap list for JSONB column
@@ -648,6 +658,8 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                     run_id,
                     quality_result.quality_score,
                     Json(quality_result.details),
+                    product_area_raw,
+                    component_raw,
                 ))
 
     logger.info(

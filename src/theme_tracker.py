@@ -25,9 +25,11 @@ try:
     from .db.connection import get_connection
     from .theme_extractor import Theme, format_theme_for_ticket
     from .shortcut_client import ShortcutClient
+    from .utils.normalize import normalize_product_area, canonicalize_component
 except ImportError:
     from db.connection import get_connection
     from theme_extractor import Theme, format_theme_for_ticket
+    from utils.normalize import normalize_product_area, canonicalize_component
     from shortcut_client import ShortcutClient
 
 logger = logging.getLogger(__name__)
@@ -234,24 +236,27 @@ class ThemeTracker:
                     conversation_date = conv_row[0] if conv_row else theme.extracted_at
 
                     # Insert theme (ignore if already exists for this conversation)
-                    # Default component to 'unknown' if None (LLM sometimes returns null)
-                    component = theme.component or "unknown"
-                    product_area = theme.product_area or "other"
+                    # Store raw LLM output for audit, normalize/canonicalize for grouping
+                    # Order matters: normalize product_area first, then canonicalize component
+                    product_area_raw = theme.product_area
+                    component_raw = theme.component
+                    product_area_normalized = normalize_product_area(product_area_raw)
+                    component_canonical = canonicalize_component(component_raw, product_area_normalized)
 
                     cur.execute(
                         """
                         INSERT INTO themes (
                             conversation_id, product_area, component, issue_signature,
                             user_intent, symptoms, affected_flow, root_cause_hypothesis,
-                            extracted_at, data_source
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            extracted_at, data_source, product_area_raw, component_raw
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (conversation_id) DO NOTHING
                         RETURNING id
                         """,
                         (
                             theme.conversation_id,
-                            product_area,
-                            component,
+                            product_area_normalized,
+                            component_canonical,
                             theme.issue_signature,
                             theme.user_intent,
                             json.dumps(theme.symptoms),
@@ -259,6 +264,8 @@ class ThemeTracker:
                             theme.root_cause_hypothesis,
                             theme.extracted_at,
                             data_source,
+                            product_area_raw,
+                            component_raw,
                         )
                     )
                     result = cur.fetchone()
