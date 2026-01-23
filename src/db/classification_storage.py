@@ -153,9 +153,9 @@ def store_classification_result(
                 resolution_detected = EXCLUDED.resolution_detected,
                 support_insights = EXCLUDED.support_insights,
                 story_id = EXCLUDED.story_id,
-                -- Keep first run association (immutable). New value only if NULL.
-                -- This preserves run isolation: conversation stays with first classifying run.
-                pipeline_run_id = COALESCE(conversations.pipeline_run_id, EXCLUDED.pipeline_run_id)
+                -- Update to current run (mutable). Enables re-processing in new runs.
+                -- Each run processes its own batch of conversations for theme extraction.
+                pipeline_run_id = EXCLUDED.pipeline_run_id
             """, (
                 conversation_id, created_at, datetime.utcnow(),
                 source_body, source_type, source_url,
@@ -314,9 +314,9 @@ def store_classification_results_batch(
                 resolution_detected = EXCLUDED.resolution_detected,
                 support_insights = EXCLUDED.support_insights,
                 story_id = EXCLUDED.story_id,
-                -- Keep first run association (immutable). New value only if NULL.
-                -- This preserves run isolation: conversation stays with first classifying run.
-                pipeline_run_id = COALESCE(conversations.pipeline_run_id, EXCLUDED.pipeline_run_id)
+                -- Update to current run (mutable). Enables re-processing in new runs.
+                -- Each run processes its own batch of conversations for theme extraction.
+                pipeline_run_id = EXCLUDED.pipeline_run_id
             """
             execute_values(cur, sql, rows)
             conn.commit()

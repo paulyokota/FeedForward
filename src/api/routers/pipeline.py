@@ -767,7 +767,7 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             dual_format_enabled=dual_format_enabled,
             target_repo=target_repo,
             pm_review_service=pm_review_service,
-            pm_review_enabled=pm_review_enabled and not hybrid_clustering_enabled,
+            pm_review_enabled=pm_review_enabled,  # PM review works for both signature and hybrid clustering
         )
 
         # Try hybrid clustering if enabled
@@ -846,17 +846,9 @@ def _try_hybrid_clustering_story_creation(
     try:
         from src.services.hybrid_clustering_service import HybridClusteringService
 
-        # Get conversation IDs from this pipeline run
-        conversation_ids = list(conversation_data.keys())
-
-        if not conversation_ids:
-            logger.warning(f"Run {run_id}: No conversation IDs for hybrid clustering")
-            return None
-
-        # Run hybrid clustering
+        # Run hybrid clustering (loads embeddings + facets from DB for this run)
         clustering_service = HybridClusteringService()
-        clustering_result = clustering_service.cluster_conversations(
-            conversation_ids=conversation_ids,
+        clustering_result = clustering_service.cluster_for_run(
             pipeline_run_id=run_id,
         )
 
@@ -965,7 +957,6 @@ def _run_pipeline_task(
 
         # Skip subsequent phases if dry run or no conversations stored
         if dry_run or result.get("stored", 0) == 0:
-            logger.info(f"Run {run_id}: Skipping embedding generation (dry_run={dry_run}, stored={result.get('stored', 0)})")
 
             # Store dry run preview for later retrieval (Issue #75)
             if dry_run:
@@ -1103,7 +1094,7 @@ def _run_pipeline_task(
 
     except Exception as e:
         # Update with error
-        logger.error(f"Run {run_id}: Pipeline failed with error: {e}")
+        logger.error(f"Run {run_id}: Pipeline failed with error: {e}", exc_info=True)
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""

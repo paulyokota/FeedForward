@@ -245,15 +245,18 @@ async def classify_stage1_async(
         )
 
         try:
-            response = await async_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are a customer support classifier. Respond with valid JSON only."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=500,
-                response_format={"type": "json_object"}
+            response = await asyncio.wait_for(
+                async_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "You are a customer support classifier. Respond with valid JSON only."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=500,
+                    response_format={"type": "json_object"}
+                ),
+                timeout=30.0  # 30 second timeout
             )
 
             result = json_module.loads(response.choices[0].message.content)
@@ -264,6 +267,13 @@ async def classify_stage1_async(
             result["routing_team"] = _get_routing_team(result.get("conversation_type"))
 
             return result
+        except asyncio.TimeoutError:
+            return {
+                "conversation_type": "general_inquiry",
+                "confidence": "low",
+                "reasoning": "Classification timeout (>30s)",
+                "error": "timeout"
+            }
         except Exception as e:
             return {
                 "conversation_type": "general_inquiry",
@@ -305,21 +315,32 @@ async def classify_stage2_async(
         )
 
         try:
-            response = await async_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are a customer support analyst. Respond with valid JSON only."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1,
-                max_tokens=800,
-                response_format={"type": "json_object"}
+            response = await asyncio.wait_for(
+                async_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "You are a customer support analyst. Respond with valid JSON only."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.1,
+                    max_tokens=800,
+                    response_format={"type": "json_object"}
+                ),
+                timeout=30.0  # 30 second timeout
             )
 
             result = json_module.loads(response.choices[0].message.content)
             result["changed_from_stage_1"] = result.get("conversation_type") != stage1_type
 
             return result
+        except asyncio.TimeoutError:
+            return {
+                "conversation_type": stage1_type,
+                "confidence": "low",
+                "reasoning": "Stage 2 timeout (>30s)",
+                "changed_from_stage_1": False,
+                "error": "timeout"
+            }
         except Exception as e:
             return {
                 "conversation_type": stage1_type,
@@ -551,8 +572,16 @@ async def run_pipeline_async(
             classify_conversation_async(parsed, raw_conv, semaphore)
             for parsed, raw_conv in batch
         ]
-        batch_results = await asyncio.gather(*tasks)
-        results.extend(batch_results)
+        batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter out exceptions and log them
+        for i, result in enumerate(batch_results):
+            if isinstance(result, Exception):
+                conv_id = batch[i][0].id if i < len(batch) else "unknown"
+                print(f"  ERROR classifying conversation {conv_id}: {result}")
+                logger.error(f"Classification failed for {conv_id}: {result}", exc_info=result)
+            else:
+                results.append(result)
 
         if len(conversations) > CLASSIFICATION_BATCH_SIZE:
             print(f"  Classified batch {batch_start // CLASSIFICATION_BATCH_SIZE + 1}: {len(batch_results)} conversations")
