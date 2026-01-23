@@ -743,15 +743,15 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         evidence_service = EvidenceService(conn)
 
         # Determine dual format settings from environment
-        dual_format_enabled = os.environ.get("FEEDFORWARD_DUAL_FORMAT", "false").lower() == "true"
+        dual_format_enabled = os.environ.get("FEEDFORWARD_DUAL_FORMAT", "true").lower() == "true"
         target_repo = os.environ.get("FEEDFORWARD_TARGET_REPO", "FeedForward")
 
-        # PM Review settings (only used for signature-based grouping)
+        # PM Review settings
         pm_review_enabled = os.environ.get("PM_REVIEW_ENABLED", "true").lower() == "true"
         pm_review_service = None
 
-        # Only initialize PM review for signature-based path
-        if not hybrid_clustering_enabled and pm_review_enabled:
+        # Initialize PM review for both hybrid and signature-based paths
+        if pm_review_enabled:
             try:
                 from src.story_tracking.services.pm_review_service import PMReviewService
                 pm_review_service = PMReviewService()

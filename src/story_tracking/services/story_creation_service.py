@@ -1762,16 +1762,21 @@ class StoryCreationService:
                     "conversation_id": conv.id,
                 })
 
-        # Use first non-null values for scalars
-        first = conversations[0]
+        # Use first non-null values for scalars (iterate to find non-null)
+        def first_non_null(attr: str) -> Any:
+            for conv in conversations:
+                val = getattr(conv, attr, None)
+                if val is not None:
+                    return val
+            return None
 
         return {
-            "user_intent": first.user_intent,
+            "user_intent": first_non_null("user_intent"),
             "symptoms": unique_symptoms[:MAX_SYMPTOMS_IN_THEME],
-            "product_area": first.product_area,
-            "component": first.component,
-            "affected_flow": first.affected_flow,
-            "root_cause_hypothesis": first.root_cause_hypothesis,
+            "product_area": first_non_null("product_area"),
+            "component": first_non_null("component"),
+            "affected_flow": first_non_null("affected_flow"),
+            "root_cause_hypothesis": first_non_null("root_cause_hypothesis"),
             "excerpts": excerpts[:MAX_EXCERPTS_IN_THEME],
         }
 
