@@ -182,6 +182,14 @@ with get_connection() as conn:
         cur.execute("DELETE FROM themes")
         themes_deleted = cur.rowcount
 
+        # Delete facets (from bad runs)
+        cur.execute("DELETE FROM conversation_facets")
+        facets_deleted = cur.rowcount
+
+        # Delete embeddings (from bad runs)
+        cur.execute("DELETE FROM conversation_embeddings")
+        embeddings_deleted = cur.rowcount
+
         # Unlink conversations from runs
         cur.execute("UPDATE conversations SET pipeline_run_id = NULL")
         convos_unlinked = cur.rowcount
@@ -191,6 +199,8 @@ with get_connection() as conn:
         print(f"  Deleted {orphans_deleted} orphans")
         print(f"  Deleted {stories_deleted} stories")
         print(f"  Deleted {themes_deleted} themes")
+        print(f"  Deleted {facets_deleted} facets")
+        print(f"  Deleted {embeddings_deleted} embeddings")
         print(f"  Unlinked {convos_unlinked} conversations from runs")
 CLEANUP_SCRIPT
 
