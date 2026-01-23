@@ -130,8 +130,13 @@ class HybridClusteringService:
         )
 
         # Load embeddings and facets from DB
-        embeddings_data = get_embeddings_for_run(pipeline_run_id)
-        facets_data = get_facets_for_run(pipeline_run_id)
+        try:
+            embeddings_data = get_embeddings_for_run(pipeline_run_id)
+            facets_data = get_facets_for_run(pipeline_run_id)
+        except Exception as e:
+            result.errors.append(f"Database error: {e}")
+            logger.error(f"Database error loading data for run {pipeline_run_id}: {e}", exc_info=True)
+            return result
 
         if not embeddings_data:
             result.errors.append(f"No embeddings found for pipeline run {pipeline_run_id}")

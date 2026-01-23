@@ -414,17 +414,22 @@ class TestClusterForRun:
     @patch("src.services.hybrid_clustering_service.get_embeddings_for_run")
     @patch("src.services.hybrid_clustering_service.get_facets_for_run")
     def test_cluster_for_run_db_connection_error(self, mock_facets, mock_embeddings):
-        """DB connection errors are captured in result.errors."""
+        """DB connection errors are caught and captured in result.errors."""
         mock_embeddings.side_effect = Exception("Connection refused")
 
         service = HybridClusteringService()
-        # Should not raise - errors captured in result
-        with pytest.raises(Exception, match="Connection refused"):
-            service.cluster_for_run(pipeline_run_id=42)
+        # Should NOT raise - errors should be captured gracefully in result
+        result = service.cluster_for_run(pipeline_run_id=42)
+
+        assert not result.success
+        assert any("database error" in err.lower() for err in result.errors)
 
     @patch("src.services.hybrid_clustering_service.get_embeddings_for_run")
     @patch("src.services.hybrid_clustering_service.get_facets_for_run")
-    def test_cluster_for_run_clustering_exception(self, mock_facets, mock_embeddings):
+    @patch("src.services.hybrid_clustering_service.HybridClusteringService._cluster_embeddings")
+    def test_cluster_for_run_clustering_exception(
+        self, mock_cluster, mock_facets, mock_embeddings
+    ):
         """Clustering algorithm exceptions are caught and reported."""
         mock_embeddings.return_value = [
             {"conversation_id": "conv1", "embedding": [1.0, 0.0, 0.0]},
@@ -434,9 +439,10 @@ class TestClusterForRun:
             {"conversation_id": "conv1", "action_type": "bug_report", "direction": "excess"},
             {"conversation_id": "conv2", "action_type": "bug_report", "direction": "excess"},
         ]
+        # Simulate sklearn failure during clustering
+        mock_cluster.side_effect = ValueError("sklearn clustering failed")
 
-        # Use invalid linkage to trigger sklearn error
-        service = HybridClusteringService(linkage="invalid_linkage")
+        service = HybridClusteringService()
         result = service.cluster_for_run(pipeline_run_id=42)
 
         assert not result.success
@@ -455,11 +461,15 @@ class TestErrorHandling:
         assert not result.success
         assert "No embeddings provided" in result.errors[0]
 
-    def test_cluster_with_data_malformed_dict(self):
-        """Missing required keys in embedding dicts handled gracefully."""
+    def test_cluster_with_data_malformed_dict_raises(self):
+        """Missing required keys in embedding dicts raises KeyError.
+
+        Note: This is a caller error (bad input), not a runtime error.
+        The service expects valid dicts from the DB layer which enforces schema.
+        """
         service = HybridClusteringService()
 
-        # Missing 'embedding' key
+        # Missing 'embedding' key - this is invalid input
         embeddings = [
             {"conversation_id": "conv1"},  # No 'embedding' key
         ]
@@ -467,7 +477,7 @@ class TestErrorHandling:
             {"conversation_id": "conv1", "action_type": "bug_report", "direction": "excess"},
         ]
 
-        # Should fail during numpy array construction
+        # Raises KeyError - this is expected for malformed input
         with pytest.raises(KeyError):
             service.cluster_with_data(embeddings, facets)
 
