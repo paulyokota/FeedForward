@@ -287,6 +287,51 @@ while true; do
                 echo -e "${YELLOW}WARNING: No stories created, only orphans.${NC}"
                 echo -e "${YELLOW}This may indicate PM review rejected all clusters.${NC}"
             fi
+
+            # Check for component drift (potential aliases)
+            echo ""
+            echo -e "${YELLOW}Checking for component drift...${NC}"
+            python3 << 'DRIFT_CHECK'
+from src.db.connection import get_connection
+from difflib import SequenceMatcher
+
+def similar(a, b):
+    return SequenceMatcher(None, a, b).ratio()
+
+with get_connection() as conn:
+    with conn.cursor() as cur:
+        # Get all components by product_area
+        cur.execute("""
+            SELECT DISTINCT product_area, component
+            FROM themes
+            WHERE component IS NOT NULL AND product_area IS NOT NULL
+            ORDER BY product_area, component
+        """)
+        rows = cur.fetchall()
+
+        # Group by product_area
+        by_area = {}
+        for area, comp in rows:
+            by_area.setdefault(area, []).append(comp)
+
+        # Find similar pairs within each product_area
+        drift_candidates = []
+        for area, components in by_area.items():
+            for i, c1 in enumerate(components):
+                for c2 in components[i+1:]:
+                    sim = similar(c1, c2)
+                    # Flag if very similar but not identical
+                    if 0.75 <= sim < 1.0:
+                        drift_candidates.append((area, c1, c2, sim))
+
+        if drift_candidates:
+            print(f"  \033[1;33mPotential component drift detected:\033[0m")
+            for area, c1, c2, sim in sorted(drift_candidates, key=lambda x: -x[3]):
+                print(f"    [{area}] '{c1}' vs '{c2}' ({sim:.0%} similar)")
+            print(f"  \033[0;34mAdd confirmed aliases to COMPONENT_ALIASES in src/utils/normalize.py\033[0m")
+        else:
+            print("  \033[0;32m✓ No component drift detected\033[0m")
+DRIFT_CHECK
         else
             ERROR=$(echo "$STATUS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('error_message', 'unknown'))")
             echo -e "${RED}======================================${NC}"

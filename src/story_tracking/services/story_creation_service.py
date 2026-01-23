@@ -21,6 +21,11 @@ from ..models import (
 from .orphan_service import OrphanService
 from .story_service import StoryService
 from .evidence_service import EvidenceService
+from src.utils.normalize import (
+    normalize_component,
+    normalize_product_area,
+    canonicalize_component,
+)
 
 # Quality gate imports (optional dependencies - graceful degradation if unavailable)
 try:
@@ -921,14 +926,22 @@ class StoryCreationService:
         direction = cluster.direction or "neutral"
 
         # Get most common product_area (deterministic on ties)
-        product_areas = [c.product_area for c in conversations if c.product_area]
+        # Normalize before counting to ensure "performance tracking" == "performance_tracking"
+        product_areas = [
+            normalize_product_area(c.product_area)
+            for c in conversations if c.product_area
+        ]
         product_area = most_common_deterministic(product_areas, "general")
-        product_area = product_area.lower().replace(" ", "_").replace("-", "_")
 
         # Get most common component (deterministic on ties)
-        components = [c.component for c in conversations if c.component]
+        # Canonicalize before counting to ensure:
+        # - Format normalization: "performance tracking" == "performance_tracking"
+        # - Semantic canonicalization: "smartschedule" == "smart_schedule" (via alias map)
+        components = [
+            canonicalize_component(c.component, product_area)
+            for c in conversations if c.component
+        ]
         component = most_common_deterministic(components, "unknown")
-        component = component.lower().replace(" ", "_").replace("-", "_")
 
         # Prefer issue_signature over symptoms (more stable across runs)
         # Skip:

@@ -606,6 +606,7 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
     # Store themes in database with pipeline_run_id and quality metadata
     from psycopg2.extras import Json
     from src.theme_quality import check_theme_quality
+    from src.utils.normalize import normalize_component, normalize_product_area
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -637,8 +638,8 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                         extracted_at = NOW()
                 """, (
                     theme.conversation_id,
-                    theme.product_area,
-                    theme.component,
+                    normalize_product_area(theme.product_area),
+                    normalize_component(theme.component),
                     theme.issue_signature,
                     theme.user_intent,
                     Json(theme.symptoms),  # Wrap list for JSONB column
