@@ -3,54 +3,19 @@
 **Date**: 2026-01-26
 **Branch**: main
 
-## Goal
+## Accomplished
 
-Fix story description rendering issues and establish shared schema contract between Python formatter and TypeScript renderer.
+- **Story Content Generation** (PR #135 merged): LLM generates 5 fields (title, user_type, user_story_want, user_story_benefit, ai_agent_goal) with retry logic and mechanical fallbacks
+- **Checkpoint CONFIRM mode**: Updated skill to handle questions ending with "?" - answer then wait
+- **Issue #133 architecture**: Priya's plan committed - expands GeneratedStoryContent from 5→9 fields to replace boilerplate with LLM-generated content
+- **Functional test**: Confirmed LLM produces correct output; orphan path limitation documented
 
-## Completed
+## Next Steps
 
-1. **Story section schema** (`config/story-sections.json`)
-   - Defines all section names, parent groups, collapse states, render hints
-   - Shared contract between `story_formatter.py` and `StructuredDescription.tsx`
-   - Accepts drift risk with fallback for unknown sections
+- Issue #133: Quinn + Dmitri architecture review before implementation (per coordination-patterns.md)
+- Implementation phases: Kai → Marcus → Marcus → Kenji
 
-2. **StructuredDescription rewrite**
-   - Parses ANY `##` header (not just hardcoded list)
-   - Looks up section config from schema with fallback
-   - AI Agent Specification collapsed by default for triage UX
-   - Supports unicode checkboxes (✓✗○) for backwards compatibility
-   - Fixed bullet/bold conflict (lines starting with `**` not treated as bullets)
+## Notes
 
-3. **Symptom checkbox format**
-   - Changed `✓`/`✗` to `- [x]`/`- [ ]` in `story_formatter.py`
-   - Future pipeline runs generate proper markdown checkboxes
-
-4. **Favicon** - Added FeedForward favicon to webapp
-
-## Key Decisions
-
-- **Shared schema approach**: Schema defines known sections with metadata, unknown sections fall through to basic rendering
-- **Drift risk accepted**: No automated sync between schema and formatter - manual maintenance
-- **Backwards compatibility**: UI handles both old unicode and new markdown checkbox formats
-- **Section 2 hidden by default**: AI Agent Specification collapsed for human triage workflow
-
-## Files Changed
-
-| File                                                             | Change                                  |
-| ---------------------------------------------------------------- | --------------------------------------- |
-| `config/story-sections.json`                                     | New - schema source of truth            |
-| `webapp/src/config/story-sections.json`                          | New - copy for Next.js                  |
-| `webapp/src/components/StructuredDescription.tsx`                | Rewritten with schema support           |
-| `webapp/src/components/__tests__/StructuredDescription.test.tsx` | 13 tests for new behavior               |
-| `src/story_formatter.py`                                         | Symptom markers use markdown checkboxes |
-| `tests/test_dual_story_formatter.py`                             | Updated test expectations               |
-| `webapp/src/app/icon.svg`                                        | New favicon                             |
-
-## Sync Points (Manual Maintenance Required)
-
-1. `config/story-sections.json` ↔ `webapp/src/config/story-sections.json`
-2. `src/story_formatter.py` section names ↔ schema section definitions
-
----
-
-_Session ended 2026-01-26_
+- Checkpoint skill enforcement remains unsolved - instructions don't guarantee compliance
+- User requested new session due to degraded results from context bloat
