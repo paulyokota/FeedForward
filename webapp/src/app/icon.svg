@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="ff-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2CB5AD"/>
+      <stop offset="50%" style="stop-color:#35A5B5"/>
+      <stop offset="100%" style="stop-color:#4A90D9"/>
+    </linearGradient>
+  </defs>
+  <!-- Speech bubble with integrated forward arrow shape -->
+  <!-- Outer bubble with arrow pointing right -->
+  <path d="M6 20
+           C6 10, 14 4, 26 4
+           L36 4
+           L52 22
+           L36 40
+           L26 40
+           C14 40, 6 34, 6 24
+           L6 20
+           Z"
+        fill="url(#ff-grad)"/>
+  <!-- Tail of speech bubble -->
+  <path d="M10 36 L6 50 L20 40 Z"
+        fill="url(#ff-grad)"/>
+  <!-- Inner chat dots/lines -->
+  <ellipse cx="18" cy="22" rx="3" ry="3" fill="white" opacity="0.9"/>
+  <ellipse cx="28" cy="22" rx="3" ry="3" fill="white" opacity="0.9"/>
+</svg>
