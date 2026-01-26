@@ -33,9 +33,12 @@ Before your next action, you MUST answer these four questions honestly:
 | ------------------------------------------------------------- | ---------- | ---------------------------------- |
 | "investigate", "look into", "understand", "trace", "find out" | UNDERSTAND | Read, Grep, Glob, Bash (read-only) |
 | "fix", "implement", "add", "create", "change"                 | DO         | Write, Edit (after verification)   |
+| Ends with "?" or "yes?", "right?", "correct?"                 | CONFIRM    | Answer the question, then WAIT     |
 | Unclear                                                       | ASK        | Ask the user before proceeding     |
 
 **If you're about to Write/Edit but the user asked you to understand something, STOP.**
+
+**If the user's message ends with "?" they are asking you to CONFIRM something, not to DO it. Answer, then WAIT for explicit go-ahead.**
 
 ### 2. VERIFIED
 
