@@ -204,6 +204,24 @@ Include:
 **Bad example** (never use):
 "Integration test covering the full flow" (too generic, applies to anything)
 
+## CRITICAL: Field Coherence
+
+The acceptance_criteria MUST verify that the ai_agent_goal was achieved. These fields must be logically connected:
+
+**Pattern**: If ai_agent_goal says "Do X", acceptance_criteria must verify "X was done correctly"
+
+**Good coherence**:
+- Goal: "Update help docs for timezone settings. Success: docs explain timezone behavior."
+- AC: "Given a user reads the help docs, When they look for timezone info, Then the explanation is clear and accurate"
+(AC verifies the goal - docs were updated and are clear)
+
+**Bad coherence** (NEVER do this):
+- Goal: "Update the documentation for board selection"
+- AC: "Given a user is on the scheduling page, When they look for guidance, Then instructions are displayed"
+(AC tests UI display, but goal only promises documentation update - these don't match!)
+
+**Rule**: An AI agent that achieves the goal MUST also pass all acceptance criteria. If an agent could complete the goal but fail an AC, the fields are incoherent.
+
 ## Response Format
 
 Respond with valid JSON only. No markdown code blocks, no explanations outside JSON.
@@ -229,6 +247,7 @@ Respond with valid JSON only. No markdown code blocks, no explanations outside J
 - [ ] user_story_benefit is specific to this problem
 - [ ] ai_agent_goal contains "Success:" followed by measurable criteria
 - [ ] acceptance_criteria uses Given/When/Then format derived from symptoms
+- [ ] **COHERENCE CHECK**: An agent achieving ai_agent_goal would ALSO pass all acceptance_criteria
 - [ ] investigation_steps are specific to component (NOT generic "verify API")
 - [ ] success_criteria are observable negations of symptoms
 - [ ] technical_notes include test type appropriate to symptom type
