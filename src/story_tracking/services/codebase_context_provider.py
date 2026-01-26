@@ -43,6 +43,10 @@ UNSAFE_GLOB_CHARS = frozenset(['[', ']', '!', '?', '{', '}', '`', '$', '|', ';',
 # Minimum component name length for partial matching (prevents single-char matches)
 MIN_COMPONENT_LENGTH_FOR_PARTIAL_MATCH = 3
 
+# Maximum files to search for keywords after ranking
+# Balance between coverage (finding all relevant files) and performance (not reading entire repo)
+MAX_FILES_TO_KEYWORD_SEARCH = 100
+
 # Stop words to filter from keyword extraction
 # These are generic terms that match too many files and add noise
 KEYWORD_STOP_WORDS: frozenset = frozenset([
@@ -444,8 +448,8 @@ class CodebaseContextProvider:
             is_low_confidence = self._is_low_confidence_result(file_references)
 
             if is_low_confidence:
-                logger.warning(
-                    "Low-confidence exploration: few or weak file matches",
+                logger.info(
+                    "Low-confidence exploration result: treating as unsuccessful (valid business outcome)",
                     extra={
                         "duration_ms": duration_ms,
                         "files_found": len(file_references),
@@ -520,7 +524,10 @@ class CodebaseContextProvider:
             stage2_context: Additional context from stage 2 analysis (optional)
             theme_component: Specific component to preserve (optional). If provided,
                 this takes precedence over the classified category for component-based
-                search patterns. Fixes issue #134 where category overwrote component.
+                search patterns. Use when you have a narrower component (e.g., "csv_import"
+                or "pin_scheduler") but the classifier returns a broad category (e.g.,
+                "integration" or "scheduling"). Fixes issue #134 where broad categories
+                were overwriting specific component names in search patterns.
 
         Returns:
             Tuple of (ExplorationResult, ClassificationResult)
@@ -952,7 +959,7 @@ class CodebaseContextProvider:
         # This ensures we always search the most relevant files first
         ranked_files = self._rank_files_for_search(files)
 
-        for file_path in ranked_files[:100]:  # Limit to first 100 RANKED files
+        for file_path in ranked_files[:MAX_FILES_TO_KEYWORD_SEARCH]:
             if not validate_path(file_path):
                 continue
 
@@ -1005,26 +1012,11 @@ class CodebaseContextProvider:
                 logger.debug(f"Could not read file {file_path}: {e}")
                 continue
 
-        # Sort by match count AND path priority
-        def get_path_priority(path):
-            """Higher score = higher priority"""
-            path_lower = path.lower()
-            if '/test' in path_lower or '/tests' in path_lower:
-                return 0  # Lowest priority
-            if '/docs' in path_lower or '/doc' in path_lower:
-                return 1
-            if '/examples' in path_lower or '/sample' in path_lower:
-                return 2
-            if '/src/' in path_lower or '/app/' in path_lower:
-                return 10  # Highest priority
-            if '/lib/' in path_lower or '/core/' in path_lower:
-                return 9
-            if '/api/' in path_lower or '/services/' in path_lower:
-                return 8
-            return 5  # Default priority
-        
-        # Sort by priority first, then match count
-        file_matches.sort(key=lambda x: (get_path_priority(x['rel_path']), x['match_count']), reverse=True)
+        # Sort by match count only - files are already pre-ranked by tier in _rank_files_for_search()
+        # Note: We don't re-apply tier priority here to avoid duplicate/conflicting ranking logic.
+        # The deterministic ranking happens BEFORE the 100-file limit (line 955), ensuring
+        # we always search the most relevant files first. Post-search, we just want the best matches.
+        file_matches.sort(key=lambda x: x['match_count'], reverse=True)
 
         # Convert to FileReference objects
         references = []

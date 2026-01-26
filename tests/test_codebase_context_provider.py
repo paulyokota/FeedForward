@@ -795,6 +795,22 @@ class TestDeterministicFileRanking:
         assert ranked[1] == "/repo/src/beta.py"
         assert ranked[2] == "/repo/src/zebra.py"
 
+    def test_rank_files_deterministic_regardless_of_input_order(self):
+        """Ranking should produce identical output regardless of input order."""
+        provider = CodebaseContextProvider()
+
+        # Same files in different orders
+        files_v1 = ["/repo/tests/b.py", "/repo/src/a.py", "/repo/lib/c.py"]
+        files_v2 = ["/repo/lib/c.py", "/repo/src/a.py", "/repo/tests/b.py"]
+        files_v3 = ["/repo/src/a.py", "/repo/tests/b.py", "/repo/lib/c.py"]
+
+        ranked_v1 = provider._rank_files_for_search(files_v1)
+        ranked_v2 = provider._rank_files_for_search(files_v2)
+        ranked_v3 = provider._rank_files_for_search(files_v3)
+
+        # All should produce identical output
+        assert ranked_v1 == ranked_v2 == ranked_v3
+
 
 class TestLowConfidenceDetection:
     """Tests for low-confidence result detection (issue #134)."""
