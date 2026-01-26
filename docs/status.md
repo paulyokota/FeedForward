@@ -14,7 +14,49 @@
 **Milestone 6 (Canonical Pipeline Consolidation): COMPLETE** ✅
 **Theme Quality Architecture: IMPROVEMENTS 1 & 2 COMPLETE** ✅
 
-## Latest: Hybrid Clustering Fragmentation Analysis (2026-01-26)
+## Latest: Code Context Precision Improvements (2026-01-26)
+
+**Issue #134 Complete** - PR #137 merged after 5-personality review convergence
+
+### What Was Shipped
+
+Implemented 6 improvements to make code_context reliably surface relevant files/snippets:
+
+1. **Noise exclusion patterns** - Filters build/, dist/, node_modules/, \*.min.js, compiled assets
+2. **Stop-word filtering** - Removes generic terms (user, data, issue, error) from keyword matching
+3. **Deterministic file ranking** - PATH_PRIORITY_TIERS (src/ > api/ > lib/ > tests/) applied before 100-file limit
+4. **Component preservation** - New `theme_component` parameter prevents category from overwriting specific component
+5. **Low-confidence detection** - `_is_low_confidence_result()` explicitly signals insufficient quality
+6. **Consolidated ranking logic** - Removed duplicate get_path_priority() method
+
+### Test Coverage
+
+- **98 total tests** (24 new tests added)
+- New test coverage:
+  - Noise filtering (build/dist/node_modules exclusion)
+  - Stop-word filtering (generic term removal)
+  - Path priority tiers (deterministic ranking)
+  - Low-confidence detection (weak vs strong matches)
+  - Component parameter preservation
+
+### Code Review
+
+- **Round 1**: 5 issues found
+  - Reginald/Dmitri: Duplicate ranking logic (two systems doing same thing differently)
+  - Maya: Magic number without constant, log level misuse, missing determinism test, poor docs
+- **Round 2**: CONVERGED (all 5 reviewers LGTM, 91-96% confidence)
+- **Key Learning**: Multiple reviewers catching same issue indicates significance
+
+### Files Changed
+
+- `src/story_tracking/services/codebase_context_provider.py` (+199/-26)
+- `src/story_tracking/services/codebase_security.py` (+131/-10)
+- `tests/test_codebase_context_provider.py` (+239/-10)
+- `tests/test_codebase_security.py` (+94/0)
+
+---
+
+## Previous: Hybrid Clustering Fragmentation Analysis (2026-01-26)
 
 **Run 85 in progress** - 45 days of data (Dec 12, 2025 → Jan 26, 2026)
 

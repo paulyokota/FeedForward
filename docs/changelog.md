@@ -8,6 +8,33 @@ Format: [ISO Date] - Summary of changes
 
 ## [Unreleased]
 
+### Added
+
+**Code Context Precision Improvements (2026-01-26)** - Issue #134, PR #137, Commit 16283cf:
+
+- **NOISE_EXCLUSION_PATTERNS** in `src/story_tracking/services/codebase_security.py`:
+  - Filters `build/`, `dist/`, `public/`, `compiled/`, `node_modules/`
+  - Excludes minified files (`*.min.js`, `*.min.css`)
+  - Excludes Tailwind legacy compiled assets (`tailwindapp-legacy/app/build/**`)
+- **KEYWORD_STOP_WORDS** in `src/story_tracking/services/codebase_context_provider.py`:
+  - Removes generic terms: user, data, issue, error, problem, trying, want, need, able, feature, button, page, screen, app
+  - Prevents false positives from broad keyword matches
+- **PATH_PRIORITY_TIERS** for deterministic file ranking:
+  - Tier 1: `src/`, `packages/`, `app/`
+  - Tier 2: `api/`, `service/`
+  - Tier 3: `lib/`, `utils/`, `shared/`
+  - Tier 4: `tests/`, `scripts/`, `docs/`
+  - Files ranked by tier before applying 100-file limit
+- **theme_component parameter** in `explore_with_classification()`:
+  - Preserves specific component from theme data
+  - Prevents category from overwriting component in search patterns
+- **\_is_low_confidence_result()** method:
+  - Explicitly signals when search results have insufficient quality
+  - Detects weak matches (1-2 files per keyword) vs strong matches (5+ files)
+- **MAX_FILES_TO_KEYWORD_SEARCH constant**: Replaced magic number 100 with named constant
+- **24 new tests** covering noise filtering, stop words, path priority, deterministic ranking, low-confidence detection
+- **Total: 98 tests** (all passing)
+
 ### Changed
 
 **Symptom-Driven Title Verbs (2026-01-26)** - Commit 91b60f8:
