@@ -10,6 +10,22 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**LLM-Generated Story Content Fields (2026-01-26)** - Issue #133, Commit 33fabd8:
+
+- Added 4 new LLM-generated fields to replace boilerplate story content:
+  - `acceptance_criteria`: Given/When/Then format derived from symptom analysis
+  - `investigation_steps`: Component-specific debugging guidance (e.g., "Check Ghostwriter brand safety logs", "Verify Bach scheduling transaction")
+  - `success_criteria`: Observable/measurable validation outcomes
+  - `technical_notes`: Testing approach recommendations and vertical slice guidance
+- Updated `src/prompts/story_content.py` with field definitions and good/bad examples
+- Enhanced `GeneratedStoryContent` dataclass in `story_content_generator.py` (9 total fields)
+- Added `_extract_list_field()` helper for parsing LLM list outputs
+- Updated `_mechanical_fallback()` to provide sensible defaults for all fields
+- Modified `src/story_formatter.py` to use generated content instead of static boilerplate
+- Removed static INVEST Check, Instructions, and Guardrails sections from story descriptions
+- 12 new tests in `test_story_content_generator.py` and `test_story_formatter.py`
+- Updated `docs/architecture/story-content-generation.md` with complete field documentation
+
 **Raw Component Preservation for Drift Detection (2026-01-23)**:
 
 - New columns in `themes` table: `component_raw`, `product_area_raw`, `component_raw_inferred`

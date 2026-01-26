@@ -65,6 +65,47 @@ Hybrid clustering pipeline runs end-to-end without errors, but produces **severe
 
 ---
 
+## Previous: LLM-Generated Story Content Fields (2026-01-26)
+
+**Commit 33fabd8** - Issue #133: Replace boilerplate with LLM-generated story fields
+
+### Session Summary
+
+Added 4 new LLM-generated fields to story content generation, replacing static boilerplate sections (INVEST Check, Instructions, Guardrails) with dynamically generated, story-specific content.
+
+### What Was Done
+
+**New LLM-Generated Fields**:
+
+- `acceptance_criteria`: Given/When/Then format derived from symptoms
+- `investigation_steps`: Component-specific debugging guidance
+- `success_criteria`: Observable/measurable outcomes for validation
+- `technical_notes`: Testing approach and vertical slice recommendations
+
+**Implementation Changes**:
+
+- Updated `src/prompts/story_content.py` with 4 new output fields and good/bad examples
+- Enhanced `GeneratedStoryContent` dataclass with new fields in `story_content_generator.py`
+- Added `_extract_list_field()` helper method for parsing LLM list outputs
+- Updated `_mechanical_fallback()` to provide sensible defaults for new fields
+- Modified `src/story_formatter.py` to use generated content, removed static sections
+- Total: 9 LLM-generated fields per story (up from 5)
+
+**Test Coverage**:
+
+- 12 new tests for new fields and formatter changes
+- Tests cover field extraction, fallback behavior, and formatting
+
+**Documentation**:
+
+- Updated `docs/architecture/story-content-generation.md` to document all 9 fields
+
+### Impact
+
+Stories now contain implementation-ready content tailored to each specific issue rather than generic boilerplate. Investigation steps are component-aware, acceptance criteria are symptom-specific, and technical notes provide testing guidance relevant to the problem domain.
+
+---
+
 ## Previous: Hybrid Clustering Bug Fixes - End-to-End Pipeline Working (2026-01-22)
 
 **Commit d88624d** - Critical bugs fixed during runs 46-54 testing
