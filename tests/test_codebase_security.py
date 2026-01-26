@@ -11,12 +11,14 @@ from src.story_tracking.services.codebase_security import (
     filter_exploration_results,
     get_repo_path,
     is_sensitive_file,
+    is_noise_file,
     redact_secrets,
     validate_git_command_args,
     validate_path,
     validate_repo_name,
     APPROVED_REPOS,
     REPO_BASE_PATH,
+    NOISE_EXCLUSION_PATTERNS,
 )
 
 
@@ -208,6 +210,98 @@ class TestExplorationFiltering:
         filtered = filter_exploration_results(files)
         assert len(filtered) == 3
         assert filtered == files
+
+
+class TestNoiseFileDetection:
+    """Tests for noise file detection (issue #134)."""
+
+    def test_detect_build_directories(self):
+        """Should detect files in build directories as noise."""
+        assert is_noise_file("packages/app/build/bundle.js") is True
+        assert is_noise_file("dist/app.js") is True
+        assert is_noise_file("frontend/.next/static/chunks/main.js") is True
+
+    def test_detect_minified_files(self):
+        """Should detect minified files as noise."""
+        assert is_noise_file("app.min.js") is True
+        assert is_noise_file("styles.min.css") is True
+        assert is_noise_file("vendor.bundle.js") is True
+
+    def test_detect_node_modules(self):
+        """Should detect node_modules as noise."""
+        assert is_noise_file("node_modules/react/index.js") is True
+        assert is_noise_file("packages/app/node_modules/lodash/lodash.js") is True
+
+    def test_detect_compiled_assets(self):
+        """Should detect compiled/generated files as noise."""
+        assert is_noise_file("src/__pycache__/module.cpython-310.pyc") is True
+        assert is_noise_file("types.d.ts") is True
+        assert is_noise_file("coverage/lcov-report/index.html") is True
+
+    def test_detect_tailwind_legacy(self):
+        """Should detect Tailwind legacy compiled assets (issue #134 root cause)."""
+        assert is_noise_file("packages/tailwindapp-legacy/app/build/assets/routes.js") is True
+        assert is_noise_file("packages/tailwindapp-legacy/app/public/javascript/app.js") is True
+        assert is_noise_file("packages/app/compacted/scheduler.js") is True
+
+    def test_allow_source_files(self):
+        """Should allow source code files."""
+        assert is_noise_file("src/components/Button.tsx") is False
+        assert is_noise_file("packages/tailwindapp/client/domains/scheduler/index.ts") is False
+        assert is_noise_file("service/scheduler/handler.py") is False
+        assert is_noise_file("tests/test_scheduler.py") is False
+
+    def test_noise_patterns_constant_defined(self):
+        """Should have noise exclusion patterns defined."""
+        assert len(NOISE_EXCLUSION_PATTERNS) > 0
+        # Key patterns should be present
+        assert any("build" in p for p in NOISE_EXCLUSION_PATTERNS)
+        assert any("dist" in p for p in NOISE_EXCLUSION_PATTERNS)
+        assert any("node_modules" in p for p in NOISE_EXCLUSION_PATTERNS)
+        assert any("min.js" in p for p in NOISE_EXCLUSION_PATTERNS)
+
+
+class TestNoiseFilteringIntegration:
+    """Tests for noise filtering in filter_exploration_results (issue #134)."""
+
+    def test_filter_removes_noise_by_default(self):
+        """Should filter noise files by default."""
+        files = [
+            "src/scheduler/handler.py",
+            "packages/app/build/bundle.js",
+            "node_modules/react/index.js",
+            "tests/test_scheduler.py",
+        ]
+        filtered = filter_exploration_results(files)
+        assert "src/scheduler/handler.py" in filtered
+        assert "tests/test_scheduler.py" in filtered
+        assert "packages/app/build/bundle.js" not in filtered
+        assert "node_modules/react/index.js" not in filtered
+
+    def test_filter_can_disable_noise_filter(self):
+        """Should allow disabling noise filter if needed."""
+        files = [
+            "src/app.py",
+            "dist/bundle.js",
+        ]
+        # With noise filter (default)
+        filtered_with = filter_exploration_results(files, include_noise_filter=True)
+        assert "dist/bundle.js" not in filtered_with
+
+        # Without noise filter
+        filtered_without = filter_exploration_results(files, include_noise_filter=False)
+        assert "dist/bundle.js" in filtered_without
+
+    def test_filter_removes_both_sensitive_and_noise(self):
+        """Should remove both sensitive files and noise files."""
+        files = [
+            "src/app.py",
+            ".env",
+            "build/bundle.js",
+            "tests/test.py",
+        ]
+        filtered = filter_exploration_results(files)
+        assert filtered == ["src/app.py", "tests/test.py"]
 
 
 class TestGitCommandValidation:

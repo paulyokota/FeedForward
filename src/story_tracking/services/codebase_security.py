@@ -42,6 +42,57 @@ BLACKLIST_PATTERNS: List[str] = [
     ".ssh/*",
 ]
 
+# Noisy file patterns to filter from code exploration (not secrets, just noise)
+# These are paths that match glob patterns but aren't useful for code context
+# Note: Uses simple substring/fnmatch patterns (not full glob ** syntax)
+NOISE_EXCLUSION_PATTERNS: List[str] = [
+    # Build outputs (match as substrings in path)
+    "*/build/*",
+    "/build/",
+    "*/dist/*",
+    "/dist/",
+    "*/.next/*",
+    "*/__pycache__/*",
+    "*.pyc",
+
+    # Compiled/minified assets
+    "*.min.js",
+    "*.min.css",
+    "*.bundle.js",
+    "*.chunk.js",
+    "*.map",
+
+    # Public/static assets (not source code)
+    "*/public/*",
+    "/public/",
+    "*/static/*",
+    "/static/",
+
+    # Dependencies
+    "*/node_modules/*",
+    "/node_modules/",
+    "*/.venv/*",
+    "*/venv/*",
+
+    # Generated files
+    "*.generated.ts",
+    "*.d.ts",
+    "*/coverage/*",
+    "/coverage/",
+    "*/.coverage/*",
+
+    # Lock files
+    "package-lock.json",
+    "yarn.lock",
+    "poetry.lock",
+
+    # Legacy/compiled directories (Tailwind-specific)
+    "tailwindapp-legacy/app/build/*",
+    "tailwindapp-legacy/app/public/*",
+    "*/compacted/*",
+    "/compacted/",
+]
+
 # Regex patterns for redacting secrets in code content
 # Matches common secret assignment patterns:
 #   - api_key = "sk-1234..."     (quoted)
@@ -207,6 +258,59 @@ def is_sensitive_file(filepath: str) -> bool:
     return False
 
 
+def is_noise_file(filepath: str) -> bool:
+    """
+    Check if filepath matches noise exclusion patterns.
+
+    These are files that may match search patterns but aren't useful for
+    code context (build artifacts, compiled assets, dependencies).
+
+    Args:
+        filepath: Path to file (can be relative or absolute)
+
+    Returns:
+        True if file matches any noise pattern, False otherwise
+
+    Example:
+        >>> is_noise_file("packages/app/build/bundle.js")
+        True
+        >>> is_noise_file("node_modules/react/index.js")
+        True
+        >>> is_noise_file("src/components/Button.tsx")
+        False
+        >>> is_noise_file("app.min.js")
+        True
+    """
+    # Normalize path separators for consistent matching
+    normalized = filepath.replace("\\", "/")
+    # Ensure path starts with / for consistent substring matching
+    if not normalized.startswith("/"):
+        normalized = "/" + normalized
+
+    # Check against all noise exclusion patterns
+    for pattern in NOISE_EXCLUSION_PATTERNS:
+        # For patterns with *, use fnmatch
+        if "*" in pattern:
+            if fnmatch.fnmatch(normalized, pattern) or fnmatch.fnmatch(
+                Path(normalized).name, pattern
+            ):
+                logger.debug(
+                    f"Noise file detected: '{filepath}' matches pattern '{pattern}'",
+                    extra={"filepath": filepath, "pattern": pattern},
+                )
+                return True
+        else:
+            # For simple substring patterns (like "/build/"), check containment
+            if pattern in normalized:
+                logger.debug(
+                    f"Noise file detected: '{filepath}' contains pattern '{pattern}'",
+                    extra={"filepath": filepath, "pattern": pattern},
+                )
+                return True
+
+    return False
+
+
 def redact_secrets(content: str) -> str:
     """
     Redact potential secrets from code content.
@@ -243,34 +347,51 @@ def redact_secrets(content: str) -> str:
     return redacted
 
 
-def filter_exploration_results(files: List[str]) -> List[str]:
+def filter_exploration_results(
+    files: List[str],
+    include_noise_filter: bool = True
+) -> List[str]:
     """
-    Filter out sensitive files from exploration results.
+    Filter out sensitive and optionally noisy files from exploration results.
 
-    Removes files matching sensitive patterns from file lists returned by
-    exploration tools (Glob, Grep, etc.).
+    Removes files matching sensitive patterns (secrets, credentials) and
+    optionally noise patterns (build artifacts, compiled assets) from
+    file lists returned by exploration tools (Glob, Grep, etc.).
 
     Args:
         files: List of file paths from exploration
+        include_noise_filter: If True, also filter noise files (default True)
 
     Returns:
-        Filtered list with sensitive files removed
+        Filtered list with sensitive and optionally noise files removed
 
     Example:
-        >>> files = ["src/app.py", ".env", "config/secrets.json", "tests/test.py"]
+        >>> files = ["src/app.py", ".env", "build/bundle.js", "tests/test.py"]
         >>> filter_exploration_results(files)
         ['src/app.py', 'tests/test.py']
+        >>> filter_exploration_results(files, include_noise_filter=False)
+        ['src/app.py', 'build/bundle.js', 'tests/test.py']
     """
+    # Always filter sensitive files
     filtered = [f for f in files if not is_sensitive_file(f)]
+    sensitive_removed = len(files) - len(filtered)
 
-    removed_count = len(files) - len(filtered)
-    if removed_count > 0:
+    # Optionally filter noise files
+    noise_removed = 0
+    if include_noise_filter:
+        pre_noise_count = len(filtered)
+        filtered = [f for f in filtered if not is_noise_file(f)]
+        noise_removed = pre_noise_count - len(filtered)
+
+    total_removed = sensitive_removed + noise_removed
+    if total_removed > 0:
         logger.info(
-            f"Filtered {removed_count} sensitive file(s) from exploration results",
+            f"Filtered {total_removed} file(s) from exploration results",
             extra={
                 "total_files": len(files),
                 "filtered_files": len(filtered),
-                "removed_count": removed_count,
+                "sensitive_removed": sensitive_removed,
+                "noise_removed": noise_removed,
             },
         )
 
