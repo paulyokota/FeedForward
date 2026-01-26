@@ -1,0 +1,75 @@
+{
+  "reviewer": "sanjay",
+  "date": "2026-01-26",
+  "feature": "story-content-generation",
+  "overall_risk": "MEDIUM",
+  "issues": [
+    {
+      "id": "S1",
+      "title": "Prompt Injection via User-Controlled Input",
+      "category": "injection",
+      "severity": "HIGH",
+      "exploitability": "MEDIUM",
+      "priority": "P1",
+      "files": [
+        "src/prompts/story_content.py",
+        "src/story_tracking/services/story_content_generator.py"
+      ],
+      "lines": "story_content.py:256-287, story_content_generator.py:264-288",
+      "description": "User-controlled data (user_intents, symptoms, excerpts) directly interpolated into LLM prompt without sanitization",
+      "remediation": "Implement input sanitization, add structural barriers, validate LLM output"
+    },
+    {
+      "id": "S2",
+      "title": "Sensitive Data Exposure in Logs and Error Messages",
+      "category": "exposure",
+      "severity": "HIGH",
+      "exploitability": "HIGH",
+      "priority": "P1",
+      "files": ["src/story_tracking/services/story_content_generator.py"],
+      "lines": "175-188, 227, 322-324",
+      "description": "Customer conversation excerpts with potential PII logged at DEBUG level and in error messages",
+      "remediation": "Sanitize/redact sensitive patterns before logging, use structured logging"
+    },
+    {
+      "id": "S3",
+      "title": "Missing Input Length Validation at Entry Point",
+      "category": "validation",
+      "severity": "MEDIUM",
+      "exploitability": "LOW",
+      "priority": "P2",
+      "files": ["src/story_tracking/services/story_creation_service.py"],
+      "lines": "2000-2025",
+      "description": "No upfront validation of input lengths before prompt building, only truncation at final stage",
+      "remediation": "Add explicit maximum lengths for inputs at entry time"
+    },
+    {
+      "id": "S4",
+      "title": "Insufficient JSON Response Validation",
+      "category": "validation",
+      "severity": "LOW",
+      "exploitability": "LOW",
+      "priority": "P3",
+      "files": ["src/story_tracking/services/story_content_generator.py"],
+      "lines": "294-346",
+      "description": "LLM JSON response fields not validated for expected format (verb prefixes, Success: criteria)",
+      "remediation": "Add format validation for each field after extraction"
+    }
+  ],
+  "positive_observations": [
+    "Retry logic with exponential backoff prevents amplification attacks",
+    "30-second timeout prevents hanging connections",
+    "OpenAI JSON mode reduces parsing issues",
+    "Mechanical fallbacks provide graceful degradation",
+    "Optional dependency pattern for graceful degradation"
+  ],
+  "summary": {
+    "total_issues": 4,
+    "high_severity": 2,
+    "medium_severity": 1,
+    "low_severity": 1,
+    "p1_count": 2,
+    "p2_count": 1,
+    "p3_count": 1
+  }
+}
