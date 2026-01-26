@@ -8,6 +8,22 @@ Format: [ISO Date] - Summary of changes
 
 ## [Unreleased]
 
+### Changed
+
+**Symptom-Driven Title Verbs (2026-01-26)** - Commit 91b60f8:
+
+- Removed rigid classification-to-action-verb mapping in `src/prompts/story_content.py`
+- LLM now chooses title verb based on what symptoms suggest is needed, not category
+- Example: `how_to_question` with missing feature symptoms now generates "Enable [feature]" instead of "Clarify [topic] documentation"
+- Updated quality checklist to verify verb matches symptoms
+
+**AI Goal / Acceptance Criteria Coherence (2026-01-26)** - Commit 4ec9f9c:
+
+- Added coherence guidance to `src/prompts/story_content.py`
+- Acceptance criteria must verify that the AI agent goal was achieved
+- New rule: An agent achieving the goal MUST also pass all acceptance criteria
+- Added coherence check to quality checklist
+
 ### Added
 
 **LLM-Generated Story Content Fields (2026-01-26)** - Issue #133, Commit 33fabd8:
