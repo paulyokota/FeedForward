@@ -282,6 +282,7 @@ pytest tests/ -v
 | Command                       | Purpose                                                              |
 | ----------------------------- | -------------------------------------------------------------------- |
 | `/checkpoint`                 | **USE OFTEN** - Four-question verification before action (see below) |
+| `/pipeline-monitor [run_id]`  | Spawn Haiku agent to monitor pipeline, alert on errors               |
 | `/update-docs`                | Update all project docs after making changes                         |
 | `/session-end [summary]`      | End-of-session cleanup, status update, and commit                    |
 | `/create-issues [source]`     | Generate GitHub Issues from spec, file, or prompt                    |
