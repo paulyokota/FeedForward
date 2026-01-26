@@ -43,18 +43,22 @@ Generate valid JSON with these 5 fields:
 
 **Format**: `[Action Verb] [specific problem/capability]`
 
-**Action verb based on category**:
-- product_issue: "Fix [symptom/error]"
-- feature_request: "Add [capability]"
-- how_to_question: "Clarify [topic] documentation"
-- account_issue: "Resolve [account problem]"
-- billing_question: "Clarify [billing topic]"
+**Choose the action verb based on what the symptoms suggest is needed**:
+- Fix - when something is broken or erroring
+- Add/Enable - when users need functionality that doesn't exist
+- Clarify - when documentation is unclear but feature works correctly
+- Resolve - when accounts/connections need repair
+- Improve - when existing functionality is inadequate
+- Support - when a platform/format needs to be handled
+
+**Important**: Let the symptoms guide your verb choice. A "how_to_question" where symptoms reveal missing functionality should use "Add" or "Enable", not "Clarify". A "product_issue" where users are confused (not blocked) might need "Clarify".
 
 **Examples**:
-- "Fix pin upload failures when saving to drafts"
-- "Add bulk scheduling for Instagram Reels"
-- "Clarify SmartSchedule timezone settings in help docs"
-- "Resolve Pinterest OAuth connection timeouts"
+- "Fix pin upload failures when saving to drafts" (errors occurring)
+- "Add bulk scheduling for Instagram Reels" (feature doesn't exist)
+- "Clarify SmartSchedule timezone settings in help docs" (feature works, docs unclear)
+- "Resolve Pinterest OAuth connection timeouts" (connection broken)
+- "Enable bulk deletion for scheduled pins" (users asking how to do something impossible)
 
 **Bad examples** (avoid these patterns):
 - "User cannot upload pins" (passive, not outcome-focused)
@@ -240,7 +244,7 @@ Respond with valid JSON only. No markdown code blocks, no explanations outside J
 
 ## Quality Checklist (verify before responding)
 
-- [ ] Title starts with appropriate action verb for category
+- [ ] Title starts with action verb that matches what symptoms suggest is needed
 - [ ] Title is under 80 characters
 - [ ] user_type is NOT "Tailwind user" or "user"
 - [ ] user_story_want starts with "to"
