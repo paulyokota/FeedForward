@@ -113,13 +113,27 @@ def billing_question_input():
 
 @pytest.fixture
 def mock_openai_response():
-    """Create a mock OpenAI response with valid JSON content."""
+    """Create a mock OpenAI response with valid JSON content (all 9 fields)."""
     return json.dumps({
         "title": "Fix pin upload failures when saving to drafts",
         "user_type": "content creator managing Pinterest accounts",
         "user_story_want": "to be able to upload pins to my drafts without errors",
         "user_story_benefit": "I can maintain my posting schedule without interruption",
         "ai_agent_goal": "Resolve the pin upload failure where users receive Server 0 response code. Success: uploads complete successfully and pins appear in drafts within 5 seconds.",
+        "acceptance_criteria": [
+            "Given a user is uploading a pin to drafts, When the save action is triggered, Then the pin is saved successfully without Server 0 errors",
+            "Given test data, When the fix is applied, Then all existing tests pass",
+        ],
+        "investigation_steps": [
+            "Review `pinterest` error logs for Server 0 response patterns",
+            "Verify Pinterest API authentication state during draft save",
+            "Test pin upload with different image formats and sizes",
+        ],
+        "success_criteria": [
+            "Pin uploads to drafts complete successfully without Server 0 errors",
+            "All existing pinterest tests pass (no regressions)",
+        ],
+        "technical_notes": "**Testing**: API integration test verifying pin save endpoint handles Pinterest API errors gracefully. **Vertical Slice**: API endpoint -> pinterest service -> Pinterest API client. **Focus Area**: Error handling when Pinterest returns Server 0.",
     })
 
 
@@ -171,8 +185,8 @@ class TestStoryContentGeneratorInit:
 class TestBasicGeneration:
     """Test basic content generation functionality."""
 
-    def test_valid_input_produces_all_five_fields(self, generator, sample_input, mock_openai_response):
-        """Test that valid input produces all 5 fields."""
+    def test_valid_input_produces_all_nine_fields(self, generator, sample_input, mock_openai_response):
+        """Test that valid input produces all 9 fields (issue #133)."""
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = mock_openai_response
@@ -184,11 +198,19 @@ class TestBasicGeneration:
         result = generator.generate(sample_input)
 
         assert isinstance(result, GeneratedStoryContent)
+        # Original 5 fields
         assert result.title == "Fix pin upload failures when saving to drafts"
         assert result.user_type == "content creator managing Pinterest accounts"
         assert result.user_story_want == "to be able to upload pins to my drafts without errors"
         assert result.user_story_benefit == "I can maintain my posting schedule without interruption"
         assert "Success:" in result.ai_agent_goal
+        # New 4 fields (issue #133)
+        assert len(result.acceptance_criteria) >= 1
+        assert "Given" in result.acceptance_criteria[0]
+        assert len(result.investigation_steps) >= 1
+        assert "pinterest" in result.investigation_steps[0].lower()
+        assert len(result.success_criteria) >= 1
+        assert "**Testing**:" in result.technical_notes
 
     def test_all_classification_categories_produce_output(self, generator):
         """Test that all classification categories produce appropriate output."""
@@ -488,6 +510,52 @@ class TestMechanicalFallbacks:
         # Q3 fix: Uses "Success:" format per prompt requirements
         assert "Success: issue is resolved and functionality works as expected" in result.ai_agent_goal
 
+    def test_acceptance_criteria_fallback_generic(self, generator, sample_input):
+        """Test acceptance_criteria fallback is generic Given/When/Then (issue #133)."""
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = ValueError("Force fallback")
+        generator._client = mock_client
+
+        result = generator.generate(sample_input)
+
+        assert len(result.acceptance_criteria) == 1
+        assert "Given the reported conditions" in result.acceptance_criteria[0]
+
+    def test_investigation_steps_fallback_component_based(self, generator, sample_input):
+        """Test investigation_steps fallback uses component name (issue #133)."""
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = ValueError("Force fallback")
+        generator._client = mock_client
+
+        result = generator.generate(sample_input)
+
+        assert len(result.investigation_steps) == 2
+        assert "pinterest" in result.investigation_steps[0].lower()
+        assert "publishing" in result.investigation_steps[1].lower()
+
+    def test_success_criteria_fallback_generic(self, generator, sample_input):
+        """Test success_criteria fallback is generic (issue #133)."""
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = ValueError("Force fallback")
+        generator._client = mock_client
+
+        result = generator.generate(sample_input)
+
+        assert len(result.success_criteria) == 2
+        assert "Issue is resolved" in result.success_criteria[0]
+        assert "tests pass" in result.success_criteria[1].lower()
+
+    def test_technical_notes_fallback_component_based(self, generator, sample_input):
+        """Test technical_notes fallback uses component name (issue #133)."""
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = ValueError("Force fallback")
+        generator._client = mock_client
+
+        result = generator.generate(sample_input)
+
+        assert "pinterest" in result.technical_notes.lower()
+        assert "**Target Components**:" in result.technical_notes
+
     def test_title_truncated_to_80_chars(self, generator):
         """Test that titles longer than 80 chars are truncated."""
         long_intent = "A" * 100
@@ -629,6 +697,7 @@ class TestEdgeCases:
             "title": "This is a valid title",
             "user_type": "content creator",
             # Missing: user_story_want, user_story_benefit, ai_agent_goal
+            # Missing all new list fields too
         })
 
         mock_response = MagicMock()
@@ -644,9 +713,73 @@ class TestEdgeCases:
         # Should use LLM values for present fields
         assert result.title == "This is a valid title"
         assert result.user_type == "content creator"
-        # Should use fallback for missing fields
+        # Should use fallback for missing string fields
         assert result.user_story_want == sample_input.user_intents[0]
         assert result.user_story_benefit == "achieve my goals without friction"
+        # Should use fallback for missing list fields (issue #133)
+        assert len(result.acceptance_criteria) >= 1
+        assert len(result.investigation_steps) >= 1
+        assert len(result.success_criteria) >= 1
+        assert "**Target Components**:" in result.technical_notes
+
+    def test_partial_json_with_list_fields(self, generator, sample_input):
+        """Test partial JSON with some list fields present, others missing (issue #133)."""
+        partial_json = json.dumps({
+            "title": "Valid title",
+            "user_type": "content creator",
+            "user_story_want": "to test",
+            "user_story_benefit": "testing works",
+            "ai_agent_goal": "Test. Success: pass.",
+            "acceptance_criteria": ["Given X, When Y, Then Z"],
+            # Missing: investigation_steps, success_criteria, technical_notes
+        })
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = partial_json
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        generator._client = mock_client
+
+        result = generator.generate(sample_input)
+
+        # Should use LLM value for present list field
+        assert result.acceptance_criteria == ["Given X, When Y, Then Z"]
+        # Should use fallback for missing list fields
+        assert len(result.investigation_steps) >= 1
+        assert len(result.success_criteria) >= 1
+
+    def test_empty_list_fields_use_fallback(self, generator, sample_input):
+        """Test that empty list fields use fallback values (issue #133)."""
+        json_with_empty_lists = json.dumps({
+            "title": "Valid title",
+            "user_type": "content creator",
+            "user_story_want": "to test",
+            "user_story_benefit": "testing works",
+            "ai_agent_goal": "Test. Success: pass.",
+            "acceptance_criteria": [],  # Empty list
+            "investigation_steps": [""],  # List with empty string
+            "success_criteria": None,  # Null
+            "technical_notes": "",  # Empty string
+        })
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json_with_empty_lists
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        generator._client = mock_client
+
+        result = generator.generate(sample_input)
+
+        # Empty lists and nulls should use fallback
+        assert len(result.acceptance_criteria) >= 1
+        assert "Given the reported conditions" in result.acceptance_criteria[0]
+        assert len(result.investigation_steps) >= 1
+        assert len(result.success_criteria) >= 1
+        assert "**Target Components**:" in result.technical_notes
 
     def test_very_long_inputs_truncated(self, generator):
         """Test that very long inputs are truncated before LLM call."""
@@ -844,13 +977,17 @@ class TestGeneratedStoryContent:
     """Test GeneratedStoryContent dataclass."""
 
     def test_dataclass_fields(self):
-        """Test that dataclass has all expected fields."""
+        """Test that dataclass has all expected fields (9 total)."""
         content = GeneratedStoryContent(
             title="Test Title",
             user_type="Test User",
             user_story_want="to test",
             user_story_benefit="testing works",
             ai_agent_goal="Test. Success: pass.",
+            acceptance_criteria=["Given X, When Y, Then Z"],
+            investigation_steps=["Step 1", "Step 2"],
+            success_criteria=["Outcome 1", "Outcome 2"],
+            technical_notes="**Testing**: Unit test.",
         )
 
         assert content.title == "Test Title"
@@ -858,6 +995,24 @@ class TestGeneratedStoryContent:
         assert content.user_story_want == "to test"
         assert content.user_story_benefit == "testing works"
         assert content.ai_agent_goal == "Test. Success: pass."
+        # New fields (issue #133)
+        assert content.acceptance_criteria == ["Given X, When Y, Then Z"]
+        assert content.investigation_steps == ["Step 1", "Step 2"]
+        assert content.success_criteria == ["Outcome 1", "Outcome 2"]
+        assert content.technical_notes == "**Testing**: Unit test."
+
+    def test_new_fields_are_required(self):
+        """Test that new fields are required (no defaults)."""
+        # Should raise TypeError if new fields are missing
+        with pytest.raises(TypeError):
+            GeneratedStoryContent(
+                title="Test",
+                user_type="Test",
+                user_story_want="to test",
+                user_story_benefit="testing",
+                ai_agent_goal="Test.",
+                # Missing: acceptance_criteria, investigation_steps, success_criteria, technical_notes
+            )
 
 
 # -----------------------------------------------------------------------------

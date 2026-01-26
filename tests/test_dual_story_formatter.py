@@ -229,14 +229,16 @@ class TestFormatStory:
         assert "tailwind_communities" in result.human_section
         assert "Symptoms (Customer Reported)" in result.human_section
         assert "Root Cause Hypothesis" in result.human_section
-        assert "INVEST Check" in result.human_section
+        # NOTE: INVEST Check removed per issue #133 - pre-checked boxes provide false confidence
+        assert "INVEST Check" not in result.human_section
 
         # Check AI section content
         assert "This card is for a **senior backend engineer**" in result.ai_section
         # Repository is now configurable via target_repo field (defaults to TBD)
         assert "**Repository**:" in result.ai_section
-        assert "Instructions (Step-by-Step)" in result.ai_section
-        assert "Guardrails & Constraints" in result.ai_section
+        # NOTE: Instructions and Guardrails removed per issue #133 - generic workflow AI agents already know
+        assert "Instructions (Step-by-Step)" not in result.ai_section
+        assert "Guardrails & Constraints" not in result.ai_section
 
     def test_with_exploration_result(self, formatter, complete_theme_data, exploration_result):
         """Test formatting with codebase exploration results."""
@@ -281,7 +283,8 @@ class TestFormatHumanSection:
         assert "## Context" in section
         assert "## Acceptance Criteria" in section
         assert "## Technical Notes" in section
-        assert "## INVEST Check" in section
+        # NOTE: INVEST Check removed per issue #133 - pre-checked boxes provide false confidence
+        assert "## INVEST Check" not in section
         assert "## Suggested Investigation" in section
 
     def test_user_story_formatting(self, formatter, complete_theme_data):
@@ -330,17 +333,17 @@ class TestFormatHumanSection:
         # Should not have root cause section
         assert "## Root Cause Hypothesis" not in section
 
-    def test_invest_check(self, formatter, minimal_theme_data):
-        """Test INVEST check formatting."""
+    def test_invest_check_removed(self, formatter, minimal_theme_data):
+        """Test INVEST check is NOT included (issue #133 - provides false confidence)."""
         section = formatter.format_human_section(minimal_theme_data)
 
-        assert "## INVEST Check" in section
-        assert "- [x] **Independent**" in section
-        assert "- [x] **Negotiable**" in section
-        assert "- [x] **Valuable**" in section
-        assert "- [ ] **Estimable**" in section
-        assert "- [ ] **Small**" in section
-        assert "- [x] **Testable**" in section
+        # Verify INVEST check section was removed
+        assert "## INVEST Check" not in section
+        assert "Independent" not in section
+        assert "Negotiable" not in section
+        assert "Valuable" not in section
+        assert "Estimable" not in section
+        assert "Testable" not in section
 
     def test_sample_messages(self, formatter, minimal_theme_data, evidence_data):
         """Test sample customer messages formatting."""
@@ -372,9 +375,11 @@ class TestFormatAISection:
         assert "## Role & Context" in section
         assert "## Goal (Single Responsibility)" in section
         assert "## Context & Architecture" in section
-        assert "## Instructions (Step-by-Step)" in section
+        # NOTE: Instructions removed per issue #133 - generic workflow AI agents already know
+        assert "## Instructions (Step-by-Step)" not in section
         assert "## Success Criteria (Explicit & Observable)" in section
-        assert "## Guardrails & Constraints" in section
+        # NOTE: Guardrails removed per issue #133 - generic best practices belong in CLAUDE.md
+        assert "## Guardrails & Constraints" not in section
         assert "## Extended Thinking Guidance" in section
         assert "## Metadata" in section
 
@@ -430,32 +435,33 @@ class TestFormatAISection:
         section = formatter.format_ai_section(theme)
         assert "Low (1 customer report)" in section
 
-    def test_instructions(self, formatter, complete_theme_data):
-        """Test instructions formatting."""
+    def test_instructions_removed(self, formatter, complete_theme_data):
+        """Test instructions section is NOT included (issue #133 - generic workflow)."""
         section = formatter.format_ai_section(complete_theme_data)
 
-        assert "1. **Analyze** the Yours tab retrieval code" in section
-        assert "2. **Reproduce** using test data" in section
-        assert "3. **Fix** the retrieval logic" in section
+        # Verify instructions section was removed
+        assert "## Instructions (Step-by-Step)" not in section
+        # These were from the implementation_steps in theme_data
+        assert "1. **Analyze** the Yours tab retrieval code" not in section
+        assert "2. **Reproduce** using test data" not in section
 
     def test_success_criteria(self, formatter, complete_theme_data):
-        """Test success criteria formatting."""
+        """Test success criteria uses fallback values."""
         section = formatter.format_ai_section(complete_theme_data)
 
-        assert "- [ ] Pins appear in Yours tab after publishing" in section
-        assert "- [ ] All existing tests pass" in section
+        # With no generated_content passed, should use fallback values
+        assert "## Success Criteria (Explicit & Observable)" in section
+        # Fallback values (not theme_data success_criteria)
+        assert "Issue is resolved" in section
 
-    def test_guardrails(self, formatter, complete_theme_data):
-        """Test guardrails formatting."""
+    def test_guardrails_removed(self, formatter, complete_theme_data):
+        """Test guardrails section is NOT included (issue #133 - belongs in CLAUDE.md)."""
         section = formatter.format_ai_section(complete_theme_data)
 
-        assert "### DO NOT:" in section
-        assert "- Modify write path - it's working" in section
-        assert "- Change schema without migration" in section
-
-        assert "### ALWAYS:" in section
-        assert "- Write tests with the fix" in section
-        assert "- Log key transitions" in section
+        # Verify guardrails section was removed
+        assert "## Guardrails & Constraints" not in section
+        assert "### DO NOT:" not in section
+        assert "### ALWAYS:" not in section
 
     def test_extended_thinking(self, formatter, complete_theme_data):
         """Test extended thinking guidance."""
