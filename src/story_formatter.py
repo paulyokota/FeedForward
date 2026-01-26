@@ -27,6 +27,13 @@ except ImportError:
     FileReference = None
     CodeSnippet = None
 
+# Import GeneratedStoryContent for LLM-generated story fields
+try:
+    from src.story_tracking.services.story_content_generator import GeneratedStoryContent
+except ImportError:
+    # Graceful degradation if story content generator not available
+    GeneratedStoryContent = None
+
 # Production Intercom app ID for URL generation
 INTERCOM_APP_ID = os.getenv("INTERCOM_APP_ID", "2t3d8az2")
 # Coda document ID for deep links to research data
@@ -618,6 +625,7 @@ class DualStoryFormatter:
         theme_data: Dict,
         exploration_result: Optional["ExplorationResult"] = None,
         evidence_data: Optional[Dict] = None,
+        generated_content: Optional["GeneratedStoryContent"] = None,
     ) -> DualFormatOutput:
         """
         Generate complete dual-format story.
@@ -634,16 +642,22 @@ class DualStoryFormatter:
                 - occurrences: Number of reports
                 - first_seen: First report date
                 - last_seen: Last report date
+                - user_type: (optional) Persona for user story "As a" clause
+                - benefit: (optional) Benefit for user story "So that" clause
             exploration_result: Optional codebase exploration results
             evidence_data: Optional evidence dict with:
                 - samples: List of conversation samples
                 - customer_messages: List of customer messages
+            generated_content: Optional LLM-generated content for user story and AI goal.
+                             If provided, uses generated user_type, user_story_want,
+                             user_story_benefit for user story, and ai_agent_goal for
+                             AI section.
 
         Returns:
             DualFormatOutput with human_section, ai_section, and combined text
         """
-        human_section = self.format_human_section(theme_data, evidence_data)
-        ai_section = self.format_ai_section(theme_data, exploration_result)
+        human_section = self.format_human_section(theme_data, evidence_data, generated_content)
+        ai_section = self.format_ai_section(theme_data, exploration_result, generated_content)
 
         # Combine sections with separator
         combined = f"{human_section}\n\n---\n\n{ai_section}"
@@ -686,6 +700,7 @@ class DualStoryFormatter:
         self,
         theme_data: Dict,
         evidence_data: Optional[Dict] = None,
+        generated_content: Optional["GeneratedStoryContent"] = None,
     ) -> str:
         """
         Generate human-readable engineering story section.
@@ -693,6 +708,7 @@ class DualStoryFormatter:
         Args:
             theme_data: Theme metadata dict
             evidence_data: Optional evidence dict with samples and messages
+            generated_content: Optional LLM-generated content for user story fields
 
         Returns:
             Formatted markdown for human section
@@ -710,8 +726,8 @@ class DualStoryFormatter:
         # Format title
         display_title = title.replace("_", " ").title()
 
-        # Build user story
-        user_story = self._format_user_story(theme_data)
+        # Build user story with generated content if available
+        user_story = self._format_user_story(theme_data, generated_content)
 
         # Build context section
         context = f"""## Context
@@ -779,6 +795,7 @@ class DualStoryFormatter:
         self,
         theme_data: Dict,
         exploration_result: Optional["ExplorationResult"] = None,
+        generated_content: Optional["GeneratedStoryContent"] = None,
     ) -> str:
         """
         Generate AI agent task specification section.
@@ -788,6 +805,7 @@ class DualStoryFormatter:
         Args:
             theme_data: Theme metadata dict
             exploration_result: Optional codebase exploration results
+            generated_content: Optional LLM-generated content for AI goal
 
         Returns:
             Formatted markdown for AI section
@@ -813,10 +831,14 @@ Follow project conventions in `CLAUDE.md` and established patterns.
 **Related Story**: See Human-Facing Section above
 **Priority**: {self._determine_priority(occurrences)}"""
 
-        # Goal
+        # Goal - use generated ai_agent_goal if available, otherwise fall back to user_intent
+        goal_text = theme_data.get('user_intent', 'Fix the reported issue and restore expected functionality.')
+        if generated_content and generated_content.ai_agent_goal:
+            goal_text = generated_content.ai_agent_goal
+
         goal_section = f"""## Goal (Single Responsibility)
 
-{theme_data.get('user_intent', 'Fix the reported issue and restore expected functionality.')}"""
+{goal_text}"""
 
         # Context & Architecture (with codebase context)
         architecture_section = self.format_codebase_context(exploration_result) if exploration_result else """## Context & Architecture
@@ -916,11 +938,35 @@ Follow project conventions in `CLAUDE.md` and established patterns.
 
         return "\n".join(sections)
 
-    def _format_user_story(self, theme_data: Dict) -> str:
-        """Format user story in As a.../I want.../So that... format."""
+    def _format_user_story(
+        self,
+        theme_data: Dict,
+        generated_content: Optional["GeneratedStoryContent"] = None,
+    ) -> str:
+        """
+        Format user story in As a.../I want.../So that... format.
+
+        Args:
+            theme_data: Theme metadata dict with optional user_type and benefit keys
+            generated_content: Optional LLM-generated content with user_type,
+                             user_story_want, and user_story_benefit
+
+        Returns:
+            Formatted user story markdown
+        """
+        # Start with theme_data defaults (which may already include generated values)
         user_type = theme_data.get("user_type", "Tailwind user")
         user_intent = theme_data.get("user_intent", "use the product successfully")
         benefit = theme_data.get("benefit", "achieve my goals without friction")
+
+        # Override with generated content if available (higher priority)
+        if generated_content:
+            if generated_content.user_type:
+                user_type = generated_content.user_type
+            if generated_content.user_story_want:
+                user_intent = generated_content.user_story_want
+            if generated_content.user_story_benefit:
+                benefit = generated_content.user_story_benefit
 
         return f"""## User Story
 

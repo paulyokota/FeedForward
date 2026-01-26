@@ -710,7 +710,7 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             cur.execute("""
                 SELECT t.issue_signature, t.product_area, t.component,
                        t.conversation_id, t.user_intent, t.symptoms,
-                       t.affected_flow, c.source_body
+                       t.affected_flow, c.source_body, c.issue_type
                 FROM themes t
                 JOIN conversations c ON t.conversation_id = c.id
                 WHERE t.pipeline_run_id = %s
@@ -736,6 +736,7 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             "symptoms": row["symptoms"],
             "affected_flow": row["affected_flow"],
             "excerpt": (row["source_body"] or "")[:500],
+            "classification_category": row["issue_type"],
         }
         conversation_data[row["conversation_id"]] = conv_dict
         groups[row["issue_signature"]].append(conv_dict)

@@ -87,6 +87,17 @@ except ImportError:
     SubGroupSuggestion = None
     PM_REVIEW_SERVICE_AVAILABLE = False
 
+# StoryContentGenerator for LLM-generated story content (optional)
+try:
+    from .story_content_generator import StoryContentGenerator, GeneratedStoryContent
+    from src.prompts.story_content import StoryContentInput
+    STORY_CONTENT_GENERATOR_AVAILABLE = True
+except ImportError:
+    StoryContentGenerator = None
+    GeneratedStoryContent = None
+    StoryContentInput = None
+    STORY_CONTENT_GENERATOR_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Constants for data limits (used in theme data building and story generation)
@@ -157,6 +168,7 @@ class ConversationData:
     affected_flow: Optional[str] = None
     root_cause_hypothesis: Optional[str] = None
     excerpt: Optional[str] = None
+    classification_category: Optional[str] = None  # Q2: Track actual category
 
 
 @dataclass
@@ -327,6 +339,14 @@ class StoryCreationService:
         else:
             self.dual_formatter = None
             self.codebase_provider = None
+
+        # Initialize story content generator (optional - LLM-generated content)
+        if STORY_CONTENT_GENERATOR_AVAILABLE:
+            self.content_generator = StoryContentGenerator()
+            logger.debug("StoryContentGenerator initialized for LLM-based story content")
+        else:
+            self.content_generator = None
+            logger.debug("StoryContentGenerator not available, using mechanical fallbacks")
 
     def process_pm_review_results(
         self,
@@ -1488,6 +1508,11 @@ class StoryCreationService:
         # Build theme data from conversations
         theme_data = self._build_theme_data(conversations)
 
+        # Generate LLM-based story content (title, user story, AI goal)
+        # Q2: Pass actual classification_category for correct action verb
+        classification = theme_data.get("classification_category") or "product_issue"
+        generated_content = self._generate_story_content(signature, theme_data, classification)
+
         # Explore codebase with classification (Issue #44)
         code_context = None
         if self.dual_format_enabled:
@@ -1495,12 +1520,13 @@ class StoryCreationService:
 
         # Create story with confidence_score from quality gates
         story = self.story_service.create(StoryCreate(
-            title=self._generate_title(signature, theme_data),
+            title=self._generate_title(signature, theme_data, generated_content),
             description=self._generate_description(
                 signature,
                 theme_data,
                 reasoning,
                 original_signature,
+                generated_content,
             ),
             labels=[],
             confidence_score=confidence_score,
@@ -1661,6 +1687,11 @@ class StoryCreationService:
         # Build theme data from conversations
         theme_data = self._build_theme_data(conversations)
 
+        # Generate LLM-based story content (title, user story, AI goal)
+        # Q2: Pass actual classification_category for correct action verb
+        classification = theme_data.get("classification_category") or "product_issue"
+        generated_content = self._generate_story_content(pm_result.signature, theme_data, classification)
+
         # Explore codebase with classification (Issue #44)
         code_context = None
         if self.dual_format_enabled:
@@ -1668,11 +1699,12 @@ class StoryCreationService:
 
         # Create story
         story = self.story_service.create(StoryCreate(
-            title=self._generate_title(pm_result.signature, theme_data),
+            title=self._generate_title(pm_result.signature, theme_data, generated_content),
             description=self._generate_description(
                 pm_result.signature,
                 theme_data,
                 pm_result.reasoning,
+                generated_content=generated_content,
             ),
             labels=[],
             product_area=theme_data.get("product_area"),
@@ -1742,18 +1774,24 @@ class StoryCreationService:
         """Create a story from a split sub-group."""
         theme_data = self._build_theme_data(conversations)
 
+        # Generate LLM-based story content (title, user story, AI goal)
+        # Q2: Pass actual classification_category for correct action verb
+        classification = theme_data.get("classification_category") or "product_issue"
+        generated_content = self._generate_story_content(signature, theme_data, classification)
+
         # Explore codebase with classification (Issue #44)
         code_context = None
         if self.dual_format_enabled:
             code_context = self._explore_codebase_with_classification(theme_data)
 
         story = self.story_service.create(StoryCreate(
-            title=self._generate_title(signature, theme_data),
+            title=self._generate_title(signature, theme_data, generated_content),
             description=self._generate_description(
                 signature,
                 theme_data,
                 rationale,
                 original_signature,
+                generated_content,
             ),
             labels=[],
             product_area=theme_data.get("product_area"),
@@ -1855,6 +1893,8 @@ class StoryCreationService:
                     affected_flow=item.get("affected_flow"),
                     root_cause_hypothesis=item.get("root_cause_hypothesis"),
                     excerpt=item.get("excerpt"),
+                    # Q2: Load classification from extraction data if available
+                    classification_category=item.get("classification_category") or item.get("action_category"),
                 )
 
                 if signature not in conversations:
@@ -1902,14 +1942,124 @@ class StoryCreationService:
             "affected_flow": first_non_null("affected_flow"),
             "root_cause_hypothesis": first_non_null("root_cause_hypothesis"),
             "excerpts": excerpts[:MAX_EXCERPTS_IN_THEME],
+            # Q2: Include classification for proper action verb selection
+            "classification_category": first_non_null("classification_category"),
         }
+
+    def _generate_story_content(
+        self,
+        signature: str,
+        theme_data: Dict[str, Any],
+        classification_category: str = "product_issue",
+    ) -> Optional["GeneratedStoryContent"]:
+        """
+        Generate LLM-based story content for title, user story, and AI goal.
+
+        Uses StoryContentGenerator to produce:
+        - Outcome-focused title
+        - Context-specific user type for user story
+        - User story "I want" and "So that" clauses
+        - AI agent goal with success criteria
+
+        Args:
+            signature: Issue signature
+            theme_data: Aggregated theme data from conversations
+            classification_category: Classification category for title verb selection
+
+        Returns:
+            GeneratedStoryContent if generator available, None otherwise.
+            Callers should fall back to mechanical generation when None.
+        """
+        if not self.content_generator or not STORY_CONTENT_GENERATOR_AVAILABLE:
+            return None
+
+        # Build StoryContentInput from theme_data
+        content_input = self._build_story_content_input(
+            signature, theme_data, classification_category
+        )
+
+        try:
+            generated_content = self.content_generator.generate(content_input)
+            logger.debug(
+                f"Generated story content for '{signature}': title='{generated_content.title[:50]}...'"
+            )
+            return generated_content
+        except Exception as e:
+            logger.warning(
+                f"Story content generation failed for '{signature}': {e}. "
+                f"Falling back to mechanical generation."
+            )
+            return None
+
+    def _build_story_content_input(
+        self,
+        signature: str,
+        theme_data: Dict[str, Any],
+        classification_category: str = "product_issue",
+    ) -> "StoryContentInput":
+        """
+        Build StoryContentInput from theme_data for content generation.
+
+        Args:
+            signature: Issue signature
+            theme_data: Aggregated theme data
+            classification_category: Classification category
+
+        Returns:
+            StoryContentInput ready for StoryContentGenerator
+        """
+        # Collect user_intents (may be single value or list in future)
+        user_intent = theme_data.get("user_intent")
+        user_intents = [user_intent] if user_intent else []
+
+        # Get symptoms
+        symptoms = theme_data.get("symptoms", [])
+
+        # Get excerpts as text list
+        excerpts_data = theme_data.get("excerpts", [])
+        excerpts = []
+        for exc in excerpts_data:
+            if isinstance(exc, dict) and "text" in exc:
+                excerpts.append(exc["text"])
+            elif isinstance(exc, str):
+                excerpts.append(exc)
+
+        return StoryContentInput(
+            user_intents=user_intents,
+            symptoms=symptoms,
+            issue_signature=signature,
+            classification_category=classification_category,
+            product_area=theme_data.get("product_area", "Unknown"),
+            component=theme_data.get("component", "Unknown"),
+            root_cause_hypothesis=theme_data.get("root_cause_hypothesis"),
+            affected_flow=theme_data.get("affected_flow"),
+            excerpts=excerpts[:3] if excerpts else None,  # Limit to 3 for prompt length
+        )
 
     def _generate_title(
         self,
         signature: str,
         theme_data: Dict[str, Any],
+        generated_content: Optional["GeneratedStoryContent"] = None,
     ) -> str:
-        """Generate a story title from signature and theme data."""
+        """
+        Generate a story title from signature and theme data.
+
+        Args:
+            signature: Issue signature
+            theme_data: Aggregated theme data
+            generated_content: Optional LLM-generated content with title.
+                             If provided, uses the generated title.
+                             Falls back to mechanical generation otherwise.
+
+        Returns:
+            Story title string
+        """
+        # Use LLM-generated title if available
+        if generated_content and generated_content.title:
+            return _truncate_at_word_boundary(generated_content.title, MAX_TITLE_LENGTH)
+
+        # Fall back to mechanical generation
         # Use user_intent if available and has meaningful content
         user_intent = theme_data.get("user_intent")
         if user_intent:
@@ -1927,6 +2077,7 @@ class StoryCreationService:
         theme_data: Dict[str, Any],
         reasoning: str,
         original_signature: Optional[str] = None,
+        generated_content: Optional["GeneratedStoryContent"] = None,
     ) -> str:
         """
         Generate story description, optionally with dual format.
@@ -1939,6 +2090,9 @@ class StoryCreationService:
             theme_data: Aggregated theme data from conversations
             reasoning: PM review reasoning
             original_signature: Original signature if split from a larger group
+            generated_content: Optional LLM-generated content for user story and AI goal.
+                             If provided, includes user_type, user_story_want,
+                             user_story_benefit, and ai_agent_goal in formatted output.
 
         Returns:
             Formatted story description (markdown)
@@ -1970,15 +2124,16 @@ class StoryCreationService:
                 )
                 # Continue with None exploration_result
 
-        # Build formatter-compatible theme data
+        # Build formatter-compatible theme data with generated content
         formatter_theme_data = self._build_formatter_theme_data(
-            signature, theme_data, reasoning, original_signature
+            signature, theme_data, reasoning, original_signature, generated_content
         )
 
-        # Generate dual-format output
+        # Generate dual-format output with generated content
         dual_output = self.dual_formatter.format_story(
             theme_data=formatter_theme_data,
             exploration_result=exploration_result,
+            generated_content=generated_content,
         )
 
         logger.info(
@@ -2045,6 +2200,7 @@ class StoryCreationService:
         theme_data: Dict[str, Any],
         reasoning: str,
         original_signature: Optional[str] = None,
+        generated_content: Optional["GeneratedStoryContent"] = None,
     ) -> Dict[str, Any]:
         """
         Transform internal theme data to DualStoryFormatter format.
@@ -2057,6 +2213,7 @@ class StoryCreationService:
             theme_data: Internal theme data dict
             reasoning: PM review reasoning
             original_signature: Original signature if split
+            generated_content: Optional LLM-generated content for user story fields
 
         Returns:
             Theme data dict compatible with DualStoryFormatter.format_story()
@@ -2072,8 +2229,21 @@ class StoryCreationService:
             elif isinstance(excerpt, str):
                 customer_messages.append(excerpt)
 
+        # Use generated content for title and user story fields if available
+        title = theme_data.get("user_intent") or signature.replace("_", " ").title()
+        user_type = "Tailwind user"
+        benefit = "achieve my goals without friction"
+
+        if generated_content:
+            if generated_content.title:
+                title = generated_content.title
+            if generated_content.user_type:
+                user_type = generated_content.user_type
+            if generated_content.user_story_benefit:
+                benefit = generated_content.user_story_benefit
+
         return {
-            "title": theme_data.get("user_intent") or signature.replace("_", " ").title(),
+            "title": title,
             "issue_signature": signature,
             "product_area": theme_data.get("product_area") or "Unknown",
             "component": theme_data.get("component") or "Unknown",
@@ -2089,6 +2259,9 @@ class StoryCreationService:
             "customer_messages": customer_messages,
             # Repository for codebase exploration
             "target_repo": self.target_repo,
+            # Generated content fields for user story (from LLM)
+            "user_type": user_type,
+            "benefit": benefit,
         }
 
     def _explore_codebase_with_classification(
