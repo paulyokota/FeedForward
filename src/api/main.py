@@ -13,11 +13,47 @@ API Documentation available at:
 """
 
 import logging
+import logging.handlers
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+
+# =============================================================================
+# File-based logging (survives stdout/pipe issues)
+# =============================================================================
+# This ensures we capture stack traces even when stdout is unavailable
+# (e.g., detached terminal, broken pipe). Log file: /tmp/feedforward-app.log
+_LOG_FILE = "/tmp/feedforward-app.log"
+_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+
+# Configure root logger with both file and stream handlers
+_root_logger = logging.getLogger()
+_root_logger.setLevel(logging.INFO)
+
+# File handler - always works, captures everything
+_file_handler = logging.handlers.RotatingFileHandler(
+    _LOG_FILE,
+    maxBytes=10 * 1024 * 1024,  # 10MB
+    backupCount=3,
+)
+_file_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+_file_handler.setLevel(logging.INFO)
+_root_logger.addHandler(_file_handler)
+
+# Stream handler - may fail if stdout closed, but useful when available
+_stream_handler = logging.StreamHandler()
+_stream_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+_stream_handler.setLevel(logging.INFO)
+_root_logger.addHandler(_stream_handler)
+
+# Suppress noisy libraries
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("aiohttp").setLevel(logging.WARNING)
+
+# =============================================================================
 
 # Load .env from project root so env vars like HYBRID_CLUSTERING_ENABLED are available
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
