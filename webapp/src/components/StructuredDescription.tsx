@@ -1,129 +1,205 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import storySectionsConfig from "@/config/story-sections.json";
 
 interface StructuredDescriptionProps {
   description: string;
 }
 
-interface Section {
-  title: string;
-  content: string;
-  isLong: boolean;
+interface SectionConfig {
+  parent: string;
+  collapsed: boolean;
+  render: string;
+  aliases?: string[];
 }
 
-// Threshold for collapsing long sections (number of lines)
-const LONG_SECTION_THRESHOLD = 5;
+interface ParsedSection {
+  title: string;
+  normalizedTitle: string;
+  content: string;
+  config: SectionConfig;
+  parentSection: "human_facing" | "ai_agent";
+}
 
-// Known section headers that should be treated as top-level sections
-const KNOWN_SECTIONS = new Set([
-  // Generic sections
-  "summary",
-  "impact",
-  "evidence",
-  "repro",
-  "reproduction",
-  "context",
-  "notes",
-  "description",
-  "problem",
-  "solution",
-  "background",
-  "details",
-  "analysis",
-  // Story-specific sections (from LLM output)
-  "user story",
-  "acceptance criteria",
-  "symptoms",
-  "symptoms (customer reported)",
-  "technical notes",
-  "invest check",
-]);
+// Build lookup map from schema (including aliases)
+const sectionConfigMap = new Map<string, SectionConfig>();
+for (const [name, config] of Object.entries(storySectionsConfig.sections)) {
+  const cfg = config as SectionConfig;
+  sectionConfigMap.set(name.toLowerCase(), cfg);
+  if (cfg.aliases) {
+    for (const alias of cfg.aliases) {
+      sectionConfigMap.set(alias.toLowerCase(), cfg);
+    }
+  }
+}
+
+const defaultConfig: SectionConfig =
+  storySectionsConfig.unknown_section_defaults as SectionConfig;
 
 /**
- * Parse description text into structured sections.
- * Supports both ## Header and **Bold** formats.
- * Only recognizes specific known headers to avoid over-fragmenting content.
- * Falls back to showing raw content if no known sections found.
+ * Look up section config, falling back to defaults for unknown sections
  */
-function parseDescription(description: string): Section[] | null {
+function getSectionConfig(title: string): SectionConfig {
+  return sectionConfigMap.get(title.toLowerCase()) || defaultConfig;
+}
+
+/**
+ * Parse description into sections.
+ * Parses ANY ## header, looks up config from schema.
+ */
+function parseDescription(description: string): ParsedSection[] {
   const parts: Array<{
     title: string;
     startIndex: number;
     contentIndex: number;
   }> = [];
 
-  // Pattern 1: ## Markdown headers (e.g., "## User Story", "## Context")
+  // Find all ## headers (parse any header, not just known ones)
   const markdownHeaderPattern = /(?:^|\n)##\s+([^\n]+)/g;
   let match;
   while ((match = markdownHeaderPattern.exec(description)) !== null) {
     const title = match[1].trim();
-    if (KNOWN_SECTIONS.has(title.toLowerCase())) {
-      parts.push({
-        title,
-        startIndex: match.index,
-        contentIndex: match.index + match[0].length,
-      });
-    }
+    parts.push({
+      title,
+      startIndex: match.index,
+      contentIndex: match.index + match[0].length,
+    });
   }
 
-  // Pattern 2: **Bold** headers (e.g., "**Summary**", "**Impact**")
-  const boldHeaderPattern = /(?:^|\n)\s*\*\*([^*]+)\*\*:?\s*/g;
-  while ((match = boldHeaderPattern.exec(description)) !== null) {
-    const title = match[1].trim();
-    if (KNOWN_SECTIONS.has(title.toLowerCase())) {
-      parts.push({
-        title,
-        startIndex: match.index,
-        contentIndex: match.index + match[0].length,
-      });
-    }
-  }
-
-  // Sort by position in document
+  // Sort by position
   parts.sort((a, b) => a.startIndex - b.startIndex);
 
-  // If no known sections found, return null to show raw view
   if (parts.length === 0) {
-    return null;
+    return [];
   }
 
-  const sections: Section[] = parts.map((part, idx) => {
+  // Detect if we're in Section 2 (AI Agent) based on marker
+  let inAiAgentSection = false;
+  const section2Marker =
+    storySectionsConfig.parents.ai_agent.marker.toLowerCase();
+
+  const sections: ParsedSection[] = parts.map((part, idx) => {
     const nextStartIndex =
       idx < parts.length - 1 ? parts[idx + 1].startIndex : description.length;
     const content = description
       .substring(part.contentIndex, nextStartIndex)
       .trim();
 
-    // Consider content "long" if it exceeds threshold
-    const lineCount = content.split("\n").filter((line) => line.trim()).length;
-    const isLong = lineCount > LONG_SECTION_THRESHOLD;
+    // Check if this header marks start of AI Agent section
+    if (part.title.toLowerCase().includes(section2Marker.toLowerCase())) {
+      inAiAgentSection = true;
+    }
 
-    return { title: part.title, content, isLong };
+    const config = getSectionConfig(part.title);
+
+    // Determine parent: use config if known section, otherwise infer from position
+    let parentSection: "human_facing" | "ai_agent";
+    if (config !== defaultConfig) {
+      parentSection = config.parent as "human_facing" | "ai_agent";
+    } else {
+      parentSection = inAiAgentSection ? "ai_agent" : "human_facing";
+    }
+
+    return {
+      title: part.title,
+      normalizedTitle: part.title.toLowerCase(),
+      content,
+      config,
+      parentSection,
+    };
   });
 
-  // Filter out empty sections
-  return sections.filter((s) => s.content.length > 0);
+  // Filter out empty sections and section markers themselves
+  return sections.filter((s) => {
+    if (s.content.length === 0) return false;
+    // Skip "SECTION 1:" and "SECTION 2:" marker headers
+    if (
+      s.title.toLowerCase().startsWith("section 1") ||
+      s.title.toLowerCase().startsWith("section 2")
+    ) {
+      return false;
+    }
+    return true;
+  });
 }
 
 /**
- * Render a single section with progressive disclosure for long content.
+ * Render content with bold text support
  */
-function SectionContent({ section }: { section: Section }) {
+function renderTextWithBold(text: string): React.ReactNode {
+  const boldPattern = /\*\*([^*]+)\*\*/g;
+  const parts = text.split(boldPattern);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) =>
+    i % 2 === 1 ? <strong key={i}>{part}</strong> : part,
+  );
+}
+
+/**
+ * Render a checkbox item (supports both markdown and unicode formats)
+ */
+function CheckboxItem({ line, index }: { line: string; index: number }) {
+  const trimmed = line.trim();
+
+  // Markdown checkbox: - [ ] or - [x]
+  const mdMatch = trimmed.match(/^-\s*\[([ xX])\]\s*(.*)$/);
+  if (mdMatch) {
+    const isChecked = mdMatch[1].toLowerCase() === "x";
+    const text = mdMatch[2];
+    return (
+      <div key={index} className="checkbox-item">
+        <span className={`checkbox ${isChecked ? "checked" : ""}`}>
+          {isChecked ? "✓" : "○"}
+        </span>
+        <span className={isChecked ? "checked-text" : ""}>
+          {renderTextWithBold(text)}
+        </span>
+      </div>
+    );
+  }
+
+  // Unicode checkbox: ✓, ✗, ○ at start of line
+  const unicodeMatch = trimmed.match(/^([✓✗○])\s*(.*)$/);
+  if (unicodeMatch) {
+    const marker = unicodeMatch[1];
+    const text = unicodeMatch[2];
+    const isChecked = marker === "✓";
+    const isFailed = marker === "✗";
+    return (
+      <div key={index} className="checkbox-item">
+        <span
+          className={`checkbox ${isChecked ? "checked" : ""} ${isFailed ? "failed" : ""}`}
+        >
+          {marker}
+        </span>
+        <span className={isChecked ? "checked-text" : ""}>
+          {renderTextWithBold(text)}
+        </span>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+/**
+ * Render section content based on render type
+ * Note: isExpanded here is for content truncation, NOT schema-controlled collapse
+ */
+function SectionContent({ section }: { section: ParsedSection }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Split into paragraphs (double newline) or lines
   const lines = section.content.split("\n").filter((line) => line.trim());
-  const shouldTruncate = section.isLong && !isExpanded;
-  const displayLines = shouldTruncate
-    ? lines.slice(0, LONG_SECTION_THRESHOLD)
-    : lines;
-  const remainingCount = lines.length - LONG_SECTION_THRESHOLD;
+  const LONG_THRESHOLD = 5;
+  const isLong = lines.length > LONG_THRESHOLD;
+  const shouldTruncate = isLong && !isExpanded;
+  const displayLines = shouldTruncate ? lines.slice(0, LONG_THRESHOLD) : lines;
+  const remainingCount = lines.length - LONG_THRESHOLD;
 
-  // Group consecutive bullet points together
   const renderContent = () => {
     const elements: React.ReactElement[] = [];
-    let bulletGroup: string[] = [];
+    let bulletGroup: React.ReactNode[] = [];
 
     const flushBullets = () => {
       if (bulletGroup.length > 0) {
@@ -142,40 +218,82 @@ function SectionContent({ section }: { section: Section }) {
 
     displayLines.forEach((line, idx) => {
       const trimmed = line.trim();
-      // Check for checkbox items first
-      const checkboxMatch = trimmed.match(/^-\s*\[([ xX])\]\s*(.*)$/);
-      const isBullet =
-        trimmed.startsWith("-") ||
-        trimmed.startsWith("•") ||
-        trimmed.startsWith("*");
 
-      if (checkboxMatch) {
-        // Flush any pending bullets first
+      // Skip ### sub-headers but show them as bold text
+      if (trimmed.startsWith("### ")) {
         flushBullets();
-        const isChecked = checkboxMatch[1].toLowerCase() === "x";
-        const text = checkboxMatch[2];
         elements.push(
-          <div key={idx} className="checkbox-item">
-            <span className={`checkbox ${isChecked ? "checked" : ""}`}>
-              {isChecked ? "✓" : "○"}
-            </span>
-            <span className={isChecked ? "checked-text" : ""}>{text}</span>
+          <p key={idx} className="content-line sub-header">
+            <strong>{trimmed.replace("### ", "")}</strong>
+          </p>,
+        );
+        return;
+      }
+
+      // Check for checkbox items (markdown or unicode)
+      const isCheckbox =
+        /^-\s*\[([ xX])\]/.test(trimmed) || /^[✓✗○]/.test(trimmed);
+
+      if (isCheckbox) {
+        flushBullets();
+        const checkboxEl = (
+          <CheckboxItem key={idx} line={trimmed} index={idx} />
+        );
+        if (checkboxEl) elements.push(checkboxEl);
+        return;
+      }
+
+      // Check for numbered list
+      const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+      if (numberedMatch) {
+        flushBullets();
+        elements.push(
+          <p key={idx} className="content-line numbered-item">
+            <span className="number">{numberedMatch[1]}.</span>
+            {renderTextWithBold(numberedMatch[2])}
+          </p>,
+        );
+        return;
+      }
+
+      // Check for bullet points (but not bold markers like **text**)
+      const isBullet =
+        trimmed.startsWith("- ") ||
+        trimmed.startsWith("-\t") ||
+        trimmed.startsWith("• ") ||
+        (trimmed.startsWith("* ") && !trimmed.startsWith("**"));
+
+      if (isBullet) {
+        const bulletText = trimmed.replace(/^[-•*]\s+/, "");
+        bulletGroup.push(renderTextWithBold(bulletText));
+        return;
+      }
+
+      // Check for table row
+      if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+        flushBullets();
+        // Skip separator rows
+        if (/^\|[\s\-:|]+\|$/.test(trimmed)) return;
+
+        const cells = trimmed.split("|").filter((c) => c.trim());
+        elements.push(
+          <div key={idx} className="table-row">
+            {cells.map((cell, i) => (
+              <span key={i} className="table-cell">
+                {renderTextWithBold(cell.trim())}
+              </span>
+            ))}
           </div>,
         );
-      } else if (isBullet) {
-        // Remove bullet character and add to group
-        bulletGroup.push(trimmed.replace(/^[-•*]\s*/, ""));
-      } else {
-        flushBullets();
-        // Render bold text within paragraphs
-        const boldPattern = /\*\*([^*]+)\*\*/g;
-        const parts = trimmed.split(boldPattern);
+        return;
+      }
 
+      // Regular paragraph
+      flushBullets();
+      if (trimmed) {
         elements.push(
           <p key={idx} className="content-line">
-            {parts.map((part, i) =>
-              i % 2 === 1 ? <strong key={i}>{part}</strong> : part,
-            )}
+            {renderTextWithBold(trimmed)}
           </p>,
         );
       }
@@ -189,7 +307,7 @@ function SectionContent({ section }: { section: Section }) {
     <div className="section-content">
       <div className="content-text">{renderContent()}</div>
 
-      {section.isLong && (
+      {isLong && (
         <button
           type="button"
           className="expand-btn"
@@ -228,6 +346,21 @@ function SectionContent({ section }: { section: Section }) {
           margin-bottom: 0;
         }
 
+        .content-line.sub-header {
+          margin-top: 12px;
+          color: var(--text-primary);
+        }
+
+        .content-line.numbered-item {
+          display: flex;
+          gap: 8px;
+        }
+
+        .content-line.numbered-item .number {
+          color: var(--text-tertiary);
+          min-width: 20px;
+        }
+
         .bullet-list {
           margin: 8px 0;
           padding-left: 20px;
@@ -240,37 +373,21 @@ function SectionContent({ section }: { section: Section }) {
           line-height: 1.5;
         }
 
-        .checkbox-item {
+        .table-row {
           display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          margin: 6px 0;
-          color: var(--text-secondary);
-          line-height: 1.5;
+          gap: 16px;
+          padding: 4px 0;
+          border-bottom: 1px solid var(--border-subtle);
         }
 
-        .checkbox {
-          flex-shrink: 0;
-          width: 18px;
-          height: 18px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 4px;
-          font-size: 12px;
-          background: var(--bg-surface);
-          border: 1px solid var(--border-default);
+        .table-row:first-child {
+          font-weight: 600;
+          color: var(--text-primary);
         }
 
-        .checkbox.checked {
-          background: var(--accent-teal, var(--accent-blue));
-          border-color: var(--accent-teal, var(--accent-blue));
-          color: white;
-        }
-
-        .checked-text {
-          text-decoration: line-through;
-          opacity: 0.7;
+        .table-cell {
+          flex: 1;
+          min-width: 0;
         }
 
         .expand-btn {
@@ -298,6 +415,108 @@ function SectionContent({ section }: { section: Section }) {
   );
 }
 
+/**
+ * Collapsible section group (for AI Agent section)
+ */
+function SectionGroup({
+  title,
+  sections,
+  defaultCollapsed,
+}: {
+  title: string;
+  sections: ParsedSection[];
+  defaultCollapsed: boolean;
+}) {
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+
+  if (sections.length === 0) return null;
+
+  return (
+    <div className="section-group">
+      <button
+        type="button"
+        className="group-header"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
+        {isCollapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+        <span className="group-title">{title}</span>
+        <span className="group-count">{sections.length} sections</span>
+      </button>
+
+      {!isCollapsed && (
+        <div className="group-content">
+          {sections.map((section, idx) => (
+            <div key={idx} className="section">
+              <h3 className="section-title">{section.title}</h3>
+              <SectionContent section={section} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <style jsx>{`
+        .section-group {
+          margin-bottom: 20px;
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-md);
+          overflow: hidden;
+        }
+
+        .group-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          padding: 12px 16px;
+          background: var(--bg-elevated);
+          border: none;
+          cursor: pointer;
+          text-align: left;
+          transition: background 0.15s ease;
+        }
+
+        .group-header:hover {
+          background: var(--bg-hover);
+        }
+
+        .group-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .group-count {
+          font-size: 12px;
+          color: var(--text-tertiary);
+          margin-left: auto;
+        }
+
+        .group-content {
+          padding: 16px;
+          border-top: 1px solid var(--border-default);
+        }
+
+        .section {
+          padding-bottom: 16px;
+          border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .section:last-child {
+          border-bottom: none;
+          padding-bottom: 0;
+        }
+
+        .section-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin: 0 0 12px 0;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export function StructuredDescription({
   description,
 }: StructuredDescriptionProps) {
@@ -306,8 +525,15 @@ export function StructuredDescription({
     "idle",
   );
 
-  const sections = parseDescription(description);
-  const shouldUseStructured = sections !== null && sections.length > 0;
+  const sections = useMemo(() => parseDescription(description), [description]);
+
+  // Group sections by parent
+  const humanSections = sections.filter(
+    (s) => s.parentSection === "human_facing",
+  );
+  const aiSections = sections.filter((s) => s.parentSection === "ai_agent");
+
+  const shouldUseStructured = sections.length > 0;
 
   const handleCopy = async () => {
     try {
@@ -370,12 +596,22 @@ export function StructuredDescription({
 
       {viewMode === "structured" && shouldUseStructured ? (
         <div className="structured-view">
-          {sections.map((section, idx) => (
+          {/* Human-facing sections (expanded) */}
+          {humanSections.map((section, idx) => (
             <div key={idx} className="section">
               <h3 className="section-title">{section.title}</h3>
               <SectionContent section={section} />
             </div>
           ))}
+
+          {/* AI Agent sections (collapsed by default) */}
+          {aiSections.length > 0 && (
+            <SectionGroup
+              title={storySectionsConfig.parents.ai_agent.display}
+              sections={aiSections}
+              defaultCollapsed={storySectionsConfig.parents.ai_agent.collapsed}
+            />
+          )}
         </div>
       ) : (
         <div className="raw-view">
@@ -495,6 +731,48 @@ export function StructuredDescription({
           word-wrap: break-word;
         }
       `}</style>
+
+      {/* Global styles for checkbox items */}
+      <style jsx global>{`
+        .checkbox-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          margin: 6px 0;
+          color: var(--text-secondary);
+          line-height: 1.5;
+        }
+
+        .checkbox {
+          flex-shrink: 0;
+          width: 18px;
+          height: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+          font-size: 12px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-default);
+        }
+
+        .checkbox.checked {
+          background: var(--accent-teal, var(--accent-blue));
+          border-color: var(--accent-teal, var(--accent-blue));
+          color: white;
+        }
+
+        .checkbox.failed {
+          background: var(--status-error, #dc2626);
+          border-color: var(--status-error, #dc2626);
+          color: white;
+        }
+
+        .checked-text {
+          text-decoration: line-through;
+          opacity: 0.7;
+        }
+      `}</style>
     </div>
   );
 }
@@ -529,6 +807,23 @@ function ChevronUpIcon() {
       strokeLinejoin="round"
     >
       <polyline points="18 15 12 9 6 15" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="9 18 15 12 9 6" />
     </svg>
   );
 }

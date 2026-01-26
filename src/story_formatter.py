@@ -959,15 +959,14 @@ So that **{benefit}**"""
 
         formatted_symptoms = []
         for symptom in symptoms:
-            # Add checkmark or cross based on keyword hints
+            # Use markdown checkbox syntax for consistent rendering
+            # Negative symptoms get unchecked box, positive get checked
             if any(word in symptom.lower() for word in ["does not", "do not", "don't", "fails", "missing", "incorrect", "not working"]):
-                marker = "✗"
+                formatted_symptoms.append(f"- [ ] {symptom}")
             elif any(word in symptom.lower() for word in ["works", "successful", "correct"]):
-                marker = "✓"
+                formatted_symptoms.append(f"- [x] {symptom}")
             else:
-                marker = "-"
-
-            formatted_symptoms.append(f"{marker} {symptom}")
+                formatted_symptoms.append(f"- {symptom}")
 
         return f"""## Symptoms (Customer Reported)
 

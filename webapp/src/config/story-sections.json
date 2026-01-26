@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Story section definitions - shared contract between Python formatter and TypeScript renderer",
+
+  "parents": {
+    "human_facing": {
+      "display": "Story Details",
+      "collapsed": false,
+      "marker": "SECTION 1"
+    },
+    "ai_agent": {
+      "display": "AI Agent Specification",
+      "collapsed": true,
+      "marker": "SECTION 2"
+    }
+  },
+
+  "sections": {
+    "user story": {
+      "parent": "human_facing",
+      "collapsed": false,
+      "render": "text"
+    },
+    "context": {
+      "parent": "human_facing",
+      "collapsed": false,
+      "render": "key_value"
+    },
+    "acceptance criteria": {
+      "parent": "human_facing",
+      "collapsed": false,
+      "render": "checklist"
+    },
+    "symptoms": {
+      "aliases": ["symptoms (customer reported)"],
+      "parent": "human_facing",
+      "collapsed": false,
+      "render": "checklist"
+    },
+    "root cause hypothesis": {
+      "parent": "human_facing",
+      "collapsed": false,
+      "render": "text"
+    },
+    "technical notes": {
+      "parent": "human_facing",
+      "collapsed": false,
+      "render": "key_value"
+    },
+    "invest check": {
+      "parent": "human_facing",
+      "collapsed": false,
+      "render": "checklist"
+    },
+    "sample customer messages": {
+      "parent": "human_facing",
+      "collapsed": true,
+      "render": "quotes"
+    },
+    "suggested investigation": {
+      "parent": "human_facing",
+      "collapsed": false,
+      "render": "numbered_list"
+    },
+    "role & context": {
+      "aliases": ["role and context"],
+      "parent": "ai_agent",
+      "collapsed": true,
+      "render": "text"
+    },
+    "goal": {
+      "aliases": ["goal (single responsibility)"],
+      "parent": "ai_agent",
+      "collapsed": true,
+      "render": "text"
+    },
+    "context & architecture": {
+      "aliases": ["context and architecture"],
+      "parent": "ai_agent",
+      "collapsed": true,
+      "render": "text"
+    },
+    "architecture notes": {
+      "parent": "ai_agent",
+      "collapsed": true,
+      "render": "text"
+    },
+    "business rules": {
+      "parent": "ai_agent",
+      "collapsed": true,
+      "render": "bullet_list"
+    },
+    "instructions": {
+      "aliases": ["instructions (step-by-step)"],
+      "parent": "ai_agent",
+      "collapsed": true,
+      "render": "numbered_list"
+    },
+    "success criteria": {
+      "aliases": ["success criteria (explicit & observable)"],
+      "parent": "ai_agent",
+      "collapsed": true,
+      "render": "checklist"
+    },
+    "guardrails & constraints": {
+      "aliases": ["guardrails and constraints"],
+      "parent": "ai_agent",
+      "collapsed": true,
+      "render": "text"
+    },
+    "extended thinking guidance": {
+      "parent": "ai_agent",
+      "collapsed": true,
+      "render": "text"
+    },
+    "metadata": {
+      "parent": "ai_agent",
+      "collapsed": true,
+      "render": "table"
+    }
+  },
+
+  "unknown_section_defaults": {
+    "parent": "human_facing",
+    "collapsed": false,
+    "render": "text"
+  }
+}

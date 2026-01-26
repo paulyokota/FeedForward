@@ -303,16 +303,16 @@ class TestFormatHumanSection:
         assert "12 customer reports" in section
 
     def test_symptoms_formatting(self, formatter, complete_theme_data):
-        """Test symptoms with checkmarks and crosses."""
+        """Test symptoms with markdown checkbox formatting."""
         section = formatter.format_human_section(complete_theme_data)
 
-        # Negative symptoms should have ✗
-        assert "✗ Pins do not appear" in section
+        # Negative symptoms should have unchecked checkbox
+        assert "- [ ] Pins do not appear" in section
 
-        # Positive symptoms should have ✓
-        assert "✓ Pins publish successfully to Pinterest" in section
+        # Positive symptoms should have checked checkbox
+        assert "- [x] Pins publish successfully to Pinterest" in section
 
-        # Neutral symptoms should have -
+        # Neutral symptoms should have plain bullet
         assert "- Pins scheduled with community assignment" in section
         assert "- DB records exist for submissions" in section
 
@@ -633,17 +633,17 @@ class TestHelperMethods:
         assert "- [ ] Already has checkbox" in result
 
     def test_format_symptoms_markers(self, formatter):
-        """Test symptom marker assignment."""
+        """Test symptom marker assignment with markdown checkboxes."""
         symptoms = [
-            "Feature works correctly",  # Should get ✓
-            "Feature does not work",  # Should get ✗
-            "Feature is slow",  # Should get -
+            "Feature works correctly",  # Should get checked checkbox
+            "Feature does not work",  # Should get unchecked checkbox
+            "Feature is slow",  # Should get plain bullet
         ]
 
         result = formatter._format_symptoms(symptoms)
 
-        assert "✓ Feature works correctly" in result
-        assert "✗ Feature does not work" in result
+        assert "- [x] Feature works correctly" in result
+        assert "- [ ] Feature does not work" in result
         assert "- Feature is slow" in result
 
     def test_format_sample_messages_mixed_types(self, formatter):

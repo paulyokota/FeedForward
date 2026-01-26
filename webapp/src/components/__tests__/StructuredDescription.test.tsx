@@ -4,14 +4,17 @@ import { StructuredDescription } from "../StructuredDescription";
 
 describe("StructuredDescription", () => {
   it("renders structured view with sections", () => {
-    const description = `**Summary**
+    const description = `## Summary
+
 This is a summary section.
 
-**Impact**
+## Impact
+
 - High priority
 - Affects many users
 
-**Evidence**
+## Evidence
+
 User feedback from multiple sources.`;
 
     render(<StructuredDescription description={description} />);
@@ -34,7 +37,8 @@ User feedback from multiple sources.`;
   });
 
   it("allows toggling between structured and raw view", () => {
-    const description = `**Summary**
+    const description = `## Summary
+
 Test content.`;
 
     render(<StructuredDescription description={description} />);
@@ -49,12 +53,13 @@ Test content.`;
     // Click raw button
     fireEvent.click(rawBtn);
 
-    // Should show raw text
-    expect(screen.getByText(/\*\*Summary\*\*/)).toBeTruthy();
+    // Should show raw text with ## header
+    expect(screen.getByText(/## Summary/)).toBeTruthy();
   });
 
   it("shows expand button for long sections", () => {
-    const description = `**Summary**
+    const description = `## Summary
+
 Line 1
 Line 2
 Line 3
@@ -65,12 +70,13 @@ Line 7`;
 
     render(<StructuredDescription description={description} />);
 
-    // Should show expand button (now triggers at >5 lines)
+    // Should show expand button (triggers at >5 lines)
     expect(screen.getByText(/Show .+ more line/)).toBeTruthy();
   });
 
   it("expands long sections when clicked", () => {
-    const description = `**Summary**
+    const description = `## Summary
+
 Line 1
 Line 2
 Line 3
@@ -107,8 +113,8 @@ Line 7`;
   });
 
   it("renders bullet points correctly", () => {
-    // Using "Details" which is a known section header
-    const description = `**Details**
+    const description = `## Details
+
 - Feature 1
 - Feature 2
 • Feature 3`;
@@ -155,5 +161,84 @@ Some context here.
     expect(screen.getByText("✓")).toBeTruthy(); // Checked
     expect(screen.getByText("Unchecked item")).toBeTruthy();
     expect(screen.getByText("Checked item")).toBeTruthy();
+  });
+
+  it("renders unicode checkboxes from legacy data", () => {
+    const description = `## INVEST Check
+
+✓ Independent: Can be worked on alone
+✗ Small: Too large, needs splitting
+○ Testable: Needs more criteria`;
+
+    render(<StructuredDescription description={description} />);
+
+    expect(screen.getByText("✓")).toBeTruthy();
+    expect(screen.getByText("✗")).toBeTruthy();
+    expect(screen.getByText("○")).toBeTruthy();
+    expect(screen.getByText(/Independent/)).toBeTruthy();
+  });
+
+  it("collapses AI Agent sections by default", () => {
+    const description = `## User Story
+
+As a user I want something.
+
+## SECTION 2: AI Agent Task Specification
+
+## Role & Context
+
+This is for an AI agent.
+
+## Instructions (Step-by-Step)
+
+1. Do this
+2. Do that`;
+
+    render(<StructuredDescription description={description} />);
+
+    // Human section should be visible
+    expect(screen.getByText("User Story")).toBeTruthy();
+
+    // AI Agent section should be collapsed (show the group header)
+    expect(screen.getByText("AI Agent Specification")).toBeTruthy();
+    expect(screen.getByText(/sections/)).toBeTruthy();
+
+    // Content inside should NOT be visible until expanded
+    expect(screen.queryByText("This is for an AI agent.")).toBeNull();
+  });
+
+  it("expands AI Agent section when clicked", () => {
+    const description = `## User Story
+
+As a user I want something.
+
+## SECTION 2: AI Agent Task Specification
+
+## Role & Context
+
+This is for an AI agent.`;
+
+    render(<StructuredDescription description={description} />);
+
+    // Click to expand
+    const groupHeader = screen.getByText("AI Agent Specification");
+    fireEvent.click(groupHeader);
+
+    // Now content should be visible
+    expect(screen.getByText("Role & Context")).toBeTruthy();
+    expect(screen.getByText("This is for an AI agent.")).toBeTruthy();
+  });
+
+  it("renders bold text within content", () => {
+    const description = `## Context
+
+- **Product Area**: scheduling
+- **Component**: pin_scheduler`;
+
+    render(<StructuredDescription description={description} />);
+
+    // Bold text should be rendered (check for the text content)
+    expect(screen.getByText(/Product Area/)).toBeTruthy();
+    expect(screen.getByText(/scheduling/)).toBeTruthy();
   });
 });
