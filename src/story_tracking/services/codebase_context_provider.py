@@ -43,6 +43,73 @@ UNSAFE_GLOB_CHARS = frozenset(['[', ']', '!', '?', '{', '}', '`', '$', '|', ';',
 # Minimum component name length for partial matching (prevents single-char matches)
 MIN_COMPONENT_LENGTH_FOR_PARTIAL_MATCH = 3
 
+# Maximum files to search for keywords after ranking
+# Balance between coverage (finding all relevant files) and performance (not reading entire repo)
+MAX_FILES_TO_KEYWORD_SEARCH = 100
+
+# Stop words to filter from keyword extraction
+# These are generic terms that match too many files and add noise
+KEYWORD_STOP_WORDS: frozenset = frozenset([
+    # Common programming terms that appear everywhere
+    "user", "users", "data", "item", "items", "result", "results",
+    "value", "values", "error", "errors", "issue", "issues",
+    "function", "method", "class", "object", "type", "types",
+    "file", "files", "code", "config", "settings",
+    # Common verbs
+    "get", "set", "update", "delete", "create", "find", "make",
+    "load", "save", "read", "write", "send", "receive",
+    # Boolean/null values
+    "true", "false", "none", "null", "undefined",
+    # Common support conversation terms
+    "help", "support", "trying", "want", "need", "please",
+    "problem", "question", "thanks", "thank", "work", "working",
+    # Articles/prepositions (when extracted as keywords)
+    "the", "and", "for", "with", "from", "that", "this",
+    "have", "has", "had", "been", "were", "are", "was",
+    "can", "could", "would", "should", "will",
+])
+
+# Path priority tiers for deterministic file ranking
+# Lower tier number = higher priority (tier 0 is highest)
+PATH_PRIORITY_TIERS = {
+    # Tier 0: Core application source (highest priority)
+    "tier_0": [
+        "/src/",
+        "/app/",
+        "/packages/*/client/",
+        "/packages/*/domains/",
+    ],
+    # Tier 1: Services and APIs
+    "tier_1": [
+        "/service/",
+        "/services/",
+        "/api/",
+        "/routes/",
+        "/endpoints/",
+    ],
+    # Tier 2: Libraries and core utilities
+    "tier_2": [
+        "/lib/",
+        "/core/",
+        "/utils/",
+        "/packages/",
+    ],
+    # Tier 3: Stack/backend code
+    "tier_3": [
+        "/stack/",
+        "/backend/",
+        "/stacks/",
+    ],
+    # Tier 4: Tests (useful but lower priority for context)
+    "tier_4": [
+        "/test/",
+        "/tests/",
+        "/__tests__/",
+        "/spec/",
+    ],
+    # Tier 5: Everything else (lowest priority)
+}
+
 
 # Data classes for type safety
 
@@ -375,6 +442,29 @@ class CodebaseContextProvider:
 
             duration_ms = int((time.time() - start_time) * 1000)
 
+            # Check for low-confidence results (issue #134)
+            # If we have few/weak matches, signal this explicitly rather than
+            # returning noisy results that mislead downstream consumers
+            is_low_confidence = self._is_low_confidence_result(file_references)
+
+            if is_low_confidence:
+                logger.info(
+                    "Low-confidence exploration result: treating as unsuccessful (valid business outcome)",
+                    extra={
+                        "duration_ms": duration_ms,
+                        "files_found": len(file_references),
+                        "snippets_extracted": len(code_snippets),
+                    }
+                )
+                return ExplorationResult(
+                    relevant_files=file_references,
+                    code_snippets=code_snippets,
+                    investigation_queries=investigation_queries,
+                    exploration_duration_ms=duration_ms,
+                    success=False,
+                    error="Low signal: insufficient high-quality file matches",
+                )
+
             logger.info(
                 f"Exploration complete",
                 extra={
@@ -414,7 +504,8 @@ class CodebaseContextProvider:
         self,
         issue_text: str,
         target_repo: Optional[str] = None,
-        stage2_context: Optional[str] = None
+        stage2_context: Optional[str] = None,
+        theme_component: Optional[str] = None,
     ) -> tuple[ExplorationResult, Optional[ClassificationResult]]:
         """
         Explore codebase with semantic issue classification.
@@ -431,6 +522,12 @@ class CodebaseContextProvider:
             issue_text: Raw customer support conversation or issue description
             target_repo: Repository to search (optional, can be determined by classifier)
             stage2_context: Additional context from stage 2 analysis (optional)
+            theme_component: Specific component to preserve (optional). If provided,
+                this takes precedence over the classified category for component-based
+                search patterns. Use when you have a narrower component (e.g., "csv_import"
+                or "pin_scheduler") but the classifier returns a broad category (e.g.,
+                "integration" or "scheduling"). Fixes issue #134 where broad categories
+                were overwriting specific component names in search patterns.
 
         Returns:
             Tuple of (ExplorationResult, ClassificationResult)
@@ -466,9 +563,11 @@ class CodebaseContextProvider:
                 ), classification
 
             # Stage 2: Build theme_data from classification results
+            # IMPORTANT: Preserve theme_component if provided, don't overwrite with category
+            # This fixes issue #134 where broad category replaced specific component
             theme_data = {
                 "product_area": classification.category,
-                "component": classification.category,  # Use category as component
+                "component": theme_component or classification.category,  # Preserve component if provided
                 "user_intent": issue_text[:200],  # First 200 chars as intent
                 "symptoms": [],
             }
@@ -747,8 +846,93 @@ class CodebaseContextProvider:
             words = re.findall(r'\b[a-z]{4,}\b', user_intent.lower())
             keywords.extend(words[:5])  # Top 5 words
 
-        # Deduplicate and filter
-        return list(set([k for k in keywords if len(k) > 2]))
+        # Deduplicate, filter stop words, and filter short keywords
+        # Stop words add noise by matching too many files (issue #134)
+        filtered = [
+            k for k in set(keywords)
+            if len(k) > 2 and k.lower() not in KEYWORD_STOP_WORDS
+        ]
+        return filtered
+
+    def _is_low_confidence_result(self, file_references: List[FileReference]) -> bool:
+        """
+        Determine if exploration results have low confidence.
+
+        Low confidence is signaled when:
+        - No files found at all
+        - Very few files found (< 3)
+        - All top files have weak match counts (1-2 matches only)
+
+        This allows callers to treat the results appropriately rather than
+        trusting noisy/irrelevant context (issue #134).
+
+        Args:
+            file_references: List of file references from keyword search
+
+        Returns:
+            True if results are low confidence, False otherwise
+        """
+        # No files = definitely low confidence
+        if len(file_references) == 0:
+            return True
+
+        # Very few files = likely low confidence
+        if len(file_references) < 3:
+            return True
+
+        # Check match quality of top 5 files
+        # If all have only 1-2 matches, that's weak signal
+        top_files = file_references[:5]
+        weak_match_count = 0
+        for ref in top_files:
+            # Parse match count from relevance string like "3 matches: keyword1, keyword2"
+            if ref.relevance:
+                match = re.match(r'^(\d+)\s+match', ref.relevance)
+                if match:
+                    count = int(match.group(1))
+                    if count <= 2:
+                        weak_match_count += 1
+
+        # If all top files have weak matches, it's low confidence
+        if weak_match_count == len(top_files):
+            return True
+
+        return False
+
+    def _rank_files_for_search(self, files: List[str]) -> List[str]:
+        """
+        Rank files deterministically for keyword search.
+
+        Uses PATH_PRIORITY_TIERS to assign tier numbers, then sorts by:
+        1. Tier (lower = higher priority)
+        2. Alphabetically within tier (ensures deterministic ordering)
+
+        This replaces the arbitrary "first 100 files" approach with
+        predictable, stable ordering that prioritizes source code over
+        tests, docs, and other non-core files.
+
+        Args:
+            files: List of file paths to rank
+
+        Returns:
+            List of files sorted by priority tier, then alphabetically
+        """
+        def get_file_tier(path: str) -> int:
+            """Assign a priority tier to a file path (lower = higher priority)."""
+            path_lower = path.lower()
+
+            # Check each tier's patterns
+            for tier_name, patterns in PATH_PRIORITY_TIERS.items():
+                tier_num = int(tier_name.split("_")[1])
+                for pattern in patterns:
+                    if pattern in path_lower:
+                        return tier_num
+
+            # Default: tier 5 (lowest priority)
+            return 5
+
+        # Sort by (tier, path) for deterministic ordering
+        return sorted(files, key=lambda f: (get_file_tier(f), f))
 
     def _search_for_keywords(
         self,
@@ -758,7 +942,7 @@ class CodebaseContextProvider:
         max_results: int = 20
     ) -> List[FileReference]:
         """
-        Search for keywords in file contents.
+        Search for keywords in file contents with deterministic file ordering.
 
         Args:
             repo_path: Repository root path
@@ -771,7 +955,11 @@ class CodebaseContextProvider:
         """
         file_matches = []
 
-        for file_path in files[:100]:  # Limit to first 100 files for performance
+        # Rank files deterministically BEFORE applying the 100-file limit
+        # This ensures we always search the most relevant files first
+        ranked_files = self._rank_files_for_search(files)
+
+        for file_path in ranked_files[:MAX_FILES_TO_KEYWORD_SEARCH]:
             if not validate_path(file_path):
                 continue
 
@@ -824,26 +1012,11 @@ class CodebaseContextProvider:
                 logger.debug(f"Could not read file {file_path}: {e}")
                 continue
 
-        # Sort by match count AND path priority
-        def get_path_priority(path):
-            """Higher score = higher priority"""
-            path_lower = path.lower()
-            if '/test' in path_lower or '/tests' in path_lower:
-                return 0  # Lowest priority
-            if '/docs' in path_lower or '/doc' in path_lower:
-                return 1
-            if '/examples' in path_lower or '/sample' in path_lower:
-                return 2
-            if '/src/' in path_lower or '/app/' in path_lower:
-                return 10  # Highest priority
-            if '/lib/' in path_lower or '/core/' in path_lower:
-                return 9
-            if '/api/' in path_lower or '/services/' in path_lower:
-                return 8
-            return 5  # Default priority
-        
-        # Sort by priority first, then match count
-        file_matches.sort(key=lambda x: (get_path_priority(x['rel_path']), x['match_count']), reverse=True)
+        # Sort by match count only - files are already pre-ranked by tier in _rank_files_for_search()
+        # Note: We don't re-apply tier priority here to avoid duplicate/conflicting ranking logic.
+        # The deterministic ranking happens BEFORE the 100-file limit (line 955), ensuring
+        # we always search the most relevant files first. Post-search, we just want the best matches.
+        file_matches.sort(key=lambda x: x['match_count'], reverse=True)
 
         # Convert to FileReference objects
         references = []

@@ -17,6 +17,8 @@ from src.story_tracking.services.codebase_context_provider import (
     StaticContext,
     MAX_FILE_SIZE_BYTES,
     UNSAFE_GLOB_CHARS,
+    KEYWORD_STOP_WORDS,
+    PATH_PRIORITY_TIERS,
 )
 
 
@@ -344,13 +346,16 @@ class TestExploreForTheme:
         mock_filter,
         mock_get_path,
     ):
-        """Should successfully explore and return results."""
-        # Setup mocks
+        """Should successfully explore and return results with high confidence."""
+        # Setup mocks - need enough files with strong matches to pass low-confidence check
         mock_get_path.return_value = Path("/tmp/test-repo")
-        mock_find_files.return_value = ["file1.py", "file2.py"]
-        mock_filter.return_value = ["file1.py"]
+        mock_find_files.return_value = ["file1.py", "file2.py", "file3.py", "file4.py"]
+        mock_filter.return_value = ["file1.py", "file2.py", "file3.py"]
+        # Return enough files with strong match counts (>2) to pass low-confidence check
         mock_search_keywords.return_value = [
-            FileReference(path="file1.py", line_start=10, relevance="5 matches")
+            FileReference(path="file1.py", line_start=10, relevance="10 matches: scheduler, queue"),
+            FileReference(path="file2.py", line_start=20, relevance="8 matches: scheduler"),
+            FileReference(path="file3.py", line_start=30, relevance="5 matches: queue"),
         ]
         mock_extract_snippets.return_value = [
             CodeSnippet(
@@ -373,7 +378,7 @@ class TestExploreForTheme:
 
         # Verify
         assert result.success is True
-        assert len(result.relevant_files) == 1
+        assert len(result.relevant_files) == 3
         assert len(result.code_snippets) == 1
         assert len(result.investigation_queries) == 1
         assert result.exploration_duration_ms >= 0  # Can be 0 if very fast
@@ -405,7 +410,7 @@ class TestExploreForTheme:
     @patch.object(CodebaseContextProvider, "_search_for_keywords")
     @patch.object(CodebaseContextProvider, "_extract_snippets")
     @patch.object(CodebaseContextProvider, "_generate_queries")
-    def test_explore_no_results(
+    def test_explore_no_results_returns_low_confidence(
         self,
         mock_queries,
         mock_snippets,
@@ -415,7 +420,7 @@ class TestExploreForTheme:
         mock_filter,
         mock_path,
     ):
-        """Should handle case with no matching files."""
+        """Should return low confidence (success=False) when no matching files found."""
         # Setup mocks to return empty results
         mock_path.return_value = Path("/tmp/test-repo")
         mock_find.return_value = []
@@ -429,8 +434,9 @@ class TestExploreForTheme:
         provider = CodebaseContextProvider()
         result = provider.explore_for_theme({"component": "nonexistent"}, "aero")
 
-        # Verify
-        assert result.success is True
+        # Verify: With no results, should return low confidence (issue #134 behavior)
+        assert result.success is False
+        assert result.error == "Low signal: insufficient high-quality file matches"
         assert len(result.relevant_files) == 0
         assert len(result.code_snippets) == 0
 
@@ -677,3 +683,226 @@ GET /api/gandalf/issue-token
         for component_data in result.values():
             assert isinstance(component_data["tables"], list)
             assert isinstance(component_data["api_patterns"], list)
+
+
+class TestKeywordStopWords:
+    """Tests for keyword stop-word filtering (issue #134)."""
+
+    def test_stop_words_constant_defined(self):
+        """Should have stop words constant defined."""
+        assert len(KEYWORD_STOP_WORDS) > 0
+        # Key generic terms should be in stop words
+        assert "user" in KEYWORD_STOP_WORDS
+        assert "data" in KEYWORD_STOP_WORDS
+        assert "issue" in KEYWORD_STOP_WORDS
+        assert "error" in KEYWORD_STOP_WORDS
+        assert "trying" in KEYWORD_STOP_WORDS
+
+    def test_extract_keywords_filters_stop_words(self):
+        """Should filter out stop words from extracted keywords."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "user_intent": "user is trying to help with data issue error problem"
+        }
+        keywords = provider._extract_keywords(theme_data)
+
+        # All these are stop words and should be filtered
+        for stop_word in ["user", "trying", "help", "with", "data", "issue", "error", "problem"]:
+            assert stop_word not in keywords
+
+    def test_extract_keywords_keeps_specific_terms(self):
+        """Should keep specific technical terms."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "component": "scheduler_queue",
+            "symptoms": ['"ERR_SCHEDULER_TIMEOUT" error occurred']
+        }
+        keywords = provider._extract_keywords(theme_data)
+
+        # Should keep specific terms
+        assert "scheduler" in keywords or "queue" in keywords
+        assert "ERR_SCHEDULER_TIMEOUT" in keywords
+
+
+class TestPathPriorityTiers:
+    """Tests for path priority tier system (issue #134)."""
+
+    def test_priority_tiers_defined(self):
+        """Should have priority tiers defined."""
+        assert len(PATH_PRIORITY_TIERS) > 0
+        assert "tier_0" in PATH_PRIORITY_TIERS
+        assert "tier_1" in PATH_PRIORITY_TIERS
+
+    def test_tier_0_contains_source_paths(self):
+        """Tier 0 should contain core source paths."""
+        tier_0 = PATH_PRIORITY_TIERS["tier_0"]
+        assert any("/src/" in p for p in tier_0)
+        assert any("/app/" in p for p in tier_0)
+
+    def test_tier_4_contains_test_paths(self):
+        """Tier 4 should contain test paths (lower priority)."""
+        tier_4 = PATH_PRIORITY_TIERS["tier_4"]
+        assert any("/test" in p for p in tier_4)
+
+
+class TestDeterministicFileRanking:
+    """Tests for deterministic file ranking (issue #134)."""
+
+    def test_rank_files_returns_sorted_list(self):
+        """Should return files sorted by tier then alphabetically."""
+        provider = CodebaseContextProvider()
+        files = [
+            "/repo/tests/test_foo.py",
+            "/repo/src/app/main.py",
+            "/repo/lib/utils.py",
+            "/repo/api/routes.py",
+        ]
+        ranked = provider._rank_files_for_search(files)
+
+        # src/app should come first (tier 0)
+        assert ranked[0] == "/repo/src/app/main.py"
+
+    def test_rank_files_is_deterministic(self):
+        """Should produce same order for same input."""
+        provider = CodebaseContextProvider()
+        files = [
+            "/repo/src/a.py",
+            "/repo/tests/b.py",
+            "/repo/lib/c.py",
+            "/repo/api/d.py",
+            "/repo/other/e.py",
+        ]
+
+        # Run twice
+        ranked1 = provider._rank_files_for_search(files)
+        ranked2 = provider._rank_files_for_search(files)
+
+        # Should be identical
+        assert ranked1 == ranked2
+
+    def test_rank_files_alphabetical_within_tier(self):
+        """Files in same tier should be sorted alphabetically."""
+        provider = CodebaseContextProvider()
+        files = [
+            "/repo/src/zebra.py",
+            "/repo/src/alpha.py",
+            "/repo/src/beta.py",
+        ]
+        ranked = provider._rank_files_for_search(files)
+
+        # All tier 0, should be alphabetical
+        assert ranked[0] == "/repo/src/alpha.py"
+        assert ranked[1] == "/repo/src/beta.py"
+        assert ranked[2] == "/repo/src/zebra.py"
+
+    def test_rank_files_deterministic_regardless_of_input_order(self):
+        """Ranking should produce identical output regardless of input order."""
+        provider = CodebaseContextProvider()
+
+        # Same files in different orders
+        files_v1 = ["/repo/tests/b.py", "/repo/src/a.py", "/repo/lib/c.py"]
+        files_v2 = ["/repo/lib/c.py", "/repo/src/a.py", "/repo/tests/b.py"]
+        files_v3 = ["/repo/src/a.py", "/repo/tests/b.py", "/repo/lib/c.py"]
+
+        ranked_v1 = provider._rank_files_for_search(files_v1)
+        ranked_v2 = provider._rank_files_for_search(files_v2)
+        ranked_v3 = provider._rank_files_for_search(files_v3)
+
+        # All should produce identical output
+        assert ranked_v1 == ranked_v2 == ranked_v3
+
+
+class TestLowConfidenceDetection:
+    """Tests for low-confidence result detection (issue #134)."""
+
+    def test_no_files_is_low_confidence(self):
+        """Empty results should be low confidence."""
+        provider = CodebaseContextProvider()
+        assert provider._is_low_confidence_result([]) is True
+
+    def test_few_files_is_low_confidence(self):
+        """Fewer than 3 files should be low confidence."""
+        provider = CodebaseContextProvider()
+        files = [
+            FileReference(path="a.py", relevance="5 matches"),
+            FileReference(path="b.py", relevance="3 matches"),
+        ]
+        assert provider._is_low_confidence_result(files) is True
+
+    def test_weak_matches_is_low_confidence(self):
+        """All weak matches (1-2) should be low confidence."""
+        provider = CodebaseContextProvider()
+        files = [
+            FileReference(path="a.py", relevance="1 match: foo"),
+            FileReference(path="b.py", relevance="2 matches: bar"),
+            FileReference(path="c.py", relevance="1 match: baz"),
+            FileReference(path="d.py", relevance="2 matches: qux"),
+            FileReference(path="e.py", relevance="1 match: quux"),
+        ]
+        assert provider._is_low_confidence_result(files) is True
+
+    def test_strong_matches_is_high_confidence(self):
+        """Strong matches (>2) should be high confidence."""
+        provider = CodebaseContextProvider()
+        files = [
+            FileReference(path="a.py", relevance="10 matches: scheduler, queue"),
+            FileReference(path="b.py", relevance="8 matches: scheduler"),
+            FileReference(path="c.py", relevance="5 matches: queue"),
+        ]
+        assert provider._is_low_confidence_result(files) is False
+
+
+class TestComponentPreservation:
+    """Tests for component preservation in explore_with_classification (issue #134)."""
+
+    @patch("src.story_tracking.services.codebase_context_provider.get_repo_path")
+    @patch("src.story_tracking.services.codebase_context_provider.filter_exploration_results")
+    @patch.object(CodebaseContextProvider, "_find_relevant_files")
+    @patch.object(CodebaseContextProvider, "_search_for_keywords")
+    @patch.object(CodebaseContextProvider, "_extract_snippets")
+    @patch.object(CodebaseContextProvider, "_generate_queries")
+    @patch.object(CodebaseContextProvider, "_build_search_patterns")
+    def test_theme_component_preserved_when_provided(
+        self,
+        mock_build_patterns,
+        mock_generate_queries,
+        mock_extract_snippets,
+        mock_search_keywords,
+        mock_find_files,
+        mock_filter,
+        mock_get_path,
+    ):
+        """Should use theme_component when provided instead of category."""
+        # Setup mocks
+        mock_get_path.return_value = Path("/tmp/test-repo")
+        mock_find_files.return_value = []
+        mock_filter.return_value = []
+        mock_search_keywords.return_value = [
+            FileReference(path="f1.py", relevance="10 matches"),
+            FileReference(path="f2.py", relevance="8 matches"),
+            FileReference(path="f3.py", relevance="5 matches"),
+        ]
+        mock_extract_snippets.return_value = []
+        mock_generate_queries.return_value = []
+        mock_build_patterns.return_value = []
+
+        # Mock classifier
+        provider = CodebaseContextProvider()
+        mock_classifier = MagicMock()
+        mock_classifier.classify.return_value = MagicMock(
+            success=True,
+            category="scheduling",  # Broad category
+            suggested_search_paths=[],
+            suggested_repos=["aero"],
+        )
+        provider.classifier = mock_classifier
+
+        # Call with specific component
+        provider.explore_with_classification(
+            issue_text="Test issue",
+            theme_component="pin_scheduler"  # Specific component
+        )
+
+        # Verify _build_search_patterns was called with preserved component
+        call_args = mock_build_patterns.call_args[0][0]
+        assert call_args["component"] == "pin_scheduler"  # Should NOT be "scheduling"
