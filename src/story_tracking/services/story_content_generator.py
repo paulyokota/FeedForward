@@ -13,7 +13,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional
 
 from openai import (
     OpenAI,
@@ -94,6 +94,36 @@ class GeneratedStoryContent:
     Actionable goal with success criteria for AI agent.
 
     Format: "[Action verb] the [specific issue]. Success: [measurable criteria]"
+    """
+
+    acceptance_criteria: List[str]
+    """
+    Specific Given/When/Then acceptance criteria derived from symptoms.
+
+    Each criterion maps a symptom to its expected positive outcome.
+    Minimum 2, maximum 5 criteria.
+    """
+
+    investigation_steps: List[str]
+    """
+    Investigation steps specific to component and symptom type.
+
+    Maps symptom type (API error, timeout, UI issue, data issue)
+    to appropriate investigation approach.
+    """
+
+    success_criteria: List[str]
+    """
+    Observable, measurable success criteria.
+
+    Each criterion is the negation of a reported symptom.
+    """
+
+    technical_notes: str
+    """
+    Context-specific testing expectations based on symptom type.
+
+    Includes test type, vertical slice, and focus areas.
     """
 
 
@@ -325,12 +355,24 @@ class StoryContentGenerator:
         # Build fallback for missing fields
         fallback = self._mechanical_fallback(content_input)
 
-        # Extract fields with fallback for missing/invalid
+        # Extract string fields with fallback for missing/invalid
         title = self._extract_field(data, "title", fallback.title)
         user_type = self._extract_field(data, "user_type", fallback.user_type)
         user_story_want = self._extract_field(data, "user_story_want", fallback.user_story_want)
         user_story_benefit = self._extract_field(data, "user_story_benefit", fallback.user_story_benefit)
         ai_agent_goal = self._extract_field(data, "ai_agent_goal", fallback.ai_agent_goal)
+        technical_notes = self._extract_field(data, "technical_notes", fallback.technical_notes)
+
+        # Extract list fields with fallback
+        acceptance_criteria = self._extract_list_field(
+            data, "acceptance_criteria", fallback.acceptance_criteria
+        )
+        investigation_steps = self._extract_list_field(
+            data, "investigation_steps", fallback.investigation_steps
+        )
+        success_criteria = self._extract_list_field(
+            data, "success_criteria", fallback.success_criteria
+        )
 
         # Validate title length (max 80 chars)
         if len(title) > 80:
@@ -342,6 +384,10 @@ class StoryContentGenerator:
             user_story_want=user_story_want,
             user_story_benefit=user_story_benefit,
             ai_agent_goal=ai_agent_goal,
+            acceptance_criteria=acceptance_criteria,
+            investigation_steps=investigation_steps,
+            success_criteria=success_criteria,
+            technical_notes=technical_notes,
         )
 
     def _extract_field(
@@ -351,7 +397,7 @@ class StoryContentGenerator:
         fallback_value: str,
     ) -> str:
         """
-        Extract a field from parsed JSON with fallback.
+        Extract a string field from parsed JSON with fallback.
 
         Args:
             data: Parsed JSON dict
@@ -366,6 +412,33 @@ class StoryContentGenerator:
             return fallback_value
         return value.strip()
 
+    def _extract_list_field(
+        self,
+        data: dict,
+        field_name: str,
+        fallback_value: List[str],
+    ) -> List[str]:
+        """
+        Extract a list field from parsed JSON with fallback.
+
+        Args:
+            data: Parsed JSON dict
+            field_name: Field name to extract
+            fallback_value: Value to use if field missing or invalid
+
+        Returns:
+            List of strings or fallback
+        """
+        value = data.get(field_name)
+        if value is None or not isinstance(value, list):
+            return fallback_value
+        # Filter to valid non-empty strings
+        result = [
+            item.strip() for item in value
+            if isinstance(item, str) and item.strip()
+        ]
+        return result if result else fallback_value
+
     def _mechanical_fallback(
         self,
         content_input: StoryContentInput,
@@ -379,6 +452,10 @@ class StoryContentGenerator:
         - user_story_want: user_intent directly
         - user_story_benefit: "achieve my goals without friction"
         - ai_agent_goal: user_intent + success criteria
+        - acceptance_criteria: generic Given/When/Then
+        - investigation_steps: component-based generic steps
+        - success_criteria: generic resolution criteria
+        - technical_notes: component-based generic notes
 
         Args:
             content_input: Normalized StoryContentInput
@@ -399,6 +476,8 @@ class StoryContentGenerator:
             else None
         )
         signature = content_input.issue_signature
+        component = content_input.component or "Unknown"
+        product_area = content_input.product_area or "Unknown"
 
         # Title: user_intent if > 10 chars, else humanize signature
         if user_intent and len(user_intent) > 10:
@@ -427,6 +506,22 @@ class StoryContentGenerator:
             user_story_want=want,
             user_story_benefit="achieve my goals without friction",
             ai_agent_goal=ai_goal,
+            acceptance_criteria=[
+                "Given the reported conditions, When the user performs the action, Then the expected behavior occurs"
+            ],
+            investigation_steps=[
+                f"Review `{component}` code for issues matching symptoms",
+                f"Check logs for errors in {product_area} flow",
+            ],
+            success_criteria=[
+                "Issue is resolved and functionality works as expected",
+                "All existing tests pass (no regressions)",
+            ],
+            technical_notes=(
+                f"**Target Components**: `{component}` module\n"
+                f"**Testing**: Integration test covering the relevant flow\n"
+                f"**Vertical Slice**: Backend -> Frontend"
+            ),
         )
 
     def _humanize_signature(self, signature: str) -> str:

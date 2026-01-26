@@ -160,6 +160,55 @@ class GeneratedStoryContent:
       - Boundaries (what's in/out of scope)
     """
 
+    acceptance_criteria: List[str]
+    """
+    Specific Given/When/Then acceptance criteria derived from symptoms.
+
+    Each criterion maps a symptom to its expected positive outcome.
+    Minimum 2, maximum 5 criteria.
+
+    Examples:
+      - "Given a user with draft pins, When they upload a new pin, Then the pin appears in drafts within 5 seconds"
+      - "Given a scheduled post, When the scheduled time arrives, Then the post is published automatically"
+    """
+
+    investigation_steps: List[str]
+    """
+    Investigation steps specific to component and symptom type.
+
+    Maps symptom type (API error, timeout, UI issue, data issue)
+    to appropriate investigation approach.
+
+    Examples:
+      - "Check `PinUploadService` for error handling around Server 0 response"
+      - "Review rate limiting logic in API gateway"
+      - "Verify database connection pool settings"
+    """
+
+    success_criteria: List[str]
+    """
+    Observable, measurable success criteria.
+
+    Each criterion is the negation of a reported symptom.
+
+    Examples:
+      - "Pin uploads complete without Server 0 errors"
+      - "Upload time remains under 5 seconds for standard images"
+      - "All existing tests pass (no regressions)"
+    """
+
+    technical_notes: str
+    """
+    Context-specific testing expectations based on symptom type.
+
+    Includes test type, vertical slice, and focus areas.
+
+    Example:
+      "**Target Components**: `PinUploadService`, `DraftManager`
+       **Testing**: Integration test for upload flow + unit tests for error handling
+       **Vertical Slice**: API -> Service -> Database"
+    """
+
 ```
 
 ### Generator Interface
@@ -169,12 +218,16 @@ class StoryContentGenerator:
     """
     Generates synthesized story content from grouped conversation data.
 
-    Uses a single LLM call to produce:
+    Uses a single LLM call to produce 9 fields:
     - Outcome-focused title
     - Context-specific user type
     - User story "I want" clause
     - Context-specific benefit
     - AI agent goal with success criteria
+    - Acceptance criteria (Given/When/Then)
+    - Investigation steps (component-specific)
+    - Success criteria (observable outcomes)
+    - Technical notes (testing approach)
     """
 
     def __init__(
@@ -212,7 +265,11 @@ The prompt should be designed by Kai following these requirements:
   "user_type": "string (specific persona, not generic)",
   "user_story_want": "string (starts with 'to', first-person)",
   "user_story_benefit": "string (specific outcome)",
-  "ai_agent_goal": "string (includes Success: criteria)"
+  "ai_agent_goal": "string (includes Success: criteria)",
+  "acceptance_criteria": ["string (Given/When/Then format)", "..."],
+  "investigation_steps": ["string (component-specific steps)", "..."],
+  "success_criteria": ["string (observable outcomes)", "..."],
+  "technical_notes": "string (target components, testing approach, vertical slice)"
 }
 ```
 
@@ -243,6 +300,27 @@ The prompt should be designed by Kai following these requirements:
    - References specific symptoms/errors
    - Includes explicit "Success:" criteria
    - Optionally includes scope boundaries
+
+6. **Acceptance Criteria**:
+   - Given/When/Then format
+   - Maps each symptom to expected positive outcome
+   - Minimum 2, maximum 5 criteria
+   - Specific and testable
+
+7. **Investigation Steps**:
+   - Component-specific (references actual module names)
+   - Matches symptom type to appropriate investigation
+   - Actionable steps for developer
+
+8. **Success Criteria**:
+   - Observable and measurable
+   - Negation of reported symptoms
+   - Includes regression check
+
+9. **Technical Notes**:
+   - Target components identified
+   - Testing approach specified
+   - Vertical slice defined
 
 ## File Boundaries
 
@@ -289,19 +367,25 @@ def generate(self, content_input: StoryContentInput, max_retries: int = 3) -> Ge
 
 After retries exhausted, each field falls back to mechanical defaults (no LLM required):
 
-| Field                | Fallback Logic                                                                         |
-| -------------------- | -------------------------------------------------------------------------------------- |
-| `title`              | Use `user_intent` if > 10 chars, else humanize signature ("pin_upload" → "Pin Upload") |
-| `user_type`          | Hardcode: `"Tailwind user"`                                                            |
-| `user_story_want`    | Use `user_intent` directly (grammatically awkward but matches current behavior)        |
-| `user_story_benefit` | Hardcode: `"achieve my goals without friction"`                                        |
-| `ai_agent_goal`      | `user_intent` + `" Fix the reported issue and restore expected functionality."`        |
+| Field                 | Fallback Logic                                                                                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`               | Use `user_intent` if > 10 chars, else humanize signature ("pin_upload" → "Pin Upload")                                                                     |
+| `user_type`           | Hardcode: `"Tailwind user"`                                                                                                                                |
+| `user_story_want`     | Use `user_intent` directly (grammatically awkward but matches current behavior)                                                                            |
+| `user_story_benefit`  | Hardcode: `"achieve my goals without friction"`                                                                                                            |
+| `ai_agent_goal`       | `user_intent` + `. Success: issue is resolved and functionality works as expected.`                                                                        |
+| `acceptance_criteria` | Generic: `["Given the reported conditions, When the user performs the action, Then the expected behavior occurs"]`                                         |
+| `investigation_steps` | Component-based: `["Review {component} code for issues matching symptoms", "Check logs for errors in {product_area} flow"]`                                |
+| `success_criteria`    | Generic: `["Issue is resolved and functionality works as expected", "All existing tests pass (no regressions)"]`                                           |
+| `technical_notes`     | Template: `"**Target Components**: {component} module\n**Testing**: Integration test covering the relevant flow\n**Vertical Slice**: Backend -> Frontend"` |
 
 ```python
 def _mechanical_fallback(self, content_input: StoryContentInput) -> GeneratedStoryContent:
     """Purely mechanical fallback - no LLM involved."""
     user_intent = content_input.user_intents[0] if content_input.user_intents else None
     signature = content_input.issue_signature
+    component = content_input.component or "Unknown"
+    product_area = content_input.product_area or "Unknown"
 
     return GeneratedStoryContent(
         title=user_intent if user_intent and len(user_intent) > 10
@@ -309,7 +393,23 @@ def _mechanical_fallback(self, content_input: StoryContentInput) -> GeneratedSto
         user_type="Tailwind user",
         user_story_want=user_intent or "use the product successfully",
         user_story_benefit="achieve my goals without friction",
-        ai_agent_goal=f"{user_intent or signature}. Fix the reported issue and restore expected functionality.",
+        ai_agent_goal=f"{user_intent or signature}. Success: issue is resolved and functionality works as expected.",
+        acceptance_criteria=[
+            "Given the reported conditions, When the user performs the action, Then the expected behavior occurs"
+        ],
+        investigation_steps=[
+            f"Review `{component}` code for issues matching symptoms",
+            f"Check logs for errors in {product_area} flow",
+        ],
+        success_criteria=[
+            "Issue is resolved and functionality works as expected",
+            "All existing tests pass (no regressions)",
+        ],
+        technical_notes=(
+            f"**Target Components**: `{component}` module\n"
+            f"**Testing**: Integration test covering the relevant flow\n"
+            f"**Vertical Slice**: Backend -> Frontend"
+        ),
     )
 ```
 
@@ -329,14 +429,19 @@ def _mechanical_fallback(self, content_input: StoryContentInput) -> GeneratedSto
 
 ### Unit Tests (Marcus)
 
-- Basic generation with valid input
+- Basic generation with valid input (all 9 fields)
 - All classification categories produce appropriate output
 - Title format validation (verb first, < 80 chars)
 - User story grammar validation
 - AI goal includes success criteria
+- Acceptance criteria are list of strings
+- Investigation steps are component-based
+- Success criteria are measurable
+- Technical notes include testing approach
+- List field extraction: handles valid lists, empty lists, invalid types
 - Retry logic: transient failures trigger retries with backoff
 - Retry exhaustion: falls back to mechanical defaults after 3 attempts
-- Mechanical fallback: each field uses correct default
+- Mechanical fallback: each of 9 fields uses correct default
 - Edge cases: empty inputs, unknown categories, long inputs
 
 ### Prompt Tests (Kai)
@@ -361,12 +466,16 @@ def _mechanical_fallback(self, content_input: StoryContentInput) -> GeneratedSto
 
 **Acceptance Criteria**:
 
-- [ ] Prompt produces valid JSON for all 5 fields
-- [ ] Titles use category-appropriate action verbs
-- [ ] User types are context-specific, not generic
-- [ ] User story clauses are grammatically correct
-- [ ] Benefits are specific to the problem
-- [ ] AI goals include success criteria
+- [x] Prompt produces valid JSON for all 9 fields
+- [x] Titles use category-appropriate action verbs
+- [x] User types are context-specific, not generic
+- [x] User story clauses are grammatically correct
+- [x] Benefits are specific to the problem
+- [x] AI goals include success criteria
+- [x] Acceptance criteria use Given/When/Then format
+- [x] Investigation steps are component-specific
+- [x] Success criteria are observable and measurable
+- [x] Technical notes include testing approach
 
 ### Marcus (Backend)
 
@@ -382,13 +491,15 @@ def _mechanical_fallback(self, content_input: StoryContentInput) -> GeneratedSto
 
 **Acceptance Criteria**:
 
-- [ ] Generator integrates Kai's prompt
-- [ ] Results used for title, user story, and AI goal
-- [ ] Retry logic with exponential backoff (3 attempts)
-- [ ] Mechanical fallback per field after retries exhausted
-- [ ] Edge case handling (empty inputs, unknown categories)
-- [ ] Unit tests cover all methods including retry/fallback
-- [ ] Orphan graduation uses same logic
+- [x] Generator integrates Kai's prompt
+- [x] Results used for title, user story, AI goal, and 4 new fields
+- [x] Retry logic with exponential backoff (3 attempts)
+- [x] Mechanical fallback per field after retries exhausted
+- [x] Edge case handling (empty inputs, unknown categories)
+- [x] Unit tests cover all methods including retry/fallback
+- [x] Orphan graduation uses same logic
+- [x] List field extraction with validation
+- [x] Formatter uses all 9 generated fields
 
 ## Implementation Plan
 

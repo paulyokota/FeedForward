@@ -738,8 +738,8 @@ class DualStoryFormatter:
 - **Dependencies**: {theme_data.get('dependencies', 'To be determined')}
 - **Related Conversations**: {occurrences} customer reports ({first_seen} - {last_seen})"""
 
-        # Build acceptance criteria
-        acceptance_criteria = self._format_acceptance_criteria(theme_data)
+        # Build acceptance criteria (with generated content if available)
+        acceptance_criteria = self._format_acceptance_criteria(theme_data, generated_content)
 
         # Build symptoms section
         symptoms_section = self._format_symptoms(symptoms)
@@ -751,30 +751,17 @@ class DualStoryFormatter:
 
 {root_cause}"""
 
-        # Build technical notes
-        technical_notes = f"""## Technical Notes
-
-- **Target Components**: `{component}` module
-- **Testing Expectations**: Integration test covering the full flow
-- **Vertical Slice**: {theme_data.get('vertical_slice', 'Backend → Frontend')}"""
-
-        # Build INVEST check
-        invest_check = """## INVEST Check
-
-- [x] **Independent**: Can be fixed without other stories
-- [x] **Negotiable**: Implementation approach flexible
-- [x] **Valuable**: Affects customers, improves product
-- [ ] **Estimable**: Scoped appropriately
-- [ ] **Small**: Completable in one iteration
-- [x] **Testable**: Clear symptom/fix criteria"""
+        # Build technical notes (with generated content if available)
+        technical_notes = self._format_technical_notes(theme_data, generated_content)
 
         # Build sample messages
         sample_messages = self._format_sample_messages(evidence_data)
 
-        # Build suggested investigation
-        suggested_investigation = self._format_suggested_investigation(theme_data)
+        # Build suggested investigation (with generated content if available)
+        suggested_investigation = self._format_suggested_investigation(theme_data, generated_content)
 
         # Assemble human section
+        # NOTE: INVEST Check removed per issue #133 - pre-checked boxes provide false confidence
         sections = [
             f"## SECTION 1: Human-Facing Story\n",
             f"# Story: {display_title}\n",
@@ -784,7 +771,6 @@ class DualStoryFormatter:
             symptoms_section,
             root_cause_section,
             technical_notes,
-            invest_check,
             sample_messages,
             suggested_investigation,
         ]
@@ -853,14 +839,8 @@ Follow project conventions in `CLAUDE.md` and established patterns.
 - Follow established patterns in the codebase
 - Maintain backward compatibility"""
 
-        # Instructions
-        instructions_section = self._format_instructions(theme_data)
-
-        # Success Criteria
-        success_criteria = self._format_success_criteria(theme_data)
-
-        # Guardrails
-        guardrails = self._format_guardrails(theme_data)
+        # Success Criteria (with generated content if available)
+        success_criteria = self._format_success_criteria(theme_data, generated_content)
 
         # Extended Thinking
         extended_thinking = self._format_extended_thinking(theme_data)
@@ -869,15 +849,15 @@ Follow project conventions in `CLAUDE.md` and established patterns.
         metadata = self._format_metadata(theme_data)
 
         # Assemble AI section
+        # NOTE: Instructions and Guardrails removed per issue #133 - generic workflow
+        # steps that AI agents already know from CLAUDE.md
         sections = [
             f"## SECTION 2: AI Agent Task Specification\n",
             f"# Agent Task: {display_title}\n",
             role_section,
             goal_section,
             architecture_section,
-            instructions_section,
             success_criteria,
-            guardrails,
             extended_thinking,
             metadata,
         ]
@@ -974,17 +954,20 @@ As a **{user_type}**
 I want **{user_intent}**
 So that **{benefit}**"""
 
-    def _format_acceptance_criteria(self, theme_data: Dict) -> str:
-        """Format acceptance criteria in Given/When/Then format."""
-        criteria = theme_data.get("acceptance_criteria", [])
-
-        if not criteria:
-            # Generate default criteria from symptoms
-            criteria = [
-                "Given the reported conditions when the user performs the action then the expected behavior occurs",
-                "Given test data when the fix is applied then all existing tests pass",
-                "[Observability] Logging captures key state transitions",
-            ]
+    def _format_acceptance_criteria(
+        self,
+        theme_data: Dict,
+        generated_content: Optional["GeneratedStoryContent"] = None,
+    ) -> str:
+        """Format acceptance criteria - prefer generated over defaults."""
+        # Use generated criteria if available
+        if generated_content and generated_content.acceptance_criteria:
+            criteria = generated_content.acceptance_criteria
+        else:
+            # Fallback to theme_data or defaults (for backward compatibility)
+            criteria = theme_data.get("acceptance_criteria", [
+                "Given the reported conditions, When the user performs the action, Then the expected behavior occurs",
+            ])
 
         formatted_criteria = []
         for criterion in criteria:
@@ -1037,23 +1020,45 @@ So that **{benefit}**"""
 
 {chr(10).join(formatted_messages)}"""
 
-    def _format_suggested_investigation(self, theme_data: Dict) -> str:
-        """Format suggested investigation steps."""
-        component = theme_data.get("component", "the relevant component")
-        product_area = theme_data.get("product_area", "this area")
-
-        steps = theme_data.get("investigation_steps", [
-            f"Review `{component}` code for issues matching symptoms",
-            f"Check logs for errors in {product_area} flow",
-            "Verify API responses and error handling",
-            "Check for timing or synchronization issues",
-        ])
+    def _format_suggested_investigation(
+        self,
+        theme_data: Dict,
+        generated_content: Optional["GeneratedStoryContent"] = None,
+    ) -> str:
+        """Format investigation steps - prefer generated over defaults."""
+        if generated_content and generated_content.investigation_steps:
+            steps = generated_content.investigation_steps
+        else:
+            component = theme_data.get("component", "the relevant component")
+            product_area = theme_data.get("product_area", "this area")
+            steps = [
+                f"Review `{component}` code for issues matching symptoms",
+                f"Check logs for errors in {product_area} flow",
+            ]
 
         formatted_steps = [f"{i}. {step}" for i, step in enumerate(steps, 1)]
 
         return f"""## Suggested Investigation
 
 {chr(10).join(formatted_steps)}"""
+
+    def _format_technical_notes(
+        self,
+        theme_data: Dict,
+        generated_content: Optional["GeneratedStoryContent"] = None,
+    ) -> str:
+        """Format technical notes - prefer generated over defaults."""
+        if generated_content and generated_content.technical_notes:
+            return f"""## Technical Notes
+
+{generated_content.technical_notes}"""
+        else:
+            component = theme_data.get("component", "Unknown")
+            return f"""## Technical Notes
+
+- **Target Components**: `{component}` module
+- **Testing Expectations**: Integration test covering the relevant flow
+- **Vertical Slice**: {theme_data.get('vertical_slice', 'Backend -> Frontend')}"""
 
     def _format_instructions(self, theme_data: Dict) -> str:
         """Format step-by-step instructions for AI agent."""
@@ -1075,17 +1080,20 @@ So that **{benefit}**"""
 
 {chr(10).join(formatted_steps)}"""
 
-    def _format_success_criteria(self, theme_data: Dict) -> str:
-        """Format success criteria for AI agent."""
-        default_criteria = [
-            "All existing tests pass (no regressions)",
-            "New test covers the reported issue",
-            "Fix addresses root cause, not just symptoms",
-            "Code follows project conventions",
-            "Changes are minimal and focused",
-        ]
+    def _format_success_criteria(
+        self,
+        theme_data: Dict,
+        generated_content: Optional["GeneratedStoryContent"] = None,
+    ) -> str:
+        """Format success criteria - prefer generated over defaults."""
+        if generated_content and generated_content.success_criteria:
+            criteria = generated_content.success_criteria
+        else:
+            criteria = [
+                "Issue is resolved and functionality works as expected",
+                "All existing tests pass (no regressions)",
+            ]
 
-        criteria = theme_data.get("success_criteria", default_criteria)
         formatted = [f"- [ ] {c}" for c in criteria]
 
         return f"""## Success Criteria (Explicit & Observable)

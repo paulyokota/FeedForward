@@ -409,3 +409,146 @@ class TestIntegrationWithExistingFunctions:
         )
 
         assert result == direct_result
+
+
+# -----------------------------------------------------------------------------
+# Issue #133: DualStoryFormatter Tests for New Generated Content Fields
+# -----------------------------------------------------------------------------
+
+
+class TestDualStoryFormatterGeneratedContent:
+    """Test DualStoryFormatter methods with generated content (issue #133)."""
+
+    @pytest.fixture
+    def formatter(self):
+        """Create a DualStoryFormatter instance."""
+        from src.story_formatter import DualStoryFormatter
+        return DualStoryFormatter()
+
+    @pytest.fixture
+    def sample_theme_data(self):
+        """Sample theme data for testing."""
+        return {
+            "title": "pin_upload_failure",
+            "product_area": "publishing",
+            "component": "pinterest",
+            "symptoms": ["Server 0 error", "pins not saving"],
+            "user_intent": "upload pins to drafts",
+            "root_cause_hypothesis": "API timeout",
+            "occurrences": 5,
+            "first_seen": "2026-01-01",
+            "last_seen": "2026-01-26",
+        }
+
+    @pytest.fixture
+    def sample_generated_content(self):
+        """Sample GeneratedStoryContent with all 9 fields."""
+        from src.story_tracking.services.story_content_generator import GeneratedStoryContent
+        return GeneratedStoryContent(
+            title="Fix pin upload failures when saving to drafts",
+            user_type="content creator managing Pinterest accounts",
+            user_story_want="to upload pins to my drafts without errors",
+            user_story_benefit="I can maintain my posting schedule",
+            ai_agent_goal="Resolve pin upload failure. Success: pins save successfully.",
+            acceptance_criteria=[
+                "Given a user uploading a pin, When save is triggered, Then pin saves without error",
+                "Given test data, When fix is applied, Then all existing tests pass",
+            ],
+            investigation_steps=[
+                "Review `pinterest` error logs for Server 0 patterns",
+                "Verify Pinterest API authentication during draft save",
+                "Test with different image formats",
+            ],
+            success_criteria=[
+                "Pin uploads complete without Server 0 errors",
+                "All existing pinterest tests pass",
+            ],
+            technical_notes="**Testing**: API integration test. **Vertical Slice**: API -> pinterest -> Pinterest API.",
+        )
+
+    def test_acceptance_criteria_uses_generated_content(self, formatter, sample_theme_data, sample_generated_content):
+        """Test _format_acceptance_criteria uses generated content when available."""
+        result = formatter._format_acceptance_criteria(sample_theme_data, sample_generated_content)
+
+        assert "Given a user uploading a pin" in result
+        assert "Given the reported conditions" not in result  # Not fallback
+
+    def test_acceptance_criteria_fallback_without_generated(self, formatter, sample_theme_data):
+        """Test _format_acceptance_criteria falls back when no generated content."""
+        result = formatter._format_acceptance_criteria(sample_theme_data, None)
+
+        assert "Given the reported conditions" in result
+
+    def test_investigation_steps_uses_generated_content(self, formatter, sample_theme_data, sample_generated_content):
+        """Test _format_suggested_investigation uses generated content when available."""
+        result = formatter._format_suggested_investigation(sample_theme_data, sample_generated_content)
+
+        assert "Review `pinterest` error logs" in result
+        assert "Verify API responses" not in result  # Not fallback
+
+    def test_investigation_steps_fallback_without_generated(self, formatter, sample_theme_data):
+        """Test _format_suggested_investigation falls back when no generated content."""
+        result = formatter._format_suggested_investigation(sample_theme_data, None)
+
+        # Should use component-based fallback
+        assert "pinterest" in result.lower()
+
+    def test_success_criteria_uses_generated_content(self, formatter, sample_theme_data, sample_generated_content):
+        """Test _format_success_criteria uses generated content when available."""
+        result = formatter._format_success_criteria(sample_theme_data, sample_generated_content)
+
+        assert "Pin uploads complete without Server 0 errors" in result
+        assert "Fix addresses root cause" not in result  # Not old fallback
+
+    def test_success_criteria_fallback_without_generated(self, formatter, sample_theme_data):
+        """Test _format_success_criteria falls back when no generated content."""
+        result = formatter._format_success_criteria(sample_theme_data, None)
+
+        assert "Issue is resolved" in result
+
+    def test_technical_notes_uses_generated_content(self, formatter, sample_theme_data, sample_generated_content):
+        """Test _format_technical_notes uses generated content when available."""
+        result = formatter._format_technical_notes(sample_theme_data, sample_generated_content)
+
+        assert "**Testing**: API integration test" in result
+        assert "Integration test covering the relevant flow" not in result  # Not fallback
+
+    def test_technical_notes_fallback_without_generated(self, formatter, sample_theme_data):
+        """Test _format_technical_notes falls back when no generated content."""
+        result = formatter._format_technical_notes(sample_theme_data, None)
+
+        assert "**Target Components**:" in result
+        assert "pinterest" in result.lower()
+
+    def test_human_section_no_invest_check(self, formatter, sample_theme_data, sample_generated_content):
+        """Test format_human_section does NOT include INVEST Check (issue #133 removal)."""
+        result = formatter.format_human_section(sample_theme_data, None, sample_generated_content)
+
+        assert "## INVEST Check" not in result
+        assert "Independent" not in result
+        assert "Negotiable" not in result
+
+    def test_ai_section_no_instructions_or_guardrails(self, formatter, sample_theme_data, sample_generated_content):
+        """Test format_ai_section does NOT include Instructions or Guardrails (issue #133 removal)."""
+        result = formatter.format_ai_section(sample_theme_data, None, sample_generated_content)
+
+        assert "## Instructions (Step-by-Step)" not in result
+        assert "## Guardrails & Constraints" not in result
+        assert "### DO NOT:" not in result
+        assert "### ALWAYS:" not in result
+
+    def test_human_section_passes_generated_content_to_helpers(self, formatter, sample_theme_data, sample_generated_content):
+        """Test format_human_section passes generated_content to helper methods."""
+        result = formatter.format_human_section(sample_theme_data, None, sample_generated_content)
+
+        # Verify generated acceptance criteria appears (not fallback)
+        assert "Given a user uploading a pin" in result
+        # Verify generated investigation steps appear (not fallback)
+        assert "Review `pinterest` error logs" in result
+
+    def test_ai_section_passes_generated_content_to_helpers(self, formatter, sample_theme_data, sample_generated_content):
+        """Test format_ai_section passes generated_content to success criteria."""
+        result = formatter.format_ai_section(sample_theme_data, None, sample_generated_content)
+
+        # Verify generated success criteria appears (not fallback)
+        assert "Pin uploads complete without Server 0 errors" in result
