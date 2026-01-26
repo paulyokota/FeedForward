@@ -14,7 +14,58 @@
 **Milestone 6 (Canonical Pipeline Consolidation): COMPLETE** ✅
 **Theme Quality Architecture: IMPROVEMENTS 1 & 2 COMPLETE** ✅
 
-## Latest: Hybrid Clustering Bug Fixes - End-to-End Pipeline Working (2026-01-22)
+## Latest: Hybrid Clustering Fragmentation Analysis (2026-01-26)
+
+**Run 85 in progress** - 45 days of data (Dec 12, 2025 → Jan 26, 2026)
+
+### Current State
+
+Hybrid clustering pipeline runs end-to-end without errors, but produces **severely fragmented output**:
+
+| Metric                              | Run 84 (7 days)                    |
+| ----------------------------------- | ---------------------------------- |
+| Conversations classified            | 306                                |
+| Actionable (with themes)            | 117                                |
+| Embedding clusters                  | 61                                 |
+| Hybrid clusters (after facet split) | 90                                 |
+| Size-1 clusters                     | 69 (77%)                           |
+| Size-2 clusters                     | 15 (17%)                           |
+| Size-3+ clusters                    | 6 (6%)                             |
+| Stories created                     | 0 (hybrid), 1 (signature fallback) |
+| Orphans created                     | 93                                 |
+
+**Root Cause**: Double-fragmentation from two-stage algorithm:
+
+1. Stage 1: Embedding clustering (distance_threshold=0.5) produces 61 clusters
+2. Stage 2: Facet sub-grouping (action_type + direction) splits into 90 sub-clusters
+3. Result: Most clusters too small for MIN_GROUP_SIZE=3
+
+### Tuning Levers (Not Yet Adjusted)
+
+| Parameter            | Current | Effect of Increasing                               |
+| -------------------- | ------- | -------------------------------------------------- |
+| `distance_threshold` | 0.5     | Fewer, larger embedding clusters                   |
+| `MIN_GROUP_SIZE`     | 3       | Lower threshold = more stories from small clusters |
+| Facet sub-grouping   | Enabled | Disabling = less fragmentation but less relevance  |
+
+### What Was Done (2026-01-23-26)
+
+- **Raw component preservation**: Migration 016 adds columns for drift detection
+- **Component normalization**: `src/utils/normalize.py` with alias mapping
+- **Stable hybrid signatures**: Cross-run orphan accumulation enabled
+- **Diagnostic script**: `scripts/diagnose_run.py` for investigating run results
+- **Dev-mode improvements**: Auto-cleanup of embeddings/facets, stale server detection
+
+### Next Steps
+
+1. Wait for Run 85 to complete (45 days = larger sample)
+2. Analyze with: `PYTHONPATH=. python scripts/diagnose_run.py 85`
+3. Compare cluster size distribution to Run 84
+4. If still fragmented, adjust tuning levers (likely: increase distance_threshold)
+
+---
+
+## Previous: Hybrid Clustering Bug Fixes - End-to-End Pipeline Working (2026-01-22)
 
 **Commit d88624d** - Critical bugs fixed during runs 46-54 testing
 
@@ -54,13 +105,6 @@ Debugged and fixed 4 critical bugs preventing hybrid clustering (#106-#109) from
 - Run 54 completed successfully with hybrid clustering enabled
 - 201 conversations → 87 embeddings → 87 facets → 85 themes → 3 stories
 - All stories marked `grouping_method = 'hybrid_cluster'`
-
-### Next Steps
-
-1. Test next run with PM review enabled (now unblocked) to validate splitting behavior
-2. Evaluate story quality - may need tighter embedding distance threshold (0.5 → 0.3?)
-3. Consider adding more granular facets beyond action_type + direction
-4. Continue with Milestone 8 (issues #103-#110)
 
 ---
 

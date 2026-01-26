@@ -10,6 +10,58 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Raw Component Preservation for Drift Detection (2026-01-23)**:
+
+- New columns in `themes` table: `component_raw`, `product_area_raw`, `component_raw_inferred`
+- Migration 016 (`016_add_raw_component_columns.sql`) adds columns and composite index
+- Preserves original LLM output before normalization for audit and drift analysis
+- `component_raw_inferred` flag distinguishes true LLM output from backfilled data
+- Composite index `idx_themes_component_drift` supports queries finding multiple raw variants mapping to same canonical
+
+**Pipeline Run Diagnostic Script (2026-01-26)**:
+
+- New `scripts/diagnose_run.py` for investigating pipeline run results
+- Checks data counts, embedding/facet overlap, cluster size distribution
+- Runs hybrid clustering test to verify algorithm behavior
+- Analyzes orphan signatures by type (hybrid vs legacy)
+- Usage: `PYTHONPATH=. python scripts/diagnose_run.py <run_id>`
+
+**Component Normalization and Canonicalization (2026-01-23)**:
+
+- New `src/utils/normalize.py` module for consistent data formatting
+- Two-level normalization: format (spaces/hyphens → underscores) + semantic (alias mapping)
+- `COMPONENT_ALIASES` dict for known equivalent variants (e.g., "smartschedule" → "smart_schedule")
+- `canonicalize_component()` used for grouping keys, raw values preserved separately
+- Prevents fragmentation from LLM output inconsistency
+
+**Stable Semantic Signatures for Hybrid Clusters (2026-01-23)**:
+
+- `_compute_stable_hybrid_signature()` in `story_creation_service.py`
+- Format: `hybrid_{action_type}_{direction}_{product_area}_{component}_{issue_part}`
+- Enables cross-run orphan accumulation (replaces run-local `emb_X_facet_Y_Z` format)
+- Deterministic signature from semantic content, not cluster IDs
+
+### Changed
+
+**Dev-Mode Pipeline Runner Improvements (2026-01-23-26)**:
+
+- Auto-cleanup now includes embeddings and facets tables (not just themes/stories/orphans)
+- Auto-restart server when code is stale (compares git commit time vs server start time)
+- Added component drift detection after successful runs
+- Shows raw variants mapping to same canonical for alias review
+
+### Fixed
+
+**Raw LLM Output Preservation (2026-01-23)** - Commit 76bd915:
+
+- Theme extraction now preserves `component_raw` and `product_area_raw` before normalization
+- Fixes loss of original LLM output that was being overwritten by normalized values
+- Enables drift detection: find cases where LLM produces different raw values for same concept
+
+---
+
+### Added
+
 **StructuredDescription Component (2026-01-22)** - PR #102:
 
 - New `webapp/src/components/StructuredDescription.tsx` for rendering LLM-generated story descriptions
