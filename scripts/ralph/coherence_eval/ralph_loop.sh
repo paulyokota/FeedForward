@@ -14,6 +14,7 @@ MIN_GROUPS_SCORED=${MIN_GROUPS_SCORED:-6}
 MIN_PACK_RECALL=${MIN_PACK_RECALL:-0.20}
 MIN_PACK_RECALL_COVERAGE=${MIN_PACK_RECALL_COVERAGE:-0.50}
 MIN_PACK_RECALL_PER_PACK=${MIN_PACK_RECALL_PER_PACK:-0.15}
+EVIDENCE_WEIGHT=${EVIDENCE_WEIGHT:-0.10}
 SECOND_MANIFEST=${SECOND_MANIFEST:-}
 SECOND_MIN_SCORE_DELTA=${SECOND_MIN_SCORE_DELTA:--0.05}
 
@@ -95,6 +96,7 @@ echo "  min_groups_scored: ${MIN_GROUPS_SCORED}"
 echo "  min_pack_recall: ${MIN_PACK_RECALL}"
 echo "  min_pack_recall_coverage: ${MIN_PACK_RECALL_COVERAGE}"
 echo "  min_pack_recall_per_pack: ${MIN_PACK_RECALL_PER_PACK}"
+echo "  evidence_weight: ${EVIDENCE_WEIGHT}"
 if [ -n "${SECOND_MANIFEST}" ]; then
   echo "  second_manifest: ${SECOND_MANIFEST}"
   echo "  second_min_score_delta: ${SECOND_MIN_SCORE_DELTA}"
@@ -216,7 +218,7 @@ for iteration in $(seq 1 "${MAX_ITERATIONS}"); do
   CHECKPOINT_FILE="${OUTPUT_DIR}/iteration_${iteration}_checkpoint.patch"
   git diff > "${CHECKPOINT_FILE}"
 
-  COHERENCE_EVAL_STRICT=1 ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
+  COHERENCE_EVAL_STRICT=1 EVIDENCE_WEIGHT="${EVIDENCE_WEIGHT}" ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
     --manifest "${MANIFEST}" \
     --data-dir "${DATA_DIR}" \
     --output-dir "${OUTPUT_DIR}"
@@ -266,7 +268,7 @@ iteration=${iteration}
 ${one_line_summary}
 EOF
   if [ -n "${SECOND_MANIFEST}" ]; then
-    COHERENCE_EVAL_STRICT=1 ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
+    COHERENCE_EVAL_STRICT=1 EVIDENCE_WEIGHT="${EVIDENCE_WEIGHT}" ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
       --manifest "${SECOND_MANIFEST}" \
       --data-dir "${DATA_DIR}" \
       --output-dir "${SECOND_OUTPUT_DIR}"
@@ -350,6 +352,7 @@ Constraints:
 - Do not add issue_signature as a merge step (splits or diagnostics are ok).
 - Avoid modifying tests/docs unless strictly necessary. Do not touch docs/session/last-session.md.
 - If over_merge_count is already 0, prioritize improving groups_scored and pack_recall without increasing over_merge.
+- Consider evidence_overlap_avg (intent/flow/symptom overlap) across bugs, info queries, and feature requests.
 - Allowed levers include (but are not limited to): product_area/component keys, error strings,
   embedding thresholds (with coverage constraints), and theme/facet metadata.
 - After changes, re-run the loop and check for improved score + reduced over-merge.
@@ -385,7 +388,7 @@ EOF
     exit 1
   fi
 
-  COHERENCE_EVAL_STRICT=1 ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
+  COHERENCE_EVAL_STRICT=1 EVIDENCE_WEIGHT="${EVIDENCE_WEIGHT}" ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
     --manifest "${MANIFEST}" \
     --data-dir "${DATA_DIR}" \
     --output-dir "${OUTPUT_DIR}"
