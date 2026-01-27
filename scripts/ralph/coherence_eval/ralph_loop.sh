@@ -24,6 +24,7 @@ OUTPUT_DIR="${DATA_DIR}/outputs"
 SECOND_OUTPUT_DIR="${OUTPUT_DIR}/secondary"
 MANIFEST="${SCRIPT_DIR}/manifest.json"
 SECOND_BASELINE="${SECOND_OUTPUT_DIR}/baseline.json"
+BEST_PATCH_FILE="${OUTPUT_DIR}/best.patch"
 
 if [ -z "${PYTHON_BIN}" ]; then
   if command -v python3.10 >/dev/null 2>&1; then
@@ -145,6 +146,9 @@ if [ -n "$(git ls-files --others --exclude-standard)" ]; then
   echo "Working tree has untracked files. Commit/stash/clean before running the loop." >&2
   exit 1
 fi
+
+# Avoid carrying over patches from prior runs.
+rm -f "${BEST_PATCH_FILE}"
 
 DATA_DIR="${DATA_DIR}" MANIFEST="${MANIFEST}" SECOND_MANIFEST="${SECOND_MANIFEST}" \
   ${PYTHON_BIN} - <<'EOF'
@@ -367,7 +371,7 @@ EOF
     echo "❌ Disallowed changes detected:" >&2
     echo "${disallowed_files}" >&2
     git checkout -- .
-    git clean -fd -- src/services src/story_tracking
+    git clean -fd -- src/services src/story_tracking tests docs
     exit 1
   fi
   if [ -z "${allowed_diff_files}" ]; then
@@ -377,7 +381,7 @@ EOF
   if git diff --unified=0 -- src/services src/story_tracking | rg -n "^[+-].*issue_signature" >/dev/null 2>&1; then
     echo "❌ Detected issue_signature added as merge logic. Rejecting iteration." >&2
     git checkout -- .
-    git clean -fd -- src/services src/story_tracking
+    git clean -fd -- src/services src/story_tracking tests docs
     exit 1
   fi
 
@@ -490,12 +494,19 @@ EOF
       cp "${SECOND_OUTPUT_DIR}/metrics.json" "${SECOND_OUTPUT_DIR}/best.json"
     fi
     cp "${OUTPUT_DIR}/metrics.json" "${OUTPUT_DIR}/best.json"
+    git diff > "${BEST_PATCH_FILE}"
     echo "Improved score to ${best_score} (over_merge=${best_over_merge}, groups_scored=${current_groups_scored}, pack_recall=${current_pack_recall})."
   else
     echo "No improvement (score=${current_score}, over_merge=${current_over_merge}, groups_scored=${current_groups_scored}, pack_recall=${current_pack_recall})."
     echo "Reverting changes from iteration ${iteration}."
     git checkout -- .
-    git clean -fd -- src/services src/story_tracking
+    git clean -fd -- src/services src/story_tracking tests docs
+    if [ -s "${BEST_PATCH_FILE}" ]; then
+      git apply "${BEST_PATCH_FILE}" || {
+        echo "❌ Failed to re-apply best patch; stopping loop." >&2
+        exit 1
+      }
+    fi
   fi
 
   done=$(${PYTHON_BIN} - <<EOF
