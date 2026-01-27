@@ -76,6 +76,12 @@ if [ -n "${SECOND_MANIFEST}" ] && [ ! -s "${SECOND_MANIFEST}" ]; then
   echo "Second manifest is missing or empty: ${SECOND_MANIFEST}" >&2
   exit 1
 fi
+${PYTHON_BIN} - <<'EOF'
+import importlib.util
+spec = importlib.util.find_spec("sklearn")
+if spec is None:
+    raise SystemExit("sklearn is required for this loop; aborting.")
+EOF
 
 echo "Ralph coherence loop"
 echo "  iterations: ${MAX_ITERATIONS}"
@@ -136,6 +142,61 @@ if [ -n "$(git ls-files --others --exclude-standard)" ]; then
   exit 1
 fi
 
+${PYTHON_BIN} - <<'EOF'
+import json
+from pathlib import Path
+
+def load_jsonl_ids(path):
+    ids = set()
+    for line in Path(path).read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            row = json.loads(line.replace("\\\\\"", "\\\""))
+        ids.add(str(row.get("conversation_id")))
+    return ids
+
+def load_manifest_ids(path):
+    data = json.loads(Path(path).read_text())
+    ids = set()
+    for pack in data.get("packs", []):
+        for cid in pack.get("conversation_ids", []):
+            ids.add(str(cid))
+    return ids
+
+data_dir = Path("${DATA_DIR}")
+manifest = Path("${MANIFEST}")
+conv_ids = load_jsonl_ids(data_dir / "conversations.jsonl")
+theme_ids = load_jsonl_ids(data_dir / "themes.jsonl")
+embed_ids = load_jsonl_ids(data_dir / "embeddings.jsonl")
+facet_ids = load_jsonl_ids(data_dir / "facets.jsonl")
+manifest_ids = load_manifest_ids(manifest)
+for name, ids in [
+    ("conversations.jsonl", conv_ids),
+    ("themes.jsonl", theme_ids),
+    ("embeddings.jsonl", embed_ids),
+    ("facets.jsonl", facet_ids),
+]:
+    missing = sorted(manifest_ids - ids)
+    if missing:
+        raise SystemExit(f"Manifest contains {len(missing)} conversation_ids not in {name}")
+
+second_manifest = Path("${SECOND_MANIFEST}") if "${SECOND_MANIFEST}" else None
+if second_manifest and second_manifest.exists():
+    second_ids = load_manifest_ids(second_manifest)
+    for name, ids in [
+        ("conversations.jsonl", conv_ids),
+        ("themes.jsonl", theme_ids),
+        ("embeddings.jsonl", embed_ids),
+        ("facets.jsonl", facet_ids),
+    ]:
+        missing_second = sorted(second_ids - ids)
+        if missing_second:
+            raise SystemExit(f"Second manifest contains {len(missing_second)} conversation_ids not in {name}")
+EOF
+
 for iteration in $(seq 1 "${MAX_ITERATIONS}"); do
   echo ""
   echo "=== Iteration ${iteration} ==="
@@ -143,7 +204,7 @@ for iteration in $(seq 1 "${MAX_ITERATIONS}"); do
   CHECKPOINT_FILE="${OUTPUT_DIR}/iteration_${iteration}_checkpoint.patch"
   git diff > "${CHECKPOINT_FILE}"
 
-  ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
+  COHERENCE_EVAL_STRICT=1 ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
     --manifest "${MANIFEST}" \
     --data-dir "${DATA_DIR}" \
     --output-dir "${OUTPUT_DIR}"
@@ -171,10 +232,6 @@ EOF
   current_summary=$(${PYTHON_BIN} - <<EOF
 import json
 from pathlib import Path
-import importlib.util
-spec = importlib.util.find_spec("sklearn")
-if spec is None:
-    raise SystemExit("sklearn is required for this loop; aborting.")
 metrics = json.loads(Path("${OUTPUT_DIR}/metrics.json").read_text())
 print(json.dumps(metrics, indent=2))
 EOF
@@ -197,7 +254,7 @@ iteration=${iteration}
 ${one_line_summary}
 EOF
   if [ -n "${SECOND_MANIFEST}" ]; then
-    ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
+    COHERENCE_EVAL_STRICT=1 ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
       --manifest "${SECOND_MANIFEST}" \
       --data-dir "${DATA_DIR}" \
       --output-dir "${SECOND_OUTPUT_DIR}"
@@ -310,11 +367,11 @@ EOF
   if git diff --unified=0 -- src/services src/story_tracking | rg -n "^\\+.*issue_signature" >/dev/null 2>&1; then
     echo "❌ Detected issue_signature added as merge logic. Rejecting iteration." >&2
     git checkout -- .
-    git clean -fd
+    git clean -fd -- src/services src/story_tracking
     exit 1
   fi
 
-  ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
+  COHERENCE_EVAL_STRICT=1 ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
     --manifest "${MANIFEST}" \
     --data-dir "${DATA_DIR}" \
     --output-dir "${OUTPUT_DIR}"
@@ -412,7 +469,7 @@ EOF
     echo "No improvement (score=${current_score}, over_merge=${current_over_merge}, groups_scored=${current_groups_scored}, pack_recall=${current_pack_recall})."
     echo "Reverting changes from iteration ${iteration}."
     git checkout -- .
-    git clean -fd
+    git clean -fd -- src/services src/story_tracking
   fi
 
   done=$(${PYTHON_BIN} - <<EOF

@@ -152,6 +152,8 @@ def _group_conversations(
 
     if HybridClusteringService is None:
         # Fallback clustering when sklearn is unavailable.
+        if os.environ.get("COHERENCE_EVAL_STRICT") == "1":
+            raise RuntimeError("HybridClusteringService unavailable; strict mode requires sklearn.")
         embeddings_by_id: Dict[str, List[float]] = {}
         for row in embeddings:
             cid = str(row.get("conversation_id"))
