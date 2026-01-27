@@ -1,0 +1,172 @@
+{
+  "packs": [
+    {
+      "pack_id": "pinterest_missing_pins",
+      "description": "Missing pins after scheduling/publishing",
+      "conversation_ids": [
+        "215472480279983",
+        "215472480417019",
+        "215472483653407",
+        "215472537261974",
+        "215472541020321",
+        "215472546187247"
+      ]
+    },
+    {
+      "pack_id": "scheduling_feature_question",
+      "description": "Smartloops scheduling feature questions",
+      "conversation_ids": [
+        "215472539046936",
+        "215472562755485",
+        "215472567529203",
+        "215472567569832",
+        "215472582536570",
+        "215472715610688"
+      ]
+    },
+    {
+      "pack_id": "ghostwriter_generation_failure",
+      "description": "Ghostwriter generation failures",
+      "conversation_ids": [
+        "215472509799235",
+        "215472529835557",
+        "215472536232975",
+        "215472552853918",
+        "215472627820297",
+        "215472674308157"
+      ]
+    },
+    {
+      "pack_id": "scheduling_time_slot_addition_failure",
+      "description": "Smart schedule time slot addition failures",
+      "conversation_ids": [
+        "215472586455169",
+        "215472615649062",
+        "215472617332489",
+        "215472639927323",
+        "215472661851314",
+        "215472672926945"
+      ]
+    },
+    {
+      "pack_id": "blog_indexing_failure",
+      "description": "Blog crawler indexing failures",
+      "conversation_ids": [
+        "215472460188576",
+        "215472476084054",
+        "215472541053298",
+        "215472569113229",
+        "215472664158037",
+        "215472709617810"
+      ]
+    },
+    {
+      "pack_id": "pinterest_connection_failure",
+      "description": "Pinterest OAuth connection failures",
+      "conversation_ids": [
+        "215472510847205",
+        "215472676175350",
+        "215472694087664",
+        "215472782131982",
+        "215472821365096",
+        "215472835869773"
+      ]
+    },
+    {
+      "pack_id": "pinterest_duplicate_pins",
+      "description": "Duplicate pins in pin scheduler",
+      "conversation_ids": [
+        "215472505593351",
+        "215472595076562",
+        "215472595802780",
+        "215472631502344",
+        "215472675085756",
+        "215472702101122"
+      ]
+    },
+    {
+      "pack_id": "scheduling_duplicate_pins",
+      "description": "Duplicate pins in smart schedule",
+      "conversation_ids": [
+        "215472570917179",
+        "215472593220026",
+        "215472700502035",
+        "215472721432630",
+        "215472798483107",
+        "215472821580625"
+      ]
+    },
+    {
+      "pack_id": "account_instagram_connection_guidance",
+      "description": "Instagram/Facebook connection guidance",
+      "conversation_ids": [
+        "215472596136834",
+        "215472615598674",
+        "215472678621015",
+        "215472759579212",
+        "215472802365407",
+        "215472811579956"
+      ]
+    },
+    {
+      "pack_id": "scheduling_time_slot_addition_request",
+      "description": "Smart schedule time slot addition requests",
+      "conversation_ids": [
+        "215472539930689",
+        "215472582570953",
+        "215472584526839",
+        "215472593360209",
+        "215472609337066",
+        "215472622232194"
+      ]
+    },
+    {
+      "pack_id": "analytics_counter_bug",
+      "description": "Analytics dashboard counter bugs",
+      "conversation_ids": [
+        "215472463630760",
+        "215472474630517",
+        "215472506147209",
+        "215472540330979",
+        "215472725625112",
+        "215472794893431"
+      ]
+    },
+    {
+      "pack_id": "billing_credits_usage_query",
+      "description": "Billing credits usage questions",
+      "conversation_ids": [
+        "215472463781521",
+        "215472630280519",
+        "215472740826295",
+        "215472754036769",
+        "215472776329083",
+        "215472793094499"
+      ]
+    },
+    {
+      "pack_id": "create_image_loading_failure",
+      "description": "Create image loading failures",
+      "conversation_ids": [
+        "215472446830784",
+        "215472539152371",
+        "215472545333091",
+        "215472551787815",
+        "215472787214763",
+        "215472806221459"
+      ]
+    },
+    {
+      "pack_id": "multi_account_switching",
+      "description": "Multi-account switching issues",
+      "conversation_ids": [
+        "215472485027243",
+        "215472486184111",
+        "215472530461389",
+        "215472531898258",
+        "215472664757132",
+        "215472797946645"
+      ]
+    }
+  ]
+}

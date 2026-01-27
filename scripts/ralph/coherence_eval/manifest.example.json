@@ -1,0 +1,23 @@
+{
+  "packs": [
+    {
+      "pack_id": "scheduling_board_save_failure",
+      "description": "Pin scheduler board selection does not save",
+      "shared_error": "board name does not save",
+      "conversation_ids": [
+        "215472478095038",
+        "215472000000001"
+      ]
+    },
+    {
+      "pack_id": "instagram_invalid_token",
+      "description": "Instagram scheduling fails with invalid token",
+      "shared_error": "Token returned from \"getNewToken\" was invalid",
+      "conversation_ids": [
+        "215472627157083",
+        "215472680295836",
+        "215472835869773"
+      ]
+    }
+  ]
+}

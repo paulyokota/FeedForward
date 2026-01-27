@@ -1,0 +1,108 @@
+{
+  "packs": [
+    {
+      "pack_id": "account_instagram_connection_guidance",
+      "description": "account instagram connection guidance",
+      "shared_error": "",
+      "conversation_ids": [
+        "215472596136834",
+        "215472615598674",
+        "215472678621015",
+        "215472759579212",
+        "215472802365407",
+        "215472811579956"
+      ]
+    },
+    {
+      "pack_id": "pinterest_connection_failure",
+      "description": "pinterest connection failure",
+      "shared_error": "",
+      "conversation_ids": [
+        "215472510847205",
+        "215472676175350",
+        "215472694087664",
+        "215472782131982",
+        "215472821365096",
+        "215472835869773"
+      ]
+    },
+    {
+      "pack_id": "pinterest_duplicate_pins",
+      "description": "pinterest duplicate pins",
+      "shared_error": "",
+      "conversation_ids": [
+        "215472505593351",
+        "215472595076562",
+        "215472595802780",
+        "215472631502344",
+        "215472675085756",
+        "215472702101122"
+      ]
+    },
+    {
+      "pack_id": "pinterest_missing_pins",
+      "description": "pinterest missing pins",
+      "shared_error": "",
+      "conversation_ids": [
+        "215472480279983",
+        "215472480417019",
+        "215472483653407",
+        "215472537261974",
+        "215472541020321",
+        "215472546187247"
+      ]
+    },
+    {
+      "pack_id": "scheduling_duplicate_pins",
+      "description": "scheduling duplicate pins",
+      "shared_error": "",
+      "conversation_ids": [
+        "215472570917179",
+        "215472593220026",
+        "215472700502035",
+        "215472721432630",
+        "215472798483107",
+        "215472821580625"
+      ]
+    },
+    {
+      "pack_id": "scheduling_feature_question",
+      "description": "scheduling feature question",
+      "shared_error": "",
+      "conversation_ids": [
+        "215472539046936",
+        "215472562755485",
+        "215472567529203",
+        "215472567569832",
+        "215472582536570",
+        "215472715610688"
+      ]
+    },
+    {
+      "pack_id": "scheduling_time_slot_addition_failure",
+      "description": "scheduling time slot addition failure",
+      "shared_error": "",
+      "conversation_ids": [
+        "215472586455169",
+        "215472615649062",
+        "215472617332489",
+        "215472639927323",
+        "215472661851314",
+        "215472672926945"
+      ]
+    },
+    {
+      "pack_id": "scheduling_time_slot_addition_request",
+      "description": "scheduling time slot addition request",
+      "shared_error": "",
+      "conversation_ids": [
+        "215472539930689",
+        "215472582570953",
+        "215472584526839",
+        "215472593360209",
+        "215472609337066",
+        "215472622232194"
+      ]
+    }
+  ]
+}
