@@ -41,8 +41,8 @@ logger = logging.getLogger(__name__)
 
 
 # Default clustering parameters (validated in prototype on 127 conversations)
-DEFAULT_DISTANCE_THRESHOLD = 0.5
-DEFAULT_LINKAGE = "average"
+DEFAULT_DISTANCE_THRESHOLD = 0.55
+DEFAULT_LINKAGE = "complete"
 
 
 @dataclass

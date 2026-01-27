@@ -40,12 +40,12 @@ class TestHybridClusteringServiceInit:
         assert service.linkage == "complete"
 
     def test_default_distance_threshold_is_documented(self):
-        """Default distance threshold matches issue spec (0.5)."""
-        assert DEFAULT_DISTANCE_THRESHOLD == 0.5
+        """Default distance threshold matches issue spec (0.55)."""
+        assert DEFAULT_DISTANCE_THRESHOLD == 0.55
 
-    def test_default_linkage_is_average(self):
-        """Default linkage is 'average' as specified in issue."""
-        assert DEFAULT_LINKAGE == "average"
+    def test_default_linkage_is_complete(self):
+        """Default linkage is 'complete' as specified in issue."""
+        assert DEFAULT_LINKAGE == "complete"
 
 
 class TestEmbeddingClustering:
