@@ -146,8 +146,10 @@ if [ -n "$(git ls-files --others --exclude-standard)" ]; then
   exit 1
 fi
 
-${PYTHON_BIN} - <<EOF
+DATA_DIR="${DATA_DIR}" MANIFEST="${MANIFEST}" SECOND_MANIFEST="${SECOND_MANIFEST}" \
+  ${PYTHON_BIN} - <<'EOF'
 import json
+import os
 from pathlib import Path
 
 def load_jsonl_ids(path):
@@ -158,7 +160,7 @@ def load_jsonl_ids(path):
         try:
             row = json.loads(line)
         except json.JSONDecodeError:
-            row = json.loads(line.replace("\\\\\"", "\\\""))
+            row = json.loads(line.replace('\\\\\"', '\\\"'))
         ids.add(str(row.get("conversation_id")))
     return ids
 
@@ -170,8 +172,8 @@ def load_manifest_ids(path):
             ids.add(str(cid))
     return ids
 
-data_dir = Path("${DATA_DIR}")
-manifest = Path("${MANIFEST}")
+data_dir = Path(os.environ["DATA_DIR"])
+manifest = Path(os.environ["MANIFEST"])
 conv_ids = load_jsonl_ids(data_dir / "conversations.jsonl")
 theme_ids = load_jsonl_ids(data_dir / "themes.jsonl")
 embed_ids = load_jsonl_ids(data_dir / "embeddings.jsonl")
@@ -187,18 +189,20 @@ for name, ids in [
     if missing:
         raise SystemExit(f"Manifest contains {len(missing)} conversation_ids not in {name}")
 
-second_manifest = Path("${SECOND_MANIFEST}") if "${SECOND_MANIFEST}" else None
-if second_manifest and second_manifest.exists():
-    second_ids = load_manifest_ids(second_manifest)
-    for name, ids in [
-        ("conversations.jsonl", conv_ids),
-        ("themes.jsonl", theme_ids),
-        ("embeddings.jsonl", embed_ids),
-        ("facets.jsonl", facet_ids),
-    ]:
-        missing_second = sorted(second_ids - ids)
-        if missing_second:
-            raise SystemExit(f"Second manifest contains {len(missing_second)} conversation_ids not in {name}")
+second_manifest = os.environ.get("SECOND_MANIFEST")
+if second_manifest:
+    second_path = Path(second_manifest)
+    if second_path.exists():
+        second_ids = load_manifest_ids(second_path)
+        for name, ids in [
+            ("conversations.jsonl", conv_ids),
+            ("themes.jsonl", theme_ids),
+            ("embeddings.jsonl", embed_ids),
+            ("facets.jsonl", facet_ids),
+        ]:
+            missing_second = sorted(second_ids - ids)
+            if missing_second:
+                raise SystemExit(f"Second manifest contains {len(missing_second)} conversation_ids not in {name}")
 EOF
 
 for iteration in $(seq 1 "${MAX_ITERATIONS}"); do
