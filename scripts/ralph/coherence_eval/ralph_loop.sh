@@ -344,6 +344,8 @@ Constraints:
 - Avoid changes that hard-code to this dataset.
 - Coverage guardrails: groups_scored >= ${MIN_GROUPS_SCORED}, pack_recall_avg >= ${MIN_PACK_RECALL}.
 - Do not add issue_signature as a merge step (splits or diagnostics are ok).
+- Avoid modifying tests/docs unless strictly necessary. Do not touch docs/session/last-session.md.
+- If over_merge_count is already 0, prioritize improving groups_scored and pack_recall without increasing over_merge.
 - Allowed levers include (but are not limited to): product_area/component keys, error strings,
   embedding thresholds (with coverage constraints), and theme/facet metadata.
 - After changes, re-run the loop and check for improved score + reduced over-merge.
@@ -359,8 +361,8 @@ EOF
   fi
   echo "Claude completed."
 
-  allowed_diff_files=$(git diff --name-only --diff-filter=AMR -- src/services src/story_tracking || true)
-  disallowed_files=$(git diff --name-only --diff-filter=AMR -- . | rg -v "^src/(services|story_tracking)/" || true)
+  allowed_diff_files=$(git diff --name-only --diff-filter=AMR -- src/services src/story_tracking tests docs || true)
+  disallowed_files=$(git diff --name-only --diff-filter=AMR -- . | rg -v "^(src/(services|story_tracking)/|tests/|docs/)" || true)
   if [ -n "${disallowed_files}" ]; then
     echo "❌ Disallowed changes detected:" >&2
     echo "${disallowed_files}" >&2
