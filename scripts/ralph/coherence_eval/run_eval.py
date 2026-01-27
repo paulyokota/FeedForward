@@ -12,6 +12,7 @@ from pathlib import Path
 import sys
 import importlib.util
 import math
+import re
 from typing import Dict, List, Optional, Tuple
 import inspect
 
@@ -37,6 +38,13 @@ except Exception:
 
 MIN_GROUP_SIZE = 3
 DEFAULT_SIMILARITY_THRESHOLD = 0.5
+EVIDENCE_WEIGHT = float(os.environ.get("EVIDENCE_WEIGHT", "0.0"))
+_STOPWORDS = {
+    "the", "and", "for", "with", "from", "that", "this", "have", "has", "was", "were",
+    "into", "onto", "about", "your", "you", "but", "not", "are", "can", "cannot",
+    "how", "what", "why", "when", "where", "who", "which", "a", "an", "to", "of",
+    "in", "on", "is", "it", "as", "at", "by", "or", "if", "be", "we", "our",
+}
 
 
 def _load_jsonl(path: Path) -> List[dict]:
@@ -90,6 +98,27 @@ def _cosine_similarity(a: List[float], b: List[float]) -> float:
     if norm_a == 0.0 or norm_b == 0.0:
         return 0.0
     return dot / (norm_a * norm_b)
+
+def _tokenize(text: str) -> List[str]:
+    tokens = re.findall(r"[a-z0-9]+", text.lower())
+    return [t for t in tokens if len(t) >= 3 and t not in _STOPWORDS]
+
+
+def _evidence_tokens(theme: dict, convo: dict) -> List[str]:
+    parts: List[str] = []
+    if theme:
+        for key in ("user_intent", "affected_flow"):
+            value = theme.get(key) or ""
+            if isinstance(value, str):
+                parts.append(value)
+        symptoms = theme.get("symptoms") or []
+        if isinstance(symptoms, list):
+            parts.append(" ".join(str(s) for s in symptoms))
+    if convo:
+        digest = convo.get("customer_digest") or ""
+        if isinstance(digest, str):
+            parts.append(digest)
+    return _tokenize(" ".join(parts))
 
 
 def _simple_cluster(
@@ -255,11 +284,13 @@ def _compute_metrics(
     pack_by_conv: Dict[str, str],
     shared_error_by_pack: Dict[str, Optional[str]],
     convo_by_id: Dict[str, dict],
+    theme_by_conv: Dict[str, dict],
 ) -> dict:
     group_metrics = []
     over_merge_count = 0
     pack_purities = []
     error_matches = []
+    evidence_overlaps = []
 
     for gid, convs in groups.items():
         if len(convs) < MIN_GROUP_SIZE:
@@ -290,6 +321,19 @@ def _compute_metrics(
                     matched += 1
             error_matches.append(matched / len(convs))
 
+        token_sets = []
+        for cid in convs:
+            theme = theme_by_conv.get(cid, {})
+            convo = convo_by_id.get(cid, {})
+            tokens = set(_evidence_tokens(theme, convo))
+            if tokens:
+                token_sets.append(tokens)
+        if token_sets:
+            shared = set.intersection(*token_sets)
+            union = set.union(*token_sets)
+            if union:
+                evidence_overlaps.append(len(shared) / len(union))
+
         group_metrics.append(
             {
                 "group_id": gid,
@@ -314,12 +358,14 @@ def _compute_metrics(
     pack_recall_avg = sum(pack_recall.values()) / max(1, len(pack_recall))
     pack_purity_avg = sum(pack_purities) / max(1, len(pack_purities))
     error_match_rate = sum(error_matches) / max(1, len(error_matches))
+    evidence_overlap_avg = sum(evidence_overlaps) / max(1, len(evidence_overlaps))
 
     score = (
         0.4 * pack_purity_avg
         + 0.3 * pack_recall_avg
         + 0.3 * error_match_rate
         - 1.0 * over_merge_count
+        + EVIDENCE_WEIGHT * evidence_overlap_avg
     )
 
     return {
@@ -329,6 +375,7 @@ def _compute_metrics(
             "pack_purity_avg": round(pack_purity_avg, 3),
             "pack_recall_avg": round(pack_recall_avg, 3),
             "error_match_rate": round(error_match_rate, 3),
+            "evidence_overlap_avg": round(evidence_overlap_avg, 3),
             "score": round(score, 3),
         },
         "pack_recall": pack_recall,
@@ -386,6 +433,7 @@ def main() -> int:
         pack_by_conv=pack_by_conv,
         shared_error_by_pack=shared_error_by_pack,
         convo_by_id=convo_by_id,
+        theme_by_conv=theme_by_conv,
     )
 
     stories = []
