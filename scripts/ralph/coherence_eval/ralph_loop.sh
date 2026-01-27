@@ -38,10 +38,43 @@ if ! command -v claude >/dev/null 2>&1; then
   echo "Missing required tool: claude" >&2
   exit 1
 fi
+if ! command -v rg >/dev/null 2>&1; then
+  echo "Missing required tool: rg (ripgrep)" >&2
+  exit 1
+fi
 
 mkdir -p "${OUTPUT_DIR}"
 if [ -n "${SECOND_MANIFEST}" ]; then
   mkdir -p "${SECOND_OUTPUT_DIR}"
+fi
+
+if [ ! -f "${MANIFEST}" ]; then
+  echo "Missing manifest: ${MANIFEST}" >&2
+  exit 1
+fi
+if [ ! -s "${MANIFEST}" ]; then
+  echo "Manifest is empty: ${MANIFEST}" >&2
+  exit 1
+fi
+if [ ! -f "${DATA_DIR}/conversations.jsonl" ] || [ ! -s "${DATA_DIR}/conversations.jsonl" ]; then
+  echo "Missing or empty conversations.jsonl in ${DATA_DIR}" >&2
+  exit 1
+fi
+if [ ! -f "${DATA_DIR}/themes.jsonl" ] || [ ! -s "${DATA_DIR}/themes.jsonl" ]; then
+  echo "Missing or empty themes.jsonl in ${DATA_DIR}" >&2
+  exit 1
+fi
+if [ ! -f "${DATA_DIR}/embeddings.jsonl" ] || [ ! -s "${DATA_DIR}/embeddings.jsonl" ]; then
+  echo "Missing or empty embeddings.jsonl in ${DATA_DIR}" >&2
+  exit 1
+fi
+if [ ! -f "${DATA_DIR}/facets.jsonl" ] || [ ! -s "${DATA_DIR}/facets.jsonl" ]; then
+  echo "Missing or empty facets.jsonl in ${DATA_DIR}" >&2
+  exit 1
+fi
+if [ -n "${SECOND_MANIFEST}" ] && [ ! -s "${SECOND_MANIFEST}" ]; then
+  echo "Second manifest is missing or empty: ${SECOND_MANIFEST}" >&2
+  exit 1
 fi
 
 echo "Ralph coherence loop"
@@ -98,10 +131,17 @@ if [ -n "$(git diff --name-only)" ] || [ -n "$(git diff --cached --name-only)" ]
   echo "Working tree has tracked changes. Commit/stash before running the loop." >&2
   exit 1
 fi
+if [ -n "$(git ls-files --others --exclude-standard)" ]; then
+  echo "Working tree has untracked files. Commit/stash/clean before running the loop." >&2
+  exit 1
+fi
 
 for iteration in $(seq 1 "${MAX_ITERATIONS}"); do
   echo ""
   echo "=== Iteration ${iteration} ==="
+
+  CHECKPOINT_FILE="${OUTPUT_DIR}/iteration_${iteration}_checkpoint.patch"
+  git diff > "${CHECKPOINT_FILE}"
 
   ${PYTHON_BIN} "${SCRIPT_DIR}/run_eval.py" \
     --manifest "${MANIFEST}" \
@@ -131,6 +171,10 @@ EOF
   current_summary=$(${PYTHON_BIN} - <<EOF
 import json
 from pathlib import Path
+import importlib.util
+spec = importlib.util.find_spec("sklearn")
+if spec is None:
+    raise SystemExit("sklearn is required for this loop; aborting.")
 metrics = json.loads(Path("${OUTPUT_DIR}/metrics.json").read_text())
 print(json.dumps(metrics, indent=2))
 EOF
@@ -250,8 +294,23 @@ EOF
   fi
   echo "Claude completed."
 
-  if git diff --unified=0 -- src/services/hybrid_clustering_service.py | rg -n "^\\+.*issue_signature" >/dev/null 2>&1; then
+  allowed_diff_files=$(git diff --name-only --diff-filter=AMR -- src/services src/story_tracking || true)
+  disallowed_files=$(git diff --name-only --diff-filter=AMR -- . | rg -v "^src/(services|story_tracking)/" || true)
+  if [ -n "${disallowed_files}" ]; then
+    echo "❌ Disallowed changes detected:" >&2
+    echo "${disallowed_files}" >&2
+    git checkout -- .
+    git clean -fd
+    exit 1
+  fi
+  if [ -z "${allowed_diff_files}" ]; then
+    echo "No allowed changes detected; continuing without improvement."
+  fi
+
+  if git diff --unified=0 -- src/services src/story_tracking | rg -n "^\\+.*issue_signature" >/dev/null 2>&1; then
     echo "❌ Detected issue_signature added as merge logic. Rejecting iteration." >&2
+    git checkout -- .
+    git clean -fd
     exit 1
   fi
 
@@ -292,6 +351,12 @@ summary = data.get("summary", {})
 print(summary.get("pack_recall_avg", 0.0))
 EOF
 )
+  max_over_ok=$(${PYTHON_BIN} - <<EOF
+current_over = int("${current_over_merge}")
+max_over = int("${MAX_OVER_MERGE}")
+print("1" if current_over <= max_over else "0")
+EOF
+)
   second_score_delta_ok="1"
   if [ -n "${SECOND_MANIFEST}" ]; then
     second_score=$(${PYTHON_BIN} - <<EOF
@@ -322,11 +387,15 @@ min_recall = float("${MIN_PACK_RECALL}")
 current_groups = int("${current_groups_scored}")
 current_recall = float("${current_pack_recall}")
 second_ok = int("${second_score_delta_ok}")
+max_over_ok = int("${max_over_ok}")
+best_second = float("${best_second_score}")
+current_second = float("${second_score:- -999}")
 
 score_ok = current_score >= best_score + min_improvement
 over_ok = current_over <= best_over
 coverage_ok = (current_groups >= min_groups and current_recall >= min_recall)
-print("1" if (score_ok and over_ok and coverage_ok and second_ok == 1) else "0")
+second_best_ok = 1 if current_second >= best_second else 0
+print("1" if (score_ok and over_ok and coverage_ok and second_ok == 1 and max_over_ok == 1 and second_best_ok == 1) else "0")
 EOF
 )
 
@@ -341,11 +410,9 @@ EOF
     echo "Improved score to ${best_score} (over_merge=${best_over_merge}, groups_scored=${current_groups_scored}, pack_recall=${current_pack_recall})."
   else
     echo "No improvement (score=${current_score}, over_merge=${current_over_merge}, groups_scored=${current_groups_scored}, pack_recall=${current_pack_recall})."
-    changed_files=$(git diff --name-only)
-    if [ -n "${changed_files}" ]; then
-      echo "Reverting tracked changes from iteration ${iteration}."
-      echo "${changed_files}" | xargs git checkout -- 2>/dev/null || true
-    fi
+    echo "Reverting changes from iteration ${iteration}."
+    git checkout -- .
+    git clean -fd
   fi
 
   done=$(${PYTHON_BIN} - <<EOF
@@ -358,8 +425,12 @@ min_recall = float("${MIN_PACK_RECALL}")
 groups_scored = int("${current_groups_scored}")
 pack_recall = float("${current_pack_recall}")
 second_ok = int("${second_score_delta_ok}")
+max_over_ok = int("${max_over_ok}")
+best_second = float("${best_second_score}")
+current_second = float("${second_score:- -999}")
 coverage_ok = (groups_scored >= min_groups and pack_recall >= min_recall)
-print("1" if (score >= target and over <= max_over and coverage_ok and second_ok == 1) else "0")
+second_best_ok = 1 if current_second >= best_second else 0
+print("1" if (score >= target and over <= max_over and coverage_ok and second_ok == 1 and max_over_ok == 1 and second_best_ok == 1) else "0")
 EOF
 )
   if [ "${done}" = "1" ]; then
