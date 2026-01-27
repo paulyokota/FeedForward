@@ -8,15 +8,15 @@ Stage 1 - Embedding Clustering:
     on embeddings. Conversations about similar topics end up in the same cluster.
 
 Stage 2 - Facet Sub-grouping:
-    Within each embedding cluster, split by `action_type | direction` to separate
-    directionally different issues. This is critical for distinguishing:
+    Within each embedding cluster, split by `action_type | direction`, or
+    `direction | product_area` when theme data is available. This is critical for distinguishing:
     - "duplicate pins" (excess) vs "missing pins" (deficit)
     - "create smart pin" (creation) vs "remove smart pin" (deletion)
 
 Output:
     Each hybrid sub-cluster becomes a candidate story group with:
     - Same semantic topic (from embedding cluster)
-    - Same action type and direction (from facet sub-grouping)
+    - Same action type and direction (or direction + product_area when themes are available)
 
 Dependencies:
     - #103: Run scoping (pipeline_run_id)
@@ -49,7 +49,7 @@ DEFAULT_LINKAGE = "complete"
 class HybridCluster:
     """A hybrid sub-cluster: embedding cluster + facet sub-group."""
 
-    cluster_id: str  # Format: "emb_{embedding_cluster}_facet_{action_type}_{direction}"
+    cluster_id: str  # Format: "emb_{embedding_cluster}_facet_{direction}_pa_{product_area}" or legacy format
     embedding_cluster: int
     action_type: str
     direction: str
@@ -86,7 +86,7 @@ class HybridClusteringService:
 
     Two-stage algorithm:
     1. Embedding clustering: Agglomerative clustering with cosine distance
-    2. Facet sub-grouping: Split by action_type + direction within each cluster
+    2. Facet sub-grouping: Split by action_type + direction (or direction + product_area when themes provided)
     """
 
     def __init__(
@@ -259,17 +259,19 @@ class HybridClusteringService:
         conversation_ids: List[str],
         cluster_labels: np.ndarray,
         facets_by_conv: Dict[str, dict],
+        themes_by_conv: Optional[Dict[str, dict]] = None,
     ) -> List[HybridCluster]:
         """
         Stage 2: Create sub-clusters within each embedding cluster based on facets.
 
         Groups conversations by embedding cluster, then splits each by
-        action_type + direction.
+        action_type + direction, or direction + product_area when themes are provided.
 
         Args:
             conversation_ids: List of conversation IDs (ordered same as cluster_labels)
             cluster_labels: Embedding cluster assignment for each conversation
             facets_by_conv: Dict mapping conversation_id -> facet data
+            themes_by_conv: Optional dict mapping conversation_id -> theme data
 
         Returns:
             List of HybridCluster objects
@@ -279,8 +281,9 @@ class HybridClusteringService:
         for conv_id, label in zip(conversation_ids, cluster_labels):
             cluster_groups[int(label)].append(conv_id)
 
-        # Sub-cluster by action_type + direction within each embedding cluster
+        # Sub-cluster by action_type + direction, or direction + product_area when themes provided
         hybrid_clusters: List[HybridCluster] = []
+        use_product_area = themes_by_conv is not None and len(themes_by_conv) > 0
 
         for embedding_cluster, conv_ids in cluster_groups.items():
             # Group by facet key within this embedding cluster
@@ -288,13 +291,28 @@ class HybridClusteringService:
 
             for conv_id in conv_ids:
                 facet = facets_by_conv.get(conv_id, {})
-                action_type = facet.get("action_type", "unknown")
                 direction = facet.get("direction", "neutral")
-                subclusters[(action_type, direction)].append(conv_id)
+                if use_product_area:
+                    theme = themes_by_conv.get(conv_id, {})
+                    product_area = theme.get("product_area", "unknown")
+                    subclusters[(direction, product_area)].append(conv_id)
+                else:
+                    action_type = facet.get("action_type", "unknown")
+                    subclusters[(action_type, direction)].append(conv_id)
 
             # Create HybridCluster for each sub-cluster
-            for (action_type, direction), subcluster_conv_ids in subclusters.items():
-                cluster_id = f"emb_{embedding_cluster}_facet_{action_type}_{direction}"
+            for key, subcluster_conv_ids in subclusters.items():
+                if use_product_area:
+                    direction, product_area = key
+                    cluster_id = f"emb_{embedding_cluster}_facet_{direction}_pa_{product_area}"
+                    action_counts: Dict[str, int] = defaultdict(int)
+                    for cid in subcluster_conv_ids:
+                        facet = facets_by_conv.get(cid, {})
+                        action_counts[facet.get("action_type", "unknown")] += 1
+                    action_type = max(action_counts.items(), key=lambda x: x[1])[0]
+                else:
+                    action_type, direction = key
+                    cluster_id = f"emb_{embedding_cluster}_facet_{action_type}_{direction}"
                 hybrid_clusters.append(
                     HybridCluster(
                         cluster_id=cluster_id,
@@ -336,6 +354,7 @@ class HybridClusteringService:
         self,
         embeddings: List[Dict[str, Any]],
         facets: List[Dict[str, Any]],
+        themes: Optional[List[Dict[str, Any]]] = None,
     ) -> ClusteringResult:
         """
         Run hybrid clustering with provided data (for testing or batch processing).
@@ -343,6 +362,7 @@ class HybridClusteringService:
         Args:
             embeddings: List of dicts with conversation_id and embedding
             facets: List of dicts with conversation_id, action_type, direction, etc.
+            themes: Optional list of dicts with conversation_id, product_area, etc.
 
         Returns:
             ClusteringResult with hybrid clusters
@@ -393,11 +413,15 @@ class HybridClusteringService:
 
         result.embedding_clusters_count = len(set(cluster_labels))
 
-        # Stage 2: Facet sub-grouping
+        # Stage 2: Facet sub-grouping (optionally with product_area)
+        themes_by_conv: Optional[Dict[str, dict]] = None
+        if themes:
+            themes_by_conv = {str(t["conversation_id"]): t for t in themes}
         hybrid_clusters = self._create_hybrid_subclusters(
             complete_conv_ids,
             cluster_labels,
             facets_by_conv,
+            themes_by_conv=themes_by_conv,
         )
 
         result.hybrid_clusters_count = len(hybrid_clusters)
