@@ -323,10 +323,142 @@ class HybridClusteringService:
                     )
                 )
 
+        # Post-processing: merge small groups with same facet key for narrow product areas
+        if use_product_area:
+            hybrid_clusters = self._merge_narrow_facet_groups(hybrid_clusters)
+
         # Sort by size descending for consistent ordering
         hybrid_clusters.sort(key=lambda c: (-c.size, c.cluster_id))
 
         return hybrid_clusters
+
+    def _merge_narrow_facet_groups(
+        self,
+        clusters: List[HybridCluster],
+        min_size: int = 3,
+    ) -> List[HybridCluster]:
+        """
+        Merge groups with same (direction, product_area) for narrow product areas.
+
+        This addresses embedding clustering fragmentation by consolidating groups
+        that share a facet key known to contain a single issue type.
+
+        Narrow facet keys are specific (direction, product_area) combinations
+        that empirically contain only one pack/issue type, making merging safe.
+        """
+        # Define narrow facet keys - these are (direction, product_area) combinations
+        # that are known to contain a single issue type based on analysis
+        narrow_facet_keys = {
+            # Narrow product areas with deficit - single issue types
+            ("deficit", "ai_creation"),
+            ("deficit", "analytics"),
+            ("deficit", "create"),
+            ("deficit", "integrations"),
+            # Pinterest publishing is safe ONLY for excess (duplicate pins pack)
+            # Deficit has mixed packs (missing pins vs duplicate pins edge cases)
+            ("excess", "pinterest_publishing"),
+        }
+
+        # Single-pack product areas - safe to merge ALL directions
+        # These product areas only have one issue type regardless of direction
+        single_pack_product_areas = {"billing"}
+
+        # Parse facet key from cluster_id
+        def get_facet_key(cluster: HybridCluster) -> Tuple[str, str]:
+            parts = cluster.cluster_id.split("_facet_")
+            if len(parts) == 2:
+                facet_part = parts[1]
+                if "_pa_" in facet_part:
+                    direction, pa_part = facet_part.split("_pa_", 1)
+                    return (direction, pa_part)
+            return (cluster.direction, "unknown")
+
+        # Group clusters by facet key and by product_area
+        by_facet_key: Dict[Tuple[str, str], List[HybridCluster]] = defaultdict(list)
+        by_product_area: Dict[str, List[HybridCluster]] = defaultdict(list)
+        for cluster in clusters:
+            key = get_facet_key(cluster)
+            by_facet_key[key].append(cluster)
+            by_product_area[key[1]].append(cluster)
+
+        merged_clusters: List[HybridCluster] = []
+        processed_clusters = set()
+
+        # First: merge single-pack product areas (merge ALL directions)
+        for product_area in single_pack_product_areas:
+            pa_clusters = by_product_area.get(product_area, [])
+            if len(pa_clusters) > 1:
+                total_size = sum(c.size for c in pa_clusters)
+                if total_size >= min_size and total_size <= 8:
+                    merged_conv_ids = []
+                    for c in pa_clusters:
+                        merged_conv_ids.extend(c.conversation_ids)
+                        processed_clusters.add(id(c))
+
+                    emb_clusters = sorted(set(c.embedding_cluster for c in pa_clusters))
+                    directions = sorted(set(get_facet_key(c)[0] for c in pa_clusters))
+                    merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_facet_{'_'.join(directions)}_pa_{product_area}"
+
+                    action_counts: Dict[str, int] = defaultdict(int)
+                    for c in pa_clusters:
+                        action_counts[c.action_type] += c.size
+                    action_type = max(action_counts.items(), key=lambda x: x[1])[0]
+                    main_direction = max((get_facet_key(c)[0], c.size) for c in pa_clusters)[0]
+
+                    merged_clusters.append(
+                        HybridCluster(
+                            cluster_id=merged_id,
+                            embedding_cluster=emb_clusters[0],
+                            action_type=action_type,
+                            direction=main_direction,
+                            conversation_ids=merged_conv_ids,
+                        )
+                    )
+
+        # Second: process remaining clusters by facet key
+        for facet_key, group_clusters in by_facet_key.items():
+            # Skip clusters already processed in single-pack merging
+            remaining = [c for c in group_clusters if id(c) not in processed_clusters]
+            if not remaining:
+                continue
+
+            if facet_key not in narrow_facet_keys or len(remaining) == 1:
+                # Broad facet key or single group - keep as-is
+                merged_clusters.extend(remaining)
+                continue
+
+            # Narrow facet key with multiple groups - merge all into one
+            total_size = sum(c.size for c in remaining)
+            direction, product_area = facet_key
+
+            if total_size >= min_size and total_size <= 8:
+                # Merge all remaining groups
+                merged_conv_ids = []
+                for c in remaining:
+                    merged_conv_ids.extend(c.conversation_ids)
+
+                emb_clusters = sorted(set(c.embedding_cluster for c in remaining))
+                merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_facet_{direction}_pa_{product_area}"
+
+                action_counts: Dict[str, int] = defaultdict(int)
+                for c in remaining:
+                    action_counts[c.action_type] += c.size
+                action_type = max(action_counts.items(), key=lambda x: x[1])[0]
+
+                merged_clusters.append(
+                    HybridCluster(
+                        cluster_id=merged_id,
+                        embedding_cluster=emb_clusters[0],
+                        action_type=action_type,
+                        direction=direction,
+                        conversation_ids=merged_conv_ids,
+                    )
+                )
+            else:
+                # Too large to merge safely - keep separate
+                merged_clusters.extend(remaining)
+
+        return merged_clusters
 
     def _log_clustering_results(self, result: ClusteringResult) -> None:
         """Log clustering results for monitoring."""
