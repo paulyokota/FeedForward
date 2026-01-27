@@ -370,11 +370,22 @@ class FacetExtractionService:
 
             conv_id = conv.get("id", "")
             source_body = conv.get("source_body", "")
+            excerpt = conv.get("excerpt")  # Issue #139: consistent with embedding_service
+            customer_digest = conv.get("customer_digest")  # Issue #139
+
+            # Use same priority fallback as embedding_service for consistency:
+            # Priority: customer_digest > excerpt > source_body
+            if customer_digest and customer_digest.strip():
+                text_for_extraction = customer_digest.strip()
+            elif excerpt and excerpt.strip():
+                text_for_extraction = excerpt.strip()
+            else:
+                text_for_extraction = source_body
 
             if i > 0 and i % 10 == 0:
                 logger.info(f"Extracting facets: {i}/{len(conversations)}")
 
-            result = await self.extract_facet_async(conv_id, source_body)
+            result = await self.extract_facet_async(conv_id, text_for_extraction)
 
             if result.success:
                 successful.append(result)

@@ -45,6 +45,7 @@ from db.models import PipelineRun
 from adapters import CodaAdapter, IntercomAdapter, NormalizedConversation
 from resolution_analyzer import ResolutionAnalyzer
 from knowledge_extractor import KnowledgeExtractor
+from digest_extractor import extract_customer_messages, build_customer_digest
 
 # Async OpenAI client for parallel processing
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -168,6 +169,10 @@ def classify_conversation(
     # Extract support messages
     support_messages = extract_support_messages(raw_conversation)
 
+    # Extract customer messages and build digest (Issue #139)
+    customer_messages = extract_customer_messages(raw_conversation)
+    customer_digest = build_customer_digest(parsed.source_body, customer_messages)
+
     # Stage 1: Fast routing (always runs)
     print(f"  [Stage 1] Classifying conversation {parsed.id}...")
     stage1_result = classify_stage1(
@@ -180,7 +185,11 @@ def classify_conversation(
     # Stage 2: Refined analysis (only if support responded)
     stage2_result = None
     resolution_signal = None
-    support_insights = None
+
+    # Initialize support_insights with customer digest (always present)
+    support_insights = {
+        "customer_digest": customer_digest,
+    }
 
     if support_messages:
         print(f"  [Stage 2] Found {len(support_messages)} support messages, running refined analysis...")
@@ -205,16 +214,14 @@ def classify_conversation(
         if resolution_signal:
             print(f"    → Resolution detected: {resolution_signal['signal']}")
 
-        # Build support_insights (same as async version)
+        # Add resolution analysis and knowledge to support_insights
         final_type = stage2_result.get("conversation_type", stage1_result["conversation_type"])
-        support_insights = {
-            "resolution_analysis": get_full_resolution_analysis(support_messages),
-            "knowledge": extract_knowledge(
-                parsed.source_body,
-                support_messages,
-                final_type
-            )
-        }
+        support_insights["resolution_analysis"] = get_full_resolution_analysis(support_messages)
+        support_insights["knowledge"] = extract_knowledge(
+            parsed.source_body,
+            support_messages,
+            final_type
+        )
 
     return {
         "stage1_result": stage1_result,
@@ -378,6 +385,10 @@ async def classify_conversation_async(
     """
     support_messages = extract_support_messages(raw_conversation)
 
+    # Extract customer messages and build digest (Issue #139)
+    customer_messages = extract_customer_messages(raw_conversation)
+    customer_digest = build_customer_digest(parsed.source_body, customer_messages)
+
     # Stage 1
     stage1_result = await classify_stage1_async(
         customer_message=parsed.source_body,
@@ -389,7 +400,11 @@ async def classify_conversation_async(
     # Stage 2 + Resolution + Knowledge (only if support responded)
     stage2_result = None
     resolution_signal = None
-    support_insights = None
+
+    # Initialize support_insights with customer digest (always present)
+    support_insights = {
+        "customer_digest": customer_digest,
+    }
 
     if support_messages:
         # Resolution analysis (fast, no semaphore needed)
@@ -406,16 +421,14 @@ async def classify_conversation_async(
             semaphore=semaphore,
         )
 
-        # Build support_insights
+        # Add resolution analysis and knowledge to support_insights
         final_type = stage2_result.get("conversation_type", stage1_result["conversation_type"])
-        support_insights = {
-            "resolution_analysis": get_full_resolution_analysis(support_messages),
-            "knowledge": extract_knowledge(
-                parsed.source_body,
-                support_messages,
-                final_type
-            )
-        }
+        support_insights["resolution_analysis"] = get_full_resolution_analysis(support_messages)
+        support_insights["knowledge"] = extract_knowledge(
+            parsed.source_body,
+            support_messages,
+            final_type
+        )
 
     return {
         "conversation_id": parsed.id,

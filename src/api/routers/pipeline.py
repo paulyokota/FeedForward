@@ -299,10 +299,10 @@ async def _run_embedding_generation_async(
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Use pipeline_run_id for run scoping (per #103)
             # Filter to actionable types that need embeddings for clustering
-            # Note: conversations table does not have an 'excerpt' column.
-            # EmbeddingService._prepare_text supports excerpt but we use source_body.
+            # Issue #139: Include customer_digest from support_insights for better embedding quality
             cur.execute("""
-                SELECT c.id, c.source_body
+                SELECT c.id, c.source_body,
+                       c.support_insights->>'customer_digest' as customer_digest
                 FROM conversations c
                 JOIN pipeline_runs pr ON pr.id = %s
                 WHERE (c.pipeline_run_id = %s
@@ -318,9 +318,13 @@ async def _run_embedding_generation_async(
         logger.info(f"Run {run_id}: No actionable conversations for embedding generation")
         return {"embeddings_generated": 0, "embeddings_failed": 0}
 
-    # Prepare conversations for embedding service
+    # Prepare conversations for embedding service (Issue #139: include digest)
     conversations = [
-        {"id": row["id"], "source_body": row["source_body"]}
+        {
+            "id": row["id"],
+            "source_body": row["source_body"],
+            "customer_digest": row["customer_digest"],
+        }
         for row in rows
     ]
 
@@ -407,8 +411,10 @@ async def _run_facet_extraction_async(
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Use pipeline_run_id for run scoping (per #103)
             # Filter to actionable types that need facets for clustering
+            # Issue #139: Include customer_digest from support_insights for better facet quality
             cur.execute("""
-                SELECT c.id, c.source_body
+                SELECT c.id, c.source_body,
+                       c.support_insights->>'customer_digest' as customer_digest
                 FROM conversations c
                 JOIN pipeline_runs pr ON pr.id = %s
                 WHERE (c.pipeline_run_id = %s
@@ -424,9 +430,13 @@ async def _run_facet_extraction_async(
         logger.info(f"Run {run_id}: No actionable conversations for facet extraction")
         return {"facets_extracted": 0, "facets_failed": 0}
 
-    # Prepare conversations for facet service
+    # Prepare conversations for facet service (Issue #139: include digest)
     conversations = [
-        {"id": row["id"], "source_body": row["source_body"]}
+        {
+            "id": row["id"],
+            "source_body": row["source_body"],
+            "customer_digest": row["customer_digest"],
+        }
         for row in rows
     ]
 
@@ -510,10 +520,12 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
             # fall back to timestamp heuristic. New conversations use explicit run association.
             # Use COALESCE(stage2_type, stage1_type) as the final classification
             # New classifier types: product_issue, feature_request, how_to_question
+            # Issue #139: Include customer_digest from support_insights for better theme quality
             cur.execute("""
                 SELECT c.id, c.created_at, c.source_body, c.source_url,
                        COALESCE(c.stage2_type, c.stage1_type) as issue_type,
-                       c.sentiment, c.priority, c.churn_risk
+                       c.sentiment, c.priority, c.churn_risk,
+                       c.support_insights->>'customer_digest' as customer_digest
                 FROM conversations c
                 JOIN pipeline_runs pr ON pr.id = %s
                 WHERE (c.pipeline_run_id = %s
@@ -537,8 +549,9 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
         "how_to_question": "product_question",
     }
 
-    # Convert to Conversation objects
+    # Convert to Conversation objects (Issue #139: also track customer_digest separately)
     conversations = []
+    conversation_digests = {}  # Map conv_id -> customer_digest
     for row in rows:
         if stop_checker():
             logger.info(f"Run {run_id}: Stop signal received during theme extraction")
@@ -560,6 +573,10 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
         )
         conversations.append(conv)
 
+        # Store customer_digest for passing to theme extractor (Issue #139)
+        if row.get("customer_digest"):
+            conversation_digests[row["id"]] = row["customer_digest"]
+
     logger.info(f"Run {run_id}: Extracting themes from {len(conversations)} conversations")
 
     # Extract themes
@@ -575,7 +592,9 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
             break
 
         try:
-            theme = extractor.extract(conv, strict_mode=False)
+            # Issue #139: Pass customer_digest if available for better theme extraction
+            customer_digest = conversation_digests.get(conv.id)
+            theme = extractor.extract(conv, strict_mode=False, customer_digest=customer_digest)
             all_themes.append(theme)
 
             # Track if new theme was created
