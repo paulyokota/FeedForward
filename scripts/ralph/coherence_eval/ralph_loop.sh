@@ -357,14 +357,14 @@ EOF
     echo "❌ Disallowed changes detected:" >&2
     echo "${disallowed_files}" >&2
     git checkout -- .
-    git clean -fd
+    git clean -fd -- src/services src/story_tracking
     exit 1
   fi
   if [ -z "${allowed_diff_files}" ]; then
     echo "No allowed changes detected; continuing without improvement."
   fi
 
-  if git diff --unified=0 -- src/services src/story_tracking | rg -n "^\\+.*issue_signature" >/dev/null 2>&1; then
+  if git diff --unified=0 -- src/services src/story_tracking | rg -n "^[+-].*issue_signature" >/dev/null 2>&1; then
     echo "❌ Detected issue_signature added as merge logic. Rejecting iteration." >&2
     git checkout -- .
     git clean -fd -- src/services src/story_tracking
