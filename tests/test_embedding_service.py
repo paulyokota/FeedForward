@@ -116,6 +116,59 @@ class TestTextPreparation:
         )
         assert result == ""
 
+    # Issue #139: customer_digest priority tests
+    def test_prepare_text_prioritizes_customer_digest(self):
+        """customer_digest takes priority over excerpt and source_body."""
+        service = EmbeddingService()
+        result = service._prepare_text(
+            source_body="First message only",
+            excerpt="Focused excerpt",
+            customer_digest="First message\n\n---\n\nError ERR_500 when posting"
+        )
+        assert "ERR_500" in result
+        assert result.startswith("First message")
+
+    def test_prepare_text_digest_over_excerpt(self):
+        """customer_digest is used even when excerpt is available."""
+        service = EmbeddingService()
+        result = service._prepare_text(
+            source_body="Source body text",
+            excerpt="Excerpt text that would normally be used",
+            customer_digest="Customer digest with specific details"
+        )
+        assert result == "Customer digest with specific details"
+        assert "Excerpt" not in result
+
+    def test_prepare_text_falls_back_when_digest_empty(self):
+        """Empty customer_digest falls back to excerpt, then source_body."""
+        service = EmbeddingService()
+        result = service._prepare_text(
+            source_body="Source body fallback",
+            excerpt="Focused excerpt",
+            customer_digest="   "  # Whitespace only
+        )
+        assert result == "Focused excerpt"
+
+    def test_prepare_text_falls_back_to_source_when_digest_and_excerpt_empty(self):
+        """Falls back to source_body when digest and excerpt are both empty."""
+        service = EmbeddingService()
+        result = service._prepare_text(
+            source_body="Final fallback to source",
+            excerpt="",
+            customer_digest=""
+        )
+        assert result == "Final fallback to source"
+
+    def test_prepare_text_digest_none_uses_excerpt(self):
+        """When customer_digest is None, falls back to excerpt."""
+        service = EmbeddingService()
+        result = service._prepare_text(
+            source_body="Source text",
+            excerpt="Excerpt when no digest",
+            customer_digest=None
+        )
+        assert result == "Excerpt when no digest"
+
 
 class TestEmbeddingResultModel:
     """Test EmbeddingResult dataclass."""

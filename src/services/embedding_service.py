@@ -121,16 +121,35 @@ class EmbeddingService:
             return text[:MAX_TEXT_CHARS]
         return text
 
-    def _prepare_text(self, source_body: str, excerpt: Optional[str] = None) -> str:
+    def _prepare_text(
+        self,
+        source_body: str,
+        excerpt: Optional[str] = None,
+        customer_digest: Optional[str] = None
+    ) -> str:
         """
-        Prepare text for embedding.
+        Select best available text source for embedding (priority fallback).
 
-        Uses excerpt if available (more focused), otherwise uses source_body.
-        Returns empty string if neither is available.
+        Priority (Issue #139):
+        1. customer_digest if available (includes most specific customer message)
+        2. excerpt if available (focused text)
+        3. source_body as fallback (first customer message only)
+
+        Returns empty string if none are available.
         """
+        # Priority 1: Customer digest (Issue #139)
+        if customer_digest and customer_digest.strip():
+            return self._truncate_text(customer_digest.strip())
+
+        # Log fallback when digest was expected but empty/missing
+        if customer_digest is not None:
+            logger.debug("customer_digest was empty/whitespace, falling back to excerpt/source_body")
+
+        # Priority 2: Excerpt
         if excerpt and excerpt.strip():
             return self._truncate_text(excerpt.strip())
 
+        # Priority 3: Source body
         if source_body and source_body.strip():
             return self._truncate_text(source_body.strip())
 
@@ -270,8 +289,9 @@ class EmbeddingService:
             conv_id = conv.get("id", "")
             source_body = conv.get("source_body", "")
             excerpt = conv.get("excerpt")
+            customer_digest = conv.get("customer_digest")  # Issue #139
 
-            text = self._prepare_text(source_body, excerpt)
+            text = self._prepare_text(source_body, excerpt, customer_digest)
 
             if not text:
                 failed.append(

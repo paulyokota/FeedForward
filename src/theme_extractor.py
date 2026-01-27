@@ -667,9 +667,14 @@ class ThemeExtractor:
         use_embedding: bool = False,
         auto_add_to_vocabulary: bool = False,
         strict_mode: bool = False,
+        customer_digest: Optional[str] = None,
     ) -> Theme:
         """
         Extract theme from a single conversation.
+
+        Args:
+            customer_digest: Optional digest with first + most specific customer message (Issue #139).
+                           When provided, used instead of conv.source_body for better context.
 
         Args:
             conv: The conversation to extract from
@@ -723,8 +728,17 @@ The user was on a page related to **{url_matched_product_area}** when they start
             match_instruction = "**Match first**: Strongly prefer matching to known themes. Only create new if truly different."
             new_theme_reasoning = ". If proposing new, explain why none of the known themes fit"
 
+        # Use customer_digest if provided and has meaningful content, otherwise fall back to source_body (Issue #139)
+        # Minimum 10 chars ensures we don't use empty/separator-only digests
+        if customer_digest and len(customer_digest.strip()) > 10:
+            source_text = customer_digest.strip()
+        else:
+            source_text = conv.source_body or ""
+            if customer_digest is not None:
+                logger.debug(f"Conv {conv.id}: customer_digest too short, using source_body")
+
         # Get research context for enrichment (if search service available)
-        research_context = self.get_research_context(conv.source_body or "")
+        research_context = self.get_research_context(source_text)
 
         # Phase 1: Extract theme details (with vocabulary-aware prompt)
         prompt = THEME_EXTRACTION_PROMPT.format(
@@ -741,7 +755,7 @@ The user was on a page related to **{url_matched_product_area}** when they start
             sentiment=conv.sentiment,
             priority=conv.priority,
             churn_risk=conv.churn_risk,
-            source_body=conv.source_body or "",
+            source_body=source_text,
         )
 
         response = self.client.chat.completions.create(
@@ -771,7 +785,7 @@ The user was on a page related to **{url_matched_product_area}** when they start
         logger.info(
             f"🔍 THEME EXTRACTION DECISION:\n"
             f"   Conversation: {conv.id[:20]}...\n"
-            f"   User message: {(conv.source_body or '')[:100]}...\n"
+            f"   User message: {source_text[:100]}...\n"
             f"   → Signature: {proposed_signature}\n"
             f"   → Matched existing: {matched_existing}\n"
             f"   → Confidence: {match_confidence}\n"
