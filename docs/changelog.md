@@ -8,6 +8,29 @@ Format: [ISO Date] - Summary of changes
 
 ## [Unreleased]
 
+### Added
+
+**Customer-Only Digest for Embeddings (2026-01-26)** - Issue #139, PR #140:
+
+- **New digest_extractor module** (`src/digest_extractor.py`):
+  - `extract_customer_messages()` - Extracts customer messages from conversation_parts
+  - `score_message_specificity()` - Fast heuristic scoring without LLM calls
+  - `build_customer_digest()` - Combines first message + most specific message (max 800 chars)
+  - Bounded regex patterns and MAX_INPUT_SIZE limits for security (ReDoS and memory protection)
+- **Pipeline integration** - `classification_pipeline.py` calls digest builder and stores in `support_insights.customer_digest`
+- **3-tier fallback hierarchy** across all services:
+  - Priority 1: `customer_digest` (when available)
+  - Priority 2: `excerpt` (existing field)
+  - Priority 3: `source_body` (full conversation as last resort)
+- **Service updates**:
+  - `embedding_service.py` - Uses digest for vector embeddings with fallback chain
+  - `facet_service.py` - Uses digest for facet extraction with consistent fallback
+  - `theme_extractor.py` - Uses digest with minimum length validation (50 chars)
+- **Test coverage**: 73 total tests
+  - 68 new tests in `test_digest_extractor.py` (message extraction, specificity scoring, digest building, security)
+  - 5 new tests in `test_embedding_service.py` (digest priority in fallback chain)
+- **5-Personality Review**: Round 1 (35 issues) → Round 2 (CONVERGED, all 5 APPROVED)
+
 ### Milestone Complete
 
 **Pipeline Quality v1 Validation (2026-01-26)** - Issue #129:

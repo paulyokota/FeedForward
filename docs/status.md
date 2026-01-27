@@ -14,8 +14,107 @@
 **Milestone 6 (Canonical Pipeline Consolidation): COMPLETE** ✅
 **Theme Quality Architecture: IMPROVEMENTS 1 & 2 COMPLETE** ✅
 **Pipeline Quality v1: COMPLETE** ✅
+**Customer-Only Digest: COMPLETE** ✅
 
-## Latest: Pipeline Quality v1 Validation Complete (2026-01-26)
+## Latest: Customer-Digest Functional Test & Clustering Quality Discovery (2026-01-27)
+
+**Issue #139 Functional Test Complete** - 30-day pipeline run validated customer_digest implementation
+
+### Functional Test Results (Run 91)
+
+| Metric                    | Value            |
+| ------------------------- | ---------------- |
+| Conversations             | 1,270            |
+| Customer digest populated | 100% (1270/1270) |
+| Themes                    | 516              |
+| Stories                   | 21               |
+| Orphans                   | 348              |
+
+### Quality Investigation
+
+While validating customer_digest, discovered **story grouping quality regression**. Top story "Fix board selection saving issues in pin scheduler" (10 conversations) contained 7 distinct issues that should have been separate stories.
+
+**Root cause traced**: Hybrid clustering uses `(action_type, direction)` for sub-grouping. All 10 conversations had identical facets (`bug_report`, `deficit`) despite having different `issue_signature` values from theme extraction.
+
+**Key finding**: Facet taxonomy is too coarse - doesn't distinguish between:
+
+- Board selection bugs
+- Multi-account scheduling bugs
+- Bulk delete requests
+- Calendar navigation issues
+
+### Options Evaluated
+
+Considered adding `issue_signature` to clustering, but signatures not normalized enough (261 unique signatures for 516 themes, inconsistent naming like `multi_network_scheduling_failure` vs `multinetwork_scheduling_failure`).
+
+**Pressure test of `product_area` + `component`**:
+
+- Helps in 4/5 top stories
+- Risk: Story 4 (coherent group) would be over-split
+- `product_area` alone may be safer first step
+
+### New Issue Filed
+
+**#141** - Incremental theme count updates during theme extraction (monitoring visibility)
+
+### Decision
+
+User wants to sit with clustering findings before making changes. Potential #123 reopen with expanded scope pending.
+
+---
+
+## Previous: Customer-Only Digest for Embeddings (2026-01-26)
+
+**Issue #139 Complete** - PR #140 merged after 5-personality review convergence
+
+### What Was Shipped
+
+New digest extraction system that isolates customer voice from support responses for better semantic matching:
+
+1. **digest_extractor.py** - Fast heuristic-based message scoring and digest building:
+   - Extracts customer messages from conversation_parts
+   - Scores messages by specificity (question words, length, code/URLs, punctuation)
+   - Builds 800-char digest: first message + most specific additional message
+   - Security hardening: bounded regex patterns, MAX_INPUT_SIZE limits
+
+2. **Pipeline integration** - `customer_digest` stored in support_insights JSONB column
+
+3. **3-tier fallback hierarchy** - Applied consistently across all services:
+   - embedding_service.py (vector embeddings)
+   - facet_service.py (facet extraction)
+   - theme_extractor.py (theme extraction with 50-char minimum)
+
+### Test Coverage
+
+- **73 total tests** (68 new digest tests + 5 embedding priority tests)
+- Security coverage: ReDoS protection, memory limits, input validation
+
+### Code Review
+
+- **Round 1**: 35 issues found across 5 reviewers
+  - Reginald: Security (ReDoS, memory limits), edge cases, constants
+  - Sanjay: Input validation, error handling, scoring brittleness
+  - Quinn: Output quality, separator optimization, edge case smoothing
+  - Dmitri: Complexity, magic numbers, over-engineering
+  - Maya: Documentation, naming, test coverage
+- **Round 2**: CONVERGED (all 5 reviewers APPROVED)
+  - 35/35 issues resolved
+  - Quinn's remaining medium-priority items acknowledged as future improvements
+  - All reviewers confidence 90-95%
+
+### Files Changed
+
+- `src/digest_extractor.py` (+300 new)
+- `src/classification_pipeline.py` (+3)
+- `src/embedding_service.py` (+14/-2)
+- `src/facet_service.py` (+14/-2)
+- `src/theme_extractor.py` (+14/-2)
+- `tests/test_digest_extractor.py` (+68 new)
+- `tests/test_embedding_service.py` (+5)
+
+---
+
+## Previous: Pipeline Quality v1 Validation Complete (2026-01-26)
 
 **Issue #129 Complete** - Functional validation passed, Phase 3 issues closed
 
