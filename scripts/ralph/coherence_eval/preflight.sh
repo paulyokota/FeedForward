@@ -16,6 +16,7 @@ fail() {
 command -v "${PYTHON_BIN}" >/dev/null 2>&1 || fail "python3 not found (set PYTHON_BIN if needed)"
 command -v rg >/dev/null 2>&1 || fail "rg not found"
 command -v claude >/dev/null 2>&1 || fail "claude not found"
+claude --version >/dev/null 2>&1 || fail "claude not functional"
 
 if [ -n "$(git diff --name-only)" ] || [ -n "$(git diff --cached --name-only)" ]; then
   fail "working tree has tracked changes; commit/stash first"
@@ -59,7 +60,7 @@ def load_jsonl_ids(path):
         try:
             row = json.loads(line)
         except json.JSONDecodeError:
-            row = json.loads(line.replace("\\\\\"", "\\\""))
+            row = json.loads(line.replace('\\\\\"', '\\\"'))
         ids.add(str(row.get("conversation_id")))
     return ids
 
@@ -67,7 +68,10 @@ def load_manifest_ids(path):
     data = json.loads(path.read_text())
     ids = set()
     for pack in data.get("packs", []):
-        for cid in pack.get("conversation_ids", []):
+        convos = pack.get("conversation_ids", [])
+        if len(convos) < 3:
+            raise SystemExit(f"pack {pack.get('pack_id')} has <3 conversations")
+        for cid in convos:
             ids.add(str(cid))
     return ids
 
@@ -75,6 +79,19 @@ conv_ids = load_jsonl_ids(data_dir / "conversations.jsonl")
 theme_ids = load_jsonl_ids(data_dir / "themes.jsonl")
 embed_ids = load_jsonl_ids(data_dir / "embeddings.jsonl")
 facet_ids = load_jsonl_ids(data_dir / "facets.jsonl")
+
+# Fail fast if any JSONL line is still invalid after escape fix
+for fname in ["conversations.jsonl", "themes.jsonl", "embeddings.jsonl", "facets.jsonl"]:
+    for i, line in enumerate((data_dir / fname).read_text().splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            json.loads(line)
+        except json.JSONDecodeError:
+            try:
+                json.loads(line.replace('\\\\\"', '\\\"'))
+            except json.JSONDecodeError as e:
+                raise SystemExit(f"{fname} has invalid JSON on line {i}: {e}")
 
 manifest_ids = load_manifest_ids(manifest)
 for name, ids in [

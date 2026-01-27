@@ -12,6 +12,8 @@ MAX_OVER_MERGE=${MAX_OVER_MERGE:-0}
 MIN_IMPROVEMENT=${MIN_IMPROVEMENT:-0.05}
 MIN_GROUPS_SCORED=${MIN_GROUPS_SCORED:-6}
 MIN_PACK_RECALL=${MIN_PACK_RECALL:-0.10}
+MIN_PACK_RECALL_COVERAGE=${MIN_PACK_RECALL_COVERAGE:-0.70}
+MIN_PACK_RECALL_PER_PACK=${MIN_PACK_RECALL_PER_PACK:-0.15}
 SECOND_MANIFEST=${SECOND_MANIFEST:-}
 SECOND_MIN_SCORE_DELTA=${SECOND_MIN_SCORE_DELTA:--0.05}
 
@@ -90,6 +92,8 @@ echo "  max_over_merge: ${MAX_OVER_MERGE}"
 echo "  min_improvement: ${MIN_IMPROVEMENT}"
 echo "  min_groups_scored: ${MIN_GROUPS_SCORED}"
 echo "  min_pack_recall: ${MIN_PACK_RECALL}"
+echo "  min_pack_recall_coverage: ${MIN_PACK_RECALL_COVERAGE}"
+echo "  min_pack_recall_per_pack: ${MIN_PACK_RECALL_PER_PACK}"
 if [ -n "${SECOND_MANIFEST}" ]; then
   echo "  second_manifest: ${SECOND_MANIFEST}"
   echo "  second_min_score_delta: ${SECOND_MIN_SCORE_DELTA}"
@@ -408,6 +412,21 @@ summary = data.get("summary", {})
 print(summary.get("pack_recall_avg", 0.0))
 EOF
 )
+pack_coverage_ok=$(${PYTHON_BIN} - <<EOF
+import json
+from pathlib import Path
+data = json.loads(Path("${OUTPUT_DIR}/metrics.json").read_text())
+pack_recall = data.get("pack_recall", {})
+threshold = float("${MIN_PACK_RECALL_PER_PACK}")
+coverage = float("${MIN_PACK_RECALL_COVERAGE}")
+if not pack_recall:
+    print("0")
+else:
+    good = sum(1 for v in pack_recall.values() if v >= threshold)
+    total = len(pack_recall)
+    print("1" if (good / max(1, total)) >= coverage else "0")
+EOF
+)
   max_over_ok=$(${PYTHON_BIN} - <<EOF
 current_over = int("${current_over_merge}")
 max_over = int("${MAX_OVER_MERGE}")
@@ -447,12 +466,13 @@ second_ok = int("${second_score_delta_ok}")
 max_over_ok = int("${max_over_ok}")
 best_second = float("${best_second_score}")
 current_second = float("${second_score:- -999}")
+pack_coverage_ok = int("${pack_coverage_ok}")
 
 score_ok = current_score >= best_score + min_improvement
 over_ok = current_over <= best_over
 coverage_ok = (current_groups >= min_groups and current_recall >= min_recall)
 second_best_ok = 1 if current_second >= best_second else 0
-print("1" if (score_ok and over_ok and coverage_ok and second_ok == 1 and max_over_ok == 1 and second_best_ok == 1) else "0")
+print("1" if (score_ok and over_ok and coverage_ok and second_ok == 1 and max_over_ok == 1 and second_best_ok == 1 and pack_coverage_ok == 1) else "0")
 EOF
 )
 
@@ -486,8 +506,9 @@ max_over_ok = int("${max_over_ok}")
 best_second = float("${best_second_score}")
 current_second = float("${second_score:- -999}")
 coverage_ok = (groups_scored >= min_groups and pack_recall >= min_recall)
+pack_coverage_ok = int("${pack_coverage_ok}")
 second_best_ok = 1 if current_second >= best_second else 0
-print("1" if (score >= target and over <= max_over and coverage_ok and second_ok == 1 and max_over_ok == 1 and second_best_ok == 1) else "0")
+print("1" if (score >= target and over <= max_over and coverage_ok and second_ok == 1 and max_over_ok == 1 and second_best_ok == 1 and pack_coverage_ok == 1) else "0")
 EOF
 )
   if [ "${done}" = "1" ]; then
