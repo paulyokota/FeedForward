@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
-from src.prompts.pm_review import CONVERSATION_TEMPLATE, PM_REVIEW_PROMPT
+from src.prompts.pm_review import PM_REVIEW_PROMPT, format_conversations_for_review
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,15 @@ class ConversationContext:
     excerpt: str
     product_area: str
     component: str
+    # Smart Digest fields (Issue #144) - used when available for richer context
+    diagnostic_summary: str = ""
+    # Format: [{"text": "...", "relevance": "Why this matters"}, ...]
+    key_excerpts: List[dict] = None  # type: ignore
+
+    def __post_init__(self):
+        """Initialize key_excerpts to empty list if None."""
+        if self.key_excerpts is None:
+            self.key_excerpts = []
 
 
 @dataclass
@@ -257,22 +266,28 @@ class PMReviewService:
         return results
 
     def _format_conversations(self, conversations: List[ConversationContext]) -> str:
-        """Format conversations for the prompt."""
-        parts = []
-        for i, conv in enumerate(conversations, start=1):
-            symptoms_text = ", ".join(conv.symptoms) if conv.symptoms else "None"
-            part = CONVERSATION_TEMPLATE.format(
-                index=i,
-                conversation_id=conv.conversation_id,
-                user_intent=conv.user_intent or "Unknown",
-                symptoms=symptoms_text,
-                affected_flow=conv.affected_flow or "Unknown",
-                product_area=conv.product_area or "Unknown",
-                component=conv.component or "Unknown",
-                excerpt=(conv.excerpt or "")[:500],  # Limit excerpt length
-            )
-            parts.append(part)
-        return "\n".join(parts)
+        """
+        Format conversations for the prompt.
+
+        Delegates to format_conversations_for_review() in pm_review.py to avoid
+        duplicate logic. Converts ConversationContext dataclass instances to dicts.
+        """
+        # Convert ConversationContext dataclass to dict format expected by shared function
+        conv_dicts = [
+            {
+                "conversation_id": conv.conversation_id,
+                "user_intent": conv.user_intent or "Unknown",
+                "symptoms": conv.symptoms if conv.symptoms else [],
+                "affected_flow": conv.affected_flow or "Unknown",
+                "product_area": conv.product_area or "Unknown",
+                "component": conv.component or "Unknown",
+                "diagnostic_summary": conv.diagnostic_summary,
+                "key_excerpts": conv.key_excerpts or [],
+                "excerpt": conv.excerpt or "",
+            }
+            for conv in conversations
+        ]
+        return format_conversations_for_review(conv_dicts)
 
     def _parse_response(
         self,

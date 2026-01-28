@@ -1,0 +1,68 @@
+{
+  "reviewer": "quinn",
+  "pr_number": 144,
+  "review_round": 1,
+  "timestamp": "2026-01-28T11:30:00Z",
+  "verdict": "BLOCK",
+  "summary": "2 MEDIUM quality issues, 2 LOW issues. Schema inconsistency and downstream gap.",
+  "functional_test_required": true,
+  "functional_test_reason": "Prompt text modified (diagnostic_summary, key_excerpts), LLM output parsing changed, product context loading modified",
+  "issues": [
+    {
+      "id": "Q1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "system-conflict",
+      "file": "src/theme_extractor.py",
+      "lines": [352, 1073],
+      "title": "key_excerpts.relevance schema inconsistency between prompt and validation",
+      "why": "Prompt shows relevance as descriptive string but validation defaults to 'medium' enum. Migration says high|medium|low but tests use descriptive text. Schema is inconsistent across 4 locations.",
+      "fix": "Pick ONE schema: either make relevance a category (high/medium/low) and update prompt examples, OR keep freeform description and change default from 'medium' to 'Relevance not provided'.",
+      "verify": "Check how PM Review Phase 3 plans to consume this field",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "Q2",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "missed-update",
+      "file": "src/story_tracking/services/pm_review_service.py",
+      "lines": [33, 44],
+      "title": "New Smart Digest fields not consumed by PM Review",
+      "why": "ConversationContext dataclass and CONVERSATION_TEMPLATE don't include diagnostic_summary or key_excerpts. PM Review continues using raw excerpt while new fields are extracted and stored unused.",
+      "fix": "Document phased approach in PR description and add TODO comment, OR include minimal PM Review update in this PR.",
+      "verify": "Confirm Phase 3 task #11 is prioritized for immediate follow-up",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "Q3",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "quality-impact",
+      "file": "src/theme_extractor.py",
+      "lines": [1094, 1095],
+      "title": "context_used/context_gaps lack validation compared to key_excerpts",
+      "why": "key_excerpts has detailed validation (text field check, length limit) but context_used/context_gaps only have isinstance(list) check. Could store dicts, numbers, or excessively long lists.",
+      "fix": "Add validation: filter to strings only, limit item length to 200 chars, limit to 10 items max.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    },
+    {
+      "id": "Q4",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "quality-impact",
+      "file": "src/theme_extractor.py",
+      "lines": [168, 958],
+      "title": "Context limit increase (15K->30K) cost trade-off undocumented",
+      "why": "Tripling context size increases token costs ~3x per extraction. For 1000 conversations/day, adds ~$180/month. Change is intentional but trade-off not documented.",
+      "fix": "Add comment documenting cost trade-off: ~$0.009 vs $0.003 per extraction, justification for quality improvement.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    }
+  ]
+}

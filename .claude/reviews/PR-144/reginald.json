@@ -1,0 +1,80 @@
+{
+  "reviewer": "reginald",
+  "pr_number": 144,
+  "review_round": 1,
+  "timestamp": "2026-01-28T11:30:00Z",
+  "verdict": "BLOCK",
+  "summary": "1 CRITICAL, 1 HIGH, 2 MEDIUM, 1 LOW correctness issues. Critical issue: full_conversation parameter never passed in pipeline - Smart Digest feature is dead code in production.",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "CRITICAL",
+      "confidence": "high",
+      "category": "integration",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [597],
+      "title": "full_conversation parameter never passed in pipeline - Smart Digest feature is dead code",
+      "why": "The _run_theme_extraction() function calls extractor.extract() but never passes full_conversation parameter. This means the LLM only sees customer_digest, not the full conversation thread. diagnostic_summary and key_excerpts will be based on incomplete context. The entire Smart Digest feature is effectively disabled in production.",
+      "fix": "Query full conversation text from database (support_insights or fetch messages) and pass to extractor.extract() as full_conversation parameter.",
+      "verify": "Check if support_insights contains full conversation text or if there's another mechanism to retrieve it.",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "R2",
+      "severity": "HIGH",
+      "confidence": "medium",
+      "category": "performance",
+      "file": "src/theme_extractor.py",
+      "lines": [139, 182, 185, 278],
+      "title": "Token usage not bounded - combined context may exceed model limits",
+      "why": "Per-file context increased to 30K chars, conversation can be 400K chars (~100K tokens), plus prompt template and known themes. Combined could exceed GPT-4o-mini's 128K context window. No total token budget check before API call.",
+      "fix": "Add total prompt size check before API call. Log estimated token count. Consider dynamic conversation truncation if product_context is large.",
+      "verify": "Verify actual token usage in production when full_conversation is passed.",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R3",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "performance",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [696, 708],
+      "title": "N+1 query pattern in context_usage_logs INSERT",
+      "why": "Inside the theme storage loop, there's a conditional INSERT into context_usage_logs that executes once per theme. For 100 themes, this means 100+ individual INSERT statements instead of a batch insert.",
+      "fix": "Accumulate context_usage_logs entries during loop and batch insert using execute_values after the loop completes.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R4",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "type-safety",
+      "file": "src/theme_extractor.py",
+      "lines": [547, 551],
+      "title": "Missing type annotations for context_used and context_gaps fields",
+      "why": "The new fields use bare 'list' without type parameters (should be list[str]). The validation code at line 1094-1095 only checks isinstance(list) but doesn't validate contents are strings. LLM could return nested objects or mixed types.",
+      "fix": "Add type annotations list[str] and add validation to coerce/filter list contents to strings when extracting from LLM response.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "R5",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "logic",
+      "file": "src/theme_extractor.py",
+      "lines": [346, 1073],
+      "title": "key_excerpts.relevance field type mismatch between schema and code",
+      "why": "Migration schema comment says 'high|medium|low' enum values, prompt template says 'Why this excerpt matters' (descriptive string), validation defaults to 'medium' (enum). Inconsistent expectations across files.",
+      "fix": "Decide on one format (enum or descriptive) and update migration comment, prompt template, and validation code to match.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

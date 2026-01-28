@@ -1,0 +1,66 @@
+{
+  "reviewer": "sanjay",
+  "pr_number": 144,
+  "review_round": 1,
+  "timestamp": "2026-01-28T12:00:00Z",
+  "verdict": "BLOCK",
+  "summary": "2 MEDIUM security issues, 2 LOW issues",
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "validation",
+      "file": "src/theme_extractor.py",
+      "lines": [1065, 1076],
+      "title": "Insufficient JSONB validation for key_excerpts before storage",
+      "why": "The relevance field has no length limit or enum validation. context_used/context_gaps have no validation at all. Control characters and nested JSON could cause downstream issues.",
+      "fix": "Add length limits to relevance field, validate against enum {high,medium,low}, strip control characters from text. Add list element validation for context_used/context_gaps.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S2",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "injection",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [250, 274],
+      "title": "Dynamic SQL construction in _update_phase function",
+      "why": "Field names are interpolated directly into SQL strings. While a whitelist provides protection, this pattern normalizes risky SQL construction. Use psycopg2.sql module for proper identifier quoting.",
+      "fix": "Use psycopg2.sql.Identifier() for field names instead of f-string interpolation: sql.SQL('{} = %s').format(sql.Identifier(field))",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "S3",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "exposure",
+      "file": "src/theme_extractor.py",
+      "lines": [338, 387],
+      "title": "Potential PII in diagnostic_summary and key_excerpts",
+      "why": "Prompt explicitly asks for VERBATIM quotes from conversations. Customer support messages often contain emails, names, account IDs. This data persists in themes table without PII scrubbing.",
+      "fix": "Consider: (1) PII detection/masking before storage, (2) access controls on themes table, (3) documentation warning, (4) retention policy alignment with conversations table.",
+      "verify": "Confirm whether themes table has shorter retention than conversations, or if it's acceptable for PII to persist in excerpts",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "S4",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "injection",
+      "file": "src/theme_extractor.py",
+      "lines": [957, 972],
+      "title": "LLM prompt injection via malicious conversation content",
+      "why": "Customer conversation text is inserted into LLM prompt without delimiters. Malicious content could attempt to manipulate extraction behavior, forcing false diagnostics or high confidence scores.",
+      "fix": "Wrap customer content in clear delimiters: source_body=f'<customer_message>\\n{source_text}\\n</customer_message>'. Document the risk as acceptable for support analytics use case.",
+      "verify": "Confirm product risk appetite for LLM prompt injection in analytics context",
+      "scope": "systemic",
+      "see_verbose": true
+    }
+  ]
+}

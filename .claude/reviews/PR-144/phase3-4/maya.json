@@ -1,0 +1,81 @@
+{
+  "reviewer": "maya",
+  "pr_number": 144,
+  "review_round": 1,
+  "phase": "3-4",
+  "timestamp": "2026-01-28T12:00:00Z",
+  "verdict": "APPROVE",
+  "summary": "5 maintainability improvements identified, none blocking. Good documentation overall with consistent naming conventions.",
+  "issues": [
+    {
+      "id": "M1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "magic-number",
+      "file": "src/prompts/pm_review.py",
+      "lines": [118, 119],
+      "title": "Magic numbers in key excerpts truncation",
+      "why": "5 excerpts and 300 char limits used without explanation of why these values were chosen. Future maintainers won't know if limits can be changed safely.",
+      "fix": "Extract to named constants (MAX_KEY_EXCERPTS_IN_PROMPT, MAX_EXCERPT_TEXT_LENGTH) with comment explaining token budget reasoning.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    },
+    {
+      "id": "M2",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "complex-logic",
+      "file": "src/prompts/pm_review.py",
+      "lines": [149, 163],
+      "title": "Duplicated Smart Digest context-building logic",
+      "why": "Same fallback pattern (Smart Digest -> excerpt) exists in both pm_review.py and pm_review_service.py with different truncation limits (200 vs 500 chars). Bug waiting to happen.",
+      "fix": "Have PMReviewService use format_conversations_for_review() from pm_review.py, or extract shared helper. Fix inconsistent limits.",
+      "verify": "Check if 200 vs 500 char difference is intentional",
+      "scope": "systemic",
+      "see_verbose": true
+    },
+    {
+      "id": "M3",
+      "severity": "LOW",
+      "confidence": "high",
+      "category": "missing-docs",
+      "file": "src/api/routers/pipeline.py",
+      "lines": [605, 614],
+      "title": "Fallback chain requires cross-file tracing",
+      "why": "The full_conversation -> customer_digest -> source_body fallback is mentioned but actual behavior is split between caller and ThemeExtractor. Debugging requires checking multiple files.",
+      "fix": "Add explicit comment stating what text source the extractor uses when both are None, or reference the extractor docstring.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    },
+    {
+      "id": "M4",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "missing-docs",
+      "file": "src/story_tracking/services/story_creation_service.py",
+      "lines": [159, 175],
+      "title": "ConversationData fields lack documentation",
+      "why": "Dataclass has grown with Smart Digest fields but lacks field-level documentation. key_excerpts format is only documented in a comment, not as a proper docstring.",
+      "fix": "Add field-level docstrings explaining purpose, format, and when each field is populated.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "M5",
+      "severity": "LOW",
+      "confidence": "medium",
+      "category": "missing-docs",
+      "file": "src/api/routers/analytics.py",
+      "lines": [343, 394],
+      "title": "Context gaps SQL query lacks explanation",
+      "why": "Complex join and date filtering without explaining why LEFT JOIN is used or what context_used/context_gaps JSONB arrays contain.",
+      "fix": "Add comment explaining query structure, LEFT JOIN rationale, and JSONB field contents.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    }
+  ]
+}

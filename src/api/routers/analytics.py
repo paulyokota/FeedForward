@@ -13,6 +13,9 @@ from src.api.deps import get_db
 from src.api.schemas.analytics import (
     ClassificationStats,
     ConfidenceDistribution,
+    ContextGapItem,
+    ContextGapsByArea,
+    ContextGapsResponse,
     DashboardMetrics,
     EvidenceSummaryResponse,
     PipelineRunSummary,
@@ -303,4 +306,170 @@ def get_sync_metrics(
         push_count=metrics["push_count"],
         pull_count=metrics["pull_count"],
         unsynced_count=metrics["unsynced_count"],
+    )
+
+
+# -----------------------------------------------------------------------------
+# Context Usage Analytics (Issue #144 - Smart Digest)
+# -----------------------------------------------------------------------------
+
+
+@router.get("/context-gaps", response_model=ContextGapsResponse)
+def get_context_gaps(
+    db=Depends(get_db),
+    days: int = Query(default=7, ge=1, le=90, description="Lookback period in days"),
+    pipeline_run_id: Optional[int] = Query(
+        default=None, description="Specific pipeline run to analyze"
+    ),
+    limit: int = Query(default=20, ge=1, le=100, description="Maximum items per list"),
+):
+    """
+    Analyze context usage logs to identify documentation gaps.
+
+    Returns:
+    - Most frequently missing context (what docs would help)
+    - Most frequently used context (what docs are valuable)
+    - Breakdown by product area
+    - Recommendation for highest-priority documentation to add
+
+    This helps identify where product documentation should be improved
+    to enhance theme extraction quality.
+    """
+    from collections import Counter
+    from datetime import timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+
+    with db.cursor() as cur:
+        # Determine date range
+        if pipeline_run_id:
+            # Get date range from specific run
+            cur.execute(
+                """
+                SELECT started_at, COALESCE(completed_at, NOW()) as end_time
+                FROM pipeline_runs WHERE id = %s
+                """,
+                (pipeline_run_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                from fastapi import HTTPException
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Pipeline run {pipeline_run_id} not found"
+                )
+            period_start = row["started_at"]
+            period_end = row["end_time"]
+
+            # Query with pipeline_run_id filter
+            cur.execute(
+                """
+                SELECT
+                    c.context_used,
+                    c.context_gaps,
+                    t.product_area
+                FROM context_usage_logs c
+                LEFT JOIN themes t ON c.theme_id = t.id
+                WHERE c.pipeline_run_id = %s
+                """,
+                (pipeline_run_id,),
+            )
+        else:
+            # Use date range
+            period_end = now
+            period_start = period_end - timedelta(days=days)
+
+            cur.execute(
+                """
+                SELECT
+                    c.context_used,
+                    c.context_gaps,
+                    t.product_area
+                FROM context_usage_logs c
+                LEFT JOIN themes t ON c.theme_id = t.id
+                WHERE c.created_at >= %s AND c.created_at <= %s
+                """,
+                (period_start, period_end),
+            )
+
+        rows = cur.fetchall()
+
+    # Aggregate results
+    gap_counter: Counter = Counter()
+    used_counter: Counter = Counter()
+    gaps_by_area: dict = {}
+
+    total_with_gaps = 0
+    total_with_context = 0
+
+    for row in rows:
+        context_used = row["context_used"]
+        context_gaps = row["context_gaps"]
+        product_area = row["product_area"] or "unknown"
+
+        # Initialize counter for product area if needed
+        if product_area not in gaps_by_area:
+            gaps_by_area[product_area] = Counter()
+
+        # Process context_gaps
+        if context_gaps and isinstance(context_gaps, list):
+            total_with_gaps += 1
+            for gap in context_gaps:
+                if isinstance(gap, str) and gap.strip():
+                    gap_counter[gap] += 1
+                    gaps_by_area[product_area][gap] += 1
+
+        # Process context_used
+        if context_used and isinstance(context_used, list):
+            total_with_context += 1
+            for used in context_used:
+                if isinstance(used, str) and used.strip():
+                    used_counter[used] += 1
+
+    # Build response
+    top_gaps = [
+        ContextGapItem(text=gap, count=count)
+        for gap, count in gap_counter.most_common(limit)
+    ]
+
+    top_used = [
+        ContextGapItem(text=used, count=count)
+        for used, count in used_counter.most_common(limit)
+    ]
+
+    # Build product area breakdown
+    gaps_by_product_area = [
+        ContextGapsByArea(
+            product_area=area,
+            gaps=[
+                ContextGapItem(text=gap, count=count)
+                for gap, count in counter.most_common(5)
+            ],
+        )
+        for area, counter in sorted(gaps_by_area.items())
+        if counter
+    ]
+
+    # Generate recommendation
+    recommendation = None
+    if top_gaps:
+        top_gap = top_gaps[0]
+        recommendation = (
+            f"Add documentation for \"{top_gap.text[:50]}...\" "
+            f"({top_gap.count} occurrences)"
+            if len(top_gap.text) > 50
+            else f"Add documentation for \"{top_gap.text}\" ({top_gap.count} occurrences)"
+        )
+
+    return ContextGapsResponse(
+        period_start=period_start,
+        period_end=period_end,
+        pipeline_run_id=pipeline_run_id,
+        total_extractions=len(rows),
+        extractions_with_gaps=total_with_gaps,
+        extractions_with_context=total_with_context,
+        top_gaps=top_gaps,
+        top_used=top_used,
+        gaps_by_product_area=gaps_by_product_area,
+        recommendation=recommendation,
     )

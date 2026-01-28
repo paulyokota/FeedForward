@@ -1,0 +1,66 @@
+{
+  "reviewer": "maya",
+  "pr_number": 144,
+  "review_round": 1,
+  "timestamp": "2026-01-28T00:00:00Z",
+  "verdict": "APPROVE",
+  "summary": "4 maintainability improvements, none blocking. Code is well-documented with good inline comments. Smart Digest fields are clear.",
+  "issues": [
+    {
+      "id": "M1",
+      "severity": "MEDIUM",
+      "confidence": "high",
+      "category": "magic-number",
+      "file": "src/theme_extractor.py",
+      "lines": [169, 178, 958],
+      "title": "Magic number 30000 for context limit appears in 3 places",
+      "why": "Context character limit appears in load_product_context() twice and extract() once. Changing the limit requires finding all occurrences, risking inconsistency.",
+      "fix": "Extract to named constant MAX_CONTEXT_CHARS_PER_FILE = 30_000 with comment explaining the choice.",
+      "verify": null,
+      "scope": "systemic",
+      "see_verbose": false
+    },
+    {
+      "id": "M2",
+      "severity": "LOW",
+      "confidence": "high",
+      "category": "magic-number",
+      "file": "src/theme_extractor.py",
+      "lines": [1071],
+      "title": "Magic number 500 for excerpt text truncation",
+      "why": "The 500 character limit for key_excerpts text truncation has no explanation of why 500 was chosen.",
+      "fix": "Extract to named constant MAX_EXCERPT_TEXT_LENGTH = 500 with comment explaining derivation.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": false
+    },
+    {
+      "id": "M3",
+      "severity": "MEDIUM",
+      "confidence": "medium",
+      "category": "implicit-assumption",
+      "file": "src/theme_extractor.py",
+      "lines": [353, 1073],
+      "title": "Relevance field format inconsistency between prompt, migration, and code",
+      "why": "Prompt instructs LLM to return relevance as a description, migration comment says high|medium|low, code defaults to 'medium'. Future developers querying key_excerpts won't know which format to expect.",
+      "fix": "Choose one format and update all three locations to be consistent. Either free-form description OR enum values.",
+      "verify": "Check actual stored values in themes.key_excerpts to see what LLM is returning",
+      "scope": "isolated",
+      "see_verbose": true
+    },
+    {
+      "id": "M4",
+      "severity": "LOW",
+      "confidence": "high",
+      "category": "complex-logic",
+      "file": "src/theme_extractor.py",
+      "lines": [929, 951],
+      "title": "Three-level fallback logic for source text selection",
+      "why": "The full_conversation -> customer_digest -> source_body fallback is correctly implemented but dense. A helper function would make intent clearer and testable.",
+      "fix": "Consider extracting to _select_source_text() helper function with clear docstring.",
+      "verify": null,
+      "scope": "isolated",
+      "see_verbose": true
+    }
+  ]
+}

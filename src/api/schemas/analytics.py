@@ -156,3 +156,68 @@ class SyncMetricsResponse(BaseModel):
     push_count: int = 0
     pull_count: int = 0
     unsynced_count: int = 0
+
+
+# -----------------------------------------------------------------------------
+# Context Usage Analytics (Issue #144 - Smart Digest)
+# -----------------------------------------------------------------------------
+
+
+class ContextGapItem(BaseModel):
+    """A single context gap or usage item with count."""
+
+    text: str = Field(description="The context gap description or used context name")
+    count: int = Field(description="Number of occurrences")
+
+
+class ContextGapsByArea(BaseModel):
+    """Context gaps grouped by product area."""
+
+    product_area: str
+    gaps: List[ContextGapItem] = Field(default_factory=list)
+
+
+class ContextGapsResponse(BaseModel):
+    """
+    Context gap analysis response.
+
+    Tracks which product context was missing during theme extraction
+    and which context was most frequently used.
+    """
+
+    period_start: datetime
+    period_end: datetime
+    pipeline_run_id: Optional[int] = None
+
+    # Summary counts
+    total_extractions: int = Field(
+        default=0, description="Total theme extractions analyzed"
+    )
+    extractions_with_gaps: int = Field(
+        default=0, description="Extractions that reported missing context"
+    )
+    extractions_with_context: int = Field(
+        default=0, description="Extractions that used product context"
+    )
+
+    # Top gaps and usage
+    top_gaps: List[ContextGapItem] = Field(
+        default_factory=list,
+        description="Most frequently missing context (sorted by count)"
+    )
+    top_used: List[ContextGapItem] = Field(
+        default_factory=list,
+        description="Most frequently used context (sorted by count)"
+    )
+
+    # Breakdown by product area
+    gaps_by_product_area: List[ContextGapsByArea] = Field(
+        default_factory=list,
+        description="Context gaps grouped by product area"
+    )
+
+    # Recommendation
+    recommendation: Optional[str] = Field(
+        default=None,
+        description="Suggested documentation improvement based on gaps"
+    )

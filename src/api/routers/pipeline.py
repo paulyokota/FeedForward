@@ -780,13 +780,14 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         "HYBRID_CLUSTERING_ENABLED", "true"
     ).lower() == "true"
 
-    # Get themes from this run
+    # Get themes from this run (including Smart Digest fields for PM Review - Issue #144)
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
                 SELECT t.issue_signature, t.product_area, t.component,
                        t.conversation_id, t.user_intent, t.symptoms,
-                       t.affected_flow, c.source_body, c.issue_type
+                       t.affected_flow, c.source_body, c.issue_type,
+                       t.diagnostic_summary, t.key_excerpts
                 FROM themes t
                 JOIN conversations c ON t.conversation_id = c.id
                 WHERE t.pipeline_run_id = %s
@@ -800,9 +801,15 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         return {"stories_created": 0, "orphans_created": 0}
 
     # Build conversation data lookup (needed for both paths)
+    # Issue #144: Include Smart Digest fields for PM Review context
     conversation_data: dict[str, dict] = {}
     groups: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
+        # Smart Digest fields (Issue #144): Use for richer PM Review context
+        # Fallback to excerpt from source_body when diagnostic_summary is empty
+        diagnostic_summary = row.get("diagnostic_summary") or ""
+        key_excerpts = row.get("key_excerpts") or []
+
         conv_dict = {
             "id": row["conversation_id"],
             "issue_signature": row["issue_signature"],
@@ -811,8 +818,12 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             "user_intent": row["user_intent"],
             "symptoms": row["symptoms"],
             "affected_flow": row["affected_flow"],
+            # Keep excerpt for backward compatibility and fallback
             "excerpt": (row["source_body"] or "")[:500],
             "classification_category": row["issue_type"],
+            # Smart Digest fields (Issue #144)
+            "diagnostic_summary": diagnostic_summary,
+            "key_excerpts": key_excerpts,
         }
         conversation_data[row["conversation_id"]] = conv_dict
         groups[row["issue_signature"]].append(conv_dict)

@@ -169,6 +169,10 @@ class ConversationData:
     root_cause_hypothesis: Optional[str] = None
     excerpt: Optional[str] = None
     classification_category: Optional[str] = None  # Q2: Track actual category
+    # Smart Digest fields (Issue #144) - used for PM Review when available
+    diagnostic_summary: Optional[str] = None
+    # Format: [{"text": "...", "relevance": "Why this matters"}, ...]
+    key_excerpts: List[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -1262,6 +1266,7 @@ class StoryCreationService:
             )
 
         # Convert ConversationData to PMConversationContext
+        # Issue #144: Include Smart Digest fields for richer PM Review context
         pm_contexts = []
         for conv in conversations:
             pm_context = PMConversationContext(
@@ -1272,6 +1277,9 @@ class StoryCreationService:
                 excerpt=conv.excerpt or "",
                 product_area=conv.product_area or "",
                 component=conv.component or "",
+                # Smart Digest fields (Issue #144)
+                diagnostic_summary=conv.diagnostic_summary or "",
+                key_excerpts=conv.key_excerpts or [],
             )
             pm_contexts.append(pm_context)
 
@@ -1387,7 +1395,12 @@ class StoryCreationService:
         conv_dict: Dict[str, Any],
         signature: str,
     ) -> ConversationData:
-        """Convert pipeline dict to ConversationData."""
+        """
+        Convert pipeline dict to ConversationData.
+
+        Issue #144: Also extracts Smart Digest fields (diagnostic_summary, key_excerpts)
+        for PM Review context.
+        """
         # Validate conversation ID (S1: prevent empty IDs from propagating)
         conv_id = str(conv_dict.get("id", "")).strip()
         if not conv_id:
@@ -1403,6 +1416,9 @@ class StoryCreationService:
             affected_flow=conv_dict.get("affected_flow"),
             root_cause_hypothesis=None,  # Not in pipeline data
             excerpt=conv_dict.get("excerpt"),
+            # Smart Digest fields (Issue #144)
+            diagnostic_summary=conv_dict.get("diagnostic_summary"),
+            key_excerpts=conv_dict.get("key_excerpts", []),
         )
 
     def _generate_pm_result(

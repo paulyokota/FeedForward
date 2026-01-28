@@ -8,6 +8,13 @@ Owner: Kai (Prompt Engineering)
 Used by: PMReviewService (Marcus - Backend)
 """
 
+# Token budget constants for prompt formatting
+# Context: PM Review prompt needs to fit within ~4K tokens for cost efficiency.
+# Each conversation takes ~200-400 tokens depending on content. Limiting excerpts
+# ensures we can review groups of 10-15 conversations without truncation.
+MAX_KEY_EXCERPTS_IN_PROMPT = 5  # Limit key excerpts to avoid prompt bloat
+MAX_EXCERPT_TEXT_LENGTH = 500  # Characters - balances context vs token cost
+
 # PM Review Prompt Template
 # Uses the SAME_FIX test to validate theme group coherence
 PM_REVIEW_PROMPT = '''You are a PM reviewing potential product tickets for Tailwind, a social media scheduling tool.
@@ -77,6 +84,10 @@ Important:
 
 
 # Conversation template for formatting individual conversations in the prompt
+# When diagnostic_summary and key_excerpts are available, they provide richer context
+# than the raw excerpt. The template uses {context_section} to insert either:
+# - Smart Digest fields (preferred): diagnostic_summary + key_excerpts
+# - Fallback: raw excerpt when smart digest is not available
 CONVERSATION_TEMPLATE = '''### Conversation {index}
 - **ID**: {conversation_id}
 - **User Intent**: {user_intent}
@@ -84,17 +95,60 @@ CONVERSATION_TEMPLATE = '''### Conversation {index}
 - **Affected Flow**: {affected_flow}
 - **Product Area**: {product_area}
 - **Component**: {component}
-- **Excerpt**: "{excerpt}"
-'''
+{context_section}'''
+
+
+# Template for Smart Digest context (diagnostic_summary only)
+# Key Excerpts section is added conditionally when available
+SMART_DIGEST_TEMPLATE = '''- **Diagnostic Summary**: {diagnostic_summary}'''
+
+# Template for Key Excerpts section (only included when excerpts exist)
+KEY_EXCERPTS_TEMPLATE = '''- **Key Excerpts**:
+{key_excerpts_formatted}'''
+
+
+# Template for fallback excerpt (when smart digest is not available)
+EXCERPT_TEMPLATE = '''- **Excerpt**: "{excerpt}"'''
+
+
+def _format_key_excerpts(key_excerpts: list[dict]) -> str:
+    """
+    Format key_excerpts list for display in prompt.
+
+    Args:
+        key_excerpts: List of dicts with 'text' and 'relevance' keys
+
+    Returns:
+        Formatted string with each excerpt and its relevance,
+        or None if no excerpts (caller should omit section entirely)
+    """
+    if not key_excerpts:
+        return None  # Signal to caller to omit Key Excerpts section
+
+    lines = []
+    for i, excerpt in enumerate(key_excerpts[:MAX_KEY_EXCERPTS_IN_PROMPT], 1):
+        text = excerpt.get("text", "")[:MAX_EXCERPT_TEXT_LENGTH]
+        relevance = excerpt.get("relevance", "")
+        if relevance:
+            lines.append(f'  {i}. "{text}" - *{relevance}*')
+        else:
+            lines.append(f'  {i}. "{text}"')
+    return "\n".join(lines)
 
 
 def format_conversations_for_review(conversations: list[dict]) -> str:
     """
     Format a list of conversation contexts for the PM review prompt.
 
+    Uses Smart Digest fields (diagnostic_summary, key_excerpts) when available,
+    falling back to raw excerpt for older data without smart digest.
+
     Args:
-        conversations: List of dicts with keys: conversation_id, user_intent,
-                      symptoms, affected_flow, product_area, component, excerpt
+        conversations: List of dicts with keys:
+            - conversation_id, user_intent, symptoms, affected_flow,
+              product_area, component
+            - Smart Digest (preferred): diagnostic_summary, key_excerpts
+            - Fallback: excerpt
 
     Returns:
         Formatted string for inclusion in PM_REVIEW_PROMPT
@@ -102,6 +156,27 @@ def format_conversations_for_review(conversations: list[dict]) -> str:
     formatted = []
     for i, conv in enumerate(conversations, 1):
         symptoms_str = ", ".join(conv.get("symptoms", [])) if conv.get("symptoms") else "N/A"
+
+        # Build context section: prefer Smart Digest, fall back to excerpt
+        diagnostic_summary = conv.get("diagnostic_summary", "")
+        key_excerpts = conv.get("key_excerpts", [])
+
+        if diagnostic_summary:
+            # Smart Digest available - use richer context
+            context_section = SMART_DIGEST_TEMPLATE.format(
+                diagnostic_summary=diagnostic_summary,
+            )
+            # Only add Key Excerpts section if excerpts exist (avoid confusing LLM with empty section)
+            key_excerpts_formatted = _format_key_excerpts(key_excerpts)
+            if key_excerpts_formatted:
+                context_section += "\n" + KEY_EXCERPTS_TEMPLATE.format(
+                    key_excerpts_formatted=key_excerpts_formatted,
+                )
+        else:
+            # Fallback: use raw excerpt (for older data without smart digest)
+            excerpt = conv.get("excerpt", "")[:MAX_EXCERPT_TEXT_LENGTH]
+            context_section = EXCERPT_TEMPLATE.format(excerpt=excerpt)
+
         formatted.append(CONVERSATION_TEMPLATE.format(
             index=i,
             conversation_id=conv.get("conversation_id", "unknown"),
@@ -110,7 +185,7 @@ def format_conversations_for_review(conversations: list[dict]) -> str:
             affected_flow=conv.get("affected_flow", "N/A"),
             product_area=conv.get("product_area", "N/A"),
             component=conv.get("component", "N/A"),
-            excerpt=conv.get("excerpt", "")[:200],
+            context_section=context_section,
         ))
     return "\n".join(formatted)
 
