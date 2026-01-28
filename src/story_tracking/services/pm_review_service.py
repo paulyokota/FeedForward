@@ -45,6 +45,18 @@ class ConversationContext:
     # Format: [{"text": "...", "relevance": "Why this matters"}, ...]
     key_excerpts: List[dict] = None  # type: ignore
 
+    # Issue #146: LLM-extracted resolution context
+    # What action did support take to resolve this?
+    # Values: escalated_to_engineering | provided_workaround | user_education | manual_intervention | no_resolution
+    resolution_action: str = ""
+    # 1-sentence LLM hypothesis for WHY this happened
+    root_cause: str = ""
+    # 1-2 sentence solution description (if resolved)
+    solution_provided: str = ""
+    # Category for analytics
+    # Values: escalation | workaround | education | self_service_gap | unresolved
+    resolution_category: str = ""
+
     def __post_init__(self):
         """Initialize key_excerpts to empty list if None."""
         if self.key_excerpts is None:
@@ -284,6 +296,11 @@ class PMReviewService:
                 "diagnostic_summary": conv.diagnostic_summary,
                 "key_excerpts": conv.key_excerpts or [],
                 "excerpt": conv.excerpt or "",
+                # Issue #146: LLM-extracted resolution context
+                "resolution_action": conv.resolution_action or "",
+                "root_cause": conv.root_cause or "",
+                "solution_provided": conv.solution_provided or "",
+                "resolution_category": conv.resolution_category or "",
             }
             for conv in conversations
         ]

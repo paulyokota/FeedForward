@@ -174,6 +174,12 @@ class ConversationData:
     # Format: [{"text": "...", "relevance": "Why this matters"}, ...]
     key_excerpts: List[dict] = field(default_factory=list)
 
+    # Issue #146: LLM-extracted resolution context
+    resolution_action: Optional[str] = None
+    root_cause: Optional[str] = None
+    solution_provided: Optional[str] = None
+    resolution_category: Optional[str] = None
+
 
 @dataclass
 class ProcessingResult:
@@ -1267,6 +1273,7 @@ class StoryCreationService:
 
         # Convert ConversationData to PMConversationContext
         # Issue #144: Include Smart Digest fields for richer PM Review context
+        # Issue #146: Include resolution fields for richer PM Review context
         pm_contexts = []
         for conv in conversations:
             pm_context = PMConversationContext(
@@ -1280,6 +1287,11 @@ class StoryCreationService:
                 # Smart Digest fields (Issue #144)
                 diagnostic_summary=conv.diagnostic_summary or "",
                 key_excerpts=conv.key_excerpts or [],
+                # Issue #146: LLM-extracted resolution context
+                resolution_action=conv.resolution_action or "",
+                root_cause=conv.root_cause or "",
+                solution_provided=conv.solution_provided or "",
+                resolution_category=conv.resolution_category or "",
             )
             pm_contexts.append(pm_context)
 
@@ -1419,6 +1431,11 @@ class StoryCreationService:
             # Smart Digest fields (Issue #144)
             diagnostic_summary=conv_dict.get("diagnostic_summary"),
             key_excerpts=conv_dict.get("key_excerpts", []),
+            # Issue #146: LLM-extracted resolution context
+            resolution_action=conv_dict.get("resolution_action"),
+            root_cause=conv_dict.get("root_cause"),
+            solution_provided=conv_dict.get("solution_provided"),
+            resolution_category=conv_dict.get("resolution_category"),
         )
 
     def _generate_pm_result(
@@ -1960,6 +1977,9 @@ class StoryCreationService:
             "excerpts": excerpts[:MAX_EXCERPTS_IN_THEME],
             # Q2: Include classification for proper action verb selection
             "classification_category": first_non_null("classification_category"),
+            # Issue #146: LLM-extracted resolution context for story content
+            "root_cause": first_non_null("root_cause"),
+            "solution_provided": first_non_null("solution_provided"),
         }
 
     def _generate_story_content(
@@ -2050,6 +2070,9 @@ class StoryCreationService:
             root_cause_hypothesis=theme_data.get("root_cause_hypothesis"),
             affected_flow=theme_data.get("affected_flow"),
             excerpts=excerpts[:3] if excerpts else None,  # Limit to 3 for prompt length
+            # Issue #146: LLM-extracted resolution context for richer story content
+            root_cause=theme_data.get("root_cause"),
+            solution_provided=theme_data.get("solution_provided"),
         )
 
     def _generate_title(

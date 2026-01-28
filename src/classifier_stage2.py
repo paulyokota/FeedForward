@@ -41,8 +41,6 @@ STAGE2_PROMPT = """You are analyzing a COMPLETE customer support conversation fo
 
 {shortcut_story_context}
 
-{resolution_context}
-
 ---
 
 ## Conversation Types
@@ -70,7 +68,6 @@ Support responses reveal:
 
 - **Aim for HIGH confidence** - You have full context, be precise
 - **Support response is ground truth** - Use what support confirmed, not just customer's vague description
-- **Resolution signal helps** - If support cancelled subscription → billing_question
 - **Disambiguate Stage 1** - Did Stage 1 miss the real issue? Support reveals truth
 - **When support clarifies** - Trust support's interpretation of customer need
 
@@ -108,7 +105,6 @@ Provide HIGH-CONFIDENCE, ACCURATE classification using full conversation context
 def classify_stage2(
     customer_message: str,
     support_messages: List[str],
-    resolution_signal: str | None = None,
     source_url: str | None = None,
     stage1_type: str = "unknown",
     help_article_context: str = "",
@@ -120,7 +116,6 @@ def classify_stage2(
     Args:
         customer_message: The customer's initial message
         support_messages: List of support team responses
-        resolution_signal: Detected resolution action (from resolution_analyzer)
         source_url: Optional source URL for context
         stage1_type: Type from Stage 1 classification
         help_article_context: Formatted help article context (from HelpArticleExtractor)
@@ -132,12 +127,15 @@ def classify_stage2(
             "confidence": "high" | "medium" | "low",
             "changed_from_stage_1": bool,
             "stage1_type": str,
-            "resolution_signal": dict | None,
             "disambiguation_level": "high" | "medium" | "low" | "none",
             "stage": 2,
             "reasoning": str,
             "support_insights": dict
         }
+
+    Note:
+        Issue #146: resolution_signal parameter removed. Resolution analysis is now
+        handled by LLM in theme extractor for better coverage (14% -> >80% target).
     """
     if not customer_message or not customer_message.strip():
         return {
@@ -145,7 +143,6 @@ def classify_stage2(
             "confidence": "low",
             "changed_from_stage_1": False,
             "stage1_type": stage1_type,
-            "resolution_signal": resolution_signal,
             "disambiguation_level": "none",
             "stage": 2,
             "reasoning": "Empty customer message",
@@ -159,24 +156,11 @@ def classify_stage2(
             "confidence": "medium",
             "changed_from_stage_1": False,
             "stage1_type": stage1_type,
-            "resolution_signal": resolution_signal,
             "disambiguation_level": "none",
             "stage": 2,
             "reasoning": "No support response available, using Stage 1 classification",
             "support_insights": {}
         }
-
-    # Build resolution context section
-    resolution_context = ""
-    if resolution_signal and isinstance(resolution_signal, dict):
-        action = resolution_signal.get("action", "unknown")
-        suggested_type = resolution_signal.get("conversation_type", "unknown")
-        resolution_context = f"""
-**Resolution Signal Detected:**
-- Action: {action}
-- Suggests type: {suggested_type}
-- This provides additional classification confidence
-"""
 
     # Format support messages
     support_text = "\n\n".join([f"Support: {msg}" for msg in support_messages])
@@ -190,7 +174,6 @@ def classify_stage2(
         support_messages=support_text,
         help_article_context=help_article_context or "",
         shortcut_story_context=shortcut_story_context or "",
-        resolution_context=resolution_context
     )
 
     # Call LLM (gpt-4o-mini, could upgrade to gpt-4o for even better accuracy)
@@ -221,7 +204,6 @@ def classify_stage2(
             "confidence": confidence,
             "changed_from_stage_1": classification_change.get("changed_from_stage1", False),
             "stage1_type": stage1_type,
-            "resolution_signal": resolution_signal,
             "disambiguation_level": disambiguation.get("level", "medium"),
             "stage": 2,
             "reasoning": result.get("reasoning", ""),
@@ -237,7 +219,6 @@ def classify_stage2(
             "confidence": "low",
             "changed_from_stage_1": False,
             "stage1_type": stage1_type,
-            "resolution_signal": resolution_signal,
             "disambiguation_level": "none",
             "stage": 2,
             "reasoning": f"Classification failed: {str(e)}",

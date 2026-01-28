@@ -363,6 +363,30 @@ Extract these fields:
 
 14. **context_gaps**: List of information that would have helped but wasn't available in the product docs (e.g., ["API rate limits for Pinterest", "SmartSchedule algorithm details"])
 
+15. **resolution_action**: What action did support take to resolve this? (pick ONE)
+    - escalated_to_engineering: Created ticket, reported to dev team
+    - provided_workaround: Gave temporary solution
+    - user_education: Explained how to use feature correctly
+    - manual_intervention: Support did something user couldn't (cancelled, refunded, etc.)
+    - no_resolution: Issue unresolved or conversation ongoing
+
+16. **root_cause**: Your hypothesis for WHY this happened (1 sentence max)
+    - Technical: bug, integration failure, API change, performance issue
+    - UX: confusing interface, unclear documentation, hidden feature
+    - User error: misunderstanding, wrong expectations
+    - null if insufficient information
+
+17. **solution_provided**: If resolved, what was the solution? (1-2 sentences max)
+    - Include specific steps if a workaround was given
+    - null if unresolved or no clear solution
+
+18. **resolution_category**: Category for analytics (pick ONE)
+    - escalation: Required engineering involvement
+    - workaround: Temporary fix provided
+    - education: User needed guidance
+    - self_service_gap: Manual support for something that could be automated
+    - unresolved: No resolution achieved
+
 ## Example Outputs for New Fields
 
 **Good diagnostic_summary:**
@@ -385,6 +409,12 @@ Extract these fields:
   }}
 ]
 ```
+
+**Good resolution fields:**
+- **resolution_action**: "provided_workaround"
+- **root_cause**: "OAuth token invalidated after Pinterest password change, causing board permission sync failure."
+- **solution_provided**: "User reconnected their Pinterest account via Settings > Connections, which refreshed the OAuth token and restored board access."
+- **resolution_category**: "workaround"
 
 ## Conversation
 
@@ -549,6 +579,18 @@ class Theme:
     # Hints about missing context that would improve analysis
     # Format: ["missing context description", ...]
     context_gaps: list[str] = field(default_factory=list)
+
+    # Issue #146: LLM-powered resolution extraction
+    # What action did support take to resolve this?
+    # Values: escalated_to_engineering | provided_workaround | user_education | manual_intervention | no_resolution
+    resolution_action: str = ""
+    # 1-sentence LLM hypothesis for WHY this happened
+    root_cause: str = ""
+    # 1-2 sentence solution description (if resolved)
+    solution_provided: str = ""
+    # Category for analytics
+    # Values: escalation | workaround | education | self_service_gap | unresolved
+    resolution_category: str = ""
 
     def __post_init__(self):
         if self.extracted_at is None:
@@ -1091,6 +1133,41 @@ The user was on a page related to **{url_matched_product_area}** when they start
         context_used = result.get("context_used", [])
         context_gaps = result.get("context_gaps", [])
 
+        # Extract resolution fields (Issue #146)
+        # These capture how support resolved the issue and why it happened
+        resolution_action = result.get("resolution_action", "") or ""
+        root_cause = result.get("root_cause", "") or ""
+        solution_provided = result.get("solution_provided", "") or ""
+        resolution_category = result.get("resolution_category", "") or ""
+
+        # Validate resolution_action enum values
+        valid_resolution_actions = {
+            "escalated_to_engineering",
+            "provided_workaround",
+            "user_education",
+            "manual_intervention",
+            "no_resolution",
+        }
+        if resolution_action and resolution_action not in valid_resolution_actions:
+            logger.warning(
+                f"Invalid resolution_action '{resolution_action}', defaulting to empty string"
+            )
+            resolution_action = ""
+
+        # Validate resolution_category enum values
+        valid_resolution_categories = {
+            "escalation",
+            "workaround",
+            "education",
+            "self_service_gap",
+            "unresolved",
+        }
+        if resolution_category and resolution_category not in valid_resolution_categories:
+            logger.warning(
+                f"Invalid resolution_category '{resolution_category}', defaulting to empty string"
+            )
+            resolution_category = ""
+
         # Validate key_excerpts structure
         if key_excerpts and isinstance(key_excerpts, list):
             # Ensure each excerpt has required fields
@@ -1129,6 +1206,11 @@ The user was on a page related to **{url_matched_product_area}** when they start
             key_excerpts=key_excerpts,
             context_used=context_used if isinstance(context_used, list) else [],
             context_gaps=context_gaps if isinstance(context_gaps, list) else [],
+            # Resolution fields (Issue #146)
+            resolution_action=resolution_action,
+            root_cause=root_cause,
+            solution_provided=solution_provided,
+            resolution_category=resolution_category,
         )
 
     def extract_batch(

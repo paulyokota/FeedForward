@@ -1,0 +1,88 @@
+{
+  "reviewer": "Reginald",
+  "focus": "Correctness and Performance",
+  "round": 1,
+  "issue": "146",
+  "branch": "feature/146-llm-resolution-extraction",
+  "date": "2026-01-28",
+  "summary": "Found 5 issues including 2 critical data persistence bugs. The in-memory data flow is correct but database INSERT/SELECT statements are missing the new resolution fields.",
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "critical",
+      "title": "Database INSERT Missing Resolution Fields",
+      "description": "The Theme dataclass has 4 new resolution fields but neither INSERT statement (in api/routers/pipeline.py nor theme_tracker.py) includes them. LLM extraction is done but data is never persisted.",
+      "locations": [
+        "src/api/routers/pipeline.py:668-709",
+        "src/theme_tracker.py:248-270"
+      ],
+      "impact": "Data loss - all LLM-extracted resolution data is lost when stored to database",
+      "fix_required": "Add resolution_action, root_cause, solution_provided, resolution_category to both INSERT statements",
+      "blocking": true
+    },
+    {
+      "id": "R2",
+      "severity": "critical",
+      "title": "Missing Database Read of Resolution Fields",
+      "description": "ThemeAggregate dataclass and SELECT queries do not include resolution fields. Even if R1 is fixed, reading themes back from DB will return NULL resolution fields.",
+      "locations": [
+        "src/theme_tracker.py:169-186",
+        "src/theme_tracker.py:188-200"
+      ],
+      "impact": "Data flow broken for backfill, cross-session processing, and DB-based queries",
+      "fix_required": "Add resolution fields to ThemeAggregate, update SELECT queries, update to_theme() method",
+      "blocking": true
+    },
+    {
+      "id": "R3",
+      "severity": "medium",
+      "title": "ConversationContext key_excerpts Type Mismatch",
+      "description": "key_excerpts field defaults to None with type ignore comment instead of using field(default_factory=list) like ConversationData does.",
+      "locations": ["src/story_tracking/services/pm_review_service.py:46"],
+      "impact": "Potential TypeError if code iterates over key_excerpts without None check",
+      "fix_required": "Use field(default_factory=list) and remove __post_init__ workaround",
+      "blocking": false
+    },
+    {
+      "id": "R4",
+      "severity": "medium",
+      "title": "Resolution Field Validation Logging Too Quiet",
+      "description": "Invalid enum values for resolution_action and resolution_category are logged at WARNING level and silently converted to empty string. This masks prompt quality issues.",
+      "locations": ["src/theme_extractor.py:1143-1169"],
+      "impact": "Prompt drift or LLM behavior changes will go unnoticed in production",
+      "fix_required": "Change to logger.error(), add metrics counter for invalid values",
+      "blocking": false
+    },
+    {
+      "id": "R5",
+      "severity": "low",
+      "title": "No Database Round-Trip Tests",
+      "description": "Integration tests verify dataclass fields and in-memory flow but do not test actual database INSERT/SELECT. Would have caught R1 and R2.",
+      "locations": ["tests/test_issue_146_integration.py"],
+      "impact": "Database persistence bugs not caught by test suite",
+      "fix_required": "Add test that stores Theme with resolution fields and verifies they survive DB round-trip",
+      "blocking": false
+    }
+  ],
+  "files_reviewed": [
+    "src/theme_extractor.py",
+    "src/classification_pipeline.py",
+    "src/classifier_stage2.py",
+    "src/story_tracking/services/pm_review_service.py",
+    "src/story_tracking/services/story_creation_service.py",
+    "src/db/migrations/018_llm_resolution_fields.sql",
+    "src/prompts/pm_review.py",
+    "src/prompts/story_content.py",
+    "src/theme_tracker.py",
+    "src/api/routers/pipeline.py",
+    "tests/test_issue_146_integration.py"
+  ],
+  "statistics": {
+    "total_issues": 5,
+    "critical": 2,
+    "medium": 2,
+    "low": 1,
+    "blocking": 2
+  },
+  "verdict": "FAIL - Must fix R1 and R2 before merge. Database persistence is broken."
+}
