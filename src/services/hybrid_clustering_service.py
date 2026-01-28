@@ -26,6 +26,7 @@ Dependencies:
 """
 
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
@@ -436,7 +437,6 @@ class HybridClusteringService:
         # This groups conversations by their component family within mixed PAs
         if themes_by_conv:
             by_family: Dict[str, List[HybridCluster]] = defaultdict(list)
-            family_conv_ids: Dict[str, List[str]] = defaultdict(list)
 
             for cluster in clusters:
                 if id(cluster) in processed_clusters:
@@ -444,57 +444,172 @@ class HybridClusteringService:
                 facet_key = get_facet_key(cluster)
                 product_area = facet_key[1]
 
-                # Check if any conversation in this cluster has a component family
+                families = set()
                 for cid in cluster.conversation_ids:
                     theme = themes_by_conv.get(cid, {})
                     component = theme.get("component", "")
                     family = component_families.get((product_area, component))
                     if family:
-                        family_conv_ids[family].append(cid)
+                        families.add(family)
 
-            # Create merged groups for each family with enough conversations
-            for family, conv_ids in family_conv_ids.items():
-                if len(conv_ids) >= min_size and len(conv_ids) <= 8:
-                    # Find which clusters contributed to this family
-                    contributing_clusters = []
-                    for cluster in clusters:
-                        if id(cluster) in processed_clusters:
-                            continue
-                        cluster_family_convs = [
-                            cid for cid in cluster.conversation_ids if cid in conv_ids
-                        ]
-                        if cluster_family_convs:
-                            contributing_clusters.append(cluster)
+                # Only merge clusters that are fully within a single family
+                if len(families) == 1 and families:
+                    family = next(iter(families))
+                    by_family[family].append(cluster)
 
-                    if contributing_clusters:
-                        # Mark these clusters as processed (we'll extract family convs)
-                        for c in contributing_clusters:
-                            processed_clusters.add(id(c))
+            for family, family_clusters in by_family.items():
+                total_size = sum(c.size for c in family_clusters)
+                if total_size < min_size or total_size > 8:
+                    continue
 
-                        emb_clusters = sorted(set(c.embedding_cluster for c in contributing_clusters))
-                        merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_family_{family}"
+                for c in family_clusters:
+                    processed_clusters.add(id(c))
 
-                        action_counts: Dict[str, int] = defaultdict(int)
-                        for c in contributing_clusters:
-                            action_counts[c.action_type] += c.size
-                        action_type = max(action_counts.items(), key=lambda x: x[1])[0]
-                        main_direction = max(
-                            (get_facet_key(c)[0], c.size) for c in contributing_clusters
-                        )[0]
+                emb_clusters = sorted(set(c.embedding_cluster for c in family_clusters))
+                merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_family_{family}"
 
-                        merged_clusters.append(
-                            HybridCluster(
-                                cluster_id=merged_id,
-                                embedding_cluster=emb_clusters[0],
-                                action_type=action_type,
-                                direction=main_direction,
-                                conversation_ids=conv_ids,
-                            )
-                        )
+                action_counts: Dict[str, int] = defaultdict(int)
+                for c in family_clusters:
+                    action_counts[c.action_type] += c.size
+                action_type = max(action_counts.items(), key=lambda x: x[1])[0]
+                main_direction = max(
+                    (get_facet_key(c)[0], c.size) for c in family_clusters
+                )[0]
 
-        # Third: process remaining clusters by facet key
+                merged_conv_ids = []
+                for c in family_clusters:
+                    merged_conv_ids.extend(c.conversation_ids)
+
+                merged_clusters.append(
+                    HybridCluster(
+                        cluster_id=merged_id,
+                        embedding_cluster=emb_clusters[0],
+                        action_type=action_type,
+                        direction=main_direction,
+                        conversation_ids=merged_conv_ids,
+                    )
+                )
+
+        # Third: scheduling-specific merge using evidence overlap
+        if themes_by_conv:
+            def tokenize(text: str) -> List[str]:
+                tokens = re.split(r"[^a-z0-9]+", text.lower())
+                return [t for t in tokens if t]
+
+            stopwords = {
+                "the", "a", "an", "and", "or", "to", "of", "in", "for", "on", "my",
+                "is", "are", "was", "were", "be", "been", "it", "this", "that",
+                "with", "as", "at", "by", "from",
+            }
+
+            def evidence_tokens(cid: str) -> set:
+                theme = themes_by_conv.get(cid, {})
+                tokens = []
+                intent = theme.get("user_intent", "")
+                affected = theme.get("affected_flow", "")
+                symptoms = theme.get("symptoms", []) or []
+                tokens.extend(tokenize(intent))
+                tokens.extend(tokenize(affected))
+                for s in symptoms:
+                    tokens.extend(tokenize(str(s)))
+                return {t for t in tokens if t not in stopwords}
+
+            def cluster_tokens(cluster: HybridCluster) -> set:
+                combined = set()
+                for cid in cluster.conversation_ids:
+                    combined |= evidence_tokens(cid)
+                return combined
+
+            sched_clusters = []
+            for cluster in clusters:
+                if id(cluster) in processed_clusters:
+                    continue
+                _, product_area = get_facet_key(cluster)
+                if product_area != "scheduling":
+                    continue
+                if cluster.size >= min_size:
+                    continue
+                tokens = cluster_tokens(cluster)
+                if tokens:
+                    sched_clusters.append((cluster, tokens))
+
+            min_shared_tokens = 2
+            overlap_threshold = 0.15
+
+            parents = {id(c): id(c) for c, _ in sched_clusters}
+            cluster_by_id = {id(c): c for c, _ in sched_clusters}
+            tokens_by_id = {id(c): t for c, t in sched_clusters}
+
+            def find(x):
+                while parents[x] != x:
+                    parents[x] = parents[parents[x]]
+                    x = parents[x]
+                return x
+
+            def union(a, b):
+                ra, rb = find(a), find(b)
+                if ra != rb:
+                    parents[rb] = ra
+
+            sched_ids = list(tokens_by_id.keys())
+            for i in range(len(sched_ids)):
+                for j in range(i + 1, len(sched_ids)):
+                    a = sched_ids[i]
+                    b = sched_ids[j]
+                    ta = tokens_by_id[a]
+                    tb = tokens_by_id[b]
+                    shared = ta & tb
+                    if len(shared) < min_shared_tokens:
+                        continue
+                    union_size = len(ta | tb)
+                    if union_size == 0:
+                        continue
+                    jaccard = len(shared) / union_size
+                    if jaccard >= overlap_threshold:
+                        union(a, b)
+
+            groups_by_root: Dict[int, List[HybridCluster]] = defaultdict(list)
+            for cid in sched_ids:
+                groups_by_root[find(cid)].append(cluster_by_id[cid])
+
+            for group in groups_by_root.values():
+                if len(group) <= 1:
+                    continue
+                total_size = sum(c.size for c in group)
+                if total_size < min_size or total_size > 8:
+                    continue
+
+                for c in group:
+                    processed_clusters.add(id(c))
+
+                emb_clusters = sorted(set(c.embedding_cluster for c in group))
+                merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_sched_overlap"
+
+                action_counts: Dict[str, int] = defaultdict(int)
+                for c in group:
+                    action_counts[c.action_type] += c.size
+                action_type = max(action_counts.items(), key=lambda x: x[1])[0]
+                main_direction = max(
+                    (get_facet_key(c)[0], c.size) for c in group
+                )[0]
+
+                merged_conv_ids = []
+                for c in group:
+                    merged_conv_ids.extend(c.conversation_ids)
+
+                merged_clusters.append(
+                    HybridCluster(
+                        cluster_id=merged_id,
+                        embedding_cluster=emb_clusters[0],
+                        action_type=action_type,
+                        direction=main_direction,
+                        conversation_ids=merged_conv_ids,
+                    )
+                )
+
+        # Fourth: process remaining clusters by facet key
         for facet_key, group_clusters in by_facet_key.items():
-            # Skip clusters already processed in single-pack or component-family merging
+            # Skip clusters already processed in single-pack, component-family, or scheduling merging
             remaining = [c for c in group_clusters if id(c) not in processed_clusters]
             if not remaining:
                 continue

@@ -9,9 +9,11 @@ MAX_ITERATIONS=${1:-8}
 PYTHON_BIN=${PYTHON_BIN:-}
 TARGET_SCORE=${TARGET_SCORE:-0.6}
 MAX_OVER_MERGE=${MAX_OVER_MERGE:-1}
+MAX_SCHEDULING_OVER_MERGE=${MAX_SCHEDULING_OVER_MERGE:-1}
 MIN_IMPROVEMENT=${MIN_IMPROVEMENT:-0.02}
 MIN_GROUPS_SCORED=${MIN_GROUPS_SCORED:-6}
 MIN_PACK_RECALL=${MIN_PACK_RECALL:-0.20}
+MIN_SCHEDULING_RECALL=${MIN_SCHEDULING_RECALL:-0.25}
 MIN_PACK_RECALL_COVERAGE=${MIN_PACK_RECALL_COVERAGE:-0.50}
 MIN_PACK_RECALL_PER_PACK=${MIN_PACK_RECALL_PER_PACK:-0.15}
 EVIDENCE_WEIGHT=${EVIDENCE_WEIGHT:-0.10}
@@ -91,9 +93,11 @@ echo "Ralph coherence loop"
 echo "  iterations: ${MAX_ITERATIONS}"
 echo "  target_score: ${TARGET_SCORE}"
 echo "  max_over_merge: ${MAX_OVER_MERGE}"
+echo "  max_scheduling_over_merge: ${MAX_SCHEDULING_OVER_MERGE}"
 echo "  min_improvement: ${MIN_IMPROVEMENT}"
 echo "  min_groups_scored: ${MIN_GROUPS_SCORED}"
 echo "  min_pack_recall: ${MIN_PACK_RECALL}"
+echo "  min_scheduling_recall: ${MIN_SCHEDULING_RECALL}"
 echo "  min_pack_recall_coverage: ${MIN_PACK_RECALL_COVERAGE}"
 echo "  min_pack_recall_per_pack: ${MIN_PACK_RECALL_PER_PACK}"
 echo "  evidence_weight: ${EVIDENCE_WEIGHT}"
@@ -105,6 +109,8 @@ echo ""
 
 best_score=-999
 best_over_merge=999
+best_over_non_sched=999
+best_over_sched=999
 best_second_score=-999
 secondary_baseline_score=-999
 
@@ -125,8 +131,26 @@ summary = data.get("summary", {})
 print(summary.get("over_merge_count", 999))
 EOF
 )
+  baseline_over_non_sched=$(${PYTHON_BIN} - <<EOF
+import json
+from pathlib import Path
+data = json.loads(Path("${OUTPUT_DIR}/baseline.json").read_text())
+summary = data.get("summary", {})
+print(summary.get("over_merge_non_scheduling", summary.get("over_merge_count", 999)))
+EOF
+)
+  baseline_over_sched=$(${PYTHON_BIN} - <<EOF
+import json
+from pathlib import Path
+data = json.loads(Path("${OUTPUT_DIR}/baseline.json").read_text())
+summary = data.get("summary", {})
+print(summary.get("over_merge_scheduling", 0))
+EOF
+)
   best_score=${baseline_score}
   best_over_merge=${baseline_over_merge}
+  best_over_non_sched=${baseline_over_non_sched}
+  best_over_sched=${baseline_over_sched}
 fi
 if [ -n "${SECOND_MANIFEST}" ] && [ -f "${SECOND_BASELINE}" ]; then
   secondary_baseline_score=$(${PYTHON_BIN} - <<EOF
@@ -241,6 +265,22 @@ summary = data.get("summary", {})
 print(summary.get("over_merge_count", 999))
 EOF
 )
+    best_over_non_sched=$(${PYTHON_BIN} - <<EOF
+import json
+from pathlib import Path
+data = json.loads(Path("${OUTPUT_DIR}/baseline.json").read_text())
+summary = data.get("summary", {})
+print(summary.get("over_merge_non_scheduling", summary.get("over_merge_count", 999)))
+EOF
+)
+    best_over_sched=$(${PYTHON_BIN} - <<EOF
+import json
+from pathlib import Path
+data = json.loads(Path("${OUTPUT_DIR}/baseline.json").read_text())
+summary = data.get("summary", {})
+print(summary.get("over_merge_scheduling", 0))
+EOF
+)
   fi
 
   current_summary=$(${PYTHON_BIN} - <<EOF
@@ -257,8 +297,11 @@ summary = json.loads(Path("${OUTPUT_DIR}/metrics.json").read_text()).get("summar
 print(
     f"score={summary.get('score', -999)} "
     f"over_merge={summary.get('over_merge_count', 999)} "
+    f"over_merge_non_sched={summary.get('over_merge_non_scheduling', 999)} "
+    f"over_merge_sched={summary.get('over_merge_scheduling', 0)} "
     f"groups_scored={summary.get('groups_scored', 0)} "
-    f"pack_recall={summary.get('pack_recall_avg', 0.0)}"
+    f"pack_recall={summary.get('pack_recall_avg', 0.0)} "
+    f"scheduling_recall={summary.get('scheduling_recall_avg', 0.0)}"
 )
 EOF
 )
@@ -348,16 +391,20 @@ ${mixed_groups}
 Constraints:
 - Preserve feature behavior outside clustering where possible.
 - Avoid changes that hard-code to this dataset.
-- Coverage guardrails: groups_scored >= ${MIN_GROUPS_SCORED}, pack_recall_avg >= ${MIN_PACK_RECALL}.
+- Coverage guardrails: groups_scored >= ${MIN_GROUPS_SCORED}, pack_recall_avg >= ${MIN_PACK_RECALL},
+  scheduling_recall_avg >= ${MIN_SCHEDULING_RECALL} (if scheduling packs exist).
 - Do not add issue_signature as a merge step (splits or diagnostics are ok).
 - Avoid modifying tests/docs unless strictly necessary. Do not touch docs/session/last-session.md.
-- If over_merge_count is already 0, prioritize improving groups_scored and pack_recall without increasing over_merge.
+- Over-merge guardrails: over_merge_non_scheduling <= ${MAX_OVER_MERGE},
+  scheduling over-merge <= ${MAX_SCHEDULING_OVER_MERGE}.
 - Consider evidence_overlap_avg (intent/flow/symptom overlap) across bugs, info queries, and feature requests.
 - Do not skip proposing a change. If you believe no improvement is possible, still propose the smallest safe adjustment and explain the tradeoff.
 - Exploration mode: take a bigger swing than last iteration and avoid repeating the same lever category.
 - Rotate across levers: (1) threshold/linkage, (2) facet grouping keys, (3) product_area/component heuristics, (4) evidence overlap use.
 - Allowed levers include (but are not limited to): product_area/component keys, error strings,
   embedding thresholds (with coverage constraints), and theme/facet metadata.
+- Prioritize scheduling-specific improvements (scheduling fragmentation is the main gap). Avoid global
+  threshold/linkage changes unless they directly target scheduling coherence.
 - After changes, re-run the loop and check for improved score + reduced over-merge.
 
 If you make changes, explain why they should improve coherence and where you changed.
@@ -428,6 +475,38 @@ summary = data.get("summary", {})
 print(summary.get("pack_recall_avg", 0.0))
 EOF
 )
+  current_sched_recall=$(${PYTHON_BIN} - <<EOF
+import json
+from pathlib import Path
+data = json.loads(Path("${OUTPUT_DIR}/metrics.json").read_text())
+summary = data.get("summary", {})
+print(summary.get("scheduling_recall_avg", 0.0))
+EOF
+)
+  current_has_sched=$(${PYTHON_BIN} - <<EOF
+import json
+from pathlib import Path
+data = json.loads(Path("${OUTPUT_DIR}/metrics.json").read_text())
+pack_recall = data.get("pack_recall", {})
+print("1" if any(str(k).startswith("scheduling_") for k in pack_recall.keys()) else "0")
+EOF
+)
+  current_over_non_sched=$(${PYTHON_BIN} - <<EOF
+import json
+from pathlib import Path
+data = json.loads(Path("${OUTPUT_DIR}/metrics.json").read_text())
+summary = data.get("summary", {})
+print(summary.get("over_merge_non_scheduling", summary.get("over_merge_count", 999)))
+EOF
+)
+  current_over_sched=$(${PYTHON_BIN} - <<EOF
+import json
+from pathlib import Path
+data = json.loads(Path("${OUTPUT_DIR}/metrics.json").read_text())
+summary = data.get("summary", {})
+print(summary.get("over_merge_scheduling", 0))
+EOF
+)
 pack_coverage_ok=$(${PYTHON_BIN} - <<EOF
 import json
 from pathlib import Path
@@ -444,9 +523,11 @@ else:
 EOF
 )
   max_over_ok=$(${PYTHON_BIN} - <<EOF
-current_over = int("${current_over_merge}")
+current_over_non = int("${current_over_non_sched}")
+current_over_sched = int("${current_over_sched}")
 max_over = int("${MAX_OVER_MERGE}")
-print("1" if current_over <= max_over else "0")
+max_sched = int("${MAX_SCHEDULING_OVER_MERGE}")
+print("1" if (current_over_non <= max_over and current_over_sched <= max_sched) else "0")
 EOF
 )
   second_score_delta_ok="1"
@@ -471,22 +552,35 @@ EOF
   improved=$(${PYTHON_BIN} - <<EOF
 best_score = float("${best_score}")
 best_over = int("${best_over_merge}")
+best_over_non = int("${best_over_non_sched}")
+best_over_sched = int("${best_over_sched}")
 current_score = float("${current_score}")
 current_over = int("${current_over_merge}")
+current_over_non = int("${current_over_non_sched}")
+current_over_sched = int("${current_over_sched}")
 min_improvement = float("${MIN_IMPROVEMENT}")
 min_groups = int("${MIN_GROUPS_SCORED}")
 min_recall = float("${MIN_PACK_RECALL}")
+min_sched_recall = float("${MIN_SCHEDULING_RECALL}")
 current_groups = int("${current_groups_scored}")
 current_recall = float("${current_pack_recall}")
+current_sched_recall = float("${current_sched_recall}")
+has_sched = int("${current_has_sched}")
 second_ok = int("${second_score_delta_ok}")
 max_over_ok = int("${max_over_ok}")
 best_second = float("${best_second_score}")
 current_second = float("${second_score:- -999}")
 pack_coverage_ok = int("${pack_coverage_ok}")
 
+max_sched = int("${MAX_SCHEDULING_OVER_MERGE}")
+
 score_ok = current_score >= best_score + min_improvement
-over_ok = current_over <= best_over
-coverage_ok = (current_groups >= min_groups and current_recall >= min_recall)
+over_ok = (current_over_non <= best_over_non and current_over_sched <= max_sched)
+coverage_ok = (
+    current_groups >= min_groups
+    and current_recall >= min_recall
+    and (current_sched_recall >= min_sched_recall if has_sched == 1 else True)
+)
 second_best_ok = 1 if current_second >= best_second else 0
 print("1" if (score_ok and over_ok and coverage_ok and second_ok == 1 and max_over_ok == 1 and second_best_ok == 1 and pack_coverage_ok == 1) else "0")
 EOF
@@ -495,6 +589,8 @@ EOF
   if [ "${improved}" = "1" ]; then
     best_score=${current_score}
     best_over_merge=${current_over_merge}
+    best_over_non_sched=${current_over_non_sched}
+    best_over_sched=${current_over_sched}
     if [ -n "${SECOND_MANIFEST}" ]; then
       best_second_score=${second_score}
       cp "${SECOND_OUTPUT_DIR}/metrics.json" "${SECOND_OUTPUT_DIR}/best.json"
@@ -525,13 +621,18 @@ best_summary = best.get("summary", {})
 
 score = float(best_summary.get("score", -999))
 over = int(best_summary.get("over_merge_count", 999))
+over_non = int(best_summary.get("over_merge_non_scheduling", over))
+over_sched = int(best_summary.get("over_merge_scheduling", 0))
 groups_scored = int(best_summary.get("groups_scored", 0))
 pack_recall = float(best_summary.get("pack_recall_avg", 0.0))
+sched_recall = float(best_summary.get("scheduling_recall_avg", 0.0))
 
 target = float("${TARGET_SCORE}")
 max_over = int("${MAX_OVER_MERGE}")
+max_sched = int("${MAX_SCHEDULING_OVER_MERGE}")
 min_groups = int("${MIN_GROUPS_SCORED}")
 min_recall = float("${MIN_PACK_RECALL}")
+min_sched_recall = float("${MIN_SCHEDULING_RECALL}")
 min_cov = float("${MIN_PACK_RECALL_COVERAGE}")
 min_pack = float("${MIN_PACK_RECALL_PER_PACK}")
 
@@ -545,6 +646,9 @@ def pack_coverage_ok(metrics):
     return (good / max(1, len(pack_recall))) >= min_cov
 
 primary_cov_ok = pack_coverage_ok(best)
+pack_recall_map = best.get("pack_recall", {})
+has_sched = any(str(k).startswith("scheduling_") for k in pack_recall_map.keys())
+sched_ok = (sched_recall >= min_sched_recall) if has_sched else True
 
 sec_ok = True
 if "${SECOND_MANIFEST}":
@@ -556,21 +660,29 @@ if "${SECOND_MANIFEST}":
         sec_summary = sec.get("summary", {})
         sec_score = float(sec_summary.get("score", -999))
         sec_over = int(sec_summary.get("over_merge_count", 999))
+        sec_over_non = int(sec_summary.get("over_merge_non_scheduling", sec_over))
+        sec_over_sched = int(sec_summary.get("over_merge_scheduling", 0))
         sec_groups = int(sec_summary.get("groups_scored", 0))
         sec_recall = float(sec_summary.get("pack_recall_avg", 0.0))
+        sec_sched_recall = float(sec_summary.get("scheduling_recall_avg", 0.0))
         sec_cov = pack_coverage_ok(sec)
+        sec_pack_recall = sec.get("pack_recall", {})
+        sec_has_sched = any(str(k).startswith("scheduling_") for k in sec_pack_recall.keys())
+        sec_sched_ok = (sec_sched_recall >= min_sched_recall) if sec_has_sched else True
         baseline = json.loads(Path("${SECOND_BASELINE}").read_text()).get("summary", {})
         baseline_score = float(baseline.get("score", -999))
         min_delta = float("${SECOND_MIN_SCORE_DELTA}")
         sec_ok = (
             sec_score >= baseline_score + min_delta
-            and sec_over <= max_over
+            and sec_over_non <= max_over
+            and sec_over_sched <= max_sched
             and sec_groups >= min_groups
             and sec_recall >= min_recall
             and sec_cov
+            and sec_sched_ok
         )
 
-print("1" if (score >= target and over <= max_over and coverage_ok and primary_cov_ok and sec_ok) else "0")
+print("1" if (score >= target and over_non <= max_over and over_sched <= max_sched and coverage_ok and sched_ok and primary_cov_ok and sec_ok) else "0")
 EOF
 )
   if [ "${done}" = "1" ]; then

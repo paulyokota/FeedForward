@@ -288,6 +288,8 @@ def _compute_metrics(
 ) -> dict:
     group_metrics = []
     over_merge_count = 0
+    over_merge_scheduling = 0
+    over_merge_non_scheduling = 0
     pack_purities = []
     error_matches = []
     evidence_overlaps = []
@@ -305,6 +307,11 @@ def _compute_metrics(
 
         if len(pack_counts) > 1:
             over_merge_count += 1
+            packs = list(pack_counts.keys())
+            if packs and all(p.startswith("scheduling_") for p in packs):
+                over_merge_scheduling += 1
+            else:
+                over_merge_non_scheduling += 1
 
         top_pack, top_count = sorted(pack_counts.items(), key=lambda x: x[1], reverse=True)[0]
         purity = top_count / len(convs)
@@ -356,6 +363,10 @@ def _compute_metrics(
         pack_recall[pack_id] = round(best, 3)
 
     pack_recall_avg = sum(pack_recall.values()) / max(1, len(pack_recall))
+    scheduling_recalls = [
+        v for k, v in pack_recall.items() if k.startswith("scheduling_")
+    ]
+    scheduling_recall_avg = sum(scheduling_recalls) / max(1, len(scheduling_recalls))
     pack_purity_avg = sum(pack_purities) / max(1, len(pack_purities))
     error_match_rate = sum(error_matches) / max(1, len(error_matches))
     evidence_overlap_avg = sum(evidence_overlaps) / max(1, len(evidence_overlaps))
@@ -372,8 +383,11 @@ def _compute_metrics(
         "summary": {
             "groups_scored": len(group_metrics),
             "over_merge_count": over_merge_count,
+            "over_merge_scheduling": over_merge_scheduling,
+            "over_merge_non_scheduling": over_merge_non_scheduling,
             "pack_purity_avg": round(pack_purity_avg, 3),
             "pack_recall_avg": round(pack_recall_avg, 3),
+            "scheduling_recall_avg": round(scheduling_recall_avg, 3),
             "error_match_rate": round(error_match_rate, 3),
             "evidence_overlap_avg": round(evidence_overlap_avg, 3),
             "score": round(score, 3),
