@@ -353,6 +353,9 @@ Constraints:
 - Avoid modifying tests/docs unless strictly necessary. Do not touch docs/session/last-session.md.
 - If over_merge_count is already 0, prioritize improving groups_scored and pack_recall without increasing over_merge.
 - Consider evidence_overlap_avg (intent/flow/symptom overlap) across bugs, info queries, and feature requests.
+- Do not skip proposing a change. If you believe no improvement is possible, still propose the smallest safe adjustment and explain the tradeoff.
+- Exploration mode: take a bigger swing than last iteration and avoid repeating the same lever category.
+- Rotate across levers: (1) threshold/linkage, (2) facet grouping keys, (3) product_area/component heuristics, (4) evidence overlap use.
 - Allowed levers include (but are not limited to): product_area/component keys, error strings,
   embedding thresholds (with coverage constraints), and theme/facet metadata.
 - After changes, re-run the loop and check for improved score + reduced over-merge.
