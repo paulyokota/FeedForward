@@ -127,6 +127,7 @@ Before claiming completion:
 - [ ] Design documented in appropriate doc file
 - [ ] Task specs clear enough for agents to start independently
 - [ ] Conflict points identified and mitigated
+- [ ] Data constraints verified as real (see "Verify Constraints Are Real" below)
 
 ## Constraints
 
@@ -235,6 +236,31 @@ class DataModel(BaseModel):
 - **Over-engineering**: Start simple, add complexity only when needed
 - **Not documenting**: Decisions not written down get forgotten or misunderstood
 - **Assuming understanding**: Make everything explicit, assume nothing
+- **Accepting false constraints**: "We don't have X data" - verify if it's a real constraint or implementation gap (see below)
+
+## Verify Constraints Are Real
+
+**Added from Issue #144 Post-Mortem**
+
+When a developer says "we don't have X data", verify whether that's:
+1. **A real constraint** (data truly doesn't exist anywhere in the system)
+2. **An implementation gap** (data exists upstream but isn't wired through)
+
+### Verification Steps
+
+1. **Trace data origin**: Where does this data enter the system? (API fetch, user input, previous stage)
+2. **Check intermediate steps**: Is the data captured but not passed forward?
+3. **Ask explicitly**: "Does X exist at [origin]? If yes, what stops us from passing it to [destination]?"
+
+### Why This Matters
+
+Issue #144 revealed a pattern where:
+- Developer claimed "we don't have full conversation text"
+- In reality, full conversation was fetched from Intercom
+- It just wasn't being passed through the pipeline
+- Feature was implemented with fallback, defeating its purpose
+
+**As architect, challenge claimed constraints.** A missing wiring is a design task, not a permanent limitation.
 
 ## Decision Framework
 

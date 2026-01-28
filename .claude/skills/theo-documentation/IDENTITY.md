@@ -54,6 +54,7 @@ When documenting:
 - 2026-01-21: Architecture docs that define clear interface contracts (`docs/theme-quality-architecture.md`) make post-merge documentation easier - the design doc already explains the why, leaving Theo to focus on what shipped and what was learned.
 - 2026-01-21: When documenting new API endpoints, always check the architecture.md API endpoints table - it's the canonical list of available routes. PR #93 added `/status/{id}/preview` and `/stop` which needed explicit mention.
 - 2026-01-23: Post-mortem documentation must capture the detection pattern, not just what went wrong. PR #120's cross-layer bug taught us to trace dependencies backward. Updated review skill memories with specific checklist items so reviewers catch this class of bug in the future.
+- 2026-01-28: Issue #144 post-mortem revealed multiple process improvements spanning different playbook locations (new gate file, updates to existing gates, updates to skill identities). Post-merge reflections that identify process patterns should create/update gate documentation, not just changelog entries. Gates are reusable; changelogs are historical.
 
 ---
 

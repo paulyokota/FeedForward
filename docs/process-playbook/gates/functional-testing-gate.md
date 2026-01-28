@@ -84,6 +84,23 @@ Include this block in the PR description:
 
 ---
 
+## Functional Test Timing
+
+### Consider Testing BEFORE Code Review
+
+For pipeline/LLM changes, running the functional test BEFORE code review can catch issues earlier:
+
+| Timing            | Pros                                                                | Cons                                                      |
+| ----------------- | ------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Before review** | Catches dead code/wiring bugs early; reviewers see evidence upfront | Longer cycle if code changes significantly in review      |
+| **After review**  | Code is "clean" before testing                                      | May discover fundamental issues late (Issue #144 pattern) |
+
+**Recommendation**: For features where the core value depends on data flowing through the pipeline correctly, run a quick functional validation BEFORE review. This catches "silently disabled" patterns where code looks correct but isn't actually wired up.
+
+**Issue #144 Case Study**: Feature passed code review twice before functional testing revealed the `full_conversation` parameter was never actually wired through the pipeline. Earlier functional testing would have caught this immediately.
+
+---
+
 ## Running Functional Tests
 
 ### General Pattern

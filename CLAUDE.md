@@ -43,6 +43,7 @@ See `docs/architecture.md` for complete system design and `docs/status.md` for c
 [ ] Tests exist (see docs/process-playbook/gates/test-gate.md)
 [ ] Build passes: pytest tests/ -v
 [ ] Tests pass: pytest tests/ -v
+[ ] Cross-component PRs: Integration test verifies full data path (see docs/process-playbook/gates/integration-testing-gate.md)
 [ ] Pipeline PRs: Functional test evidence attached (see docs/process-playbook/gates/functional-testing-gate.md)
 [ ] Review converged: 5-personality, 2+ rounds
 [ ] Dev fixes own code (see docs/process-playbook/gates/learning-loop.md)
@@ -59,18 +60,19 @@ See `docs/architecture.md` for complete system design and `docs/status.md` for c
 
 BEFORE these actions, STOP and answer:
 
-| Action                              | Gate Question                         | If "No"                     |
-| ----------------------------------- | ------------------------------------- | --------------------------- |
-| **Creating task list**              | Are tests in the list?                | Add now                     |
-| **Deploying complex agent**         | Loaded required context?              | See context-loading-gate.md |
-| **Deploying 2+ agents**             | Did architect define boundaries?      | Deploy architect first      |
-| **Launching reviewers**             | Do tests exist for new code?          | Write tests first           |
-| **After Round 1 review**            | Who wrote the code I'm fixing?        | Route to original dev       |
-| **Creating PR**                     | Build + tests pass?                   | Fix before PR               |
-| **PR with prompt/pipeline changes** | Functional test run and verified?     | Run test, attach evidence   |
-| **Executing architect output**      | Is it deleting code not in scope?     | Flag for user approval      |
-| **Session ending**                  | BACKLOG_FLAGs to file? TODOs in code? | Review and file issues      |
-| **Running pipeline**                | Pre-flight passed? (see below)        | Run pre-flight first        |
+| Action                                     | Gate Question                         | If "No"                     |
+| ------------------------------------------ | ------------------------------------- | --------------------------- |
+| **Creating task list**                     | Are tests in the list?                | Add now                     |
+| **Deploying complex agent**                | Loaded required context?              | See context-loading-gate.md |
+| **Deploying 2+ agents**                    | Did architect define boundaries?      | Deploy architect first      |
+| **Launching reviewers**                    | Do tests exist for new code?          | Write tests first           |
+| **After Round 1 review**                   | Who wrote the code I'm fixing?        | Route to original dev       |
+| **Creating PR**                            | Build + tests pass?                   | Fix before PR               |
+| **PR with prompt/pipeline changes**        | Functional test run and verified?     | Run test, attach evidence   |
+| **Feature with cross-component data flow** | Integration test verifies full path?  | Add integration test first  |
+| **Executing architect output**             | Is it deleting code not in scope?     | Flag for user approval      |
+| **Session ending**                         | BACKLOG_FLAGs to file? TODOs in code? | Review and file issues      |
+| **Running pipeline**                       | Pre-flight passed? (see below)        | Run pre-flight first        |
 
 ### Pipeline Execution (DEV MODE)
 
@@ -169,6 +171,7 @@ Round 2: Launch 5 agents again -> Verify fixes -> Repeat until 0 new issues
 | Gate                     | Enforcement                                       | Reference                                                 |
 | ------------------------ | ------------------------------------------------- | --------------------------------------------------------- |
 | **Test Gate**            | Tests before review, no exceptions                | `docs/process-playbook/gates/test-gate.md`                |
+| **Integration Testing**  | Cross-component features need full-path tests     | `docs/process-playbook/gates/integration-testing-gate.md` |
 | **Learning Loop**        | Original dev fixes their own review issues        | `docs/process-playbook/gates/learning-loop.md`            |
 | **5-Personality Review** | 2+ rounds, 5 separate agents                      | `docs/process-playbook/review/five-personality-review.md` |
 | **Functional Testing**   | Evidence required for pipeline/LLM PRs            | `docs/process-playbook/gates/functional-testing-gate.md`  |

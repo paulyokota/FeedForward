@@ -10,6 +10,29 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Smart Digest for Theme Extraction (2026-01-28)** - Issue #144:
+
+- **Full conversation input to theme extraction** (`src/theme_extractor.py`):
+  - New `full_conversation` parameter passes complete conversation text to LLM
+  - Replaces truncated heuristic digest with full context
+  - Enables more accurate theme classification and symptom extraction
+- **New Smart Digest output fields** in theme data:
+  - `diagnostic_summary`: LLM interpretation of the core issue (~2-3 sentences)
+  - `key_excerpts`: Verbatim customer quotes preserving original language (list of strings)
+  - `context_used`: Which product disambiguation context was relevant
+  - `context_gaps`: Products/features mentioned but not in disambiguation docs
+- **PM Review digest integration** (`src/story_tracking/services/pm_review_service.py`):
+  - Now uses `diagnostic_summary` instead of truncated `source_body[:500]`
+  - Improved grouping coherence from richer context
+- **Context Gap Analytics**:
+  - CLI command for analyzing context gaps across pipeline runs
+  - API endpoint for context gap metrics
+- **Process documentation updates**:
+  - New `integration-testing-gate.md` for cross-component data flow verification
+  - Updated `functional-testing-gate.md` with timing recommendations
+  - Updated Marcus IDENTITY.md with "Silently Disabling Features" anti-pattern
+  - Updated Priya SKILL.md with "Verify Constraints Are Real" checklist item
+
 **Customer-Only Digest for Embeddings (2026-01-26)** - Issue #139, PR #140:
 
 - **New digest_extractor module** (`src/digest_extractor.py`):

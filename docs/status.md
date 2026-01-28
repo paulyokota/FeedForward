@@ -15,9 +15,50 @@
 **Theme Quality Architecture: IMPROVEMENTS 1 & 2 COMPLETE** ✅
 **Pipeline Quality v1: COMPLETE** ✅
 **Customer-Only Digest: COMPLETE** ✅
-**Smart Digest Investigation: ISSUE FILED** 📋
+**Smart Digest (Issue #144): COMPLETE** ✅
 
-## Latest: Smart Digest Investigation (2026-01-28)
+## Latest: Smart Digest Complete (2026-01-28)
+
+**Issue #144 Closed** - Full implementation of LLM-powered conversation summarization
+
+### What Shipped (Two Merges)
+
+**Phase 1+2: Theme Extraction with Smart Digest**
+
+- Theme extraction now receives `full_conversation` text (not just heuristic digest)
+- New output fields: `diagnostic_summary`, `key_excerpts`, `context_used`, `context_gaps`
+- `diagnostic_summary`: LLM interpretation of the issue
+- `key_excerpts`: Verbatim customer quotes preserving original language
+
+**Phase 3+4: PM Review Integration + Context Gap Analytics**
+
+- PM Review now uses `diagnostic_summary` instead of truncated `source_body[:500]`
+- New CLI command for context gap analysis
+- API endpoint for context gap metrics
+
+### Process Learnings Documented
+
+Three process improvements added to playbook from Issue #144 post-mortem:
+
+1. **Integration Testing Gate** (`docs/process-playbook/gates/integration-testing-gate.md`)
+   - New gate: Features with cross-component data flow require integration tests
+   - Unit tests in isolation missed that `full_conversation` was never wired through pipeline
+
+2. **Functional Test Timing** (`docs/process-playbook/gates/functional-testing-gate.md`)
+   - Added recommendation: Consider functional testing BEFORE code review for pipeline features
+   - Earlier testing would have caught dead code issue sooner
+
+3. **Marcus Anti-Pattern** (`.claude/skills/marcus-backend/IDENTITY.md`)
+   - Documented "Silently Disabling Features" anti-pattern
+   - Hardening rules: TRACE data origin, ASK if constraint is real, FLAG don't fix silently
+
+4. **Architect Constraint Verification** (`.claude/skills/priya-architecture/SKILL.md`)
+   - Added checklist item: "Verify constraints are real"
+   - When dev says "we don't have X data", architect should verify if it's real constraint or implementation gap
+
+---
+
+## Previous: Smart Digest Investigation (2026-01-28)
 
 **Issue #144 Filed** - Comprehensive plan for LLM-powered conversation summarization
 
@@ -39,15 +80,6 @@ Deep-dive into PM Review excerpt quality revealed multiple gaps in how conversat
 - **Preserve raw evidence**: Output both `diagnostic_summary` (interpretation) AND `key_excerpts` (verbatim quotes)
 - **Separate optimized context doc**: New `pipeline-disambiguation.md` for LLM consumption, keep canonical docs static
 - **Context usage instrumentation**: Log `context_used` and `context_gaps` to iteratively improve disambiguation guidance
-
-### What's Next
-
-Implementation of Issue #144 with 4 phases:
-
-1. Theme extraction enhancement (full conversation input, new output fields)
-2. Product context optimization (new disambiguation doc, increased limits)
-3. Downstream consumer updates (PM Review, story evidence, embeddings)
-4. Instrumentation & iteration loop
 
 ---
 

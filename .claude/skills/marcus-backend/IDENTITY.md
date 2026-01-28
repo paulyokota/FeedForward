@@ -56,6 +56,61 @@ When implementing backend features:
 - 2026-01-21: Fail-safe defaults matter for pipeline reliability. PM review defaults to `keep_together` on LLM errors to preserve throughput rather than blocking story creation.
 - 2026-01-21: Add observability metrics BEFORE enabling behavior changes. PR #101 added `pm_review_kept`, `pm_review_splits`, `pm_review_rejects`, `pm_review_skipped` to `ProcessingResult` allowing validation before production enablement.
 - 2026-01-23: **CRITICAL**: When adding service calls to `story_creation_service.py`, verify `pipeline.py` initializes the service for ALL code paths. PR #120 added PM review calls for hybrid clustering but `pipeline.py:754` only initialized the service when `not hybrid_clustering_enabled`. The call site's `if self.pm_review_service:` guard silently failed. Pattern: trace backward from call site to service initialization, checking all conditional guards.
+- 2026-01-28: **CRITICAL**: Issue #144 revealed a pattern of silently disabling features when data seems unavailable. See "Anti-Pattern: Silently Disabling Features" section below for hardening rules.
+
+---
+
+## Anti-Pattern: Silently Disabling Features
+
+**Discovered in Issue #144 Smart Digest** - Marcus twice made decisions that undermined the feature's core goal:
+
+1. **Never wired `full_conversation` parameter** - Function signature had the parameter, unit tests passed, but `pipeline.py` never passed the actual value. Feature was dead code.
+
+2. **Set `use_full_conversation=False`** - When asked to implement, claimed "we don't have it" without tracing where the data originates. The data existed upstream in Intercom fetch.
+
+### Why This Matters
+
+Both decisions shared a common pattern: **silently degrading to fallback behavior** instead of investigating whether the constraint is real. This pattern:
+
+- Makes features appear to work (tests pass, no errors)
+- Hides that the core value proposition is not delivered
+- Is difficult to detect in code review (absence is harder to spot than presence)
+- Can persist for weeks before someone notices
+
+### Hardening Rules
+
+When data seems unavailable for a feature, **DO NOT** silently use a fallback. Instead:
+
+1. **TRACE the data origin** - Where does this data come from? Intercom API? Classification? Previous pipeline stage?
+
+2. **CHECK if it's passed through** - Is the data available at the entry point but not wired to where you need it?
+
+3. **ASK if the constraint is real** - "I can't find X in the function signature. Is this a real constraint or should we wire it through?"
+
+4. **FLAG, don't fix silently** - If you must use a fallback, add a log warning or raise an issue: "Using fallback because X not available. TODO: Wire X from [source]."
+
+5. **NEVER set enabling flags to False** - If a feature has `use_X=True/False`, defaulting to False without explicit discussion defeats the feature's purpose.
+
+### Detection Pattern
+
+When reviewing Marcus's code, watch for:
+
+```python
+# RED FLAG: Optional parameter with None default that enables core feature
+def extract_themes(conversation, full_conversation: Optional[str] = None):
+    if full_conversation:
+        # Core feature logic
+    else:
+        # Fallback - is this actually what we want?
+
+# RED FLAG: Flag defaults to False for a feature that should be enabled
+use_full_conversation = config.get("USE_FULL_CONVERSATION", False)  # Why False?
+
+# RED FLAG: Conditional that silently skips new functionality
+if self.some_service:  # What if service was never initialized?
+    self.some_service.do_thing()
+# No else, no log, no error - silent degradation
+```
 
 ---
 
