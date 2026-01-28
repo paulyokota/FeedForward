@@ -35,6 +35,18 @@ FeedForward extracts product insights from Intercom support conversations. The p
 
 See `docs/architecture.md` for complete system design and `docs/status.md` for current progress.
 
+### Smart Digest (Issue #144)
+
+Theme extraction now receives **full conversation context** instead of truncated snippets. Key fields:
+
+| Field                | Location                                 | Purpose                                    |
+| -------------------- | ---------------------------------------- | ------------------------------------------ |
+| `full_conversation`  | `conversations.support_insights` (JSONB) | Complete conversation text passed to LLM   |
+| `diagnostic_summary` | `themes` table                           | LLM-generated issue summary with context   |
+| `key_excerpts`       | `themes` table (JSONB)                   | Verbatim quotes with relevance annotations |
+
+PM Review uses `diagnostic_summary` for story validation (previously used `source_body[:500]`).
+
 ---
 
 ## Critical Path Checklist (Every PR)

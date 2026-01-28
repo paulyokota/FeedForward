@@ -17,7 +17,44 @@
 **Customer-Only Digest: COMPLETE** ✅
 **Smart Digest (Issue #144): COMPLETE** ✅
 
-## Latest: Smart Digest Complete (2026-01-28)
+## Latest: Smart Digest Validation & Doc Cleanup (2026-01-28 evening)
+
+**Pipeline Run 93** - First clean test run after Issue #144 merge
+
+### Test Results
+
+| Metric        | Value                                                  |
+| ------------- | ------------------------------------------------------ |
+| Conversations | 428 classified → 129 processed (actionable types only) |
+| Themes        | 127 extracted                                          |
+| Stories       | 0 (insufficient volume per theme)                      |
+| Orphans       | 110                                                    |
+| Duration      | 31 minutes                                             |
+
+### Smart Digest Validation: ✅ WORKING
+
+Confirmed all #144 features are functioning:
+
+- `full_conversation` stored in `support_insights` JSONB (365-4447 chars per conversation)
+- `diagnostic_summary` populated with rich contextual summaries
+- `key_excerpts` populated with structured quotes and relevance annotations
+- Theme extraction using full conversation context (slower but richer)
+
+No stories created because max conversations per theme was 3 (need more volume). PM Review only runs during story creation, so confidence comparison not yet measurable.
+
+### Documentation Cleanup
+
+Post-#144 doc audit identified stale references. Fixed:
+
+- **CLAUDE.md**: Added "Smart Digest (Issue #144)" section with field locations
+- **docs/architecture.md**: Added Smart Digest Flow diagram, updated schema section with new fields
+- **docs/status.md**: Added terminology table clarifying `full_conversation` vs `customer_digest` vs `source_body[:500]`
+
+Integration testing gate was already properly linked (not orphaned as initially thought).
+
+---
+
+## Previous: Smart Digest Complete (2026-01-28)
 
 **Issue #144 Closed** - Full implementation of LLM-powered conversation summarization
 
@@ -35,6 +72,20 @@
 - PM Review now uses `diagnostic_summary` instead of truncated `source_body[:500]`
 - New CLI command for context gap analysis
 - API endpoint for context gap metrics
+
+### Conversation Context Terminology
+
+The pipeline evolved through three approaches to conversation context:
+
+| Term                 | Source            | Description                                            |
+| -------------------- | ----------------- | ------------------------------------------------------ |
+| `source_body[:500]`  | Legacy (pre-#139) | Truncated raw conversation text (first 500 chars)      |
+| `customer_digest`    | Issue #139        | Heuristic-extracted customer messages (~800 chars max) |
+| `full_conversation`  | Issue #144        | Complete conversation text passed to theme extraction  |
+| `diagnostic_summary` | Issue #144 output | LLM-generated developer-focused summary of the issue   |
+| `key_excerpts`       | Issue #144 output | Verbatim customer quotes with relevance explanations   |
+
+**Current state**: Theme extraction receives `full_conversation` and outputs `diagnostic_summary` + `key_excerpts`. PM Review uses `diagnostic_summary` instead of `source_body[:500]`.
 
 ### Process Learnings Documented
 

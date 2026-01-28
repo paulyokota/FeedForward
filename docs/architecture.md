@@ -97,7 +97,7 @@ Conversations → Classification (routing) → Theme Extraction → Confidence S
 
 ### 2. Theme Extractor (`src/theme_extractor.py`)
 
-**Purpose**: LLM-powered theme extraction with vocabulary guidance
+**Purpose**: LLM-powered theme extraction with vocabulary guidance and Smart Digest generation
 
 **Architecture**:
 
@@ -106,14 +106,25 @@ Conversations → Classification (routing) → Theme Extraction → Confidence S
 - **URL Context**: Boosts product area matching using `source.url`
 - **Canonicalization**: Merges similar issues using embeddings or LLM
 
+**Input**:
+
+- `full_conversation` - Complete conversation text (all customer and support messages)
+- Falls back to `customer_digest` or `source_body` when full conversation unavailable
+
 **Key Features**:
 
 - Vocabulary-aware prompts (load known themes)
 - URL pattern matching → product area boosting
 - Strict mode (backfill) vs. flexible mode (new themes)
 - Embedding-based similarity for canonicalization
+- Smart Digest generation (Issue #144): `diagnostic_summary` + `key_excerpts`
 
-**Output**: `Theme` objects with structured issue signatures
+**Output**: `ThemeExtractionResult` with:
+
+- Standard theme fields (signature, symptoms, intent, product_area, component)
+- `diagnostic_summary` - 2-4 sentence developer-focused issue summary
+- `key_excerpts` - Verbatim customer quotes with relevance explanations
+- `context_used` / `context_gaps` - For disambiguation doc optimization
 
 ### 3. Theme Vocabulary (`src/vocabulary.py`)
 
@@ -141,16 +152,22 @@ Conversations → Classification (routing) → Theme Extraction → Confidence S
 
 **Schema**:
 
-- `conversations` - Raw classified conversations with source_url
-- `themes` - Individual theme extractions
+- `conversations` - Raw classified conversations with source_url, support_insights (JSONB containing `full_conversation`, `customer_digest`)
+- `themes` - Individual theme extractions with Smart Digest fields:
+  - `diagnostic_summary` (TEXT) - LLM-generated 2-4 sentence developer-focused summary
+  - `key_excerpts` (JSONB) - Verbatim customer quotes: `[{"text": "...", "relevance": "..."}]`
 - `theme_aggregates` - Rolled-up counts by issue signature
 - `pipeline_runs` - Batch execution tracking
+- `context_usage_logs` - Tracks product context usage during theme extraction (Issue #144):
+  - `context_used` (JSONB) - Which product doc sections were relevant
+  - `context_gaps` (JSONB) - Products/features mentioned but not in disambiguation docs
 
 **Key Features**:
 
 - Theme deduplication via signature matching
 - Aggregation views for reporting
 - Full-text search on symptoms
+- Context gap analytics for disambiguation doc optimization
 
 ### 5. URL Context System (NEW)
 
@@ -666,6 +683,29 @@ See: `docs/conversation-type-schema.md` for full analysis
        - Insert theme record
        - Update aggregates
        - Calculate embeddings
+```
+
+### Smart Digest Flow (Issue #144)
+
+```
+full_conversation (all messages)
+         ↓
+ThemeExtractor.extract(full_conversation=...)
+         ↓
+   ┌─────────────────────────────────────────────┐
+   │  LLM extracts in single call:               │
+   │  - Standard theme fields (signature, etc.)  │
+   │  - diagnostic_summary (developer summary)   │
+   │  - key_excerpts (verbatim quotes)          │
+   │  - context_used / context_gaps             │
+   └─────────────────────────────────────────────┘
+         ↓
+   Store in themes table
+         ↓
+PMReviewService.review_group()
+         ↓
+   Uses diagnostic_summary for grouping context
+   (replaces truncated source_body[:500])
 ```
 
 ### URL Context Boosting Flow
