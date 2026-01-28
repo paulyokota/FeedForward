@@ -15,8 +15,43 @@
 **Theme Quality Architecture: IMPROVEMENTS 1 & 2 COMPLETE** ✅
 **Pipeline Quality v1: COMPLETE** ✅
 **Customer-Only Digest: COMPLETE** ✅
+**Smart Digest Investigation: ISSUE FILED** 📋
 
-## Latest: Customer-Digest Functional Test & Clustering Quality Discovery (2026-01-27)
+## Latest: Smart Digest Investigation (2026-01-28)
+
+**Issue #144 Filed** - Comprehensive plan for LLM-powered conversation summarization
+
+### Investigation Summary
+
+Deep-dive into PM Review excerpt quality revealed multiple gaps in how conversation context flows through the pipeline:
+
+1. **PM Review receives truncated source_body** - `source_body[:500]` instead of the richer `customer_digest` that exists in `support_insights`
+
+2. **A/B testing showed clear improvement** - Running PM Review with digest vs source_body increased confidence from 0.4 → 0.8 on real conversation groups
+
+3. **Theme extraction also limited** - Discovered theme extraction only sees heuristic-selected digest, not full conversation
+
+4. **Product context heavily truncated** - 68K chars of disambiguation docs → 10K chars passed to LLM
+
+### Key Decisions Made
+
+- **Unified LLM call**: Theme extraction + smart digest creation in one call seeing full conversation
+- **Preserve raw evidence**: Output both `diagnostic_summary` (interpretation) AND `key_excerpts` (verbatim quotes)
+- **Separate optimized context doc**: New `pipeline-disambiguation.md` for LLM consumption, keep canonical docs static
+- **Context usage instrumentation**: Log `context_used` and `context_gaps` to iteratively improve disambiguation guidance
+
+### What's Next
+
+Implementation of Issue #144 with 4 phases:
+
+1. Theme extraction enhancement (full conversation input, new output fields)
+2. Product context optimization (new disambiguation doc, increased limits)
+3. Downstream consumer updates (PM Review, story evidence, embeddings)
+4. Instrumentation & iteration loop
+
+---
+
+## Previous: Customer-Digest Functional Test & Clustering Quality Discovery (2026-01-27)
 
 **Issue #139 Functional Test Complete** - 30-day pipeline run validated customer_digest implementation
 
