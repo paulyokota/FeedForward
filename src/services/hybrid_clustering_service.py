@@ -326,7 +326,11 @@ class HybridClusteringService:
 
         # Post-processing: merge small groups with same facet key for narrow product areas
         if use_product_area:
-            hybrid_clusters = self._merge_narrow_facet_groups(hybrid_clusters, themes_by_conv=themes_by_conv)
+            hybrid_clusters = self._merge_narrow_facet_groups(
+                hybrid_clusters,
+                themes_by_conv=themes_by_conv,
+                facets_by_conv=facets_by_conv,
+            )
 
         # Sort by size descending for consistent ordering
         hybrid_clusters.sort(key=lambda c: (-c.size, c.cluster_id))
@@ -338,6 +342,7 @@ class HybridClusteringService:
         clusters: List[HybridCluster],
         min_size: int = 3,
         themes_by_conv: Optional[Dict[str, dict]] = None,
+        facets_by_conv: Optional[Dict[str, dict]] = None,
     ) -> List[HybridCluster]:
         """
         Merge groups with same (direction, product_area) for narrow product areas.
@@ -401,6 +406,9 @@ class HybridClusteringService:
 
         merged_clusters: List[HybridCluster] = []
         processed_clusters = set()
+        # Track individual convos that have been consumed by merges
+        # This allows partial cluster consumption without orphaning remaining convos
+        consumed_convos: set = set()
 
         # First: merge single-pack product areas (merge ALL directions)
         for product_area in single_pack_product_areas:
@@ -412,6 +420,8 @@ class HybridClusteringService:
                     for c in pa_clusters:
                         merged_conv_ids.extend(c.conversation_ids)
                         processed_clusters.add(id(c))
+                    # Track consumed convos
+                    consumed_convos.update(merged_conv_ids)
 
                     emb_clusters = sorted(set(c.embedding_cluster for c in pa_clusters))
                     directions = sorted(set(get_facet_key(c)[0] for c in pa_clusters))
@@ -479,6 +489,8 @@ class HybridClusteringService:
                 merged_conv_ids = []
                 for c in family_clusters:
                     merged_conv_ids.extend(c.conversation_ids)
+                # Track consumed convos
+                consumed_convos.update(merged_conv_ids)
 
                 merged_clusters.append(
                     HybridCluster(
@@ -490,37 +502,47 @@ class HybridClusteringService:
                     )
                 )
 
-        # Third: scheduling-specific merge using evidence overlap
-        if themes_by_conv:
-            def tokenize(text: str) -> List[str]:
-                tokens = re.split(r"[^a-z0-9]+", text.lower())
-                return [t for t in tokens if t]
+        # Third: scheduling-specific merge using action_type families
+        # Merge scheduling clusters by component family when they share the same
+        # query intent. Error reports (bug_report/complaint) are grouped with
+        # smart_schedule. Info queries (how_to_question/inquiry) are grouped
+        # separately to capture feature questions and usage requests.
+        if themes_by_conv and facets_by_conv:
+            # Error reports: bug_report, complaint
+            error_action_types = {"bug_report", "complaint"}
+            error_components = {"smart_schedule"}
 
-            stopwords = {
-                "the", "a", "an", "and", "or", "to", "of", "in", "for", "on", "my",
-                "is", "are", "was", "were", "be", "been", "it", "this", "that",
-                "with", "as", "at", "by", "from",
-            }
+            # Info queries: how_to_question, inquiry
+            info_action_types = {"how_to_question", "inquiry"}
+            # Broader component set for info queries - these are feature questions
+            info_components = {"smart_schedule", "smartloops", "advanced_scheduler"}
 
-            def evidence_tokens(cid: str) -> set:
-                theme = themes_by_conv.get(cid, {})
-                tokens = []
-                intent = theme.get("user_intent", "")
-                affected = theme.get("affected_flow", "")
-                symptoms = theme.get("symptoms", []) or []
-                tokens.extend(tokenize(intent))
-                tokens.extend(tokenize(affected))
-                for s in symptoms:
-                    tokens.extend(tokenize(str(s)))
-                return {t for t in tokens if t not in stopwords}
-
-            def cluster_tokens(cluster: HybridCluster) -> set:
-                combined = set()
+            def get_cluster_action_type(cluster: HybridCluster) -> str:
+                """Get dominant action_type from cluster's facets."""
+                action_counts: Dict[str, int] = defaultdict(int)
                 for cid in cluster.conversation_ids:
-                    combined |= evidence_tokens(cid)
-                return combined
+                    facet = facets_by_conv.get(cid, {})
+                    action = facet.get("action_type", "unknown")
+                    action_counts[action] += 1
+                if action_counts:
+                    return max(action_counts.items(), key=lambda x: x[1])[0]
+                return "unknown"
 
-            sched_clusters = []
+            def get_cluster_component(cluster: HybridCluster) -> Optional[str]:
+                """Get dominant component from cluster's themes."""
+                comp_counts: Dict[str, int] = defaultdict(int)
+                for cid in cluster.conversation_ids:
+                    theme = themes_by_conv.get(cid, {})
+                    comp = theme.get("component", "")
+                    if comp:
+                        comp_counts[comp] += 1
+                if comp_counts:
+                    return max(comp_counts.items(), key=lambda x: x[1])[0]
+                return None
+
+            # Collect error report conversations that meet criteria
+            error_conv_ids = []
+            error_conv_emb_clusters = set()
             for cluster in clusters:
                 if id(cluster) in processed_clusters:
                     continue
@@ -529,111 +551,199 @@ class HybridClusteringService:
                     continue
                 if cluster.size >= min_size:
                     continue
-                tokens = cluster_tokens(cluster)
-                if tokens:
-                    sched_clusters.append((cluster, tokens))
 
-            min_shared_tokens = 2
-            overlap_threshold = 0.15
-
-            parents = {id(c): id(c) for c, _ in sched_clusters}
-            cluster_by_id = {id(c): c for c, _ in sched_clusters}
-            tokens_by_id = {id(c): t for c, t in sched_clusters}
-
-            def find(x):
-                while parents[x] != x:
-                    parents[x] = parents[parents[x]]
-                    x = parents[x]
-                return x
-
-            def union(a, b):
-                ra, rb = find(a), find(b)
-                if ra != rb:
-                    parents[rb] = ra
-
-            sched_ids = list(tokens_by_id.keys())
-            for i in range(len(sched_ids)):
-                for j in range(i + 1, len(sched_ids)):
-                    a = sched_ids[i]
-                    b = sched_ids[j]
-                    ta = tokens_by_id[a]
-                    tb = tokens_by_id[b]
-                    shared = ta & tb
-                    if len(shared) < min_shared_tokens:
+                for cid in cluster.conversation_ids:
+                    # Skip already consumed convos
+                    if cid in consumed_convos:
                         continue
-                    union_size = len(ta | tb)
-                    if union_size == 0:
-                        continue
-                    jaccard = len(shared) / union_size
-                    if jaccard >= overlap_threshold:
-                        union(a, b)
+                    facet = facets_by_conv.get(cid, {})
+                    theme = themes_by_conv.get(cid, {})
+                    action = facet.get("action_type", "unknown")
+                    component = theme.get("component", "")
+                    # Only include error conversations with safe component
+                    if action in error_action_types and component in error_components:
+                        error_conv_ids.append(cid)
+                        error_conv_emb_clusters.add(cluster.embedding_cluster)
 
-            groups_by_root: Dict[int, List[HybridCluster]] = defaultdict(list)
-            for cid in sched_ids:
-                groups_by_root[find(cid)].append(cluster_by_id[cid])
+            if len(error_conv_ids) >= min_size and len(error_conv_ids) <= 6:
+                # Track consumed convos (no longer mark entire clusters as processed
+                # since other convos in those clusters may be eligible for other merges)
+                consumed_convos.update(error_conv_ids)
 
-            for group in groups_by_root.values():
-                if len(group) <= 1:
-                    continue
-                total_size = sum(c.size for c in group)
-                if total_size < min_size or total_size > 8:
-                    continue
-
-                for c in group:
-                    processed_clusters.add(id(c))
-
-                emb_clusters = sorted(set(c.embedding_cluster for c in group))
-                merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_sched_overlap"
+                emb_clusters = sorted(error_conv_emb_clusters)
+                merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_sched_error_smart_schedule"
 
                 action_counts: Dict[str, int] = defaultdict(int)
-                for c in group:
-                    action_counts[c.action_type] += c.size
+                for cid in error_conv_ids:
+                    facet = facets_by_conv.get(cid, {})
+                    action_counts[facet.get("action_type", "unknown")] += 1
                 action_type = max(action_counts.items(), key=lambda x: x[1])[0]
-                main_direction = max(
-                    (get_facet_key(c)[0], c.size) for c in group
-                )[0]
-
-                merged_conv_ids = []
-                for c in group:
-                    merged_conv_ids.extend(c.conversation_ids)
+                main_direction = "deficit"  # Default for error reports
 
                 merged_clusters.append(
                     HybridCluster(
                         cluster_id=merged_id,
-                        embedding_cluster=emb_clusters[0],
+                        embedding_cluster=emb_clusters[0] if emb_clusters else 0,
                         action_type=action_type,
                         direction=main_direction,
-                        conversation_ids=merged_conv_ids,
+                        conversation_ids=error_conv_ids,
+                    )
+                )
+
+            # Collect info query conversations (how_to_question, inquiry) for scheduling
+            # Now checks consumed_convos to pick up orphaned convos from partial cluster merges
+            info_conv_ids = []
+            info_conv_emb_clusters = set()
+            for cluster in clusters:
+                # Don't skip processed clusters entirely - check individual convos
+                _, product_area = get_facet_key(cluster)
+                if product_area != "scheduling":
+                    continue
+                # Allow large clusters too since we're picking individual convos
+                # (no longer: if cluster.size >= min_size: continue)
+
+                for cid in cluster.conversation_ids:
+                    # Skip already consumed convos
+                    if cid in consumed_convos:
+                        continue
+                    facet = facets_by_conv.get(cid, {})
+                    theme = themes_by_conv.get(cid, {})
+                    action = facet.get("action_type", "unknown")
+                    component = theme.get("component", "")
+                    # Include info queries with broader component set
+                    if action in info_action_types and component in info_components:
+                        info_conv_ids.append(cid)
+                        info_conv_emb_clusters.add(cluster.embedding_cluster)
+
+            if len(info_conv_ids) >= min_size and len(info_conv_ids) <= 8:
+                # Track consumed convos
+                consumed_convos.update(info_conv_ids)
+
+                emb_clusters = sorted(info_conv_emb_clusters)
+                merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_sched_info_query"
+
+                action_counts: Dict[str, int] = defaultdict(int)
+                for cid in info_conv_ids:
+                    facet = facets_by_conv.get(cid, {})
+                    action_counts[facet.get("action_type", "unknown")] += 1
+                action_type = max(action_counts.items(), key=lambda x: x[1])[0]
+                main_direction = "neutral"  # Default for info queries
+
+                merged_clusters.append(
+                    HybridCluster(
+                        cluster_id=merged_id,
+                        embedding_cluster=emb_clusters[0] if emb_clusters else 0,
+                        action_type=action_type,
+                        direction=main_direction,
+                        conversation_ids=info_conv_ids,
+                    )
+                )
+
+            # Cross-PA merge for pin_scheduler deficit: merges pinterest_publishing
+            # and scheduling conversations that share pin_scheduler component with
+            # deficit direction. This addresses the pinterest_missing_pins pack.
+            # - For pinterest_publishing: allow inquiry, bug_report, complaint
+            # - For scheduling PA: only allow bug_report, complaint (not inquiry,
+            #   which tends to be feature questions like "how do I schedule video pins")
+            pin_sched_deficit_convs = []
+            pin_sched_emb_clusters = set()
+            pin_sched_eligible_pas = {"pinterest_publishing", "scheduling"}
+            # Action types vary by PA to avoid cross-contamination
+            pin_sched_actions_by_pa = {
+                "pinterest_publishing": {"inquiry", "bug_report", "complaint"},
+                "scheduling": {"bug_report", "complaint"},  # No inquiry - avoids feature questions
+            }
+
+            for cluster in clusters:
+                _, product_area = get_facet_key(cluster)
+                if product_area not in pin_sched_eligible_pas:
+                    continue
+
+                for cid in cluster.conversation_ids:
+                    # Skip already consumed convos
+                    if cid in consumed_convos:
+                        continue
+                    theme = themes_by_conv.get(cid, {})
+                    facet = facets_by_conv.get(cid, {})
+                    component = theme.get("component", "")
+                    direction = facet.get("direction", "")
+                    action = facet.get("action_type", "")
+                    theme_pa = theme.get("product_area", "")
+                    eligible_actions = pin_sched_actions_by_pa.get(theme_pa, set())
+                    # Must have pin_scheduler component, deficit direction, and PA-specific eligible action
+                    if (component == "pin_scheduler" and direction == "deficit"
+                            and action in eligible_actions):
+                        pin_sched_deficit_convs.append(cid)
+                        pin_sched_emb_clusters.add(cluster.embedding_cluster)
+
+            if len(pin_sched_deficit_convs) >= min_size and len(pin_sched_deficit_convs) <= 8:
+                # Track consumed convos
+                consumed_convos.update(pin_sched_deficit_convs)
+
+                emb_clusters = sorted(pin_sched_emb_clusters)
+                merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_pin_scheduler_deficit"
+
+                action_counts: Dict[str, int] = defaultdict(int)
+                for cid in pin_sched_deficit_convs:
+                    facet = facets_by_conv.get(cid, {})
+                    action_counts[facet.get("action_type", "unknown")] += 1
+                action_type = max(action_counts.items(), key=lambda x: x[1])[0]
+
+                merged_clusters.append(
+                    HybridCluster(
+                        cluster_id=merged_id,
+                        embedding_cluster=emb_clusters[0] if emb_clusters else 0,
+                        action_type=action_type,
+                        direction="deficit",
+                        conversation_ids=pin_sched_deficit_convs,
                     )
                 )
 
         # Fourth: process remaining clusters by facet key
+        # Filter out consumed convos from each cluster
         for facet_key, group_clusters in by_facet_key.items():
-            # Skip clusters already processed in single-pack, component-family, or scheduling merging
-            remaining = [c for c in group_clusters if id(c) not in processed_clusters]
-            if not remaining:
+            # Skip clusters fully processed or filter out consumed convos
+            remaining_clusters = []
+            for c in group_clusters:
+                if id(c) in processed_clusters:
+                    continue
+                # Filter out consumed convos
+                remaining_convs = [cid for cid in c.conversation_ids if cid not in consumed_convos]
+                if remaining_convs:
+                    # Create a modified cluster with only remaining convos
+                    remaining_clusters.append(
+                        HybridCluster(
+                            cluster_id=c.cluster_id,
+                            embedding_cluster=c.embedding_cluster,
+                            action_type=c.action_type,
+                            direction=c.direction,
+                            conversation_ids=remaining_convs,
+                        )
+                    )
+
+            if not remaining_clusters:
                 continue
 
-            if facet_key not in narrow_facet_keys or len(remaining) == 1:
+            if facet_key not in narrow_facet_keys or len(remaining_clusters) == 1:
                 # Broad facet key or single group - keep as-is
-                merged_clusters.extend(remaining)
+                merged_clusters.extend(remaining_clusters)
                 continue
 
             # Narrow facet key with multiple groups - merge all into one
-            total_size = sum(c.size for c in remaining)
+            total_size = sum(c.size for c in remaining_clusters)
             direction, product_area = facet_key
 
             if total_size >= min_size and total_size <= 8:
                 # Merge all remaining groups
                 merged_conv_ids = []
-                for c in remaining:
+                for c in remaining_clusters:
                     merged_conv_ids.extend(c.conversation_ids)
 
-                emb_clusters = sorted(set(c.embedding_cluster for c in remaining))
+                emb_clusters = sorted(set(c.embedding_cluster for c in remaining_clusters))
                 merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_facet_{direction}_pa_{product_area}"
 
                 action_counts: Dict[str, int] = defaultdict(int)
-                for c in remaining:
+                for c in remaining_clusters:
                     action_counts[c.action_type] += c.size
                 action_type = max(action_counts.items(), key=lambda x: x[1])[0]
 
@@ -648,7 +758,7 @@ class HybridClusteringService:
                 )
             else:
                 # Too large to merge safely - keep separate
-                merged_clusters.extend(remaining)
+                merged_clusters.extend(remaining_clusters)
 
         return merged_clusters
 
