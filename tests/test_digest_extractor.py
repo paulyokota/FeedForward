@@ -2,6 +2,7 @@
 Tests for the customer digest extractor module.
 
 Issue #139: Use customer-only digest for embeddings/facets/themes
+Issue #144: Add full conversation builder for theme extraction
 """
 
 import pytest
@@ -9,6 +10,7 @@ from src.digest_extractor import (
     extract_customer_messages,
     score_message_specificity,
     build_customer_digest,
+    build_full_conversation_text,
     _strip_html,
     _messages_are_similar,
 )
@@ -541,3 +543,242 @@ class TestIntegration:
 
         # source_body alone would miss the error details
         assert "Error 429" in digest or "Rate limit" in digest
+
+
+class TestBuildFullConversationText:
+    """Tests for build_full_conversation_text function (Issue #144)."""
+
+    def test_builds_full_conversation_with_all_messages(self):
+        """Should include both customer and support messages."""
+        raw_conversation = {
+            "source": {"body": "Initial customer message"},
+            "conversation_parts": {
+                "conversation_parts": [
+                    {
+                        "part_type": "comment",
+                        "author": {"type": "admin"},
+                        "body": "Thanks for reaching out. How can I help?",
+                    },
+                    {
+                        "part_type": "comment",
+                        "author": {"type": "user"},
+                        "body": "My pins are not posting",
+                    },
+                    {
+                        "part_type": "comment",
+                        "author": {"type": "admin"},
+                        "body": "Let me check your account.",
+                    },
+                ]
+            }
+        }
+
+        result = build_full_conversation_text(raw_conversation)
+
+        assert "[Customer]: Initial customer message" in result
+        assert "[Support]: Thanks for reaching out" in result
+        assert "[Customer]: My pins are not posting" in result
+        assert "[Support]: Let me check your account" in result
+
+    def test_labels_different_author_types_correctly(self):
+        """Should label customers (user/lead/contact) and support (admin/bot) correctly."""
+        raw_conversation = {
+            "source": {"body": "Hello"},
+            "conversation_parts": {
+                "conversation_parts": [
+                    {"part_type": "comment", "author": {"type": "admin"}, "body": "Admin reply"},
+                    {"part_type": "comment", "author": {"type": "bot"}, "body": "Bot reply"},
+                    {"part_type": "comment", "author": {"type": "user"}, "body": "User reply"},
+                    {"part_type": "comment", "author": {"type": "lead"}, "body": "Lead reply"},
+                    {"part_type": "comment", "author": {"type": "contact"}, "body": "Contact reply"},
+                ]
+            }
+        }
+
+        result = build_full_conversation_text(raw_conversation)
+
+        assert "[Customer]: Hello" in result
+        assert "[Support]: Admin reply" in result
+        assert "[Support]: Bot reply" in result
+        assert "[Customer]: User reply" in result
+        assert "[Customer]: Lead reply" in result
+        assert "[Customer]: Contact reply" in result
+
+    def test_excludes_non_comment_parts(self):
+        """Should exclude non-comment parts like assignments and notes."""
+        raw_conversation = {
+            "source": {"body": "Initial message"},
+            "conversation_parts": {
+                "conversation_parts": [
+                    {"part_type": "comment", "author": {"type": "admin"}, "body": "Real comment"},
+                    {"part_type": "assignment", "author": {"type": "admin"}, "body": "Assigned to team"},
+                    {"part_type": "note", "author": {"type": "admin"}, "body": "Internal note"},
+                    {"part_type": "state_change", "author": {"type": "admin"}, "body": "Closed"},
+                ]
+            }
+        }
+
+        result = build_full_conversation_text(raw_conversation)
+
+        assert "Real comment" in result
+        assert "Assigned to team" not in result
+        assert "Internal note" not in result
+        assert "Closed" not in result
+
+    def test_strips_html_from_messages(self):
+        """Should strip HTML tags from message bodies."""
+        raw_conversation = {
+            "source": {"body": "<p>Hello <strong>world</strong></p>"},
+            "conversation_parts": {
+                "conversation_parts": [
+                    {
+                        "part_type": "comment",
+                        "author": {"type": "admin"},
+                        "body": "<div>Response with <a href='#'>link</a></div>",
+                    },
+                ]
+            }
+        }
+
+        result = build_full_conversation_text(raw_conversation)
+
+        assert "<p>" not in result
+        assert "<strong>" not in result
+        assert "<div>" not in result
+        assert "<a" not in result
+        assert "Hello" in result
+        assert "world" in result
+        assert "Response with" in result
+        assert "link" in result
+
+    def test_handles_empty_conversation(self):
+        """Should return empty string for empty conversation."""
+        assert build_full_conversation_text({}) == ""
+        assert build_full_conversation_text(None) == ""
+
+    def test_handles_conversation_with_only_source(self):
+        """Should handle conversation with only source and no parts."""
+        raw_conversation = {
+            "source": {"body": "Initial message only"},
+            "conversation_parts": {"conversation_parts": []}
+        }
+
+        result = build_full_conversation_text(raw_conversation)
+
+        assert "[Customer]: Initial message only" in result
+
+    def test_respects_max_length(self):
+        """Should truncate long conversations."""
+        # Create a conversation with many long messages
+        long_message = "A" * 1000
+        raw_conversation = {
+            "source": {"body": long_message},
+            "conversation_parts": {
+                "conversation_parts": [
+                    {"part_type": "comment", "author": {"type": "admin"}, "body": long_message}
+                    for _ in range(20)
+                ]
+            }
+        }
+
+        result = build_full_conversation_text(raw_conversation, max_length=5000)
+
+        assert len(result) <= 5000
+
+    def test_skips_empty_message_bodies(self):
+        """Should skip messages with empty bodies."""
+        raw_conversation = {
+            "source": {"body": "Initial"},
+            "conversation_parts": {
+                "conversation_parts": [
+                    {"part_type": "comment", "author": {"type": "admin"}, "body": ""},
+                    {"part_type": "comment", "author": {"type": "admin"}, "body": "   "},
+                    {"part_type": "comment", "author": {"type": "admin"}, "body": "Real message"},
+                ]
+            }
+        }
+
+        result = build_full_conversation_text(raw_conversation)
+
+        # Count occurrences of [Support]: - should be 1 (only "Real message")
+        assert result.count("[Support]:") == 1
+        assert "Real message" in result
+
+    def test_preserves_message_order(self):
+        """Should preserve chronological order of messages."""
+        raw_conversation = {
+            "source": {"body": "First"},
+            "conversation_parts": {
+                "conversation_parts": [
+                    {"part_type": "comment", "author": {"type": "admin"}, "body": "Second"},
+                    {"part_type": "comment", "author": {"type": "user"}, "body": "Third"},
+                    {"part_type": "comment", "author": {"type": "admin"}, "body": "Fourth"},
+                ]
+            }
+        }
+
+        result = build_full_conversation_text(raw_conversation)
+
+        # Verify order by finding positions
+        pos_first = result.find("First")
+        pos_second = result.find("Second")
+        pos_third = result.find("Third")
+        pos_fourth = result.find("Fourth")
+
+        assert pos_first < pos_second < pos_third < pos_fourth
+
+    def test_integrates_with_realistic_intercom_structure(self):
+        """Test with realistic Intercom conversation structure."""
+        raw_conversation = {
+            "source": {
+                "body": "<p>Hi, I'm having trouble scheduling pins to Pinterest.</p>",
+                "type": "conversation"
+            },
+            "conversation_parts": {
+                "conversation_parts": [
+                    {
+                        "part_type": "comment",
+                        "author": {"type": "admin", "name": "Support Agent"},
+                        "body": "<p>Thanks for reaching out! Can you tell me more about the error?</p>",
+                    },
+                    {
+                        "part_type": "assignment",
+                        "author": {"type": "admin"},
+                        "body": "Assigned to Technical Support",
+                    },
+                    {
+                        "part_type": "comment",
+                        "author": {"type": "user", "email": "user@example.com"},
+                        "body": '<p>Sure, I get error "ERR_PINTEREST_500" when clicking schedule.</p>',
+                    },
+                    {
+                        "part_type": "note",
+                        "author": {"type": "admin"},
+                        "body": "Internal: Check Pinterest API status",
+                    },
+                    {
+                        "part_type": "comment",
+                        "author": {"type": "admin"},
+                        "body": "<p>I've checked and this is a known Pinterest API issue. Try again in an hour.</p>",
+                    },
+                    {
+                        "part_type": "comment",
+                        "author": {"type": "user"},
+                        "body": "That worked, thanks!",
+                    },
+                ]
+            }
+        }
+
+        result = build_full_conversation_text(raw_conversation)
+
+        # Should have 5 messages (source + 4 comments, excluding assignment and note)
+        assert result.count("[Customer]:") == 3
+        assert result.count("[Support]:") == 2
+
+        # Should contain error details
+        assert "ERR_PINTEREST_500" in result
+
+        # Should NOT contain internal notes or assignments
+        assert "Internal:" not in result
+        assert "Assigned to" not in result

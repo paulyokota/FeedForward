@@ -297,3 +297,90 @@ def _messages_are_similar(msg1: str, msg2: str, threshold: float = 0.9) -> bool:
     overlap = len(words1 & words2) / max(len(words1), len(words2))
 
     return overlap >= threshold
+
+
+def build_full_conversation_text(
+    raw_conversation: dict,
+    max_length: int = 15000
+) -> str:
+    """
+    Build formatted full conversation text from Intercom conversation parts.
+
+    Issue #144 - Smart Digest: Provides the complete conversation thread
+    for theme extraction, including all customer and support messages.
+
+    Format:
+        [Customer]: First message here...
+        [Support]: Response here...
+        [Customer]: Follow-up here...
+
+    Args:
+        raw_conversation: Full Intercom conversation dict with source and conversation_parts
+        max_length: Maximum output length (default 15K chars, ~3750 tokens)
+
+    Returns:
+        Formatted conversation string, empty string if no content available.
+    """
+    if not raw_conversation:
+        return ""
+
+    parts = []
+
+    # Add the initial source message (the first customer message)
+    source = raw_conversation.get("source", {})
+    source_body = source.get("body", "")
+    if source_body:
+        clean_body = _strip_html(source_body)
+        if clean_body:
+            parts.append(f"[Customer]: {clean_body}")
+
+    # Add conversation parts in chronological order
+    conv_parts_container = raw_conversation.get("conversation_parts", {})
+    conv_parts = (
+        conv_parts_container.get("conversation_parts", [])
+        if isinstance(conv_parts_container, dict)
+        else []
+    )
+
+    for part in conv_parts:
+        body = part.get("body", "")
+        part_type = part.get("part_type", "")
+
+        # Skip non-comment parts (assignments, notes, state changes)
+        if part_type != "comment" or not body:
+            continue
+
+        clean_body = _strip_html(body)
+        if not clean_body:
+            continue
+
+        # Determine author label
+        author = part.get("author", {})
+        author_type = author.get("type", "unknown")
+
+        if author_type in ("user", "lead", "contact"):
+            label = "Customer"
+        elif author_type in ("admin", "bot"):
+            label = "Support"
+        else:
+            label = author_type.capitalize()
+
+        parts.append(f"[{label}]: {clean_body}")
+
+    if not parts:
+        return ""
+
+    # Join with double newlines for readability
+    full_text = "\n\n".join(parts)
+
+    # Truncate if needed, preserving complete messages where possible
+    if len(full_text) > max_length:
+        # Simple truncation - prioritize beginning of conversation
+        # Future: Could implement smart truncation keeping first + last messages
+        full_text = full_text[:max_length]
+        # Try to end at a message boundary
+        last_bracket = full_text.rfind("\n\n[")
+        if last_bracket > max_length * 0.5:  # Don't cut too much
+            full_text = full_text[:last_bracket]
+
+    return full_text

@@ -45,7 +45,11 @@ from db.models import PipelineRun
 from adapters import CodaAdapter, IntercomAdapter, NormalizedConversation
 from resolution_analyzer import ResolutionAnalyzer
 from knowledge_extractor import KnowledgeExtractor
-from digest_extractor import extract_customer_messages, build_customer_digest
+from digest_extractor import (
+    extract_customer_messages,
+    build_customer_digest,
+    build_full_conversation_text,
+)
 
 # Async OpenAI client for parallel processing
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -173,6 +177,9 @@ def classify_conversation(
     customer_messages = extract_customer_messages(raw_conversation)
     customer_digest = build_customer_digest(parsed.source_body, customer_messages)
 
+    # Issue #144: Build full conversation text for theme extraction
+    full_conversation_text = build_full_conversation_text(raw_conversation)
+
     # Stage 1: Fast routing (always runs)
     print(f"  [Stage 1] Classifying conversation {parsed.id}...")
     stage1_result = classify_stage1(
@@ -186,9 +193,11 @@ def classify_conversation(
     stage2_result = None
     resolution_signal = None
 
-    # Initialize support_insights with customer digest (always present)
+    # Initialize support_insights with customer digest and full conversation (always present)
+    # Issue #144: full_conversation enables richer theme extraction
     support_insights = {
         "customer_digest": customer_digest,
+        "full_conversation": full_conversation_text,
     }
 
     if support_messages:
@@ -389,6 +398,9 @@ async def classify_conversation_async(
     customer_messages = extract_customer_messages(raw_conversation)
     customer_digest = build_customer_digest(parsed.source_body, customer_messages)
 
+    # Issue #144: Build full conversation text for theme extraction
+    full_conversation_text = build_full_conversation_text(raw_conversation)
+
     # Stage 1
     stage1_result = await classify_stage1_async(
         customer_message=parsed.source_body,
@@ -401,9 +413,11 @@ async def classify_conversation_async(
     stage2_result = None
     resolution_signal = None
 
-    # Initialize support_insights with customer digest (always present)
+    # Initialize support_insights with customer digest and full conversation (always present)
+    # Issue #144: full_conversation enables richer theme extraction
     support_insights = {
         "customer_digest": customer_digest,
+        "full_conversation": full_conversation_text,
     }
 
     if support_messages:

@@ -8,7 +8,7 @@ tracked over time, and turned into actionable tickets.
 import json
 import logging
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple, TYPE_CHECKING
@@ -137,18 +137,144 @@ PRODUCT_CONTEXT_PATH = Path(__file__).parent.parent / "context" / "product"
 
 
 def load_product_context() -> str:
-    """Load product documentation for context."""
+    """
+    Load product documentation for context.
+
+    Priority order (Issue #144 - Smart Digest Phase 2):
+    1. pipeline-disambiguation.md - FIRST (helps disambiguate similar features)
+    2. support-knowledge.md - Common issues and troubleshooting
+    3. tailwind-taxonomy.md - Product structure overview
+    4. Other .md files
+
+    Context limits increased from 15K to 30K per file to support richer analysis.
+    """
     context_parts = []
 
-    if PRODUCT_CONTEXT_PATH.exists():
-        for file in PRODUCT_CONTEXT_PATH.glob("*.md"):
+    # Priority-ordered files (load these first)
+    priority_files = [
+        "pipeline-disambiguation.md",  # Feature disambiguation (most important)
+        "support-knowledge.md",         # Common issues and solutions
+        "tailwind-taxonomy.md",         # Product structure
+    ]
+
+    if not PRODUCT_CONTEXT_PATH.exists():
+        return ""
+
+    # Load priority files first
+    for filename in priority_files:
+        filepath = PRODUCT_CONTEXT_PATH / filename
+        if filepath.exists():
+            content = filepath.read_text()
+            # Increased limit from 15K to 30K for richer context
+            if len(content) > 30000:
+                content = content[:30000] + "\n\n[truncated for length]"
+            context_parts.append(f"# {filepath.stem}\n\n{content}")
+
+    # Load remaining .md files (not in priority list)
+    priority_set = set(priority_files)
+    for file in PRODUCT_CONTEXT_PATH.glob("*.md"):
+        if file.name not in priority_set:
             content = file.read_text()
-            # Truncate very long docs to avoid token limits
-            if len(content) > 15000:
-                content = content[:15000] + "\n\n[truncated for length]"
+            if len(content) > 30000:
+                content = content[:30000] + "\n\n[truncated for length]"
             context_parts.append(f"# {file.stem}\n\n{content}")
 
     return "\n\n---\n\n".join(context_parts)
+
+
+def prepare_conversation_for_extraction(
+    full_conversation: str,
+    max_chars: int = 400_000,  # ~100K tokens, leaves headroom for prompt
+) -> str:
+    """
+    Prepare conversation text for theme extraction with smart truncation.
+
+    For the vast majority of conversations, this returns the input unchanged.
+    Truncation is only applied for edge cases exceeding the token limit.
+
+    Truncation strategy (if needed):
+    1. Always keep first 2 messages (problem statement + initial context)
+    2. Always keep last 3 messages (most recent context with error details)
+    3. Truncate middle if necessary, adding "[... N messages omitted ...]"
+
+    Args:
+        full_conversation: Complete conversation text with all messages
+        max_chars: Maximum character limit (~100K tokens = 400K chars)
+
+    Returns:
+        Conversation text safe for LLM context window
+
+    Note:
+        This function assumes messages are separated by double newlines.
+        The 60/40 split prioritizes early context (problem statement) while
+        preserving recent details (error codes, symptoms discovered later).
+    """
+    if not full_conversation:
+        return ""
+
+    # Fast path: most conversations are well under the limit
+    if len(full_conversation) <= max_chars:
+        return full_conversation
+
+    logger.warning(
+        f"Conversation exceeds {max_chars} chars ({len(full_conversation)} chars), "
+        "applying smart truncation"
+    )
+
+    # Split by message boundaries (double newline is common separator)
+    messages = full_conversation.split("\n\n")
+
+    if len(messages) <= 5:
+        # Can't meaningfully truncate, just hard-truncate
+        return full_conversation[:max_chars] + "\n\n[... truncated for length ...]"
+
+    # Keep first 2 messages (problem statement + initial context)
+    first_messages = messages[:2]
+    first_text = "\n\n".join(first_messages)
+
+    # Keep last 3 messages (most recent context)
+    last_messages = messages[-3:]
+    last_text = "\n\n".join(last_messages)
+
+    # Middle messages to potentially truncate
+    middle_messages = messages[2:-3]
+
+    # Calculate available space for middle section
+    # Account for omission marker
+    omission_marker = "\n\n[... {} messages omitted for length ...]\n\n"
+    overhead = len(first_text) + len(last_text) + len(omission_marker.format(999))
+    available_for_middle = max_chars - overhead
+
+    if available_for_middle <= 0:
+        # Edge case: first + last already exceed limit
+        # Keep first 60%, last 40% with marker in between
+        split_point = int(max_chars * 0.6)
+        first_portion = full_conversation[:split_point].rsplit("\n\n", 1)[0]
+        last_portion = full_conversation[-(max_chars - split_point - 50):].split("\n\n", 1)[-1]
+        return f"{first_portion}\n\n[... content truncated ...]\n\n{last_portion}"
+
+    # Include as many middle messages as fit
+    included_middle = []
+    current_length = 0
+
+    for msg in middle_messages:
+        msg_length = len(msg) + 2  # +2 for "\n\n" separator
+        if current_length + msg_length <= available_for_middle:
+            included_middle.append(msg)
+            current_length += msg_length
+        else:
+            break
+
+    omitted_count = len(middle_messages) - len(included_middle)
+
+    if omitted_count > 0:
+        middle_text = "\n\n".join(included_middle) if included_middle else ""
+        marker = omission_marker.format(omitted_count)
+        return f"{first_text}\n\n{middle_text}{marker}{last_text}"
+    else:
+        # All middle messages fit
+        middle_text = "\n\n".join(middle_messages)
+        return f"{first_text}\n\n{middle_text}\n\n{last_text}"
 
 
 THEME_EXTRACTION_PROMPT = """You are a product analyst for Tailwind, a social media scheduling tool focused on Pinterest, Instagram, and Facebook.
@@ -208,6 +334,57 @@ Extract these fields:
 9. **affected_flow**: The user journey or flow that's broken (e.g., "Pin Scheduler → Pinterest API")
 
 10. **root_cause_hypothesis**: Your best guess at the technical root cause based on product knowledge
+
+11. **diagnostic_summary**: A 2-4 sentence developer-focused summary capturing:
+    - Specific error messages (quote VERBATIM from conversation if present)
+    - Pattern: is this intermittent or always happening?
+    - What the user already tried (troubleshooting steps taken)
+    - Any hints about root cause from the conversation
+
+    Write this for a developer trying to reproduce and diagnose the issue.
+
+12. **key_excerpts**: Array of important quotes from the conversation (include up to 5 most important; more if truly essential):
+    ```json
+    [
+      {{
+        "text": "Copy exact text VERBATIM from conversation - no paraphrasing",
+        "relevance": "Why this excerpt matters for understanding/reproducing the issue"
+      }}
+    ]
+    ```
+
+    Prioritize excerpts that contain:
+    - Error messages or codes
+    - Specific reproduction steps
+    - Timing/frequency information
+    - User environment details (browser, device, account type)
+
+13. **context_used**: List of product documentation sections you referenced when making this extraction (e.g., ["Pinterest Publishing Issues", "SmartSchedule Feature"])
+
+14. **context_gaps**: List of information that would have helped but wasn't available in the product docs (e.g., ["API rate limits for Pinterest", "SmartSchedule algorithm details"])
+
+## Example Outputs for New Fields
+
+**Good diagnostic_summary:**
+"User reports 'Error 403: Board access denied' when attempting to schedule pins to group board 'Recipe Ideas'. Issue is consistent (happens every time, not intermittent). User verified they are still a collaborator on the board via Pinterest.com. Suggests possible OAuth token scope issue or board permission change not synced to Tailwind."
+
+**Good key_excerpts:**
+```json
+[
+  {{
+    "text": "Error 403: Board access denied",
+    "relevance": "Exact error code - indicates Pinterest API permission rejection"
+  }},
+  {{
+    "text": "I checked Pinterest and I'm still listed as a collaborator",
+    "relevance": "User verified board access externally - suggests Tailwind-side sync issue"
+  }},
+  {{
+    "text": "This started happening after I changed my Pinterest password last week",
+    "relevance": "Temporal correlation with password change suggests OAuth token invalidation"
+  }}
+]
+```
 
 ## Conversation
 
@@ -359,6 +536,19 @@ class Theme:
     match_reasoning: str = ""       # Why LLM chose this signature
     match_confidence: str = ""      # high/medium/low confidence in match
     extracted_at: datetime = None
+
+    # Smart Digest fields (Issue #144)
+    # 2-4 sentence summary optimized for developers debugging issues
+    diagnostic_summary: str = ""
+    # Key excerpts from conversation with relevance explanations
+    # Format: [{"text": "...", "relevance": "Why this excerpt matters"}, ...]
+    key_excerpts: list[dict[str, str]] = field(default_factory=list)
+    # Product context sections that were used in analysis
+    # Format: ["section_name", ...] - tracks which docs were relevant
+    context_used: list[str] = field(default_factory=list)
+    # Hints about missing context that would improve analysis
+    # Format: ["missing context description", ...]
+    context_gaps: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         if self.extracted_at is None:
@@ -668,13 +858,11 @@ class ThemeExtractor:
         auto_add_to_vocabulary: bool = False,
         strict_mode: bool = False,
         customer_digest: Optional[str] = None,
+        full_conversation: Optional[str] = None,
+        use_full_conversation: bool = True,
     ) -> Theme:
         """
         Extract theme from a single conversation.
-
-        Args:
-            customer_digest: Optional digest with first + most specific customer message (Issue #139).
-                           When provided, used instead of conv.source_body for better context.
 
         Args:
             conv: The conversation to extract from
@@ -686,6 +874,16 @@ class ThemeExtractor:
             auto_add_to_vocabulary: If True, automatically add new themes to vocabulary.
             strict_mode: If True, force LLM to pick from existing vocabulary only.
                         Use this for backfill to prevent theme fragmentation.
+            customer_digest: Optional digest with first + most specific customer message (Issue #139).
+                           When provided and use_full_conversation=False, used instead of
+                           conv.source_body for better context.
+            full_conversation: Optional full conversation text including all customer and
+                              support messages (Issue #144 - Smart Digest).
+                              When provided and use_full_conversation=True, used for
+                              richer theme extraction with diagnostic_summary and key_excerpts.
+            use_full_conversation: If True (default), prefer full_conversation when available.
+                                  If False, fall back to customer_digest or source_body.
+                                  Set to False for backward compatibility or cost savings.
         """
         # Check for URL context to boost product area matching
         url_matched_product_area = None
@@ -728,21 +926,36 @@ The user was on a page related to **{url_matched_product_area}** when they start
             match_instruction = "**Match first**: Strongly prefer matching to known themes. Only create new if truly different."
             new_theme_reasoning = ". If proposing new, explain why none of the known themes fit"
 
-        # Use customer_digest if provided and has meaningful content, otherwise fall back to source_body (Issue #139)
-        # Minimum 10 chars ensures we don't use empty/separator-only digests
-        if customer_digest and len(customer_digest.strip()) > 10:
+        # Determine source text for extraction (Issue #144 - Smart Digest)
+        # Priority order when use_full_conversation=True:
+        #   1. full_conversation (all messages, richest context)
+        #   2. customer_digest (first + most specific, good fallback)
+        #   3. source_body (first message only, minimal context)
+        # When use_full_conversation=False, skip full_conversation
+        source_text = ""
+        using_full_conversation = False
+
+        if use_full_conversation and full_conversation and len(full_conversation.strip()) > 10:
+            # Apply smart truncation for edge cases exceeding token limits
+            source_text = prepare_conversation_for_extraction(full_conversation.strip())
+            using_full_conversation = True
+            logger.debug(f"Conv {conv.id}: Using full conversation ({len(source_text)} chars)")
+        elif customer_digest and len(customer_digest.strip()) > 10:
+            # Issue #139: Fall back to customer digest
             source_text = customer_digest.strip()
+            logger.debug(f"Conv {conv.id}: Using customer_digest ({len(source_text)} chars)")
         else:
+            # Minimal fallback: first message only
             source_text = conv.source_body or ""
-            if customer_digest is not None:
-                logger.debug(f"Conv {conv.id}: customer_digest too short, using source_body")
+            if customer_digest is not None or full_conversation is not None:
+                logger.debug(f"Conv {conv.id}: Falling back to source_body")
 
         # Get research context for enrichment (if search service available)
         research_context = self.get_research_context(source_text)
 
         # Phase 1: Extract theme details (with vocabulary-aware prompt)
         prompt = THEME_EXTRACTION_PROMPT.format(
-            product_context=self.product_context[:10000],  # Limit context size
+            product_context=self.product_context[:30000],  # Increased from 10K to 30K (Issue #144)
             url_context_hint=url_context_hint,
             research_context=research_context,
             known_themes=known_themes or "(No known themes yet - create new signatures as needed)",
@@ -757,6 +970,36 @@ The user was on a page related to **{url_matched_product_area}** when they start
             churn_risk=conv.churn_risk,
             source_body=source_text,
         )
+
+        # Token usage guard (R2): Estimate tokens and warn/truncate if needed
+        # gpt-4o-mini has 128K context window; leave headroom for response
+        MAX_PROMPT_CHARS = 400_000  # ~100K tokens at 4 chars/token
+        if len(prompt) > MAX_PROMPT_CHARS:
+            logger.warning(
+                f"Prompt exceeds {MAX_PROMPT_CHARS} chars ({len(prompt)} chars), truncating source_text"
+            )
+            # Recalculate with truncated source_text
+            # Estimate non-source overhead and leave room for it
+            overhead = len(prompt) - len(source_text)
+            max_source_chars = MAX_PROMPT_CHARS - overhead - 1000  # 1K buffer
+            if max_source_chars > 0:
+                source_text = source_text[:max_source_chars]
+                prompt = THEME_EXTRACTION_PROMPT.format(
+                    product_context=self.product_context[:30000],
+                    url_context_hint=url_context_hint,
+                    research_context=research_context,
+                    known_themes=known_themes or "(No known themes yet - create new signatures as needed)",
+                    signature_quality_examples=signature_quality_examples,
+                    strict_mode_instructions=strict_mode_instructions,
+                    signature_instructions=signature_instructions,
+                    match_instruction=match_instruction,
+                    new_theme_reasoning=new_theme_reasoning,
+                    issue_type=conv.issue_type,
+                    sentiment=conv.sentiment,
+                    priority=conv.priority,
+                    churn_risk=conv.churn_risk,
+                    source_body=source_text,
+                )
 
         response = self.client.chat.completions.create(
             model=self.model,
@@ -841,6 +1084,33 @@ The user was on a page related to **{url_matched_product_area}** when they start
         # This allows subsequent extractions to canonicalize against this signature
         self.add_session_signature(final_signature, product_area, component)
 
+        # Extract Smart Digest fields (Issue #144)
+        # These are populated when full_conversation is used and LLM returns them
+        diagnostic_summary = result.get("diagnostic_summary", "")
+        key_excerpts = result.get("key_excerpts", [])
+        context_used = result.get("context_used", [])
+        context_gaps = result.get("context_gaps", [])
+
+        # Validate key_excerpts structure
+        if key_excerpts and isinstance(key_excerpts, list):
+            # Ensure each excerpt has required fields
+            validated_excerpts = []
+            for excerpt in key_excerpts[:5]:  # Limit to 5 excerpts
+                if isinstance(excerpt, dict) and "text" in excerpt:
+                    # relevance should be a descriptive string explaining why this excerpt matters
+                    # Fallback to "Relevant excerpt" if LLM didn't provide explanation
+                    relevance = excerpt.get("relevance", "")
+                    if not relevance or relevance in ("high", "medium", "low"):
+                        # Convert enum-style values to descriptive fallback
+                        relevance = "Relevant excerpt from conversation"
+                    validated_excerpts.append({
+                        "text": str(excerpt.get("text", ""))[:500],  # Limit text length
+                        "relevance": str(relevance)[:200],  # Limit relevance explanation length
+                    })
+            key_excerpts = validated_excerpts
+        else:
+            key_excerpts = []
+
         return Theme(
             conversation_id=conv.id,
             product_area=product_area,
@@ -854,6 +1124,11 @@ The user was on a page related to **{url_matched_product_area}** when they start
             matched_existing=matched_existing,
             match_reasoning=match_reasoning,
             match_confidence=result.get("match_confidence", ""),
+            # Smart Digest fields (Issue #144)
+            diagnostic_summary=diagnostic_summary,
+            key_excerpts=key_excerpts,
+            context_used=context_used if isinstance(context_used, list) else [],
+            context_gaps=context_gaps if isinstance(context_gaps, list) else [],
         )
 
     def extract_batch(

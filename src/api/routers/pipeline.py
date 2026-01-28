@@ -521,11 +521,13 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
             # Use COALESCE(stage2_type, stage1_type) as the final classification
             # New classifier types: product_issue, feature_request, how_to_question
             # Issue #139: Include customer_digest from support_insights for better theme quality
+            # Issue #144: Include full_conversation for richer theme extraction
             cur.execute("""
                 SELECT c.id, c.created_at, c.source_body, c.source_url,
                        COALESCE(c.stage2_type, c.stage1_type) as issue_type,
                        c.sentiment, c.priority, c.churn_risk,
-                       c.support_insights->>'customer_digest' as customer_digest
+                       c.support_insights->>'customer_digest' as customer_digest,
+                       c.support_insights->>'full_conversation' as full_conversation
                 FROM conversations c
                 JOIN pipeline_runs pr ON pr.id = %s
                 WHERE (c.pipeline_run_id = %s
@@ -549,9 +551,10 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
         "how_to_question": "product_question",
     }
 
-    # Convert to Conversation objects (Issue #139: also track customer_digest separately)
+    # Convert to Conversation objects (Issue #139/#144: track customer_digest and full_conversation)
     conversations = []
     conversation_digests = {}  # Map conv_id -> customer_digest
+    conversation_full_texts = {}  # Map conv_id -> full_conversation (Issue #144)
     for row in rows:
         if stop_checker():
             logger.info(f"Run {run_id}: Stop signal received during theme extraction")
@@ -577,6 +580,10 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
         if row.get("customer_digest"):
             conversation_digests[row["id"]] = row["customer_digest"]
 
+        # Store full_conversation for passing to theme extractor (Issue #144)
+        if row.get("full_conversation"):
+            conversation_full_texts[row["id"]] = row["full_conversation"]
+
     logger.info(f"Run {run_id}: Extracting themes from {len(conversations)} conversations")
 
     # Extract themes
@@ -593,8 +600,18 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
 
         try:
             # Issue #139: Pass customer_digest if available for better theme extraction
+            # Issue #144: Pass full_conversation for richer theme extraction with
+            # diagnostic_summary and key_excerpts. Fallback chain:
+            # full_conversation -> customer_digest -> source_body
             customer_digest = conversation_digests.get(conv.id)
-            theme = extractor.extract(conv, strict_mode=False, customer_digest=customer_digest)
+            full_conversation = conversation_full_texts.get(conv.id)
+            theme = extractor.extract(
+                conv,
+                strict_mode=False,
+                customer_digest=customer_digest,
+                full_conversation=full_conversation,
+                use_full_conversation=True,  # Issue #144: Use full conversation when available
+            )
             all_themes.append(theme)
 
             # Track if new theme was created
@@ -623,9 +640,12 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
         )
 
     # Store themes in database with pipeline_run_id and quality metadata
-    from psycopg2.extras import Json
+    from psycopg2.extras import Json, execute_values
     from src.theme_quality import check_theme_quality
     from src.utils.normalize import normalize_product_area, canonicalize_component
+
+    # R3 fix: Accumulate context_usage_logs for batch insert (avoid N+1 queries)
+    context_logs_to_insert: list[tuple] = []
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -644,13 +664,15 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                 product_area_normalized = normalize_product_area(product_area_raw)
                 component_canonical = canonicalize_component(component_raw, product_area_normalized)
 
+                # Insert theme with Smart Digest fields (Issue #144)
                 cur.execute("""
                     INSERT INTO themes (
                         conversation_id, product_area, component, issue_signature,
                         user_intent, symptoms, affected_flow, root_cause_hypothesis,
                         pipeline_run_id, quality_score, quality_details,
-                        product_area_raw, component_raw
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        product_area_raw, component_raw,
+                        diagnostic_summary, key_excerpts
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (conversation_id) DO UPDATE SET
                         product_area = EXCLUDED.product_area,
                         component = EXCLUDED.component,
@@ -664,7 +686,10 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                         quality_details = EXCLUDED.quality_details,
                         product_area_raw = EXCLUDED.product_area_raw,
                         component_raw = EXCLUDED.component_raw,
+                        diagnostic_summary = EXCLUDED.diagnostic_summary,
+                        key_excerpts = EXCLUDED.key_excerpts,
                         extracted_at = NOW()
+                    RETURNING id
                 """, (
                     theme.conversation_id,
                     product_area_normalized,
@@ -679,7 +704,39 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                     Json(quality_result.details),
                     product_area_raw,
                     component_raw,
+                    theme.diagnostic_summary or "",
+                    Json(theme.key_excerpts or []),
                 ))
+
+                # Collect context usage for batch insert (Issue #144, R3 fix)
+                # Only collect if context_used or context_gaps are non-empty
+                theme_id_row = cur.fetchone()
+                theme_id = theme_id_row[0] if theme_id_row else None
+
+                if theme_id and (theme.context_used or theme.context_gaps):
+                    context_logs_to_insert.append((
+                        theme_id,
+                        theme.conversation_id,
+                        run_id,
+                        Json(theme.context_used or []),
+                        Json(theme.context_gaps or []),
+                    ))
+
+            # R3 fix: Batch insert context_usage_logs after theme loop
+            if context_logs_to_insert:
+                execute_values(
+                    cur,
+                    """
+                    INSERT INTO context_usage_logs (
+                        theme_id, conversation_id, pipeline_run_id,
+                        context_used, context_gaps
+                    ) VALUES %s
+                    """,
+                    context_logs_to_insert,
+                )
+                logger.debug(
+                    f"Run {run_id}: Batch inserted {len(context_logs_to_insert)} context usage logs"
+                )
 
     logger.info(
         f"Run {run_id}: Extracted {len(high_quality_themes)} themes ({themes_new} new), "
