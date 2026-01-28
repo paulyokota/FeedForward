@@ -516,22 +516,61 @@ EOF
   fi
 
   done=$(${PYTHON_BIN} - <<EOF
-score = float("${current_score}")
-over = int("${current_over_merge}")
+import json
+from pathlib import Path
+
+best_path = Path("${OUTPUT_DIR}/best.json")
+best = json.loads(best_path.read_text()) if best_path.exists() else json.loads(Path("${OUTPUT_DIR}/metrics.json").read_text())
+best_summary = best.get("summary", {})
+
+score = float(best_summary.get("score", -999))
+over = int(best_summary.get("over_merge_count", 999))
+groups_scored = int(best_summary.get("groups_scored", 0))
+pack_recall = float(best_summary.get("pack_recall_avg", 0.0))
+
 target = float("${TARGET_SCORE}")
 max_over = int("${MAX_OVER_MERGE}")
 min_groups = int("${MIN_GROUPS_SCORED}")
 min_recall = float("${MIN_PACK_RECALL}")
-groups_scored = int("${current_groups_scored}")
-pack_recall = float("${current_pack_recall}")
-second_ok = int("${second_score_delta_ok}")
-max_over_ok = int("${max_over_ok}")
-best_second = float("${best_second_score}")
-current_second = float("${second_score:- -999}")
+min_cov = float("${MIN_PACK_RECALL_COVERAGE}")
+min_pack = float("${MIN_PACK_RECALL_PER_PACK}")
+
 coverage_ok = (groups_scored >= min_groups and pack_recall >= min_recall)
-pack_coverage_ok = int("${pack_coverage_ok}")
-second_best_ok = 1 if current_second >= best_second else 0
-print("1" if (score >= target and over <= max_over and coverage_ok and second_ok == 1 and max_over_ok == 1 and second_best_ok == 1 and pack_coverage_ok == 1) else "0")
+
+def pack_coverage_ok(metrics):
+    pack_recall = metrics.get("pack_recall", {})
+    if not pack_recall:
+        return False
+    good = sum(1 for v in pack_recall.values() if v >= min_pack)
+    return (good / max(1, len(pack_recall))) >= min_cov
+
+primary_cov_ok = pack_coverage_ok(best)
+
+sec_ok = True
+if "${SECOND_MANIFEST}":
+    sec_best_path = Path("${SECOND_OUTPUT_DIR}/best.json")
+    if not sec_best_path.exists():
+        sec_ok = False
+    else:
+        sec = json.loads(sec_best_path.read_text())
+        sec_summary = sec.get("summary", {})
+        sec_score = float(sec_summary.get("score", -999))
+        sec_over = int(sec_summary.get("over_merge_count", 999))
+        sec_groups = int(sec_summary.get("groups_scored", 0))
+        sec_recall = float(sec_summary.get("pack_recall_avg", 0.0))
+        sec_cov = pack_coverage_ok(sec)
+        baseline = json.loads(Path("${SECOND_BASELINE}").read_text()).get("summary", {})
+        baseline_score = float(baseline.get("score", -999))
+        min_delta = float("${SECOND_MIN_SCORE_DELTA}")
+        sec_ok = (
+            sec_score >= baseline_score + min_delta
+            and sec_over <= max_over
+            and sec_groups >= min_groups
+            and sec_recall >= min_recall
+            and sec_cov
+        )
+
+print("1" if (score >= target and over <= max_over and coverage_ok and primary_cov_ok and sec_ok) else "0")
 EOF
 )
   if [ "${done}" = "1" ]; then

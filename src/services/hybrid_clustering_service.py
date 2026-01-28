@@ -325,7 +325,7 @@ class HybridClusteringService:
 
         # Post-processing: merge small groups with same facet key for narrow product areas
         if use_product_area:
-            hybrid_clusters = self._merge_narrow_facet_groups(hybrid_clusters)
+            hybrid_clusters = self._merge_narrow_facet_groups(hybrid_clusters, themes_by_conv=themes_by_conv)
 
         # Sort by size descending for consistent ordering
         hybrid_clusters.sort(key=lambda c: (-c.size, c.cluster_id))
@@ -336,6 +336,7 @@ class HybridClusteringService:
         self,
         clusters: List[HybridCluster],
         min_size: int = 3,
+        themes_by_conv: Optional[Dict[str, dict]] = None,
     ) -> List[HybridCluster]:
         """
         Merge groups with same (direction, product_area) for narrow product areas.
@@ -362,6 +363,22 @@ class HybridClusteringService:
         # Single-pack product areas - safe to merge ALL directions
         # These product areas only have one issue type regardless of direction
         single_pack_product_areas = {"billing"}
+
+        # Component families within mixed product areas
+        # Maps (product_area, component) -> family name for grouping
+        # Components in the same family can be merged safely
+        # NOTE: 'auth' is mixed (has both pinterest_connection_failure and
+        # account_instagram_connection_guidance) so it's excluded
+        component_families = {
+            # account PA has 3 distinct packs, separable by component
+            ("account", "oauth"): "account_oauth",
+            ("account", "instagram_publishing"): "account_oauth",
+            ("account", "multi_account"): "account_multi",
+            ("account", "multi_profile_dashboard"): "account_multi",
+            ("account", "instagram_connection"): "account_instagram",
+            ("account", "instagram"): "account_instagram",
+            ("account", "instagram_facebook_connection"): "account_instagram",
+        }
 
         # Parse facet key from cluster_id
         def get_facet_key(cluster: HybridCluster) -> Tuple[str, str]:
@@ -415,9 +432,69 @@ class HybridClusteringService:
                         )
                     )
 
-        # Second: process remaining clusters by facet key
+        # Second: merge by component family for mixed product areas
+        # This groups conversations by their component family within mixed PAs
+        if themes_by_conv:
+            by_family: Dict[str, List[HybridCluster]] = defaultdict(list)
+            family_conv_ids: Dict[str, List[str]] = defaultdict(list)
+
+            for cluster in clusters:
+                if id(cluster) in processed_clusters:
+                    continue
+                facet_key = get_facet_key(cluster)
+                product_area = facet_key[1]
+
+                # Check if any conversation in this cluster has a component family
+                for cid in cluster.conversation_ids:
+                    theme = themes_by_conv.get(cid, {})
+                    component = theme.get("component", "")
+                    family = component_families.get((product_area, component))
+                    if family:
+                        family_conv_ids[family].append(cid)
+
+            # Create merged groups for each family with enough conversations
+            for family, conv_ids in family_conv_ids.items():
+                if len(conv_ids) >= min_size and len(conv_ids) <= 8:
+                    # Find which clusters contributed to this family
+                    contributing_clusters = []
+                    for cluster in clusters:
+                        if id(cluster) in processed_clusters:
+                            continue
+                        cluster_family_convs = [
+                            cid for cid in cluster.conversation_ids if cid in conv_ids
+                        ]
+                        if cluster_family_convs:
+                            contributing_clusters.append(cluster)
+
+                    if contributing_clusters:
+                        # Mark these clusters as processed (we'll extract family convs)
+                        for c in contributing_clusters:
+                            processed_clusters.add(id(c))
+
+                        emb_clusters = sorted(set(c.embedding_cluster for c in contributing_clusters))
+                        merged_id = f"merged_emb_{'_'.join(str(e) for e in emb_clusters)}_family_{family}"
+
+                        action_counts: Dict[str, int] = defaultdict(int)
+                        for c in contributing_clusters:
+                            action_counts[c.action_type] += c.size
+                        action_type = max(action_counts.items(), key=lambda x: x[1])[0]
+                        main_direction = max(
+                            (get_facet_key(c)[0], c.size) for c in contributing_clusters
+                        )[0]
+
+                        merged_clusters.append(
+                            HybridCluster(
+                                cluster_id=merged_id,
+                                embedding_cluster=emb_clusters[0],
+                                action_type=action_type,
+                                direction=main_direction,
+                                conversation_ids=conv_ids,
+                            )
+                        )
+
+        # Third: process remaining clusters by facet key
         for facet_key, group_clusters in by_facet_key.items():
-            # Skip clusters already processed in single-pack merging
+            # Skip clusters already processed in single-pack or component-family merging
             remaining = [c for c in group_clusters if id(c) not in processed_clusters]
             if not remaining:
                 continue
