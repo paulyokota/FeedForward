@@ -43,8 +43,6 @@ from db.classification_storage import (
 from db.connection import create_pipeline_run
 from db.models import PipelineRun
 from adapters import CodaAdapter, IntercomAdapter, NormalizedConversation
-from resolution_analyzer import ResolutionAnalyzer
-from knowledge_extractor import KnowledgeExtractor
 from digest_extractor import (
     extract_customer_messages,
     build_customer_digest,
@@ -53,20 +51,6 @@ from digest_extractor import (
 
 # Async OpenAI client for parallel processing
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# Module-level instances (stateless analyzers, cheap to initialize)
-_resolution_analyzer = ResolutionAnalyzer()
-_knowledge_extractor = KnowledgeExtractor()
-
-
-def get_resolution_analyzer() -> ResolutionAnalyzer:
-    """Get the ResolutionAnalyzer instance."""
-    return _resolution_analyzer
-
-
-def get_knowledge_extractor() -> KnowledgeExtractor:
-    """Get the KnowledgeExtractor instance."""
-    return _knowledge_extractor
 
 
 def extract_support_messages(raw_conversation: dict) -> List[str]:
@@ -92,72 +76,6 @@ def extract_support_messages(raw_conversation: dict) -> List[str]:
                 support_messages.append(body)
 
     return support_messages
-
-
-def detect_resolution_signal(support_messages: List[str]) -> Optional[Dict[str, Any]]:
-    """
-    Detect resolution patterns using ResolutionAnalyzer.
-
-    Returns simple format for backward compatibility with Stage 2 prompt.
-    Full analysis available via get_full_resolution_analysis().
-    """
-    if not support_messages:
-        return None
-
-    analyzer = get_resolution_analyzer()
-    analysis = analyzer.analyze_conversation(support_messages)
-
-    if analysis["primary_action"]:
-        return {
-            "action": analysis["primary_action"]["action"],
-            "signal": analysis["primary_action"]["matched_keyword"]
-        }
-    return None
-
-
-def get_full_resolution_analysis(support_messages: List[str]) -> Dict[str, Any]:
-    """Get full resolution analysis for storage in support_insights."""
-    if not support_messages:
-        return {}
-
-    analyzer = get_resolution_analyzer()
-    analysis = analyzer.analyze_conversation(support_messages)
-
-    return {
-        "primary_action": analysis["primary_action"]["action"] if analysis["primary_action"] else None,
-        "action_category": analysis["primary_action"]["action_category"] if analysis["primary_action"] else None,
-        "all_actions": [a["action"] for a in analysis["all_actions"]],
-        "categories": analysis["categories"],
-        "suggested_type": analysis["suggested_type"],
-        "matched_keywords": [a["matched_keyword"] for a in analysis["all_actions"]]
-    }
-
-
-def extract_knowledge(
-    customer_message: str,
-    support_messages: List[str],
-    conversation_type: str
-) -> Dict[str, Any]:
-    """Extract knowledge for storage in support_insights."""
-    if not support_messages:
-        return {}
-
-    extractor = get_knowledge_extractor()
-    knowledge = extractor.extract_from_conversation(
-        customer_message,
-        support_messages,
-        conversation_type
-    )
-
-    # Return subset of fields for storage (exclude verbose terminology)
-    return {
-        "root_cause": knowledge["root_cause"],
-        "solution_provided": knowledge["solution_provided"],
-        "product_mentions": knowledge["product_mentions"],
-        "feature_mentions": knowledge["feature_mentions"],
-        "self_service_gap": knowledge["self_service_gap"],
-        "gap_evidence": knowledge["gap_evidence"]
-    }
 
 
 def classify_conversation(
@@ -191,10 +109,10 @@ def classify_conversation(
 
     # Stage 2: Refined analysis (only if support responded)
     stage2_result = None
-    resolution_signal = None
 
     # Initialize support_insights with customer digest and full conversation (always present)
     # Issue #144: full_conversation enables richer theme extraction
+    # Issue #146: resolution_analysis and knowledge removed - now extracted by LLM in theme extractor
     support_insights = {
         "customer_digest": customer_digest,
         "full_conversation": full_conversation_text,
@@ -203,14 +121,9 @@ def classify_conversation(
     if support_messages:
         print(f"  [Stage 2] Found {len(support_messages)} support messages, running refined analysis...")
 
-        # Detect resolution signal first
-        resolution_signal = detect_resolution_signal(support_messages)
-        resolution_action = resolution_signal.get("action") if resolution_signal else None
-
         stage2_result = classify_stage2(
             customer_message=parsed.source_body,
             support_messages=support_messages,
-            resolution_signal=resolution_action,
             source_url=parsed.source_url,
             stage1_type=stage1_result["conversation_type"]
         )
@@ -220,23 +133,10 @@ def classify_conversation(
         else:
             print(f"    → Classification confirmed: {stage2_result['conversation_type']} ({stage2_result['confidence']} confidence)")
 
-        if resolution_signal:
-            print(f"    → Resolution detected: {resolution_signal['signal']}")
-
-        # Add resolution analysis and knowledge to support_insights
-        final_type = stage2_result.get("conversation_type", stage1_result["conversation_type"])
-        support_insights["resolution_analysis"] = get_full_resolution_analysis(support_messages)
-        support_insights["knowledge"] = extract_knowledge(
-            parsed.source_body,
-            support_messages,
-            final_type
-        )
-
     return {
         "stage1_result": stage1_result,
         "stage2_result": stage2_result,
         "support_messages": support_messages,
-        "resolution_signal": resolution_signal,
         "support_insights": support_insights,
     }
 
@@ -303,7 +203,6 @@ async def classify_stage2_async(
     customer_message: str,
     support_messages: List[str],
     stage1_type: str,
-    resolution_signal: str = None,
     source_url: str = None,
     semaphore: asyncio.Semaphore = None,
 ) -> Dict[str, Any]:
@@ -314,11 +213,6 @@ async def classify_stage2_async(
         # Format support messages
         support_text = "\n\n".join([f"[Support {i+1}]: {msg[:1000]}" for i, msg in enumerate(support_messages[:5])])
 
-        # Resolution context
-        resolution_context = ""
-        if resolution_signal:
-            resolution_context = f"**Resolution Signal:** {resolution_signal}"
-
         prompt = STAGE2_PROMPT.format(
             source_type="conversation",
             source_url=source_url or "N/A",
@@ -327,7 +221,6 @@ async def classify_stage2_async(
             support_messages=support_text,
             help_article_context="",
             shortcut_story_context="",
-            resolution_context=resolution_context,
         )
 
         try:
@@ -390,7 +283,8 @@ async def classify_conversation_async(
     """
     Run two-stage classification on a conversation (async version).
 
-    Includes resolution analysis and knowledge extraction when support messages exist.
+    Issue #146: Resolution analysis and knowledge extraction removed from classification.
+    These are now handled by LLM in theme extractor for better coverage.
     """
     support_messages = extract_support_messages(raw_conversation)
 
@@ -409,39 +303,25 @@ async def classify_conversation_async(
         semaphore=semaphore,
     )
 
-    # Stage 2 + Resolution + Knowledge (only if support responded)
+    # Stage 2 (only if support responded)
     stage2_result = None
-    resolution_signal = None
 
     # Initialize support_insights with customer digest and full conversation (always present)
     # Issue #144: full_conversation enables richer theme extraction
+    # Issue #146: resolution_analysis and knowledge removed - now extracted by LLM in theme extractor
     support_insights = {
         "customer_digest": customer_digest,
         "full_conversation": full_conversation_text,
     }
 
     if support_messages:
-        # Resolution analysis (fast, no semaphore needed)
-        resolution_signal = detect_resolution_signal(support_messages)
-        resolution_action = resolution_signal.get("action") if resolution_signal else None
-
         # Stage 2 LLM (slow, needs semaphore)
         stage2_result = await classify_stage2_async(
             customer_message=parsed.source_body,
             support_messages=support_messages,
             stage1_type=stage1_result["conversation_type"],
-            resolution_signal=resolution_action,
             source_url=parsed.source_url,
             semaphore=semaphore,
-        )
-
-        # Add resolution analysis and knowledge to support_insights
-        final_type = stage2_result.get("conversation_type", stage1_result["conversation_type"])
-        support_insights["resolution_analysis"] = get_full_resolution_analysis(support_messages)
-        support_insights["knowledge"] = extract_knowledge(
-            parsed.source_body,
-            support_messages,
-            final_type
         )
 
     return {
@@ -455,7 +335,6 @@ async def classify_conversation_async(
         "stage1_result": stage1_result,
         "stage2_result": stage2_result,
         "support_messages": support_messages,
-        "resolution_signal": resolution_signal,
         "support_insights": support_insights,
     }
 

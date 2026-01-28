@@ -88,6 +88,7 @@ Important:
 # than the raw excerpt. The template uses {context_section} to insert either:
 # - Smart Digest fields (preferred): diagnostic_summary + key_excerpts
 # - Fallback: raw excerpt when smart digest is not available
+# Resolution fields (Issue #146) are added when available.
 CONVERSATION_TEMPLATE = '''### Conversation {index}
 - **ID**: {conversation_id}
 - **User Intent**: {user_intent}
@@ -95,7 +96,7 @@ CONVERSATION_TEMPLATE = '''### Conversation {index}
 - **Affected Flow**: {affected_flow}
 - **Product Area**: {product_area}
 - **Component**: {component}
-{context_section}'''
+{context_section}{resolution_section}'''
 
 
 # Template for Smart Digest context (diagnostic_summary only)
@@ -109,6 +110,12 @@ KEY_EXCERPTS_TEMPLATE = '''- **Key Excerpts**:
 
 # Template for fallback excerpt (when smart digest is not available)
 EXCERPT_TEMPLATE = '''- **Excerpt**: "{excerpt}"'''
+
+# Template for resolution context (Issue #146)
+# Only included when resolution fields are available
+RESOLUTION_TEMPLATE = '''- **Root Cause**: {root_cause}
+- **Resolution**: {resolution_action} ({resolution_category})
+- **Solution Given**: {solution_provided}'''
 
 
 def _format_key_excerpts(key_excerpts: list[dict]) -> str:
@@ -136,12 +143,42 @@ def _format_key_excerpts(key_excerpts: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _format_resolution_section(conv: dict) -> str:
+    """
+    Format resolution context section for a conversation.
+
+    Args:
+        conv: Conversation dict with optional resolution fields:
+            - root_cause, resolution_action, resolution_category, solution_provided
+
+    Returns:
+        Formatted resolution section string, or empty string if no resolution data
+    """
+    # Issue #146: Add resolution context when available
+    root_cause = conv.get("root_cause", "")
+    resolution_action = conv.get("resolution_action", "")
+    resolution_category = conv.get("resolution_category", "")
+    solution_provided = conv.get("solution_provided", "")
+
+    # Only include resolution section if at least one field has content
+    if not any([root_cause, resolution_action, solution_provided]):
+        return ""
+
+    return "\n" + RESOLUTION_TEMPLATE.format(
+        root_cause=root_cause or "N/A",
+        resolution_action=resolution_action or "N/A",
+        resolution_category=resolution_category or "N/A",
+        solution_provided=solution_provided or "N/A",
+    )
+
+
 def format_conversations_for_review(conversations: list[dict]) -> str:
     """
     Format a list of conversation contexts for the PM review prompt.
 
     Uses Smart Digest fields (diagnostic_summary, key_excerpts) when available,
     falling back to raw excerpt for older data without smart digest.
+    Resolution fields (Issue #146) are included when available.
 
     Args:
         conversations: List of dicts with keys:
@@ -149,6 +186,8 @@ def format_conversations_for_review(conversations: list[dict]) -> str:
               product_area, component
             - Smart Digest (preferred): diagnostic_summary, key_excerpts
             - Fallback: excerpt
+            - Resolution (Issue #146): root_cause, resolution_action,
+              resolution_category, solution_provided
 
     Returns:
         Formatted string for inclusion in PM_REVIEW_PROMPT
@@ -177,6 +216,9 @@ def format_conversations_for_review(conversations: list[dict]) -> str:
             excerpt = conv.get("excerpt", "")[:MAX_EXCERPT_TEXT_LENGTH]
             context_section = EXCERPT_TEMPLATE.format(excerpt=excerpt)
 
+        # Build resolution section (Issue #146)
+        resolution_section = _format_resolution_section(conv)
+
         formatted.append(CONVERSATION_TEMPLATE.format(
             index=i,
             conversation_id=conv.get("conversation_id", "unknown"),
@@ -186,6 +228,7 @@ def format_conversations_for_review(conversations: list[dict]) -> str:
             product_area=conv.get("product_area", "N/A"),
             component=conv.get("component", "N/A"),
             context_section=context_section,
+            resolution_section=resolution_section,
         ))
     return "\n".join(formatted)
 

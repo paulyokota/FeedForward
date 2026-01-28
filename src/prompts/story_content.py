@@ -277,6 +277,10 @@ class StoryContentInput:
     affected_flow: Optional[str] = None
     excerpts: Optional[List[str]] = None  # Conversation excerpts for additional context
 
+    # Issue #146: Resolution context from LLM extraction
+    root_cause: Optional[str] = None  # LLM hypothesis for WHY this happened
+    solution_provided: Optional[str] = None  # Solution given by support (if resolved)
+
 
 def format_user_intents(user_intents: List[str]) -> str:
     """
@@ -318,6 +322,8 @@ def format_optional_context(
     root_cause_hypothesis: Optional[str] = None,
     affected_flow: Optional[str] = None,
     excerpts: Optional[List[str]] = None,
+    root_cause: Optional[str] = None,
+    solution_provided: Optional[str] = None,
 ) -> str:
     """
     Format optional context sections for the prompt.
@@ -326,6 +332,8 @@ def format_optional_context(
         root_cause_hypothesis: Technical hypothesis about root cause
         affected_flow: The user journey/flow affected
         excerpts: Conversation excerpts for additional context
+        root_cause: LLM-extracted root cause hypothesis (Issue #146)
+        solution_provided: LLM-extracted solution from support (Issue #146)
 
     Returns:
         Formatted optional context string
@@ -337,6 +345,15 @@ def format_optional_context(
 
     if affected_flow:
         sections.append(f"### Affected User Flow\n{affected_flow}")
+
+    # Issue #146: Add resolution context when available
+    if root_cause or solution_provided:
+        resolution_parts = []
+        if root_cause:
+            resolution_parts.append(f"**Root Cause Analysis**: {root_cause}")
+        if solution_provided:
+            resolution_parts.append(f"**Current Workaround**: {solution_provided}")
+        sections.append("### Resolution Context\n" + "\n".join(resolution_parts))
 
     if excerpts:
         # Truncate and limit excerpts
@@ -365,11 +382,13 @@ def build_story_content_prompt(content_input: StoryContentInput) -> str:
     # Format symptoms
     symptoms_formatted = format_symptoms(content_input.symptoms)
 
-    # Format optional context
+    # Format optional context (including Issue #146 resolution fields)
     optional_context = format_optional_context(
         root_cause_hypothesis=content_input.root_cause_hypothesis,
         affected_flow=content_input.affected_flow,
         excerpts=content_input.excerpts,
+        root_cause=content_input.root_cause,
+        solution_provided=content_input.solution_provided,
     )
 
     return STORY_CONTENT_PROMPT.format(

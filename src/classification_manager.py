@@ -15,25 +15,20 @@ from pathlib import Path
 
 from classifier_stage1 import classify_stage1
 from classifier_stage2 import classify_stage2, should_update_classification
-from resolution_analyzer import ResolutionAnalyzer
-from knowledge_extractor import KnowledgeExtractor
 
 
 class ClassificationManager:
-    """Manages the complete two-stage classification workflow."""
+    """Manages the complete two-stage classification workflow.
 
-    def __init__(
-        self,
-        patterns_path: Optional[Path] = None
-    ):
-        """
-        Initialize the classification manager.
+    Note:
+        Issue #146: ResolutionAnalyzer and KnowledgeExtractor removed.
+        Resolution and knowledge extraction now handled by LLM in theme extractor
+        for better coverage (14% -> >80% target).
+    """
 
-        Args:
-            patterns_path: Optional path to resolution patterns JSON
-        """
-        self.resolution_analyzer = ResolutionAnalyzer(patterns_path)
-        self.knowledge_extractor = KnowledgeExtractor()
+    def __init__(self):
+        """Initialize the classification manager."""
+        pass  # No longer needs resolution_analyzer or knowledge_extractor
 
     def classify_new_conversation(
         self,
@@ -85,8 +80,11 @@ class ClassificationManager:
         """
         Stage 2: Refined classification with full conversation context.
 
-        Use this after support has responded to get accurate classification
-        and extract knowledge for continuous learning.
+        Use this after support has responded to get accurate classification.
+
+        Note:
+            Issue #146: Resolution analysis and knowledge extraction removed.
+            These are now handled by LLM in theme extractor for better coverage.
 
         Args:
             customer_message: The customer's initial message
@@ -101,31 +99,18 @@ class ClassificationManager:
                 "confidence": str,
                 "changed_from_stage_1": bool,
                 "stage1_type": str,
-                "resolution_analysis": dict,
-                "knowledge": dict,
                 "update_recommended": bool
             }
         """
-        # Analyze resolution actions
-        resolution_analysis = self.resolution_analyzer.analyze_conversation(support_messages)
-
-        # Run Stage 2 classification with resolution signal
+        # Run Stage 2 classification
         stage2_result = classify_stage2(
             customer_message,
             support_messages,
-            resolution_signal=resolution_analysis.get("primary_action"),
             source_url=source_url
         )
 
         # Check if classification should be updated
         update_recommended = should_update_classification(stage1_result, stage2_result)
-
-        # Extract knowledge for continuous learning
-        knowledge = self.knowledge_extractor.extract_from_conversation(
-            customer_message,
-            support_messages,
-            stage2_result["conversation_type"]
-        )
 
         return {
             "stage": 2,
@@ -134,8 +119,6 @@ class ClassificationManager:
             "changed_from_stage_1": stage2_result["changed_from_stage_1"],
             "stage1_type": stage1_result["conversation_type"],
             "disambiguation_level": stage2_result.get("disambiguation_level"),
-            "resolution_analysis": resolution_analysis,
-            "knowledge": knowledge,
             "update_recommended": update_recommended
         }
 
@@ -251,15 +234,8 @@ def main():
         print(f"  Type: {result['stage2']['conversation_type']}")
         print(f"  Confidence: {result['stage2']['confidence']}")
         print(f"  Changed: {result['stage2']['changed_from_stage_1']}")
-
-        if result['stage2']['resolution_analysis']['primary_action']:
-            action = result['stage2']['resolution_analysis']['primary_action']
-            print(f"  Resolution: {action['action']} ({action['category']})")
-
-        knowledge = result['stage2']['knowledge']
-        print(f"  Root cause: {knowledge.get('root_cause')}")
-        print(f"  Solution: {knowledge.get('solution_provided')}")
-        print(f"  Self-service gap: {knowledge.get('self_service_gap')}")
+        # Note: Resolution analysis and knowledge extraction removed in Issue #146
+        # These are now handled by LLM in theme extractor
 
     print(f"\nFinal Type: {result['final_type']}")
     print(f"Updated from Stage 1: {result['classification_updated']}")

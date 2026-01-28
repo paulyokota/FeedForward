@@ -1001,6 +1001,421 @@ class TestEdgeCases:
 
 
 # =============================================================================
+# Test: Issue #146 - Resolution Fields
+# =============================================================================
+
+class TestThemeDataclassResolutionFields:
+    """Tests for Issue #146 resolution fields in Theme dataclass."""
+
+    def test_theme_dataclass_has_resolution_fields(self):
+        """Theme dataclass should have all 4 resolution fields."""
+        theme = Theme(
+            conversation_id="test_123",
+            product_area="pinterest_publishing",
+            component="scheduler",
+            issue_signature="test_signature",
+            user_intent="Test intent",
+            symptoms=["symptom1"],
+            affected_flow="Test flow",
+            root_cause_hypothesis="Test hypothesis",
+        )
+
+        # Verify new fields exist with correct defaults
+        assert hasattr(theme, "resolution_action")
+        assert hasattr(theme, "root_cause")
+        assert hasattr(theme, "solution_provided")
+        assert hasattr(theme, "resolution_category")
+
+        # Verify default values are empty strings
+        assert theme.resolution_action == ""
+        assert theme.root_cause == ""
+        assert theme.solution_provided == ""
+        assert theme.resolution_category == ""
+
+    def test_theme_dataclass_with_resolution_values(self):
+        """Theme dataclass should accept resolution field values."""
+        theme = Theme(
+            conversation_id="test_123",
+            product_area="pinterest_publishing",
+            component="scheduler",
+            issue_signature="test_signature",
+            user_intent="Test intent",
+            symptoms=["symptom1"],
+            affected_flow="Test flow",
+            root_cause_hypothesis="Test hypothesis",
+            resolution_action="provided_workaround",
+            root_cause="OAuth token expired after password change.",
+            solution_provided="User reconnected Pinterest account to refresh token.",
+            resolution_category="workaround",
+        )
+
+        assert theme.resolution_action == "provided_workaround"
+        assert theme.root_cause == "OAuth token expired after password change."
+        assert theme.solution_provided == "User reconnected Pinterest account to refresh token."
+        assert theme.resolution_category == "workaround"
+
+    def test_theme_to_dict_includes_resolution_fields(self):
+        """Theme.to_dict() should include resolution fields."""
+        theme = Theme(
+            conversation_id="test_123",
+            product_area="test",
+            component="test",
+            issue_signature="test",
+            user_intent="test",
+            symptoms=[],
+            affected_flow="test",
+            root_cause_hypothesis="test",
+            resolution_action="escalated_to_engineering",
+            root_cause="API bug causing data loss.",
+            solution_provided="",
+            resolution_category="escalation",
+        )
+
+        d = theme.to_dict()
+
+        assert "resolution_action" in d
+        assert "root_cause" in d
+        assert "solution_provided" in d
+        assert "resolution_category" in d
+        assert d["resolution_action"] == "escalated_to_engineering"
+        assert d["resolution_category"] == "escalation"
+
+
+class TestResolutionFieldExtraction:
+    """Tests for resolution field extraction in extract() method."""
+
+    @pytest.fixture
+    def mock_llm_response_with_resolution(self):
+        """Mock LLM response including resolution fields."""
+        return {
+            "product_area": "pinterest_publishing",
+            "component": "scheduler",
+            "issue_signature": "pinterest_board_permission_denied",
+            "matched_existing": True,
+            "match_reasoning": "Matched existing theme",
+            "match_confidence": "high",
+            "user_intent": "User wants to schedule pins",
+            "symptoms": ["Pins not posting", "Error 403"],
+            "affected_flow": "Scheduler -> Pinterest API",
+            "root_cause_hypothesis": "OAuth token issue",
+            "diagnostic_summary": "User reports permission error.",
+            "key_excerpts": [],
+            "context_used": [],
+            "context_gaps": [],
+            # Resolution fields
+            "resolution_action": "provided_workaround",
+            "root_cause": "OAuth token invalidated after password change.",
+            "solution_provided": "Reconnected Pinterest account via Settings.",
+            "resolution_category": "workaround",
+        }
+
+    @patch.object(ThemeExtractor, "product_context", new_callable=lambda: property(lambda self: "Test context"))
+    @patch.object(ThemeExtractor, "get_research_context", return_value="")
+    @patch.object(ThemeExtractor, "get_existing_signatures", return_value=[])
+    @patch("theme_extractor.OpenAI")
+    def test_extract_returns_resolution_fields(
+        self,
+        mock_openai_class,
+        mock_get_signatures,
+        mock_research,
+        mock_context,
+        sample_conversation,
+        mock_llm_response_with_resolution,
+    ):
+        """extract() should return Theme with resolution fields populated."""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.return_value.choices = [
+            MagicMock(message=MagicMock(content=json.dumps(mock_llm_response_with_resolution)))
+        ]
+
+        extractor = ThemeExtractor(use_vocabulary=False)
+
+        theme = extractor.extract(
+            sample_conversation,
+            canonicalize=False,
+        )
+
+        # Verify resolution fields
+        assert theme.resolution_action == "provided_workaround"
+        assert theme.root_cause == "OAuth token invalidated after password change."
+        assert theme.solution_provided == "Reconnected Pinterest account via Settings."
+        assert theme.resolution_category == "workaround"
+
+    @patch.object(ThemeExtractor, "product_context", new_callable=lambda: property(lambda self: "Test context"))
+    @patch.object(ThemeExtractor, "get_research_context", return_value="")
+    @patch.object(ThemeExtractor, "get_existing_signatures", return_value=[])
+    @patch("theme_extractor.OpenAI")
+    def test_extract_handles_null_resolution_fields(
+        self,
+        mock_openai_class,
+        mock_get_signatures,
+        mock_research,
+        mock_context,
+        sample_conversation,
+    ):
+        """extract() should handle null/None resolution fields gracefully."""
+        llm_response = {
+            "product_area": "test",
+            "component": "test",
+            "issue_signature": "test_sig",
+            "matched_existing": False,
+            "match_reasoning": "test",
+            "match_confidence": "high",
+            "user_intent": "test",
+            "symptoms": [],
+            "affected_flow": "test",
+            "root_cause_hypothesis": "test",
+            # Resolution fields as null
+            "resolution_action": None,
+            "root_cause": None,
+            "solution_provided": None,
+            "resolution_category": None,
+        }
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.return_value.choices = [
+            MagicMock(message=MagicMock(content=json.dumps(llm_response)))
+        ]
+
+        extractor = ThemeExtractor(use_vocabulary=False)
+        theme = extractor.extract(sample_conversation, canonicalize=False)
+
+        # Should have empty string defaults
+        assert theme.resolution_action == ""
+        assert theme.root_cause == ""
+        assert theme.solution_provided == ""
+        assert theme.resolution_category == ""
+
+    @patch.object(ThemeExtractor, "product_context", new_callable=lambda: property(lambda self: "Test context"))
+    @patch.object(ThemeExtractor, "get_research_context", return_value="")
+    @patch.object(ThemeExtractor, "get_existing_signatures", return_value=[])
+    @patch("theme_extractor.OpenAI")
+    def test_extract_handles_missing_resolution_fields(
+        self,
+        mock_openai_class,
+        mock_get_signatures,
+        mock_research,
+        mock_context,
+        sample_conversation,
+    ):
+        """extract() should handle missing resolution fields (backward compatibility)."""
+        llm_response = {
+            "product_area": "test",
+            "component": "test",
+            "issue_signature": "test_sig",
+            "matched_existing": False,
+            "match_reasoning": "test",
+            "match_confidence": "high",
+            "user_intent": "test",
+            "symptoms": [],
+            "affected_flow": "test",
+            "root_cause_hypothesis": "test",
+            # No resolution fields at all
+        }
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.return_value.choices = [
+            MagicMock(message=MagicMock(content=json.dumps(llm_response)))
+        ]
+
+        extractor = ThemeExtractor(use_vocabulary=False)
+        theme = extractor.extract(sample_conversation, canonicalize=False)
+
+        # Should have empty string defaults
+        assert theme.resolution_action == ""
+        assert theme.root_cause == ""
+        assert theme.solution_provided == ""
+        assert theme.resolution_category == ""
+
+
+class TestResolutionFieldValidation:
+    """Tests for resolution field enum validation."""
+
+    @patch.object(ThemeExtractor, "product_context", new_callable=lambda: property(lambda self: "Test context"))
+    @patch.object(ThemeExtractor, "get_research_context", return_value="")
+    @patch.object(ThemeExtractor, "get_existing_signatures", return_value=[])
+    @patch("theme_extractor.OpenAI")
+    def test_invalid_resolution_action_defaults_to_empty(
+        self,
+        mock_openai_class,
+        mock_get_signatures,
+        mock_research,
+        mock_context,
+        sample_conversation,
+    ):
+        """Invalid resolution_action values should default to empty string."""
+        llm_response = {
+            "product_area": "test",
+            "component": "test",
+            "issue_signature": "test_sig",
+            "matched_existing": False,
+            "match_reasoning": "test",
+            "match_confidence": "high",
+            "user_intent": "test",
+            "symptoms": [],
+            "affected_flow": "test",
+            "root_cause_hypothesis": "test",
+            "resolution_action": "invalid_action_value",  # Invalid
+            "resolution_category": "workaround",
+        }
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.return_value.choices = [
+            MagicMock(message=MagicMock(content=json.dumps(llm_response)))
+        ]
+
+        extractor = ThemeExtractor(use_vocabulary=False)
+        theme = extractor.extract(sample_conversation, canonicalize=False)
+
+        # Invalid value should be rejected
+        assert theme.resolution_action == ""
+        # Valid value should be kept
+        assert theme.resolution_category == "workaround"
+
+    @patch.object(ThemeExtractor, "product_context", new_callable=lambda: property(lambda self: "Test context"))
+    @patch.object(ThemeExtractor, "get_research_context", return_value="")
+    @patch.object(ThemeExtractor, "get_existing_signatures", return_value=[])
+    @patch("theme_extractor.OpenAI")
+    def test_invalid_resolution_category_defaults_to_empty(
+        self,
+        mock_openai_class,
+        mock_get_signatures,
+        mock_research,
+        mock_context,
+        sample_conversation,
+    ):
+        """Invalid resolution_category values should default to empty string."""
+        llm_response = {
+            "product_area": "test",
+            "component": "test",
+            "issue_signature": "test_sig",
+            "matched_existing": False,
+            "match_reasoning": "test",
+            "match_confidence": "high",
+            "user_intent": "test",
+            "symptoms": [],
+            "affected_flow": "test",
+            "root_cause_hypothesis": "test",
+            "resolution_action": "provided_workaround",
+            "resolution_category": "not_a_valid_category",  # Invalid
+        }
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.return_value.choices = [
+            MagicMock(message=MagicMock(content=json.dumps(llm_response)))
+        ]
+
+        extractor = ThemeExtractor(use_vocabulary=False)
+        theme = extractor.extract(sample_conversation, canonicalize=False)
+
+        # Invalid value should be rejected
+        assert theme.resolution_category == ""
+        # Valid value should be kept
+        assert theme.resolution_action == "provided_workaround"
+
+    @patch.object(ThemeExtractor, "product_context", new_callable=lambda: property(lambda self: "Test context"))
+    @patch.object(ThemeExtractor, "get_research_context", return_value="")
+    @patch.object(ThemeExtractor, "get_existing_signatures", return_value=[])
+    @patch("theme_extractor.OpenAI")
+    def test_all_valid_resolution_actions_accepted(
+        self,
+        mock_openai_class,
+        mock_get_signatures,
+        mock_research,
+        mock_context,
+        sample_conversation,
+    ):
+        """All valid resolution_action values should be accepted."""
+        valid_actions = [
+            "escalated_to_engineering",
+            "provided_workaround",
+            "user_education",
+            "manual_intervention",
+            "no_resolution",
+        ]
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        extractor = ThemeExtractor(use_vocabulary=False)
+
+        for action in valid_actions:
+            llm_response = {
+                "product_area": "test",
+                "component": "test",
+                "issue_signature": "test_sig",
+                "matched_existing": False,
+                "match_reasoning": "test",
+                "match_confidence": "high",
+                "user_intent": "test",
+                "symptoms": [],
+                "affected_flow": "test",
+                "root_cause_hypothesis": "test",
+                "resolution_action": action,
+            }
+
+            mock_client.chat.completions.create.return_value.choices = [
+                MagicMock(message=MagicMock(content=json.dumps(llm_response)))
+            ]
+
+            theme = extractor.extract(sample_conversation, canonicalize=False)
+            assert theme.resolution_action == action, f"Failed for action: {action}"
+
+    @patch.object(ThemeExtractor, "product_context", new_callable=lambda: property(lambda self: "Test context"))
+    @patch.object(ThemeExtractor, "get_research_context", return_value="")
+    @patch.object(ThemeExtractor, "get_existing_signatures", return_value=[])
+    @patch("theme_extractor.OpenAI")
+    def test_all_valid_resolution_categories_accepted(
+        self,
+        mock_openai_class,
+        mock_get_signatures,
+        mock_research,
+        mock_context,
+        sample_conversation,
+    ):
+        """All valid resolution_category values should be accepted."""
+        valid_categories = [
+            "escalation",
+            "workaround",
+            "education",
+            "self_service_gap",
+            "unresolved",
+        ]
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        extractor = ThemeExtractor(use_vocabulary=False)
+
+        for category in valid_categories:
+            llm_response = {
+                "product_area": "test",
+                "component": "test",
+                "issue_signature": "test_sig",
+                "matched_existing": False,
+                "match_reasoning": "test",
+                "match_confidence": "high",
+                "user_intent": "test",
+                "symptoms": [],
+                "affected_flow": "test",
+                "root_cause_hypothesis": "test",
+                "resolution_category": category,
+            }
+
+            mock_client.chat.completions.create.return_value.choices = [
+                MagicMock(message=MagicMock(content=json.dumps(llm_response)))
+            ]
+
+            theme = extractor.extract(sample_conversation, canonicalize=False)
+            assert theme.resolution_category == category, f"Failed for category: {category}"
+
+
+# =============================================================================
 # Run tests standalone
 # =============================================================================
 
