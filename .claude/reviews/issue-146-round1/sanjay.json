@@ -1,0 +1,76 @@
+{
+  "reviewer": "sanjay",
+  "round": 1,
+  "issue": "146",
+  "branch": "feature/146-llm-resolution-extraction",
+  "date": "2026-01-28",
+  "status": "needs_work",
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "medium",
+      "category": "input_validation",
+      "title": "Insufficient Sanitization of LLM Output Before Database Storage",
+      "file": "src/theme_extractor.py",
+      "lines": "1138-1169",
+      "cwe": "CWE-20",
+      "description": "The LLM-extracted fields root_cause and solution_provided are stored without length validation or sanitization. Could lead to data integrity issues or second-order XSS if rendered in web contexts.",
+      "recommendation": "Add length validation/truncation (root_cause ~500 chars, solution_provided ~1000 chars) and consider sanitizing special characters.",
+      "requires_code_change": true
+    },
+    {
+      "id": "S2",
+      "severity": "medium",
+      "category": "prompt_injection",
+      "title": "Prompt Injection Risk via Customer Conversation Content",
+      "file": "src/theme_extractor.py",
+      "lines": "999-1014",
+      "cwe": "CWE-94",
+      "description": "Customer conversation content is inserted directly into LLM prompts without sanitization. Extracted fields then flow to PM review and story content prompts, creating a prompt injection chain.",
+      "recommendation": "Implement basic prompt injection detection patterns, consider structured output formats with clear delimiters, add monitoring for anomalous outputs.",
+      "requires_code_change": true
+    },
+    {
+      "id": "S3",
+      "severity": "low",
+      "category": "implementation",
+      "title": "Missing Database Transaction Rollback for Partial Failures",
+      "file": "src/theme_tracker.py",
+      "lines": "246-270",
+      "cwe": "CWE-390",
+      "description": "The store_theme() method does not persist the new resolution fields (resolution_action, root_cause, solution_provided, resolution_category). LLM-extracted data is computed but not stored.",
+      "recommendation": "Complete the implementation to persist resolution fields or document why they are intentionally not persisted in theme_tracker.py.",
+      "requires_code_change": true
+    },
+    {
+      "id": "S4",
+      "severity": "low",
+      "category": "sensitive_data",
+      "title": "Sensitive Data Exposure in Logging",
+      "file": "src/theme_extractor.py",
+      "lines": "1071-1078",
+      "cwe": "CWE-532",
+      "description": "Customer message content (potentially containing PII) is logged in the theme extraction decision logging.",
+      "recommendation": "Consider logging a hash or sanitized version of the message, ensure log retention policies account for PII.",
+      "requires_code_change": false
+    }
+  ],
+  "passed_checks": [
+    "sql_injection",
+    "command_injection",
+    "ssrf",
+    "authentication",
+    "json_mode_enforcement",
+    "parameterized_queries"
+  ],
+  "summary": {
+    "total_issues": 4,
+    "critical": 0,
+    "high": 0,
+    "medium": 2,
+    "low": 2,
+    "info": 0
+  },
+  "verdict": "NEEDS_WORK",
+  "blocking_issues": ["S1", "S2"]
+}

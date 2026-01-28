@@ -184,6 +184,11 @@ class ThemeAggregate:
     ticket_excerpts: list[str] = None  # Excerpts already in ticket
     affected_conversations: list[str] = None
     source_counts: dict = None  # {"intercom": N, "coda": M}
+    # Resolution fields (Issue #146) - from LLM extraction
+    sample_resolution_action: Optional[str] = None
+    sample_root_cause: Optional[str] = None
+    sample_solution_provided: Optional[str] = None
+    sample_resolution_category: Optional[str] = None
 
     def to_theme(self) -> Theme:
         """Convert aggregate to Theme for formatting."""
@@ -197,6 +202,11 @@ class ThemeAggregate:
             affected_flow=self.sample_affected_flow,
             root_cause_hypothesis=self.sample_root_cause_hypothesis,
             extracted_at=self.last_seen_at,
+            # Resolution fields (Issue #146)
+            resolution_action=self.sample_resolution_action or "",
+            root_cause=self.sample_root_cause or "",
+            solution_provided=self.sample_solution_provided or "",
+            resolution_category=self.sample_resolution_category or "",
         )
 
 
@@ -243,13 +253,15 @@ class ThemeTracker:
                     product_area_normalized = normalize_product_area(product_area_raw)
                     component_canonical = canonicalize_component(component_raw, product_area_normalized)
 
+                    # Issue #146: Include resolution fields from LLM extraction
                     cur.execute(
                         """
                         INSERT INTO themes (
                             conversation_id, product_area, component, issue_signature,
                             user_intent, symptoms, affected_flow, root_cause_hypothesis,
-                            extracted_at, data_source, product_area_raw, component_raw
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            extracted_at, data_source, product_area_raw, component_raw,
+                            resolution_action, root_cause, solution_provided, resolution_category
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (conversation_id) DO NOTHING
                         RETURNING id
                         """,
@@ -266,6 +278,10 @@ class ThemeTracker:
                             data_source,
                             product_area_raw,
                             component_raw,
+                            theme.resolution_action or None,
+                            theme.root_cause or None,
+                            theme.solution_provided or None,
+                            theme.resolution_category or None,
                         )
                     )
                     result = cur.fetchone()

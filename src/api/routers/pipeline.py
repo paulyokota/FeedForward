@@ -664,15 +664,16 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                 product_area_normalized = normalize_product_area(product_area_raw)
                 component_canonical = canonicalize_component(component_raw, product_area_normalized)
 
-                # Insert theme with Smart Digest fields (Issue #144)
+                # Insert theme with Smart Digest fields (Issue #144) and resolution fields (Issue #146)
                 cur.execute("""
                     INSERT INTO themes (
                         conversation_id, product_area, component, issue_signature,
                         user_intent, symptoms, affected_flow, root_cause_hypothesis,
                         pipeline_run_id, quality_score, quality_details,
                         product_area_raw, component_raw,
-                        diagnostic_summary, key_excerpts
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        diagnostic_summary, key_excerpts,
+                        resolution_action, root_cause, solution_provided, resolution_category
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (conversation_id) DO UPDATE SET
                         product_area = EXCLUDED.product_area,
                         component = EXCLUDED.component,
@@ -688,6 +689,10 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                         component_raw = EXCLUDED.component_raw,
                         diagnostic_summary = EXCLUDED.diagnostic_summary,
                         key_excerpts = EXCLUDED.key_excerpts,
+                        resolution_action = EXCLUDED.resolution_action,
+                        root_cause = EXCLUDED.root_cause,
+                        solution_provided = EXCLUDED.solution_provided,
+                        resolution_category = EXCLUDED.resolution_category,
                         extracted_at = NOW()
                     RETURNING id
                 """, (
@@ -706,6 +711,10 @@ def _run_theme_extraction(run_id: int, stop_checker: Callable[[], bool]) -> dict
                     component_raw,
                     theme.diagnostic_summary or "",
                     Json(theme.key_excerpts or []),
+                    theme.resolution_action or None,
+                    theme.root_cause or None,
+                    theme.solution_provided or None,
+                    theme.resolution_category or None,
                 ))
 
                 # Collect context usage for batch insert (Issue #144, R3 fix)

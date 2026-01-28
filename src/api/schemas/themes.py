@@ -31,6 +31,12 @@ class ThemeAggregate(BaseModel):
     sample_affected_flow: Optional[str] = None
     sample_root_cause_hypothesis: Optional[str] = None
 
+    # Resolution fields (Issue #146) - from LLM extraction
+    sample_resolution_action: Optional[str] = None
+    sample_root_cause: Optional[str] = None
+    sample_solution_provided: Optional[str] = None
+    sample_resolution_category: Optional[str] = None
+
     # Ticket status
     ticket_created: bool = False
     ticket_id: Optional[str] = None

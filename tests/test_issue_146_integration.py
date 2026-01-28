@@ -845,6 +845,92 @@ class TestResolutionFieldEdgeCases:
 
 
 # =============================================================================
+# DATABASE PERSISTENCE TESTS (R1/Q1/Q3 - verify INSERT includes resolution fields)
+# =============================================================================
+
+
+class TestDatabasePersistenceOfResolutionFields:
+    """
+    Tests that resolution fields are properly included in INSERT statements.
+
+    These tests address review issues R1, Q1, Q3 which identified that the
+    INSERT statements in pipeline.py and theme_tracker.py were missing the
+    4 resolution fields.
+    """
+
+    def test_pipeline_insert_includes_resolution_fields(self):
+        """Verify pipeline.py INSERT statement has resolution_action, root_cause, etc."""
+        import inspect
+        from src.api.routers import pipeline
+
+        # Get the source code of the module
+        source = inspect.getsource(pipeline)
+
+        # Check that the INSERT INTO themes statement includes resolution fields
+        assert "resolution_action" in source, "pipeline.py INSERT missing resolution_action"
+        assert "root_cause," in source or "root_cause =" in source, "pipeline.py INSERT missing root_cause"
+        assert "solution_provided" in source, "pipeline.py INSERT missing solution_provided"
+        assert "resolution_category" in source, "pipeline.py INSERT missing resolution_category"
+
+    def test_theme_tracker_insert_includes_resolution_fields(self):
+        """Verify theme_tracker.py INSERT statement has resolution fields."""
+        import inspect
+        from src import theme_tracker
+
+        # Get the source code of the module
+        source = inspect.getsource(theme_tracker)
+
+        # Check that the INSERT INTO themes statement includes resolution fields
+        assert "resolution_action" in source, "theme_tracker.py INSERT missing resolution_action"
+        assert "root_cause," in source, "theme_tracker.py INSERT missing root_cause"
+        assert "solution_provided" in source, "theme_tracker.py INSERT missing solution_provided"
+        assert "resolution_category" in source, "theme_tracker.py INSERT missing resolution_category"
+
+    def test_theme_aggregate_has_resolution_fields(self):
+        """Verify ThemeAggregate dataclass includes resolution fields for DB reads."""
+        from src.theme_tracker import ThemeAggregate
+        import dataclasses
+
+        field_names = {f.name for f in dataclasses.fields(ThemeAggregate)}
+
+        assert "sample_resolution_action" in field_names
+        assert "sample_root_cause" in field_names
+        assert "sample_solution_provided" in field_names
+        assert "sample_resolution_category" in field_names
+
+    def test_theme_aggregate_to_theme_passes_resolution_fields(self):
+        """Verify ThemeAggregate.to_theme() passes through resolution fields."""
+        from src.theme_tracker import ThemeAggregate
+        from datetime import datetime
+
+        aggregate = ThemeAggregate(
+            issue_signature="test-sig",
+            product_area="scheduling",
+            component="pins",
+            occurrence_count=5,
+            first_seen_at=datetime.now(),
+            last_seen_at=datetime.now(),
+            sample_user_intent="User wants to schedule",
+            sample_symptoms=["Error shown"],
+            sample_affected_flow="scheduling",
+            sample_root_cause_hypothesis="API issue",
+            # Resolution fields
+            sample_resolution_action="provided_workaround",
+            sample_root_cause="OAuth token expired",
+            sample_solution_provided="Reconnect Pinterest account",
+            sample_resolution_category="workaround",
+        )
+
+        theme = aggregate.to_theme()
+
+        # Verify resolution fields are passed through
+        assert theme.resolution_action == "provided_workaround"
+        assert theme.root_cause == "OAuth token expired"
+        assert theme.solution_provided == "Reconnect Pinterest account"
+        assert theme.resolution_category == "workaround"
+
+
+# =============================================================================
 # Run tests
 # =============================================================================
 
