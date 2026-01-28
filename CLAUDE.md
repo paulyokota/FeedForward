@@ -258,6 +258,7 @@ GitHub Issues: https://github.com/paulyokota/FeedForward/issues
 - Use `gh issue list` to view open issues
 - Use `gh issue create` to create new issues
 - Reference issues in commits: `Fixes #N` or `Closes #N`
+- **Push with `git push`** (not `git push origin main` - explicit branch name triggers safety gate)
 
 ---
 
