@@ -8,6 +8,7 @@ Supports hybrid pipeline with classification, theme extraction, and story creati
 import asyncio
 import logging
 from collections import defaultdict
+from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from typing import Callable, List, Optional
 
@@ -732,12 +733,12 @@ async def _run_theme_extraction_async(
                     component_canonical,
                     theme.issue_signature,
                     theme.user_intent,
-                    theme.symptoms,
+                    Json(theme.symptoms) if theme.symptoms else None,
                     theme.affected_flow,
                     theme.root_cause_hypothesis,
                     run_id,
-                    quality_result.score,
-                    Json(quality_result.to_dict()),
+                    quality_result.quality_score,
+                    Json(asdict(quality_result)),
                     product_area_raw,
                     component_raw,
                     theme.diagnostic_summary,
