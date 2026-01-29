@@ -755,6 +755,7 @@ async def _run_theme_extraction_async(
                 if theme.context_used or theme.context_gaps:
                     context_logs_to_insert.append((
                         theme_id,
+                        theme.conversation_id,
                         run_id,
                         Json(theme.context_used) if theme.context_used else None,
                         Json(theme.context_gaps) if theme.context_gaps else None,
@@ -765,7 +766,7 @@ async def _run_theme_extraction_async(
                 execute_values(
                     cur,
                     """
-                    INSERT INTO context_usage_logs (theme_id, pipeline_run_id, context_used, context_gaps)
+                    INSERT INTO context_usage_logs (theme_id, conversation_id, pipeline_run_id, context_used, context_gaps)
                     VALUES %s
                     ON CONFLICT (theme_id) DO UPDATE SET
                         context_used = EXCLUDED.context_used,
