@@ -10,6 +10,40 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**LLM Resolution Extraction (2026-01-28)** - Issue #146, PR #149:
+
+- **Replaced regex-based extractors** (`ResolutionAnalyzer`, `KnowledgeExtractor`) with LLM extraction
+  - Old regex approach had only 8-14% coverage
+  - New LLM extraction integrated directly into theme extractor
+- **New resolution fields in Theme dataclass** (`src/theme_extractor.py`):
+  - `resolution_action`: What action support took (escalated, workaround, education, etc.)
+  - `root_cause`: 1-sentence LLM hypothesis for why the issue occurred
+  - `solution_provided`: What solution was given (if resolved)
+  - `resolution_category`: Category for analytics (escalation, workaround, education, etc.)
+- **Database migration 018** (`src/db/migrations/018_llm_resolution_fields.sql`):
+  - Added 4 new columns to `themes` table
+  - Index on `resolution_category` for analytics queries
+- **Resolution data flows through pipeline**:
+  - PM Review receives resolution context
+  - Story Creation includes root cause and solution
+- **39 integration tests** including DB persistence regression guards
+- **5-personality review converged** in 2 rounds (R1/Q1 bug caught and fixed)
+
+### Changed
+
+**Output Style Updates (2026-01-28)**:
+
+- `senior-bestie.md`: Added "not folksy" clarification (no holler, y'all, reckon)
+- New `science-communicator.md` style: Transparent reasoning, earned conclusions, epistemic honesty
+
+### Removed
+
+- `src/resolution_analyzer.py` - Replaced by LLM extraction
+- `src/knowledge_extractor.py` - Replaced by LLM extraction
+- `config/resolution_patterns.json` - No longer needed
+
+---
+
 **Smart Digest for Theme Extraction (2026-01-28)** - Issue #144:
 
 - **Full conversation input to theme extraction** (`src/theme_extractor.py`):

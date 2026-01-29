@@ -16,8 +16,48 @@
 **Pipeline Quality v1: COMPLETE** ✅
 **Customer-Only Digest: COMPLETE** ✅
 **Smart Digest (Issue #144): COMPLETE** ✅
+**LLM Resolution Extraction (Issue #146): COMPLETE** ✅
 
-## Latest: Smart Digest Validation & Doc Cleanup (2026-01-28 evening)
+## Latest: Issue #146 LLM Resolution Extraction (2026-01-28)
+
+**Issue #146 Closed** - Replaced regex-based resolution extraction with LLM extraction
+
+### What Shipped
+
+| Change    | Description                                                                                                 |
+| --------- | ----------------------------------------------------------------------------------------------------------- |
+| Deleted   | `ResolutionAnalyzer`, `KnowledgeExtractor`, `resolution_patterns.json` (8-14% coverage)                     |
+| Added     | 4 resolution fields to Theme: `resolution_action`, `root_cause`, `solution_provided`, `resolution_category` |
+| Wired     | Fields flow through PM Review → Story Creation                                                              |
+| Migration | 018: Added columns to `themes` table                                                                        |
+| Tests     | 39 integration tests (including DB persistence regression guards)                                           |
+
+### Review Process
+
+5-personality review converged in 2 rounds:
+
+- **Round 1**: Reginald/Quinn found critical bug (resolution fields not persisted to DB)
+- **Fix**: Added fields to INSERT statements in `pipeline.py` and `theme_tracker.py`
+- **Round 2**: All 5 reviewers APPROVE, 0 new issues
+
+### Database Cleaned
+
+Prior to running pipeline with new extraction, all analysis data was wiped:
+
+- Themes: 529 → 0
+- Stories: 23 → 0
+- Conversations: 1424 preserved
+
+### Follow-up Items (Non-blocking)
+
+- M1: Consolidate resolution enum definitions
+- M2: Add docstrings to resolution fields
+- S1/S2: Consider length limits and prompt injection hardening (LOW severity)
+- Functional test recommended before production deployment
+
+---
+
+## Previous: Smart Digest Validation & Doc Cleanup (2026-01-28 evening)
 
 **Pipeline Run 93** - First clean test run after Issue #144 merge
 
