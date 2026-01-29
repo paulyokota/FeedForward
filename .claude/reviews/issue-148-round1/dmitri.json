@@ -1,0 +1,58 @@
+{
+  "reviewer": "dmitri",
+  "focus": "simplicity_pragmatism_yagni",
+  "issue": 148,
+  "round": 1,
+  "verdict": "minor_issues",
+  "summary": "Core approach is sound and solves the real problem. Async pattern using thread pools is pragmatic. Clean up dead code before merging.",
+  "findings": [
+    {
+      "id": "D1",
+      "severity": "MEDIUM",
+      "category": "dead_code",
+      "title": "Legacy function kept for reference",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "779-1037",
+      "description": "_run_theme_extraction_legacy() is a 258-line function marked as 'kept for reference/rollback'. Git history preserves old code - no need to keep dead code in the codebase. The legacy function has identical database insertion logic that will drift if the async version is updated.",
+      "recommendation": "Delete _run_theme_extraction_legacy(). Git is your backup."
+    },
+    {
+      "id": "D2",
+      "severity": "LOW",
+      "category": "dead_code",
+      "title": "Unused async_client property",
+      "file": "src/theme_extractor.py",
+      "lines": "624,655-659",
+      "description": "The _async_client field and async_client property are lazy-initialized but never actually used. The extract_async() method wraps the sync extract() in asyncio.to_thread() instead of using native async OpenAI calls.",
+      "recommendation": "Remove _async_client and async_client property since they are unused, OR actually use native async OpenAI calls in extract_async()."
+    },
+    {
+      "id": "D3",
+      "severity": "LOW",
+      "category": "over_configuration",
+      "title": "Concurrency parameter exposed when default is optimal",
+      "file": "src/api/schemas/pipeline.py",
+      "lines": "39-44",
+      "description": "Concurrency parameter is exposed in the API schema with max=20, default=20. The description says it's 'capped at 20 for OpenAI rate limits'. If 20 is always the right answer, why expose it? Users can only reduce throughput, not improve it.",
+      "recommendation": "Consider making this a fixed internal constant rather than an API parameter."
+    },
+    {
+      "id": "D4",
+      "severity": "LOW",
+      "category": "unnecessary_abstraction",
+      "title": "Async wrapper adds indirection",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "1280-1312",
+      "description": "_run_pipeline_async() is an async wrapper that immediately calls anyio.to_thread.run_sync() to run _run_pipeline_task() in a thread. The cancellable=True flag does add value for graceful shutdown, but the docstring could be clearer about this purpose.",
+      "recommendation": "Clarify in the docstring why the wrapper exists (graceful cancellation) rather than just 'keeping event loop responsive'."
+    }
+  ],
+  "counts": {
+    "critical": 0,
+    "high": 0,
+    "medium": 1,
+    "low": 3,
+    "total": 4
+  },
+  "blockers": false
+}

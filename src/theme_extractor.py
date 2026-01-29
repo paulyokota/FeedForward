@@ -8,6 +8,7 @@ tracked over time, and turned into actionable tickets.
 import json
 import logging
 import os
+import threading
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from pathlib import Path
@@ -631,6 +632,8 @@ class ThemeExtractor:
         # Tracks signatures created during this extraction session so new
         # signatures can be canonicalized against both DB and current batch
         self._session_signatures: dict[str, dict] = {}
+        # Lock for thread-safe access to _session_signatures (Issue #148)
+        self._session_lock = threading.Lock()
 
     @property
     def vocabulary(self):
@@ -707,9 +710,13 @@ class ThemeExtractor:
 
         signatures = []
 
+        # Thread-safe: copy session signatures under lock (Issue #148)
+        with self._session_lock:
+            session_sigs_snapshot = dict(self._session_signatures)
+
         # Include session signatures first (higher priority for current batch)
-        if include_session and self._session_signatures:
-            for sig, info in self._session_signatures.items():
+        if include_session and session_sigs_snapshot:
+            for sig, info in session_sigs_snapshot.items():
                 if product_area is None or info.get("product_area") == product_area:
                     signatures.append({
                         "signature": sig,
@@ -741,9 +748,9 @@ class ThemeExtractor:
                         """)
 
                     # Add DB signatures, avoiding duplicates with session
-                    session_sigs = set(self._session_signatures.keys())
+                    session_sig_keys = set(session_sigs_snapshot.keys())
                     for row in cur.fetchall():
-                        if row[0] not in session_sigs:
+                        if row[0] not in session_sig_keys:
                             signatures.append({
                                 "signature": row[0],
                                 "product_area": row[1],
@@ -760,19 +767,22 @@ class ThemeExtractor:
         Add a signature to the current session cache.
 
         Called after extracting a theme to track signatures for batch canonicalization.
+        Thread-safe: uses lock for concurrent access (Issue #148).
         """
-        if signature in self._session_signatures:
-            self._session_signatures[signature]["count"] += 1
-        else:
-            self._session_signatures[signature] = {
-                "product_area": product_area,
-                "component": component,
-                "count": 1,
-            }
+        with self._session_lock:
+            if signature in self._session_signatures:
+                self._session_signatures[signature]["count"] += 1
+            else:
+                self._session_signatures[signature] = {
+                    "product_area": product_area,
+                    "component": component,
+                    "count": 1,
+                }
 
     def clear_session_signatures(self) -> None:
         """Clear the session signature cache. Call at start of new extraction batch."""
-        self._session_signatures.clear()
+        with self._session_lock:
+            self._session_signatures.clear()
 
     def get_embedding(self, text: str) -> list[float]:
         """Get embedding for a text string."""
@@ -1211,6 +1221,45 @@ The user was on a page related to **{url_matched_product_area}** when they start
             root_cause=root_cause,
             solution_provided=solution_provided,
             resolution_category=resolution_category,
+        )
+
+    async def extract_async(
+        self,
+        conv: Conversation,
+        canonicalize: bool = True,
+        use_embedding: bool = False,
+        auto_add_to_vocabulary: bool = False,
+        strict_mode: bool = False,
+        customer_digest: Optional[str] = None,
+        full_conversation: Optional[str] = None,
+        use_full_conversation: bool = True,
+    ) -> Theme:
+        """
+        Async version of extract() for parallel processing (Issue #148).
+
+        Runs the sync extract() method in a thread pool to enable concurrent
+        theme extraction without blocking the event loop.
+
+        Same parameters and behavior as extract().
+
+        Note: This uses asyncio.to_thread rather than native async OpenAI calls
+        to minimize code duplication and risk. The sync extract() method is
+        well-tested; wrapping it preserves that reliability while enabling
+        parallelism through semaphore-controlled concurrency.
+        """
+        import asyncio
+
+        # Run sync extract in thread pool
+        return await asyncio.to_thread(
+            self.extract,
+            conv,
+            canonicalize=canonicalize,
+            use_embedding=use_embedding,
+            auto_add_to_vocabulary=auto_add_to_vocabulary,
+            strict_mode=strict_mode,
+            customer_digest=customer_digest,
+            full_conversation=full_conversation,
+            use_full_conversation=use_full_conversation,
         )
 
     def extract_batch(

@@ -1,0 +1,89 @@
+{
+  "reviewer": "Maya",
+  "persona": "The Maintainer",
+  "issue": 148,
+  "round": 1,
+  "date": "2026-01-28",
+  "verdict": "APPROVE_WITH_CHANGES",
+  "summary": "The async implementation correctly solves the event loop blocking problem, but code duplication between async and legacy theme extraction creates maintenance risk.",
+  "findings": [
+    {
+      "id": "M1",
+      "severity": "MEDIUM",
+      "category": "magic_numbers",
+      "title": "Magic Number 20 for Concurrency Lacks Contextual Documentation",
+      "file": "src/api/schemas/pipeline.py",
+      "lines": "39-44",
+      "description": "The concurrency limit of 20 is repeated in multiple places with only a brief comment about OpenAI rate limits. A developer in 6 months won't understand why 20 specifically, or what happens if rate limits change.",
+      "recommendation": "Create a constant with documentation explaining the rate limit calculation (e.g., MAX_OPENAI_CONCURRENCY = 20 with comment about 500 RPM tier-1 limit)."
+    },
+    {
+      "id": "M2",
+      "severity": "HIGH",
+      "category": "code_duplication",
+      "title": "Parallel and Sequential Functions Have Inconsistent DB Insert Logic",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "656-747, 921-1026",
+      "description": "The async _run_theme_extraction_async and legacy _run_theme_extraction_legacy have nearly identical but subtly different DB insert code for context_usage_logs. Different tuple structures (4 vs 5 columns), different null handling, creates rollback trap.",
+      "recommendation": "Extract the DB insert logic into a shared helper function that both can call. The legacy function claims to be 'kept for reference/rollback' but inconsistent implementations make rollback dangerous."
+    },
+    {
+      "id": "M3",
+      "severity": "MEDIUM",
+      "category": "code_organization",
+      "title": "The extract_one Inner Function Captures Too Much Scope",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "593-624",
+      "description": "The extract_one inner async function captures conversation_digests, conversation_full_texts, extractor, and stop_checker from outer scope. Makes function harder to test in isolation and understand at a glance.",
+      "recommendation": "Either pass captured variables as explicit parameters, move to module-level with explicit dependencies, or add a docstring noting the captured variables."
+    },
+    {
+      "id": "M4",
+      "severity": "LOW",
+      "category": "documentation",
+      "title": "Docstring for _run_pipeline_async References Old Behavior",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "1280-1312",
+      "description": "The docstring focuses on what was wrong with the previous implementation rather than what the function does. Historical context may confuse future developers.",
+      "recommendation": "Lead with what the function DOES, not what it replaced. Keep historical note but don't make it the focus."
+    },
+    {
+      "id": "M5",
+      "severity": "MEDIUM",
+      "category": "documentation",
+      "title": "extract_async Docstring Mentions Code Duplication Without Explaining Why",
+      "file": "src/theme_extractor.py",
+      "lines": "1224-1261",
+      "description": "The docstring explains that asyncio.to_thread is used 'to minimize code duplication and risk' but doesn't explain what risk or when native async would be considered.",
+      "recommendation": "Add a TODO or note about future considerations: what would trigger migration to native async, what the specific risks are."
+    },
+    {
+      "id": "M6",
+      "severity": "LOW",
+      "category": "type_hints",
+      "title": "Missing Type Hints on Return Values in Pipeline Functions",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "1315-1322",
+      "description": "_run_pipeline_task has no return type hint, making it unclear that it returns None intentionally.",
+      "recommendation": "Add explicit -> None return type hints to signal intentional void return."
+    },
+    {
+      "id": "M7",
+      "severity": "LOW",
+      "category": "code_organization",
+      "title": "The _finalize_stopped_run Signature Has Many Optional Parameters",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "1596-1610",
+      "description": "Function signature has 6 parameters with 4 Optional dicts. Will become unwieldy as more phases are added.",
+      "recommendation": "Consider a dataclass or TypedDict to bundle phase results (e.g., PipelinePhaseResults)."
+    }
+  ],
+  "issue_counts": {
+    "critical": 0,
+    "high": 1,
+    "medium": 3,
+    "low": 3,
+    "total": 7
+  },
+  "test_coverage_notes": "The implementation adds new async code paths (extract_async, _run_theme_extraction_async, _run_pipeline_async). Verify tests exist for: semaphore limiting concurrency, graceful stop during parallel extraction, error handling when one extraction fails but others succeed."
+}

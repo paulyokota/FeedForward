@@ -1,0 +1,99 @@
+{
+  "reviewer": "Reginald",
+  "reviewer_role": "The Architect",
+  "issue": "#148",
+  "issue_title": "Pipeline blocks event loop during theme extraction",
+  "review_date": "2026-01-28",
+  "verdict": "CONDITIONAL_PASS",
+  "files_reviewed": [
+    "src/api/routers/pipeline.py",
+    "src/api/schemas/pipeline.py",
+    "src/theme_extractor.py",
+    "tests/test_issue_148_event_loop.py",
+    "tests/test_issue_148_integration.py"
+  ],
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "HIGH",
+      "category": "Thread Safety",
+      "title": "Shared mutable state in ThemeExtractor without synchronization",
+      "description": "The _session_signatures dictionary in ThemeExtractor is accessed from multiple threads concurrently during parallel theme extraction. The check-then-modify pattern in add_session_signature() is not atomic and can lead to race conditions.",
+      "locations": [
+        {
+          "file": "src/theme_extractor.py",
+          "line": 634,
+          "description": "_session_signatures dict definition"
+        },
+        {
+          "file": "src/theme_extractor.py",
+          "lines": [772, 773, 775, 776, 777, 778, 779],
+          "description": "Non-atomic check-then-modify in add_session_signature()"
+        },
+        {
+          "file": "src/api/routers/pipeline.py",
+          "lines": [591, 603],
+          "description": "Multiple threads calling extract_async on shared extractor"
+        }
+      ],
+      "impact": "Race condition can cause lost count updates or dict corruption under high concurrency",
+      "recommendation": "Add threading.Lock around _session_signatures access in add_session_signature() and get_existing_signatures()"
+    },
+    {
+      "id": "R2",
+      "severity": "MEDIUM",
+      "category": "Error Handling",
+      "title": "Extraction failures silently return None without traceback or failure count",
+      "description": "When extract_one() catches an exception, it logs a warning without exc_info=True and returns None. The failure count is not tracked or returned in the result dict, making it difficult to observe extraction failure rates.",
+      "locations": [
+        {
+          "file": "src/api/routers/pipeline.py",
+          "lines": [622, 623, 624],
+          "description": "Exception handler in extract_one() catches and discards failures"
+        },
+        {
+          "file": "src/api/routers/pipeline.py",
+          "lines": [751, 752, 753, 754, 755, 756],
+          "description": "Result dict does not include extraction_failures count"
+        }
+      ],
+      "impact": "Silent data loss, difficult debugging, no visibility into extraction failure rate",
+      "recommendation": "1. Add exc_info=True to logger.warning, 2. Track extraction_failures count, 3. Include in result dict"
+    }
+  ],
+  "passed_checks": [
+    {
+      "category": "Async Patterns",
+      "description": "anyio.to_thread.run_sync correctly used for blocking pipeline task"
+    },
+    {
+      "category": "Async Patterns",
+      "description": "asyncio.run() correctly used inside thread (no existing event loop)"
+    },
+    {
+      "category": "Async Patterns",
+      "description": "asyncio.to_thread correctly used in extract_async()"
+    },
+    {
+      "category": "Concurrency",
+      "description": "Semaphore correctly limits concurrent extractions"
+    },
+    {
+      "category": "Validation",
+      "description": "Concurrency capped at 20 (OpenAI rate limit compliant)"
+    },
+    {
+      "category": "Database",
+      "description": "Connection-per-thread pattern is thread-safe"
+    },
+    {
+      "category": "Type Safety",
+      "description": "Optional type handling correctly filters None results"
+    }
+  ],
+  "test_coverage_gaps": [
+    "No test for race condition in _session_signatures",
+    "No test for extraction failure aggregation/reporting"
+  ],
+  "summary": "Implementation correctly addresses event loop blocking. Async patterns are sound and well-tested. Two issues require attention: thread safety for shared state (R1-HIGH) and silent failure handling (R2-MEDIUM)."
+}

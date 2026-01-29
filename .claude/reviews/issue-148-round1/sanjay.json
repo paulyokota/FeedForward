@@ -1,0 +1,77 @@
+{
+  "reviewer": "sanjay",
+  "review_date": "2026-01-28",
+  "issue": "#148",
+  "round": 1,
+  "files_reviewed": [
+    "src/api/routers/pipeline.py",
+    "src/api/schemas/pipeline.py",
+    "src/theme_extractor.py"
+  ],
+  "verdict": "CONDITIONAL_PASS",
+  "summary": "The async changes are well-implemented with proper semaphore controls. Found 4 security issues: 1 HIGH (unbounded in-memory state), 1 MEDIUM (race condition), 2 LOW (error leakage, missing auth).",
+  "findings": [
+    {
+      "id": "S1",
+      "severity": "HIGH",
+      "category": "resource_exhaustion",
+      "title": "Unbounded In-Memory State Growth for Active Runs",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "43-48",
+      "description": "The _active_runs dictionary tracks pipeline run states in memory but lacks size limits. While _cleanup_terminal_runs() is called at the start of new runs, there's no protection against runs stuck in 'running' or 'stopping' state, or cleanup only happening when new runs start.",
+      "impact": "Memory exhaustion (DoS) if runs accumulate without proper cleanup",
+      "recommendation": "Add a maximum size limit to _active_runs (e.g., 100 entries), add periodic cleanup or TTL for entries older than 24 hours, add metrics/alerting for dictionary size",
+      "fix_required": true
+    },
+    {
+      "id": "S2",
+      "severity": "MEDIUM",
+      "category": "race_condition",
+      "title": "Race Condition in Concurrent Semaphore Access with Shared State",
+      "file": "src/api/routers/pipeline.py, src/theme_extractor.py",
+      "lines": "588-628, 766-779",
+      "description": "Multiple concurrent extraction tasks access shared state through the ThemeExtractor instance. The extract_async method uses asyncio.to_thread() which offloads to a thread pool. Multiple threads may concurrently read/write to _session_signatures dict without synchronization.",
+      "impact": "Data integrity issues in theme canonicalization under high load - incorrect signature counts, lost updates, potential theme fragmentation",
+      "recommendation": "Use threading.Lock to protect _session_signatures access, or use collections.defaultdict with atomic operations, or consider per-run isolation of session signatures",
+      "fix_required": true
+    },
+    {
+      "id": "S3",
+      "severity": "LOW",
+      "category": "information_disclosure",
+      "title": "Error Message Leakage in Pipeline Status API",
+      "file": "src/api/routers/pipeline.py",
+      "lines": "1533-1535",
+      "description": "When a pipeline fails, the raw exception message is stored directly in the database and returned to clients. Raw exception messages may contain database connection strings, internal file paths, API error details from OpenAI/Intercom.",
+      "impact": "Potential exposure of internal system details to API consumers",
+      "recommendation": "Sanitize error messages before storage, use error codes with generic user-facing messages, store detailed errors in a separate debug log",
+      "fix_required": false
+    },
+    {
+      "id": "S4",
+      "severity": "LOW",
+      "category": "authentication",
+      "title": "Missing Authentication on Pipeline Control Endpoints",
+      "file": "src/api/routers/pipeline.py, src/api/main.py",
+      "lines": "all",
+      "description": "All pipeline control endpoints lack authentication. While CORS limits origins to localhost, any local process can call these endpoints. No audit trail of who initiated runs.",
+      "impact": "Unauthorized pipeline execution (resource consumption, API costs), no accountability for expensive operations",
+      "recommendation": "Add API key authentication for pipeline control endpoints, add audit logging for who initiated each run, consider rate limiting on /run endpoint",
+      "fix_required": false
+    }
+  ],
+  "positive_patterns": [
+    "SQL injection protection via _ALLOWED_PHASE_FIELDS whitelist",
+    "Concurrency validation enforces 1-20 range in Pydantic schema",
+    "Graceful shutdown via stop signal mechanism",
+    "Token limit guard in theme extractor (MAX_PROMPT_CHARS)",
+    "Dry run preview storage has proper size limits (_MAX_DRY_RUN_PREVIEWS = 5)"
+  ],
+  "statistics": {
+    "total_findings": 4,
+    "critical": 0,
+    "high": 1,
+    "medium": 1,
+    "low": 2
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "reviewer": "Quinn",
+  "role": "Quality Advocate",
+  "issue": "148",
+  "round": 1,
+  "date": "2026-01-28",
+  "verdict": "CONDITIONAL_PASS",
+  "files_reviewed": [
+    "src/api/routers/pipeline.py",
+    "src/api/schemas/pipeline.py",
+    "src/theme_extractor.py"
+  ],
+  "issues": [
+    {
+      "id": "Q1",
+      "severity": "HIGH",
+      "category": "data_integrity",
+      "title": "Thread-unsafe session signature cache causes race conditions",
+      "location": {
+        "file": "src/theme_extractor.py",
+        "lines": "766-783"
+      },
+      "description": "The _session_signatures dict is shared across concurrent thread pool workers without synchronization. The read-check-write pattern in add_session_signature() is not atomic, leading to potential lost updates when multiple threads create the same signature simultaneously.",
+      "impact": "Theme deduplication effectiveness reduced under parallel execution. Sequential and parallel runs may produce different signature assignments.",
+      "evidence": "extract_async() calls asyncio.to_thread() which runs multiple workers modifying _session_signatures concurrently without locking",
+      "suggested_fix": "Add threading.Lock around session signature operations or collect signatures post-extraction"
+    },
+    {
+      "id": "Q2",
+      "severity": "HIGH",
+      "category": "error_handling",
+      "title": "Silent extraction failures reduce observability",
+      "location": {
+        "file": "src/api/routers/pipeline.py",
+        "lines": "593-624"
+      },
+      "description": "Individual extraction failures are caught and return None with only a warning log. Unlike classification_pipeline.py which uses return_exceptions=True and explicitly handles exceptions, theme extraction silently swallows failures.",
+      "impact": "OpenAI rate limit spikes or transient errors cause silent data loss. Final counts misrepresent actual success rate. No visibility into partial failure rates in pipeline status.",
+      "evidence": "extract_one() catches Exception and returns None; asyncio.gather() called without return_exceptions=True",
+      "suggested_fix": "Use return_exceptions=True pattern and track failed extraction count in pipeline status"
+    },
+    {
+      "id": "Q3",
+      "severity": "MEDIUM",
+      "category": "observability",
+      "title": "No tracking of extraction attempts vs successes",
+      "location": {
+        "file": "src/api/routers/pipeline.py",
+        "lines": "630-638"
+      },
+      "description": "Results containing None are skipped without tracking how many extractions were attempted vs succeeded. Cannot distinguish '450 themes from 500 conversations' vs '450 themes from 450 conversations'.",
+      "impact": "Pipeline status themes_extracted doesn't reflect actual success rate. Operators cannot detect degraded extraction performance.",
+      "evidence": "Loop skips None results without incrementing any failure counter",
+      "suggested_fix": "Track themes_attempted and themes_failed separately in pipeline run metrics"
+    },
+    {
+      "id": "Q4",
+      "severity": "MEDIUM",
+      "category": "observability",
+      "title": "Insufficient timing and failure metrics for debugging",
+      "location": {
+        "file": "src/api/routers/pipeline.py",
+        "lines": "498-756"
+      },
+      "description": "The async extraction function lacks timing metrics, per-extraction latency tracking, and failure type breakdown. Classification phase has better observability with structured error tracking via errors/warnings JSONB fields.",
+      "impact": "Hard to identify slow extractions, correlate failures with specific OpenAI errors, or debug production performance issues.",
+      "evidence": "Only aggregate count logged; no timing or error classification metrics",
+      "suggested_fix": "Add extraction timing metrics and failure breakdown to pipeline status response"
+    }
+  ],
+  "positive_observations": [
+    "Semaphore pattern correctly prevents overwhelming OpenAI rate limits",
+    "Stop checker integration properly checks for stop signal before each extraction",
+    "Legacy function preserved for rollback capability",
+    "Thread delegation via anyio.to_thread.run_sync() keeps event loop responsive",
+    "Quality gates unchanged - filter_themes_by_quality() still validates results",
+    "Database writes use ON CONFLICT for idempotency"
+  ],
+  "summary": {
+    "total_issues": 4,
+    "by_severity": {
+      "CRITICAL": 0,
+      "HIGH": 2,
+      "MEDIUM": 2,
+      "LOW": 0
+    },
+    "main_concerns": [
+      "Thread safety of session signature cache under concurrent execution",
+      "Silent failure handling differs from established classification pipeline patterns"
+    ]
+  }
+}
