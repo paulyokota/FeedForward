@@ -751,6 +751,52 @@ python -m src.two_stage_pipeline --async --days 30 --concurrency 20
 
 **Speedup**: ~10-20x for classification phase
 
+### Async Pipeline Execution (FastAPI Background Tasks)
+
+**File**: `src/api/routers/pipeline.py`
+
+**Problem**: `BackgroundTasks.add_task()` with sync functions blocks the event loop thread, making the server unresponsive during long-running operations (40-80+ minutes for pipeline runs).
+
+**Solution**: Use `anyio.to_thread.run_sync()` for true background execution:
+
+```python
+# Wrong (blocks event loop):
+background_tasks.add_task(sync_pipeline_function)
+
+# Correct (true background):
+background_tasks.add_task(anyio.to_thread.run_sync, sync_pipeline_function)
+```
+
+**Parallel Theme Extraction**:
+
+```python
+# Sequential (slow, blocking)
+for conversation in conversations:
+    theme = extractor.extract(conversation)  # Blocks event loop
+
+# Parallel with semaphore (fast, non-blocking)
+semaphore = asyncio.Semaphore(20)  # OpenAI rate limit
+async def extract_one(conv):
+    async with semaphore:
+        return await extractor.extract_async(conv)
+
+themes = await asyncio.gather(*[extract_one(c) for c in conversations])
+```
+
+**Key Implementation Details**:
+
+1. **Thread Safety**: Shared state (`_session_signatures` cache) protected with `threading.Lock`
+2. **Concurrency Limit**: Max 20 parallel extractions (OpenAI per-minute rate limit)
+3. **Resource Limit**: Max 100 active pipeline runs to prevent memory growth
+4. **Non-blocking LLM calls**: `asyncio.to_thread` for sync OpenAI client calls
+
+**Impact**:
+
+- Server remains responsive during pipeline runs
+- Theme extraction 10-20x faster (parallel vs sequential)
+- No 429 rate limit errors from OpenAI
+- Memory usage bounded
+
 ### Batch Database Operations
 
 **File**: `src/db/classification_storage.py`

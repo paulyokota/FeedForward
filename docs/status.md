@@ -17,8 +17,60 @@
 **Customer-Only Digest: COMPLETE** ✅
 **Smart Digest (Issue #144): COMPLETE** ✅
 **LLM Resolution Extraction (Issue #146): COMPLETE** ✅
+**Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 
-## Latest: Issue #146 LLM Resolution Extraction (2026-01-28)
+## Latest: Issue #148 Async Pipeline Responsiveness (2026-01-28)
+
+**Issue #148 Closed** - Eliminated 40-80+ minute server unresponsiveness during pipeline runs
+
+### Problem Solved
+
+FastAPI server became completely unresponsive during pipeline runs because `BackgroundTasks.add_task()` executed sync functions in the event loop thread, blocking all HTTP requests.
+
+### What Shipped
+
+| Component             | Change                                                           | Impact                           |
+| --------------------- | ---------------------------------------------------------------- | -------------------------------- |
+| `pipeline.py`         | Wrapped pipeline in `anyio.to_thread.run_sync()` + parallel task | True background execution        |
+| `pipeline.py`         | Semaphore-controlled parallel theme extraction (up to 20)        | 10-20x faster theme extraction   |
+| `theme_extractor.py`  | New `extract_async()` using `asyncio.to_thread`                  | Non-blocking LLM calls           |
+| `theme_extractor.py`  | `threading.Lock` for `_session_signatures` access                | Thread-safe signature cache      |
+| `schemas/pipeline.py` | Concurrency validation (max 20)                                  | OpenAI rate limit compliance     |
+| `pipeline.py`         | `_MAX_ACTIVE_RUNS=100` limit                                     | Prevents unbounded memory growth |
+| Legacy cleanup        | Deleted 258-line `_process_themes_for_stories` function          | Removed 2-month-old dead code    |
+
+### Review Process
+
+5-personality review converged in 3 rounds:
+
+- **Round 1**: 5 HIGH severity issues found (thread safety, silent failures, resource limits, dead code)
+- **Round 2**: 1 incomplete fix found (orphaned property after dead code removal)
+- **Round 3**: All 5 reviewers APPROVE, 0 new issues → CONVERGED
+
+### Tests
+
+- 25 new unit and integration tests for async behavior
+- Coverage: thread safety, error propagation, concurrency limits, cancellation
+
+### Technical Details
+
+**Key insight**: `BackgroundTasks.add_task()` with sync functions doesn't create true background tasks - it runs them in the event loop thread, blocking all async operations.
+
+**Solution pattern**:
+
+```python
+# Wrong (blocks event loop):
+background_tasks.add_task(sync_function)
+
+# Correct (true background):
+background_tasks.add_task(anyio.to_thread.run_sync, sync_function)
+```
+
+**Concurrency**: Semaphore limits parallel theme extraction to 20 (OpenAI's per-minute rate limit), preventing 429 errors while maximizing throughput.
+
+---
+
+## Previous: Issue #146 LLM Resolution Extraction (2026-01-28)
 
 **Issue #146 Closed** - Replaced regex-based resolution extraction with LLM extraction
 

@@ -10,6 +10,31 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Async Pipeline Responsiveness (2026-01-28)** - Issue #148, PR #150:
+
+- **Eliminated server unresponsiveness during pipeline runs**:
+  - Problem: `BackgroundTasks.add_task()` with sync functions blocked event loop for 40-80+ minutes
+  - Solution: Wrapped pipeline task in `anyio.to_thread.run_sync()` for true background execution
+- **Parallel theme extraction** (`src/api/routers/pipeline.py`):
+  - Semaphore-controlled concurrency (up to 20 parallel extractions)
+  - Respects OpenAI rate limits while maximizing throughput
+  - 10-20x faster than sequential extraction
+- **Async theme extraction** (`src/theme_extractor.py`):
+  - New `extract_async()` method using `asyncio.to_thread`
+  - Thread-safe `_session_signatures` access via `threading.Lock`
+  - Non-blocking LLM calls preserve server responsiveness
+- **Concurrency validation** (`src/api/schemas/pipeline.py`):
+  - Capped at 20 to comply with OpenAI per-minute rate limits
+  - Prevents 429 errors from over-requesting
+- **Resource limits** (`src/api/routers/pipeline.py`):
+  - `_MAX_ACTIVE_RUNS=100` prevents unbounded memory growth
+  - 409 Conflict response when limit exceeded
+- **Code cleanup**:
+  - Deleted 258-line `_process_themes_for_stories()` legacy function (2 months unused)
+  - Removed orphaned `process_themes` property after cleanup
+- **25 new tests**: Thread safety, error propagation, concurrency limits, cancellation handling
+- **3-round 5-personality review**: Caught thread safety bug (R1), incomplete cleanup (R2), converged (R3)
+
 **LLM Resolution Extraction (2026-01-28)** - Issue #146, PR #149:
 
 - **Replaced regex-based extractors** (`ResolutionAnalyzer`, `KnowledgeExtractor`) with LLM extraction
