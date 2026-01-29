@@ -19,7 +19,49 @@
 **LLM Resolution Extraction (Issue #146): COMPLETE** ✅
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 
-## Latest: Issue #148 Async Pipeline Responsiveness (2026-01-28)
+## Latest: Race Condition in Parallel Theme Extraction (2026-01-28)
+
+**Issue #151 Opened** - Parallel extraction creates duplicate signatures
+
+### Discovery
+
+While salvaging pipeline run 95, discovered that parallel theme extraction (introduced in Issue #148) has a race condition. Two concurrent threads processing similar issues can both create "new" signatures before either registers theirs.
+
+### Evidence
+
+Run 95 (30-day pipeline) results:
+| Metric | Count |
+|--------|-------|
+| Conversations classified | 1440 |
+| Themes extracted | 543 |
+| Stories created | 15 |
+| Orphans created | 402 |
+
+Signature similarity analysis found pairs like:
+
+- `multi_network_scheduling_failure` vs `multinetwork_scheduling_failure` (98% similar)
+- `pinterest_connection_failure` vs `pinterest_connection_issue` (89% similar)
+
+### Impact
+
+Signature fragmentation may explain the high orphan-to-story ratio. Groups that should form stories (3+ conversations) get split across duplicate signatures, each falling below threshold.
+
+### Resolution Options
+
+1. **Short-term**: Roll back to sequential extraction (change concurrency from 20 to 1)
+2. **Long-term**: Implement Option 7 from issue #151 — separate signature generation into sequential phase after parallel issue extraction
+
+### Bug Fixes (Same Session)
+
+Also fixed 3 bugs that blocked run 95:
+
+- `context_usage_logs` INSERT missing `conversation_id`
+- Theme storage type mismatches (`symptoms`, `quality_score`, `quality_details`)
+- Missing unique constraint on `context_usage_logs.theme_id`
+
+---
+
+## Previous: Issue #148 Async Pipeline Responsiveness (2026-01-28)
 
 **Issue #148 Closed** - Eliminated 40-80+ minute server unresponsiveness during pipeline runs
 

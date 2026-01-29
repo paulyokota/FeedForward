@@ -54,6 +54,33 @@ Format: [ISO Date] - Summary of changes
 - **39 integration tests** including DB persistence regression guards
 - **5-personality review converged** in 2 rounds (R1/Q1 bug caught and fixed)
 
+### Fixed
+
+**Theme Storage Bug Fixes (2026-01-28)**:
+
+- **context_usage_logs INSERT missing conversation_id** (`src/api/routers/pipeline.py`):
+  - Column is NOT NULL but wasn't included in INSERT statement
+  - Caused theme extraction to fail after all LLM calls completed
+  - Added `theme.conversation_id` to INSERT tuple and column list
+- **Theme storage type mismatches** (`src/api/routers/pipeline.py`):
+  - `symptoms` field: Needed `Json()` wrapper for JSONB column
+  - `quality_score`: Used wrong attribute name (`score` vs `quality_score`)
+  - `quality_details`: Used non-existent `to_dict()` method, changed to `asdict()`
+- **context_usage_logs missing unique constraint** (schema):
+  - `ON CONFLICT (theme_id)` required unique constraint that didn't exist
+  - Added: `ALTER TABLE context_usage_logs ADD CONSTRAINT context_usage_logs_theme_id_unique UNIQUE (theme_id)`
+
+### Known Issues
+
+**Parallel Theme Extraction Race Condition** - Issue #151:
+
+- **Problem**: Two concurrent threads can process similar issues and both create "new" signatures before either registers theirs
+- **Evidence**: Found signature pairs like `multi_network_scheduling_failure` vs `multinetwork_scheduling_failure` (98% similar)
+- **Impact**: Fragments groups that should be together, potentially preventing story formation when groups fall below 3+ threshold
+- **Mitigation options**:
+  - Short-term: Roll back to sequential extraction (concurrency=1)
+  - Long-term: Separate signature generation phase (Option 7 in issue #151)
+
 ### Changed
 
 **Output Style Updates (2026-01-28)**:
