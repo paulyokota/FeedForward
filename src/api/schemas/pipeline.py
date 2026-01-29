@@ -39,8 +39,8 @@ class PipelineRunRequest(BaseModel):
     concurrency: int = Field(
         default=20,
         ge=1,
-        le=50,
-        description="Number of parallel API calls"
+        le=20,
+        description="Number of parallel API calls for classification and theme extraction (capped at 20 for OpenAI rate limits)"
     )
     auto_create_stories: bool = Field(
         default=False,

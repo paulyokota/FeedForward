@@ -1,0 +1,95 @@
+{
+  "reviewer": "Reginald",
+  "issue": "#148",
+  "round": 2,
+  "date": "2026-01-28",
+  "status": "NOT_CONVERGED",
+  "summary": "5/6 Round 1 fixes verified correct. Found 1 HIGH severity issue (missing attribute initialization) that must be fixed before merge.",
+  "round1_fixes_verified": [
+    {
+      "id": "R1/Q1/S2",
+      "description": "Thread safety for _session_signatures",
+      "status": "VERIFIED_CORRECT",
+      "location": "src/theme_extractor.py:636, 721-722, 779-787, 791-792",
+      "notes": "Lock properly protects all shared state accesses"
+    },
+    {
+      "id": "Q2/R2",
+      "description": "Error handling for silent extraction failures",
+      "status": "VERIFIED_CORRECT",
+      "location": "src/theme_extractor.py:644, 654, 782",
+      "notes": "Tracebacks logged with exc_info=True, failures counted"
+    },
+    {
+      "id": "S1",
+      "description": "Resource exhaustion (unbounded _active_runs)",
+      "status": "VERIFIED_CORRECT",
+      "location": "src/api/routers/pipeline.py:50-52, 242-252",
+      "notes": "Hard limit enforced at 100 entries"
+    },
+    {
+      "id": "D1",
+      "description": "Dead code (_run_theme_extraction_legacy)",
+      "status": "VERIFIED_CORRECT",
+      "location": "src/api/routers/pipeline.py (deleted)",
+      "notes": "258-line legacy function completely removed"
+    },
+    {
+      "id": "D2",
+      "description": "Unused code (_async_client field)",
+      "status": "INCOMPLETE",
+      "location": "src/theme_extractor.py:656-661",
+      "notes": "Property exists but attribute never initialized - see R4"
+    },
+    {
+      "id": "DEPRECATION",
+      "description": "anyio cancellable= parameter",
+      "status": "VERIFIED_CORRECT",
+      "location": "src/api/routers/pipeline.py:1080",
+      "notes": "Updated to abandon_on_cancel=True"
+    }
+  ],
+  "new_issues": [
+    {
+      "id": "R4",
+      "severity": "HIGH",
+      "confidence": 95,
+      "title": "Missing attribute initialization causes AttributeError",
+      "file": "src/theme_extractor.py",
+      "lines": "656-661",
+      "category": "correctness",
+      "description": "Property async_client references self._async_client but this attribute is NEVER initialized in __init__. Will raise AttributeError on first access.",
+      "impact": "Currently not called (extract_async uses asyncio.to_thread), but will crash if refactored to use async_client property.",
+      "evidence": "Lines 609-636 show __init__ with no _async_client initialization. Lines 656-661 show property that accesses uninitialized attribute.",
+      "fix": "Either (1) Remove property entirely [RECOMMENDED] or (2) Add self._async_client = None to __init__",
+      "blocking": true
+    },
+    {
+      "id": "R5",
+      "severity": "MEDIUM",
+      "confidence": 85,
+      "title": "Inefficient prompt re-formatting on truncation",
+      "file": "src/theme_extractor.py",
+      "lines": "1036-1061",
+      "category": "performance",
+      "description": "Truncation logic formats prompt twice: once to check size, again after truncating. For 405K prompt with 390K source, wastes CPU reformatting after truncation.",
+      "impact": "Works correctly but wastes CPU cycles on re-formatting large prompts.",
+      "fix": "Calculate required truncation before first format to avoid double formatting.",
+      "blocking": false
+    },
+    {
+      "id": "R6",
+      "severity": "LOW",
+      "confidence": 80,
+      "title": "Inconsistent error counter field name",
+      "file": "src/theme_extractor.py",
+      "lines": "782",
+      "category": "clarity",
+      "description": "extraction_failed counter is returned in dict but not used by caller or documented in API schema.",
+      "impact": "No functional issue - field tracked but not exposed in responses.",
+      "fix": "Document field in return type or remove from return dict.",
+      "blocking": false
+    }
+  ],
+  "recommendation": "NOT YET CONVERGED - Fix R4 (HIGH severity) before merging. After fix, re-run Round 2 verification."
+}

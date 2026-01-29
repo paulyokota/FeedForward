@@ -1,0 +1,45 @@
+{
+  "reviewer": "Maya",
+  "round": 2,
+  "date": "2026-01-28",
+  "verdict": "REJECT",
+  "summary": "Round 1 code duplication fix (M2) was excellent - legacy function properly deleted. However, discovered NEW CRITICAL issue: dead code `_async_client` property references non-existent field and will cause AttributeError. Must delete lines 656-661 in theme_extractor.py before merge.",
+  "issues": [
+    {
+      "id": "N1",
+      "severity": "CRITICAL",
+      "title": "Dead Code - `_async_client` Property References Non-Existent Field",
+      "location": "src/theme_extractor.py:656-661",
+      "description": "The async_client property getter references self._async_client but this field is never initialized in __init__. Will raise AttributeError on first access. This is dead code (implementation uses asyncio.to_thread instead) that should be deleted.",
+      "recommendation": "Delete lines 656-661 entirely. The async implementation uses asyncio.to_thread(self.extract, ...) and doesn't need a separate async client property.",
+      "blocking": true
+    },
+    {
+      "id": "N2",
+      "severity": "LOW",
+      "title": "Minor Inconsistency in Lock Comment Placement",
+      "location": "src/theme_extractor.py:721",
+      "description": "Lock initialization has inline comment explaining WHY, but usage sites have no comments explaining what critical section protects. Minor consistency issue.",
+      "recommendation": "Add brief comments at lock usage sites for consistency: '# Thread-safe: snapshot session signatures under lock (Issue #148)'",
+      "blocking": false
+    }
+  ],
+  "round1_fixes": {
+    "M2_code_duplication": {
+      "status": "RESOLVED",
+      "assessment": "EXCELLENT - Legacy function completely deleted, eliminating divergence risk"
+    },
+    "threading_lock": {
+      "status": "WELL_DOCUMENTED", 
+      "assessment": "Properly documented with Issue #148 reference at initialization and all usage sites"
+    }
+  },
+  "previous_issues_still_present": [
+    "M1 (magic number 20) - acceptable",
+    "M3 (inner function scope) - acceptable, intentional closure",
+    "M4 (docstring historical context) - acceptable, useful context",
+    "M5 (extract_async docstring) - actually well-written",
+    "M6 (missing type hints) - low priority",
+    "M7 (many optional parameters) - manageable"
+  ]
+}
