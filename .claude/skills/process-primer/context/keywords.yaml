@@ -1,0 +1,23 @@
+load_always:
+  - docs/process-playbook/philosophy/gold-standard-alignment.md
+  - docs/process-playbook/philosophy/proxy-metrics.md
+  - docs/process-playbook/gates/test-gate.md
+  - docs/process-playbook/review/five-personality-review.md
+  - docs/process-playbook/agents/coordination-patterns.md
+
+load_for_keywords:
+  gate|gates|enforcement:
+    - docs/process-playbook/gates/integration-testing-gate.md
+    - docs/process-playbook/gates/learning-loop.md
+    - docs/process-playbook/gates/functional-testing-gate.md
+    - docs/process-playbook/gates/context-loading-gate.md
+    - docs/process-playbook/gates/backlog-hygiene.md
+  review|reviewer|personality:
+    - docs/process-playbook/review/five-personality-review.md
+  agent|coordination|architect:
+    - docs/process-playbook/agents/coordination-patterns.md
+  memory|learning|session:
+    - docs/process-playbook/agents/memory-system.md
+  baseline|ground.truth|evaluation:
+    - scripts/signature_ground_truth.py
+    - scripts/baseline_evaluation.py
