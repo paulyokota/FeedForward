@@ -18,8 +18,37 @@
 **Smart Digest (Issue #144): COMPLETE** ✅
 **LLM Resolution Extraction (Issue #146): COMPLETE** ✅
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
+**Test Suite Optimization (Issue #147): COMPLETE** ✅
 
-## Latest: Vocabulary Enhancement & Race Condition Fix (2026-01-30)
+## Latest: Test Suite Optimization (2026-01-30)
+
+**Issue #147 CLOSED** - Pytest markers for fast/slow test split
+
+### What Changed
+
+Added pytest markers to split the test suite for faster iteration:
+
+| Command                 | Tests | Time             |
+| ----------------------- | ----- | ---------------- |
+| `pytest -m "not slow"`  | 1,196 | ~5 min           |
+| `pytest -m slow`        | 204   | integration only |
+| `pytest -m integration` | 204   | same as slow     |
+
+**Files changed:**
+
+- Created `pytest.ini` with marker registration
+- Marked 10 integration test files as `slow` + `integration`
+- Updated `CLAUDE.md` with new test commands
+
+**Also fixed 3 pre-existing test failures:**
+
+- `test_run_scoping.py` - regex outdated after Issue #148 async refactor
+- `test_context_gaps_endpoint.py` - import path mismatch for dependency override
+- `test_story_formatter.py` - env var vs module variable caching issue
+
+---
+
+## Previous: Vocabulary Enhancement & Race Condition Fix (2026-01-30)
 
 **Issue #152 CLOSED** - Race condition in parallel theme extraction fixed
 **Issue #153 CLOSED** - Systematic vocabulary enhancement complete

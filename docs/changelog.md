@@ -10,6 +10,28 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Test Suite Optimization (2026-01-30)** - Issue #147, PR #169:
+
+- **Pytest markers for fast/slow test split** (`pytest.ini`):
+  - `fast`, `slow`, `integration`, `unit` markers registered
+  - Fast tests: `pytest -m "not slow"` (~1,196 tests, ~5 min)
+  - Slow tests: `pytest -m slow` (204 integration tests)
+- **10 integration test files marked as slow**:
+  - All `*_integration.py` files plus `test_pipeline_canonical_flow.py`
+  - Dual markers: `[pytest.mark.slow, pytest.mark.integration]`
+- **CLAUDE.md updated** with new test commands for agent guidance
+
+### Fixed
+
+**Pre-existing Test Failures (2026-01-30)** - Issue #147, PR #169:
+
+- `test_run_scoping.py`: Updated regex to find `_run_theme_extraction_async` (moved in #148)
+- `test_context_gaps_endpoint.py`: Fixed import path (`src.api.deps` vs `api.deps`)
+- `test_story_formatter.py`: Patch module variable instead of env var (cached at import)
+- `pytest.ini`: Use `addopts` instead of invalid config keys
+
+### Added
+
 **Systematic Vocabulary Enhancement (2026-01-30)** - Issue #153:
 
 - **Term distinctions for LLM disambiguation** (`config/theme_vocabulary.json`):
