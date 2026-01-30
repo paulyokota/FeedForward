@@ -904,8 +904,7 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         # Initialize orphan integration for canonicalization (Issue #155)
         # This ensures orphan signatures are canonicalized via SignatureRegistry,
         # preventing fragmentation of synonymous signatures across pipeline runs.
-        # auto_graduate=True: Orphans automatically become stories when they reach
-        # MIN_GROUP_SIZE conversations, preventing accumulation of ready-to-graduate orphans.
+        # Uses default auto_graduate=True, so orphans graduate to stories at MIN_GROUP_SIZE.
         orphan_integration_service = OrphanIntegrationService(db_connection=conn)
 
         # Determine dual format settings from environment
