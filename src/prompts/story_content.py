@@ -123,6 +123,11 @@ Must include:
 - Specific action to take
 - Explicit "Success:" criteria (observable, measurable)
 
+**IMPORTANT**: If Resolution Context is provided, incorporate the support action taken:
+- Reference the root cause analysis in the goal description
+- Ensure success criteria addresses why support intervention was needed
+- If a workaround exists, goal should eliminate the need for it
+
 **Good examples**:
 - "Resolve the pin upload failure where users receive Server 0 response code. Success: uploads complete successfully and pins appear in drafts within 5 seconds."
 - "Implement bulk scheduling for Instagram Reels. Success: user can select multiple reels and schedule with one action."
@@ -141,6 +146,12 @@ Derive from symptoms:
 - "Given" = the precondition or context where the issue occurs
 - "When" = the user action that triggers the issue
 - "Then" = the expected behavior (opposite of the reported symptom)
+
+**IMPORTANT**: If Resolution Context is provided (Support Action Taken, Resolution Category), incorporate the fix guidance:
+- If action was "provided_workaround" → Include AC that the workaround is no longer needed
+- If action was "escalated_to_engineering" → Include AC addressing the technical root cause
+- If action was "user_education" → Include AC that the feature is self-explanatory
+- If category is "self_service_gap" → Include AC that users can complete the task without support
 
 **Good examples**:
 - "Given a user is uploading a pin to drafts, When the save action is triggered, Then the pin is saved successfully without Server 0 errors"
