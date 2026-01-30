@@ -552,3 +552,231 @@ class TestDualStoryFormatterGeneratedContent:
 
         # Verify generated success criteria appears (not fallback)
         assert "Pin uploads complete without Server 0 errors" in result
+
+
+class TestFormatCodebaseContextFromDict:
+    """Tests for format_codebase_context_from_dict() method (Issue #163)."""
+
+    @pytest.fixture
+    def formatter(self):
+        from src.story_formatter import DualStoryFormatter
+        return DualStoryFormatter()
+
+    @pytest.fixture
+    def valid_code_context(self):
+        """Sample code_context dict with success=True."""
+        return {
+            "success": True,
+            "relevant_files": [
+                {
+                    "path": "src/api/routes.py",
+                    "line_start": 100,
+                    "line_end": 150,
+                    "relevance": "API endpoint handling"
+                },
+                {
+                    "path": "src/services/handler.py",
+                    "line_start": 50,
+                    "relevance": "Core logic"
+                },
+            ],
+            "code_snippets": [
+                {
+                    "file_path": "src/api/routes.py",
+                    "line_start": 100,
+                    "line_end": 120,
+                    "content": "def handle_request():\n    pass",
+                    "language": "python",
+                    "context": "Request handler"
+                }
+            ],
+            "exploration_duration_ms": 500,
+        }
+
+    def test_formats_valid_code_context(self, formatter, valid_code_context):
+        """Test that valid code_context produces file references and snippets."""
+        result = formatter.format_codebase_context_from_dict(valid_code_context)
+
+        assert "## Context & Architecture" in result
+        assert "### Relevant Files:" in result
+        assert "`src/api/routes.py`" in result
+        assert "(lines 100-150)" in result
+        assert "API endpoint handling" in result
+        assert "`src/services/handler.py`" in result
+        assert "(line 50)" in result  # Single line
+        assert "### Code Snippets:" in result
+        assert "def handle_request():" in result
+
+    def test_returns_placeholder_when_success_false(self, formatter):
+        """Test that success=False returns placeholder text."""
+        code_context = {"success": False, "error": "Exploration failed"}
+        result = formatter.format_codebase_context_from_dict(code_context)
+
+        assert "## Context & Architecture" in result
+        assert "Codebase exploration unavailable" in result
+        assert "Manual investigation required" in result
+        assert "Relevant Files" not in result
+
+    def test_returns_placeholder_when_none(self, formatter):
+        """Test that None code_context returns placeholder text."""
+        result = formatter.format_codebase_context_from_dict(None)
+
+        assert "Codebase exploration unavailable" in result
+
+    def test_returns_placeholder_when_empty_dict(self, formatter):
+        """Test that empty dict returns placeholder text."""
+        result = formatter.format_codebase_context_from_dict({})
+
+        assert "Codebase exploration unavailable" in result
+
+    def test_handles_missing_relevant_files(self, formatter):
+        """Test graceful handling of missing relevant_files key."""
+        code_context = {"success": True, "code_snippets": []}
+        result = formatter.format_codebase_context_from_dict(code_context)
+
+        assert "## Context & Architecture" in result
+        # Should not crash, just not show files section
+        assert "Relevant Files" not in result
+
+    def test_handles_missing_code_snippets(self, formatter):
+        """Test graceful handling of missing code_snippets key."""
+        code_context = {
+            "success": True,
+            "relevant_files": [{"path": "test.py", "relevance": "test"}]
+        }
+        result = formatter.format_codebase_context_from_dict(code_context)
+
+        assert "## Context & Architecture" in result
+        assert "`test.py`" in result
+        assert "Code Snippets" not in result
+
+    def test_handles_malformed_file_reference(self, formatter):
+        """Test graceful handling of malformed file references."""
+        code_context = {
+            "success": True,
+            "relevant_files": [
+                {"path": "valid.py", "relevance": "valid"},
+                {"not_a_path": "invalid"},  # Missing path key
+                "not_a_dict",  # Not even a dict
+            ]
+        }
+        result = formatter.format_codebase_context_from_dict(code_context)
+
+        assert "`valid.py`" in result
+        # Should not crash on malformed entries
+
+    def test_handles_malformed_snippet(self, formatter):
+        """Test graceful handling of malformed code snippets."""
+        code_context = {
+            "success": True,
+            "code_snippets": [
+                {
+                    "file_path": "valid.py",
+                    "line_start": 1,
+                    "line_end": 10,
+                    "content": "# valid",
+                },
+                {"not_file_path": "invalid"},  # Missing file_path
+            ]
+        }
+        result = formatter.format_codebase_context_from_dict(code_context)
+
+        assert "valid.py" in result
+        # Should not crash on malformed entries
+
+    def test_limits_to_10_files(self, formatter):
+        """Test that only top 10 files are shown."""
+        code_context = {
+            "success": True,
+            "relevant_files": [
+                {"path": f"file{i}.py", "relevance": f"file {i}"}
+                for i in range(15)
+            ]
+        }
+        result = formatter.format_codebase_context_from_dict(code_context)
+
+        assert "file9.py" in result  # 10th file (0-indexed)
+        assert "file10.py" not in result  # 11th file should be excluded
+
+    def test_limits_to_3_snippets(self, formatter):
+        """Test that only top 3 snippets are shown."""
+        code_context = {
+            "success": True,
+            "code_snippets": [
+                {
+                    "file_path": f"snippet{i}.py",
+                    "line_start": i,
+                    "line_end": i + 10,
+                    "content": f"# snippet {i}",
+                }
+                for i in range(5)
+            ]
+        }
+        result = formatter.format_codebase_context_from_dict(code_context)
+
+        assert "snippet0.py" in result
+        assert "snippet1.py" in result
+        assert "snippet2.py" in result
+        assert "snippet3.py" not in result  # 4th snippet excluded
+
+
+class TestFormatAiSectionWithCodeContext:
+    """Tests for format_ai_section with code_context parameter (Issue #163)."""
+
+    @pytest.fixture
+    def formatter(self):
+        from src.story_formatter import DualStoryFormatter
+        return DualStoryFormatter()
+
+    @pytest.fixture
+    def sample_theme_data(self):
+        return {
+            "title": "Test Issue",
+            "component": "test_component",
+            "product_area": "test_area",
+            "occurrences": 5,
+            "user_intent": "Fix the bug",
+        }
+
+    @pytest.fixture
+    def valid_code_context(self):
+        return {
+            "success": True,
+            "relevant_files": [{"path": "src/test.py", "relevance": "main"}],
+            "code_snippets": [],
+        }
+
+    def test_prefers_code_context_over_none(self, formatter, sample_theme_data, valid_code_context):
+        """Test that code_context is used when exploration_result is None."""
+        result = formatter.format_ai_section(
+            sample_theme_data,
+            exploration_result=None,
+            generated_content=None,
+            code_context=valid_code_context,
+        )
+
+        assert "`src/test.py`" in result
+        assert "Investigation needed" not in result
+
+    def test_uses_placeholder_when_code_context_failed(self, formatter, sample_theme_data):
+        """Test that placeholder is shown when code_context.success=False."""
+        failed_context = {"success": False, "error": "Failed"}
+        result = formatter.format_ai_section(
+            sample_theme_data,
+            exploration_result=None,
+            generated_content=None,
+            code_context=failed_context,
+        )
+
+        assert "Investigation needed to identify relevant files" in result
+
+    def test_uses_placeholder_when_no_context(self, formatter, sample_theme_data):
+        """Test placeholder when both exploration_result and code_context are None."""
+        result = formatter.format_ai_section(
+            sample_theme_data,
+            exploration_result=None,
+            generated_content=None,
+            code_context=None,
+        )
+
+        assert "Investigation needed to identify relevant files" in result

@@ -12,7 +12,7 @@ Format spec:
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Import ExplorationResult and related types from codebase context provider
 try:
@@ -626,6 +626,7 @@ class DualStoryFormatter:
         exploration_result: Optional["ExplorationResult"] = None,
         evidence_data: Optional[Dict] = None,
         generated_content: Optional["GeneratedStoryContent"] = None,
+        code_context: Optional[Dict[str, Any]] = None,
     ) -> DualFormatOutput:
         """
         Generate complete dual-format story.
@@ -652,12 +653,17 @@ class DualStoryFormatter:
                              If provided, uses generated user_type, user_story_want,
                              user_story_benefit for user story, and ai_agent_goal for
                              AI section.
+            code_context: Optional dict with pre-explored codebase context.
+                         If provided and success=True, used instead of exploration_result.
+                         This avoids redundant exploration when context already exists.
 
         Returns:
             DualFormatOutput with human_section, ai_section, and combined text
         """
         human_section = self.format_human_section(theme_data, evidence_data, generated_content)
-        ai_section = self.format_ai_section(theme_data, exploration_result, generated_content)
+        ai_section = self.format_ai_section(
+            theme_data, exploration_result, generated_content, code_context
+        )
 
         # Combine sections with separator
         combined = f"{human_section}\n\n---\n\n{ai_section}"
@@ -782,6 +788,7 @@ class DualStoryFormatter:
         theme_data: Dict,
         exploration_result: Optional["ExplorationResult"] = None,
         generated_content: Optional["GeneratedStoryContent"] = None,
+        code_context: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Generate AI agent task specification section.
@@ -792,6 +799,8 @@ class DualStoryFormatter:
             theme_data: Theme metadata dict
             exploration_result: Optional codebase exploration results
             generated_content: Optional LLM-generated content for AI goal
+            code_context: Optional dict with pre-explored codebase context.
+                         Preferred over exploration_result when success=True.
 
         Returns:
             Formatted markdown for AI section
@@ -827,7 +836,13 @@ Follow project conventions in `CLAUDE.md` and established patterns.
 {goal_text}"""
 
         # Context & Architecture (with codebase context)
-        architecture_section = self.format_codebase_context(exploration_result) if exploration_result else """## Context & Architecture
+        # Priority: code_context (pre-explored dict) > exploration_result (dataclass)
+        if code_context and code_context.get("success"):
+            architecture_section = self.format_codebase_context_from_dict(code_context)
+        elif exploration_result:
+            architecture_section = self.format_codebase_context(exploration_result)
+        else:
+            architecture_section = """## Context & Architecture
 
 ### Architecture Notes:
 
@@ -915,6 +930,72 @@ Follow project conventions in `CLAUDE.md` and established patterns.
             sections.append("### Suggested Investigation:\n")
             for query in exploration_result.investigation_queries:
                 sections.append(f"```\n{query}\n```")
+
+        return "\n".join(sections)
+
+    def format_codebase_context_from_dict(
+        self,
+        code_context: Dict[str, Any],
+    ) -> str:
+        """
+        Format codebase context directly from stored dict.
+
+        This method consumes the code_context dict stored in the database,
+        avoiding the need to reconstruct an ExplorationResult dataclass.
+
+        Args:
+            code_context: Dict with keys:
+                - success: bool
+                - relevant_files: List[Dict] with path, line_start, line_end, relevance
+                - code_snippets: List[Dict] with file_path, line_start, line_end,
+                                 content, language, context
+
+        Returns:
+            Formatted markdown with file references and snippets
+        """
+        if not code_context or not code_context.get("success"):
+            return """## Context & Architecture
+
+### Architecture Notes:
+
+- Codebase exploration unavailable
+- Manual investigation required"""
+
+        sections = ["## Context & Architecture"]
+
+        # Relevant Files (handle missing/empty gracefully)
+        relevant_files = code_context.get("relevant_files") or []
+        if relevant_files:
+            sections.append("### Relevant Files:\n")
+            for ref in relevant_files[:10]:  # Top 10
+                if not isinstance(ref, dict) or not ref.get("path"):
+                    continue
+                line_info = ""
+                if ref.get("line_start"):
+                    if ref.get("line_end"):
+                        line_info = f" (lines {ref['line_start']}-{ref['line_end']})"
+                    else:
+                        line_info = f" (line {ref['line_start']})"
+                relevance = f" - {ref['relevance']}" if ref.get("relevance") else ""
+                sections.append(f"- `{ref['path']}`{line_info}{relevance}")
+
+        # Code Snippets (handle missing/empty gracefully)
+        code_snippets = code_context.get("code_snippets") or []
+        if code_snippets:
+            sections.append("\n### Code Snippets:\n")
+            for i, snippet in enumerate(code_snippets[:3], 1):  # Top 3
+                if not isinstance(snippet, dict) or not snippet.get("file_path"):
+                    continue
+                line_start = snippet.get("line_start", 0)
+                line_end = snippet.get("line_end", 0)
+                sections.append(
+                    f"**{i}. {snippet['file_path']}** (lines {line_start}-{line_end})"
+                )
+                if snippet.get("context"):
+                    sections.append(f"Context: {snippet['context']}\n")
+                language = snippet.get("language", "python")
+                content = snippet.get("content", "")
+                sections.append(f"```{language}\n{content}\n```\n")
 
         return "\n".join(sections)
 
