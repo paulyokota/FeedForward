@@ -2260,6 +2260,12 @@ class StoryCreationService:
                             f"Race condition: routed {len(conversation_ids)} conversations "
                             f"to graduated story {orphan.story_id} for '{signature}'"
                         )
+                    else:
+                        logger.warning(
+                            f"Race condition: no evidence_service - cannot add "
+                            f"{len(conversation_ids)} conversations to graduated story "
+                            f"{orphan.story_id} for '{signature}'"
+                        )
                 else:
                     self.orphan_service.add_conversations(
                         orphan.id,
