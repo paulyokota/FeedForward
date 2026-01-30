@@ -40,6 +40,78 @@ from src.story_tracking.services.orphan_integration import OrphanIntegrationServ
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# Theme Extraction Type Filtering (Issue #165)
+# =============================================================================
+# TODO: Replace keyword-based filtering with subtype-based filtering when
+# Stage 2 classifier supports stable subtypes.
+
+# Types that always pass theme extraction filter
+THEME_EXTRACTION_ALWAYS_ALLOWED = {'product_issue', 'feature_request', 'how_to_question'}
+
+# Types that require actionable keywords to pass filter
+THEME_EXTRACTION_CONDITIONAL = {'account_issue', 'configuration_help'}
+
+# Keywords indicating actionable technical issues (not general account support)
+ACTIONABLE_KEYWORDS = frozenset({
+    'oauth', 'token', 'tokens', 'permissions', 'permission',
+    'api', 'integration', 'integrations', 'refresh', 'auth',
+    'authorize', 'authorization', 'credential', 'credentials',
+    'webhook', 'webhooks', 'scope', 'scopes', 'access_token',
+    'bearer', 'jwt', 'ssl', 'tls', 'certificate', 'cors',
+})
+
+
+def is_actionable_for_theme_extraction(
+    issue_type: str,
+    support_insights: dict | None,
+    source_body: str | None,
+    full_conversation: str | None,
+) -> bool:
+    """
+    Determine if a conversation should be included in theme extraction.
+
+    Args:
+        issue_type: The conversation type (stage2_type or stage1_type)
+        support_insights: Extracted insights from Stage 2 (may be None or empty)
+        source_body: The initial customer message
+        full_conversation: Complete conversation text (fallback for keyword scan)
+
+    Returns:
+        True if the conversation should be processed for theme extraction
+    """
+    # Always-allowed types pass unconditionally
+    if issue_type in THEME_EXTRACTION_ALWAYS_ALLOWED:
+        return True
+
+    # Non-conditional types are filtered out
+    if issue_type not in THEME_EXTRACTION_CONDITIONAL:
+        return False
+
+    # For conditional types, check for actionable keywords
+    # Priority 1: Check support_insights.products_mentioned and features_mentioned
+    if support_insights:
+        products = support_insights.get('products_mentioned', []) or []
+        features = support_insights.get('features_mentioned', []) or []
+        insights_text = ' '.join(products + features).lower()
+
+        if any(kw in insights_text for kw in ACTIONABLE_KEYWORDS):
+            return True
+
+    # Priority 2: Fallback - scan customer message and full conversation
+    fallback_text = ''
+    if source_body:
+        fallback_text += source_body.lower() + ' '
+    if full_conversation:
+        fallback_text += full_conversation.lower()
+
+    if fallback_text and any(kw in fallback_text for kw in ACTIONABLE_KEYWORDS):
+        return True
+
+    # No actionable signals found - filter out
+    return False
+
+
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
 
 # Track active runs (in-memory for MVP, could use Redis for production)
@@ -544,24 +616,25 @@ async def _run_theme_extraction_async(
 
     logger.info(f"Run {run_id}: Starting async theme extraction (concurrency={concurrency})")
 
-    # Get conversations classified in this run
+    # Get conversations classified in this run (Issue #165: expanded types)
+    # Fetch all potentially-actionable types, then filter in Python
+    all_allowed_types = THEME_EXTRACTION_ALWAYS_ALLOWED | THEME_EXTRACTION_CONDITIONAL
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
                 SELECT c.id, c.created_at, c.source_body, c.source_url,
                        COALESCE(c.stage2_type, c.stage1_type) as issue_type,
                        c.sentiment, c.priority, c.churn_risk,
+                       c.support_insights as support_insights,
                        c.support_insights->>'customer_digest' as customer_digest,
                        c.support_insights->>'full_conversation' as full_conversation
                 FROM conversations c
                 JOIN pipeline_runs pr ON pr.id = %s
                 WHERE (c.pipeline_run_id = %s
                        OR (c.pipeline_run_id IS NULL AND c.classified_at >= pr.started_at))
-                  AND COALESCE(c.stage2_type, c.stage1_type) IN (
-                      'product_issue', 'feature_request', 'how_to_question'
-                  )
+                  AND COALESCE(c.stage2_type, c.stage1_type) = ANY(%s)
                 ORDER BY c.created_at DESC
-            """, (run_id, run_id))
+            """, (run_id, run_id, list(all_allowed_types)))
             rows = cur.fetchall()
 
     if not rows:
@@ -569,16 +642,20 @@ async def _run_theme_extraction_async(
         return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "warnings": []}
 
     # Map new classifier types to legacy IssueType for Conversation model
+    # Issue #165: Added account_issue and configuration_help mappings
     NEW_TO_LEGACY_TYPE = {
         "product_issue": "bug_report",
         "feature_request": "feature_request",
         "how_to_question": "product_question",
+        "account_issue": "other",  # No direct legacy equivalent
+        "configuration_help": "other",  # No direct legacy equivalent
     }
 
     # Build conversation objects and context maps
     conversations = []
     conversation_digests = {}
     conversation_full_texts = {}
+    conditional_filtered_count = 0  # Issue #165: Track filtered conditional types
 
     for row in rows:
         if stop_checker():
@@ -586,6 +663,21 @@ async def _run_theme_extraction_async(
             return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "warnings": []}
 
         new_type = row["issue_type"]
+
+        # Issue #165: Apply Python-side filtering for conditional types
+        support_insights = row.get("support_insights") or {}
+        source_body = row.get("source_body")
+        full_conversation = row.get("full_conversation")
+
+        if not is_actionable_for_theme_extraction(
+            issue_type=new_type,
+            support_insights=support_insights,
+            source_body=source_body,
+            full_conversation=full_conversation,
+        ):
+            conditional_filtered_count += 1
+            continue
+
         legacy_type = NEW_TO_LEGACY_TYPE.get(new_type, "other")
 
         conv = Conversation(
@@ -604,6 +696,17 @@ async def _run_theme_extraction_async(
             conversation_digests[row["id"]] = row["customer_digest"]
         if row.get("full_conversation"):
             conversation_full_texts[row["id"]] = row["full_conversation"]
+
+    if conditional_filtered_count > 0:
+        logger.info(
+            f"Run {run_id}: Filtered {conditional_filtered_count} non-actionable "
+            f"account_issue/configuration_help conversations"
+        )
+
+    # Check if all conversations were filtered out
+    if not conversations:
+        logger.info(f"Run {run_id}: No actionable conversations after filtering")
+        return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "warnings": []}
 
     logger.info(f"Run {run_id}: Extracting themes from {len(conversations)} conversations (parallel)")
 
