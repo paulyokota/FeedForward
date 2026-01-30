@@ -48,7 +48,7 @@ from digest_extractor import (
     build_customer_digest,
     build_full_conversation_text,
 )
-from context_provider import get_context_provider
+from src.context_provider import get_context_provider
 
 # Async OpenAI client for parallel processing
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))

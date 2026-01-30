@@ -56,22 +56,27 @@ THEME_EXTRACTION_CONDITIONAL = {'account_issue', 'configuration_help'}
 
 # Keywords indicating actionable technical issues (not general account support)
 # Organized by category for maintainability
+# PR review fix: Include common variants with digits/underscores (oauth2, api_key, etc.)
 ACTIONABLE_KEYWORDS = frozenset({
-    # Authentication
-    'oauth', 'auth', 'authorize', 'authorization', 'bearer', 'jwt',
-    # Tokens & Credentials
-    'token', 'tokens', 'access_token', 'credential', 'credentials', 'refresh',
-    # Integration
+    # Authentication (including oauth2 variant)
+    'oauth', 'oauth2', 'auth', 'authorize', 'authorization', 'bearer', 'jwt',
+    # Tokens & Credentials (including underscore variants)
+    'token', 'tokens', 'access_token', 'refresh_token', 'api_key', 'api_keys',
+    'credential', 'credentials', 'refresh',
+    # Integration (including hyphenated/underscore variants)
     'api', 'integration', 'integrations', 'webhook', 'webhooks',
+    'api_webhook', 'api_integration',
     # Permissions
     'permissions', 'permission', 'scope', 'scopes',
     # Security/TLS
     'ssl', 'tls', 'certificate', 'cors',
 })
 
-# Pre-compile regex pattern for word boundary matching (Review fix: avoid substring false positives)
+# Pre-compile regex pattern for keyword matching
+# PR review fix: Use word boundary at START only, allow trailing digits/underscores/hyphens
+# This matches "oauth2", "api_key", "refresh_token", "api-webhook" correctly
 _ACTIONABLE_PATTERN = re.compile(
-    r'\b(' + '|'.join(re.escape(kw) for kw in ACTIONABLE_KEYWORDS) + r')\b',
+    r'(?<![a-zA-Z])(' + '|'.join(re.escape(kw) for kw in ACTIONABLE_KEYWORDS) + r')(?![a-zA-Z])',
     re.IGNORECASE
 )
 
@@ -651,7 +656,7 @@ async def _run_theme_extraction_async(
 
     if not rows:
         logger.info(f"Run {run_id}: No actionable conversations to extract themes from")
-        return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "warnings": []}
+        return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "conditional_filtered": 0, "warnings": []}
 
     # Map new classifier types to legacy IssueType for Conversation model
     # Issue #165: Added account_issue and configuration_help mappings
@@ -672,7 +677,7 @@ async def _run_theme_extraction_async(
     for row in rows:
         if stop_checker():
             logger.info(f"Run {run_id}: Stop signal received during theme extraction setup")
-            return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "warnings": []}
+            return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "conditional_filtered": 0, "warnings": []}
 
         new_type = row["issue_type"]
 
@@ -718,7 +723,7 @@ async def _run_theme_extraction_async(
     # Check if all conversations were filtered out
     if not conversations:
         logger.info(f"Run {run_id}: No actionable conversations after filtering")
-        return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "warnings": []}
+        return {"themes_extracted": 0, "themes_new": 0, "themes_filtered": 0, "conditional_filtered": 0, "warnings": []}
 
     logger.info(f"Run {run_id}: Extracting themes from {len(conversations)} conversations (parallel)")
 
@@ -897,6 +902,7 @@ async def _run_theme_extraction_async(
         "themes_extracted": len(high_quality_themes),
         "themes_new": themes_new,
         "themes_filtered": len(low_quality_themes),
+        "conditional_filtered": conditional_filtered_count,  # PR review fix: surface #165 filtering
         "extraction_failed": extraction_failed,  # Issue #148 fix: Q2/R2
         "warnings": warnings,
     }
