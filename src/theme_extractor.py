@@ -633,7 +633,9 @@ class ThemeExtractor:
         # signatures can be canonicalized against both DB and current batch
         self._session_signatures: dict[str, dict] = {}
         # Lock for thread-safe access to _session_signatures (Issue #148)
-        self._session_lock = threading.Lock()
+        # Issue #152: Changed to RLock (reentrant) so the same thread can acquire
+        # the lock multiple times (outer canonicalization scope + inner add_session_signature)
+        self._session_lock = threading.RLock()
 
     @property
     def vocabulary(self):
@@ -1115,26 +1117,31 @@ The user was on a page related to **{url_matched_product_area}** when they start
         # - If vocabulary matched an existing theme, use as-is (already canonical)
         # - If LLM created a new signature, canonicalize against existing signatures
         #   to prevent duplicates like analytics_stats_accuracy vs analytics_performance_accuracy
-        if self.use_vocabulary and matched_existing:
-            # Vocabulary already handled matching - use as-is
-            final_signature = proposed_signature
-        elif canonicalize:
-            # Canonicalize new signatures against existing ones in theme_aggregates
-            # This runs for both vocabulary mode (new signatures) and non-vocabulary mode
-            final_signature = self.canonicalize_signature(
-                proposed_signature=proposed_signature,
-                product_area=product_area,
-                component=component,
-                user_intent=user_intent,
-                symptoms=symptoms,
-                use_llm=not use_embedding,
-            )
-        else:
-            final_signature = proposed_signature
+        #
+        # Issue #152: Serialize canonicalization to prevent race condition where
+        # concurrent extractions create near-duplicate signatures. The lock ensures
+        # thread B sees thread A's signature before deciding to create a new one.
+        with self._session_lock:
+            if self.use_vocabulary and matched_existing:
+                # Vocabulary already handled matching - use as-is
+                final_signature = proposed_signature
+            elif canonicalize:
+                # Canonicalize new signatures against existing ones in theme_aggregates
+                # This runs for both vocabulary mode (new signatures) and non-vocabulary mode
+                final_signature = self.canonicalize_signature(
+                    proposed_signature=proposed_signature,
+                    product_area=product_area,
+                    component=component,
+                    user_intent=user_intent,
+                    symptoms=symptoms,
+                    use_llm=not use_embedding,
+                )
+            else:
+                final_signature = proposed_signature
 
-        # Add to session cache for batch canonicalization
-        # This allows subsequent extractions to canonicalize against this signature
-        self.add_session_signature(final_signature, product_area, component)
+            # Add to session cache for batch canonicalization
+            # This allows subsequent extractions to canonicalize against this signature
+            self.add_session_signature(final_signature, product_area, component)
 
         # Extract Smart Digest fields (Issue #144)
         # These are populated when full_conversation is used and LLM returns them
