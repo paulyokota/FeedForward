@@ -904,10 +904,9 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         # Initialize orphan integration for canonicalization (Issue #155)
         # This ensures orphan signatures are canonicalized via SignatureRegistry,
         # preventing fragmentation of synonymous signatures across pipeline runs.
-        orphan_integration_service = OrphanIntegrationService(
-            db_connection=conn,
-            auto_graduate=True,
-        )
+        # auto_graduate=True: Orphans automatically become stories when they reach
+        # MIN_GROUP_SIZE conversations, preventing accumulation of ready-to-graduate orphans.
+        orphan_integration_service = OrphanIntegrationService(db_connection=conn)
 
         # Determine dual format settings from environment
         dual_format_enabled = os.environ.get("FEEDFORWARD_DUAL_FORMAT", "true").lower() == "true"

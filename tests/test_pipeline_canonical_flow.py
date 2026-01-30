@@ -895,10 +895,16 @@ class TestOrphanCanonicalization:
     """
     Tests for orphan canonicalization (Issue #155).
 
+    Canonicalization ensures that equivalent signatures (e.g., "Queue Stuck",
+    "queue-stuck", "QUEUE_STUCK") are normalized to a single canonical form
+    ("queue_stuck") before orphan lookup. This prevents fragmentation where
+    slightly different signature formats create separate orphan records.
+
     Verifies that:
     1. OrphanIntegrationService is available and properly configured
     2. SignatureRegistry canonicalizes equivalent signatures
-    3. Orphan routing uses canonicalized signatures
+    3. Orphan routing uses canonicalized signatures for lookup
+    4. Equivalent signatures consolidate into the same orphan
     """
 
     def test_orphan_integration_service_uses_signature_registry(self):
@@ -1011,3 +1017,70 @@ class TestOrphanCanonicalization:
         params = list(sig.parameters.keys())
 
         assert "orphan_integration_service" in params
+
+    def test_orphan_matcher_uses_canonical_signature_for_lookup(self):
+        """OrphanMatcher should look up orphans by canonical signature, not raw signature.
+
+        This is the core test for Issue #155: verifies that equivalent signatures
+        consolidate into the same orphan rather than creating duplicates.
+        """
+        from orphan_matcher import OrphanMatcher, ExtractedTheme
+        from signature_utils import SignatureRegistry
+
+        # Create mock services
+        mock_orphan_service = Mock()
+        mock_story_service = Mock()
+        registry = SignatureRegistry()
+
+        matcher = OrphanMatcher(
+            orphan_service=mock_orphan_service,
+            story_service=mock_story_service,
+            signature_registry=registry,
+            auto_graduate=False,  # Don't graduate for this test
+        )
+
+        # Simulate: existing orphan with canonical signature "queue_stuck"
+        existing_orphan = Mock()
+        existing_orphan.id = uuid4()
+        existing_orphan.signature = "queue_stuck"
+        existing_orphan.conversation_ids = ["conv_1"]
+        existing_orphan.theme_data = {"symptoms": ["posts stuck"]}
+
+        # Mock: get_by_signature returns orphan for canonical "queue_stuck"
+        def mock_get_by_signature(sig):
+            if sig == "queue_stuck":
+                return existing_orphan
+            return None
+
+        mock_orphan_service.get_by_signature.side_effect = mock_get_by_signature
+
+        # Process theme with variant signature "Queue-Stuck" (should canonicalize)
+        theme = ExtractedTheme(
+            signature="Queue-Stuck",  # Raw signature with different format
+            user_intent="Schedule posts",
+            symptoms=["posts not going live"],
+        )
+
+        # This should: 1) canonicalize to "queue_stuck", 2) find existing orphan
+        matcher.match_and_accumulate("conv_2", theme)
+
+        # CRITICAL VERIFICATION: lookup used canonical signature
+        mock_orphan_service.get_by_signature.assert_called_with("queue_stuck")
+
+        # Should update existing orphan, not create new one
+        assert mock_orphan_service.create.call_count == 0
+        mock_orphan_service.add_conversations.assert_called()
+
+    def test_different_signatures_get_different_canonicals(self):
+        """Truly different signatures should remain separate after canonicalization."""
+        from signature_utils import SignatureRegistry
+
+        registry = SignatureRegistry()
+
+        # These are genuinely different issues
+        canonical_a = registry.normalize("Queue Stuck")
+        canonical_b = registry.normalize("Login Failed")
+
+        assert canonical_a == "queue_stuck"
+        assert canonical_b == "login_failed"
+        assert canonical_a != canonical_b  # Must remain distinct
