@@ -192,6 +192,12 @@ class EvidenceExcerpt(BaseModel):
     text: str
     source: str  # 'intercom' or 'coda'
     conversation_id: Optional[str] = None
+    # Issue #157: Evidence metadata completeness
+    email: Optional[str] = None
+    intercom_url: Optional[str] = None
+    org_id: Optional[str] = None
+    user_id: Optional[str] = None
+    contact_id: Optional[str] = None
 
 
 class StoryEvidence(BaseModel):

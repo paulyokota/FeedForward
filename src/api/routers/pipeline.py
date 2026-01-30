@@ -977,6 +977,7 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
                        t.diagnostic_summary, t.key_excerpts,
                        t.resolution_action, t.root_cause,
                        t.solution_provided, t.resolution_category,
+                       c.contact_email, c.contact_id, c.user_id, c.org_id,
                        c.priority, c.churn_risk
                 FROM themes t
                 JOIN conversations c ON t.conversation_id = c.id
@@ -1019,6 +1020,11 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             "root_cause": row.get("root_cause"),
             "solution_provided": row.get("solution_provided"),
             "resolution_category": row.get("resolution_category"),
+            # Issue #157: Evidence metadata completeness
+            "contact_email": row.get("contact_email"),
+            "contact_id": row.get("contact_id"),
+            "user_id": row.get("user_id"),
+            "org_id": row.get("org_id"),
             # Issue #166: Severity fields for MIN_GROUP_SIZE exception
             "priority": row.get("priority"),
             "churn_risk": row.get("churn_risk"),
