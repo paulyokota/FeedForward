@@ -37,6 +37,14 @@ from src.story_tracking.services.evidence_service import EvidenceService
 from src.story_tracking.services.story_creation_service import StoryCreationService
 from src.story_tracking.services.orphan_integration import OrphanIntegrationService
 
+# Optional: ConfidenceScorer for quality gates (Issue #161)
+try:
+    from src.confidence_scorer import ConfidenceScorer
+    CONFIDENCE_SCORER_AVAILABLE = True
+except ImportError:
+    ConfidenceScorer = None
+    CONFIDENCE_SCORER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -847,7 +855,8 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
                        t.affected_flow, c.source_body, c.issue_type,
                        t.diagnostic_summary, t.key_excerpts,
                        t.resolution_action, t.root_cause,
-                       t.solution_provided, t.resolution_category
+                       t.solution_provided, t.resolution_category,
+                       c.priority, c.churn_risk
                 FROM themes t
                 JOIN conversations c ON t.conversation_id = c.id
                 WHERE t.pipeline_run_id = %s
@@ -889,6 +898,9 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             "root_cause": row.get("root_cause"),
             "solution_provided": row.get("solution_provided"),
             "resolution_category": row.get("resolution_category"),
+            # Issue #166: Severity fields for MIN_GROUP_SIZE exception
+            "priority": row.get("priority"),
+            "churn_risk": row.get("churn_risk"),
         }
         conversation_data[row["conversation_id"]] = conv_dict
         groups[row["issue_signature"]].append(conv_dict)
@@ -937,11 +949,25 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
                 logger.warning(f"Run {run_id}: PM review requested but service not available")
                 pm_review_enabled = False
 
+        # Initialize ConfidenceScorer for quality gates (Issue #161)
+        # Routes low-confidence groups to orphans instead of forcing story creation
+        confidence_scorer = None
+        if CONFIDENCE_SCORER_AVAILABLE:
+            try:
+                confidence_scorer = ConfidenceScorer()
+                logger.info(f"Run {run_id}: ConfidenceScorer enabled for quality gates")
+            except Exception as e:
+                logger.warning(
+                    f"Run {run_id}: Failed to initialize ConfidenceScorer: {e}. "
+                    f"Groups will not be confidence-scored (quality gate disabled)."
+                )
+
         story_creation_service = StoryCreationService(
             story_service=story_service,
             orphan_service=orphan_service,
             evidence_service=evidence_service,
             orphan_integration_service=orphan_integration_service,
+            confidence_scorer=confidence_scorer,  # Issue #161: Enable quality gate
             dual_format_enabled=dual_format_enabled,
             target_repo=target_repo,
             pm_review_service=pm_review_service,
