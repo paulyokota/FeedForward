@@ -1592,6 +1592,7 @@ class StoryCreationService:
                 reasoning,
                 original_signature,
                 generated_content,
+                code_context,  # Pass pre-explored context to avoid redundant exploration
             ),
             labels=[],
             confidence_score=confidence_score,
@@ -1770,6 +1771,7 @@ class StoryCreationService:
                 theme_data,
                 pm_result.reasoning,
                 generated_content=generated_content,
+                code_context=code_context,  # Pass pre-explored context
             ),
             labels=[],
             product_area=theme_data.get("product_area"),
@@ -1857,6 +1859,7 @@ class StoryCreationService:
                 rationale,
                 original_signature,
                 generated_content,
+                code_context,  # Pass pre-explored context
             ),
             labels=[],
             product_area=theme_data.get("product_area"),
@@ -2155,6 +2158,7 @@ class StoryCreationService:
         reasoning: str,
         original_signature: Optional[str] = None,
         generated_content: Optional["GeneratedStoryContent"] = None,
+        code_context: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Generate story description, optionally with dual format.
@@ -2170,6 +2174,9 @@ class StoryCreationService:
             generated_content: Optional LLM-generated content for user story and AI goal.
                              If provided, includes user_type, user_story_want,
                              user_story_benefit, and ai_agent_goal in formatted output.
+            code_context: Optional dict with pre-explored codebase context.
+                         If provided and success=True, skips redundant exploration
+                         and uses this context directly in the description.
 
         Returns:
             Formatted story description (markdown)
@@ -2181,8 +2188,16 @@ class StoryCreationService:
             )
 
         # Use DualStoryFormatter for v2 format
+        # Skip exploration if code_context already available and successful
         exploration_result = None
-        if self.target_repo and self.codebase_provider:
+        if code_context and code_context.get("success"):
+            # Use pre-explored code_context - no need for redundant exploration
+            logger.debug(
+                f"Using pre-explored code_context for {signature}: "
+                f"{len(code_context.get('relevant_files', []))} files"
+            )
+        elif self.target_repo and self.codebase_provider:
+            # Only explore if code_context missing or failed
             try:
                 logger.debug(f"Exploring codebase for {signature}")
                 exploration_result = self.codebase_provider.explore_for_theme(
@@ -2207,10 +2222,12 @@ class StoryCreationService:
         )
 
         # Generate dual-format output with generated content
+        # Pass code_context for direct consumption by formatter
         dual_output = self.dual_formatter.format_story(
             theme_data=formatter_theme_data,
             exploration_result=exploration_result,
             generated_content=generated_content,
+            code_context=code_context,
         )
 
         logger.info(
