@@ -887,3 +887,258 @@ class TestConstants:
         assert hasattr(result, "orphan_fallbacks")
         assert result.quality_gate_rejections == 0
         assert result.orphan_fallbacks == 0
+
+
+# =============================================================================
+# Test Class: Issue #155 - Orphan Canonicalization in Pipeline
+# =============================================================================
+
+
+class TestOrphanCanonicalization:
+    """
+    Tests for orphan canonicalization (Issue #155).
+
+    Canonicalization ensures that equivalent signatures (e.g., "Queue Stuck",
+    "queue-stuck", "QUEUE_STUCK") are normalized to a single canonical form
+    ("queue_stuck") before orphan lookup. This prevents fragmentation where
+    slightly different signature formats create separate orphan records.
+
+    Verifies that:
+    1. OrphanIntegrationService is available and properly configured
+    2. SignatureRegistry canonicalizes equivalent signatures
+    3. Orphan routing uses canonicalized signatures for lookup
+    4. Equivalent signatures consolidate into the same orphan
+    """
+
+    def test_orphan_integration_service_uses_signature_registry(self):
+        """OrphanIntegrationService should use SignatureRegistry for canonicalization."""
+        # Import the service and registry
+        from story_tracking.services.orphan_integration import OrphanIntegrationService
+
+        # Verify service uses SignatureRegistry
+        mock_db = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor_ctx = MagicMock()
+        mock_cursor_ctx.__enter__.return_value = mock_cursor
+        mock_cursor_ctx.__exit__.return_value = False
+        mock_db.cursor.return_value = mock_cursor_ctx
+
+        # Mock the orphan service to avoid DB calls
+        with patch("story_tracking.services.orphan_integration.OrphanService"):
+            with patch("story_tracking.services.orphan_integration.StoryService"):
+                service = OrphanIntegrationService(db_connection=mock_db)
+
+                # Verify service has signature_registry
+                assert hasattr(service, "signature_registry")
+                assert service.signature_registry is not None
+
+                # Verify matcher uses the registry
+                assert hasattr(service, "matcher")
+                assert service.matcher.signature_registry is service.signature_registry
+
+    def test_signature_registry_normalizes_equivalent_signatures(self):
+        """SignatureRegistry should normalize equivalent signatures to canonical form."""
+        from signature_utils import SignatureRegistry
+
+        registry = SignatureRegistry()
+
+        # Test normalization: different formats -> same canonical form
+        assert registry.normalize("Queue Stuck") == "queue_stuck"
+        assert registry.normalize("queue-stuck") == "queue_stuck"
+        assert registry.normalize("QUEUE_STUCK") == "queue_stuck"
+        assert registry.normalize("  queue  stuck  ") == "queue_stuck"
+
+        # All should produce the same canonical form
+        sigs = ["Queue Stuck", "queue-stuck", "QUEUE_STUCK", "queue  stuck"]
+        canonicals = [registry.normalize(s) for s in sigs]
+        assert len(set(canonicals)) == 1  # All same
+
+    def test_orphan_integration_routes_to_canonical_signature(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Orphans routed via integration should use canonical signatures."""
+        # Create a mock integration service that captures calls
+        mock_integration = Mock()
+        captured_calls = []
+
+        def capture_process_theme(conv_id, theme_data):
+            captured_calls.append(theme_data)
+            return Mock(action="created")
+
+        mock_integration.process_theme.side_effect = capture_process_theme
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            orphan_integration_service=mock_integration,
+            validation_enabled=False,
+        )
+
+        # Process a small group (will be routed to orphan integration)
+        convs = [{"id": f"canon_{i}", "excerpt": f"Test {i}"} for i in range(2)]
+
+        service.process_theme_groups({"Queue-Stuck": convs})
+
+        # Verify integration was called
+        assert mock_integration.process_theme.call_count >= 1
+
+        # Verify the signature passed to integration
+        # The signature should be passed as-is; canonicalization happens inside
+        # OrphanIntegrationService/OrphanMatcher
+        assert len(captured_calls) > 0
+        for call_data in captured_calls:
+            assert "issue_signature" in call_data
+            assert call_data["issue_signature"] == "Queue-Stuck"
+
+    def test_pipeline_creates_orphan_integration_service(self):
+        """Pipeline should create OrphanIntegrationService for story creation."""
+        # This test verifies the wiring in pipeline.py
+
+        # Import the pipeline module to check import is correct
+        from src.api.routers.pipeline import (
+            OrphanIntegrationService,
+            StoryCreationService,
+        )
+
+        # Verify both are importable (proves the import was added)
+        assert OrphanIntegrationService is not None
+        assert StoryCreationService is not None
+
+        # Verify OrphanIntegrationService accepts expected parameters
+        import inspect
+        sig = inspect.signature(OrphanIntegrationService.__init__)
+        params = list(sig.parameters.keys())
+        assert "db_connection" in params
+        assert "auto_graduate" in params
+
+    def test_story_creation_service_accepts_orphan_integration_parameter(self):
+        """StoryCreationService constructor should accept orphan_integration_service."""
+        import inspect
+        sig = inspect.signature(StoryCreationService.__init__)
+        params = list(sig.parameters.keys())
+
+        assert "orphan_integration_service" in params
+
+    def test_orphan_matcher_uses_canonical_signature_for_lookup(self):
+        """OrphanMatcher should look up orphans by canonical signature, not raw signature.
+
+        This is the core test for Issue #155: verifies that equivalent signatures
+        consolidate into the same orphan rather than creating duplicates.
+        """
+        from orphan_matcher import OrphanMatcher, ExtractedTheme
+        from signature_utils import SignatureRegistry
+
+        # Create mock services
+        mock_orphan_service = Mock()
+        mock_story_service = Mock()
+        registry = SignatureRegistry()
+
+        matcher = OrphanMatcher(
+            orphan_service=mock_orphan_service,
+            story_service=mock_story_service,
+            signature_registry=registry,
+            auto_graduate=False,  # Don't graduate for this test
+        )
+
+        # Simulate: existing orphan with canonical signature "queue_stuck"
+        existing_orphan = Mock()
+        existing_orphan.id = uuid4()
+        existing_orphan.signature = "queue_stuck"
+        existing_orphan.conversation_ids = ["conv_1"]
+        existing_orphan.theme_data = {"symptoms": ["posts stuck"]}
+
+        # Mock: get_by_signature returns orphan for canonical "queue_stuck"
+        def mock_get_by_signature(sig):
+            if sig == "queue_stuck":
+                return existing_orphan
+            return None
+
+        mock_orphan_service.get_by_signature.side_effect = mock_get_by_signature
+
+        # Process theme with variant signature "Queue-Stuck" (should canonicalize)
+        theme = ExtractedTheme(
+            signature="Queue-Stuck",  # Raw signature with different format
+            user_intent="Schedule posts",
+            symptoms=["posts not going live"],
+        )
+
+        # This should: 1) canonicalize to "queue_stuck", 2) find existing orphan
+        matcher.match_and_accumulate("conv_2", theme)
+
+        # CRITICAL VERIFICATION: lookup used canonical signature
+        mock_orphan_service.get_by_signature.assert_called_with("queue_stuck")
+
+        # Should update existing orphan, not create new one
+        assert mock_orphan_service.create.call_count == 0
+        mock_orphan_service.add_conversations.assert_called()
+
+    def test_different_signatures_get_different_canonicals(self):
+        """Truly different signatures should remain separate after canonicalization."""
+        from signature_utils import SignatureRegistry
+
+        registry = SignatureRegistry()
+
+        # These are genuinely different issues
+        canonical_a = registry.normalize("Queue Stuck")
+        canonical_b = registry.normalize("Login Failed")
+
+        assert canonical_a == "queue_stuck"
+        assert canonical_b == "login_failed"
+        assert canonical_a != canonical_b  # Must remain distinct
+
+    def test_orphan_integration_tracks_graduation_in_metrics(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """When orphan graduates to story, metrics should reflect stories_created not orphans_updated.
+
+        This is a regression test for PR feedback on Issue #155: _route_to_orphan_integration()
+        must track MatchResult.action to correctly count graduated orphans as stories.
+        """
+        from orphan_matcher import MatchResult
+
+        # Mock integration service that returns "graduated" action
+        mock_integration = Mock()
+        graduated_story_id = str(uuid4())
+
+        def mock_process_theme(conv_id, theme_data):
+            # Simulate graduation on the last conversation
+            if conv_id == "grad_1":
+                return MatchResult(
+                    matched=True,
+                    orphan_id=str(uuid4()),
+                    orphan_signature="queue_stuck",
+                    action="graduated",
+                    story_id=graduated_story_id,
+                )
+            return MatchResult(
+                matched=True,
+                orphan_id=str(uuid4()),
+                orphan_signature="queue_stuck",
+                action="updated",
+            )
+
+        mock_integration.process_theme.side_effect = mock_process_theme
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            orphan_integration_service=mock_integration,
+            validation_enabled=False,
+        )
+
+        # Process a small group - one will trigger graduation
+        convs = [
+            {"id": "grad_0", "excerpt": "Test 0"},
+            {"id": "grad_1", "excerpt": "Test 1"},
+        ]
+
+        result = service.process_theme_groups({"queue_stuck": convs})
+
+        # CRITICAL: graduated orphan should count as story, not orphan update
+        assert result.stories_created == 1, "Graduated orphan should increment stories_created"
+        assert result.orphans_updated == 1, "Non-graduated should count as orphans_updated"
+        assert len(result.created_story_ids) == 1, "Graduated story ID should be tracked"

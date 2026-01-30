@@ -35,6 +35,7 @@ from src.story_tracking.services.story_service import StoryService
 from src.story_tracking.services.orphan_service import OrphanService
 from src.story_tracking.services.evidence_service import EvidenceService
 from src.story_tracking.services.story_creation_service import StoryCreationService
+from src.story_tracking.services.orphan_integration import OrphanIntegrationService
 
 logger = logging.getLogger(__name__)
 
@@ -907,6 +908,12 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
         orphan_service = OrphanService(conn)
         evidence_service = EvidenceService(conn)
 
+        # Initialize orphan integration for canonicalization (Issue #155)
+        # This ensures orphan signatures are canonicalized via SignatureRegistry,
+        # preventing fragmentation of synonymous signatures across pipeline runs.
+        # Uses default auto_graduate=True, so orphans graduate to stories at MIN_GROUP_SIZE.
+        orphan_integration_service = OrphanIntegrationService(db_connection=conn)
+
         # Determine dual format settings from environment
         dual_format_enabled = os.environ.get("FEEDFORWARD_DUAL_FORMAT", "true").lower() == "true"
         # ⚠️  READ BEFORE CHANGING: target_repo MUST default to None.
@@ -934,6 +941,7 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             story_service=story_service,
             orphan_service=orphan_service,
             evidence_service=evidence_service,
+            orphan_integration_service=orphan_integration_service,
             dual_format_enabled=dual_format_enabled,
             target_repo=target_repo,
             pm_review_service=pm_review_service,
