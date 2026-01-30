@@ -75,6 +75,7 @@ class ThemeVocabulary:
         self._url_context_mapping: dict[str, str] = {}
         self._product_area_mapping: dict[str, list[str]] = {}
         self._signature_quality_guidelines: dict = {}
+        self._term_distinctions: dict = {}  # Issue #153: Term distinctions for vocabulary enhancement
         self._load()
 
     def _load(self) -> None:
@@ -97,7 +98,9 @@ class ThemeVocabulary:
                 self._product_area_mapping = data.get("product_area_mapping", {})
                 # Load signature quality guidelines
                 self._signature_quality_guidelines = data.get("signature_quality_guidelines", {})
-                logger.info(f"Loaded {len(self._themes)} themes and {len(self._url_context_mapping)} URL patterns from vocabulary")
+                # Load term distinctions (Issue #153)
+                self._term_distinctions = data.get("term_distinctions", {})
+                logger.info(f"Loaded {len(self._themes)} themes, {len(self._url_context_mapping)} URL patterns, and term distinctions from vocabulary")
             except Exception as e:
                 logger.error(f"Failed to load vocabulary: {e}")
                 self._themes = {}
@@ -330,7 +333,69 @@ class ThemeVocabulary:
                 lines.append(f"      → Better: {ex['better']}")
             lines.append("")
 
+        # Add term distinctions if available (Issue #153)
+        term_guidance = self.format_term_distinctions()
+        if term_guidance:
+            lines.append("")
+            lines.append(term_guidance)
+
         return "\n".join(lines)
+
+    def format_term_distinctions(self) -> str:
+        """
+        Format term distinctions for inclusion in extraction prompt.
+
+        Issue #153: Provides guidance on distinguishing similar-looking terms
+        that have different meanings or code paths.
+        """
+        if not self._term_distinctions:
+            return ""
+
+        lines = []
+        lines.append("**Term Distinctions** (Clarify these when they appear):")
+
+        # Similar UX pairs - terms that co-occur but need clarification
+        similar_ux = self._term_distinctions.get("similar_ux", {})
+        if similar_ux and not similar_ux.get("_description"):
+            similar_ux = {k: v for k, v in similar_ux.items() if not k.startswith("_")}
+        if similar_ux:
+            lines.append("")
+            lines.append("  *Terms that often appear together - clarify which is affected:*")
+            for pair_name, pair_data in similar_ux.items():
+                if pair_name.startswith("_"):
+                    continue
+                terms = pair_data.get("terms", [])
+                guidance = pair_data.get("guidance", "")
+                if terms and guidance:
+                    lines.append(f"   - {' vs '.join(terms)}: {guidance}")
+
+        # Different model pairs - same code but different user concepts
+        different_model = self._term_distinctions.get("different_model", {})
+        if different_model:
+            dm_pairs = {k: v for k, v in different_model.items() if not k.startswith("_")}
+            if dm_pairs:
+                lines.append("")
+                lines.append("  *Same system, different lifecycle states - ask about content state:*")
+                for pair_name, pair_data in dm_pairs.items():
+                    terms = pair_data.get("terms", [])
+                    guidance = pair_data.get("guidance", "")
+                    if terms and guidance:
+                        lines.append(f"   - {' vs '.join(terms)}: {guidance}")
+
+        # Name confusion pairs - names overlap but different features
+        name_confusion = self._term_distinctions.get("name_confusion", {})
+        if name_confusion:
+            nc_pairs = {k: v for k, v in name_confusion.items() if not k.startswith("_")}
+            if nc_pairs:
+                lines.append("")
+                lines.append("  *Names overlap but these are different features:*")
+                for pair_name, pair_data in nc_pairs.items():
+                    terms = pair_data.get("terms", [])
+                    guidance = pair_data.get("guidance", "")
+                    if terms and guidance:
+                        lines.append(f"   - {' vs '.join(terms)}: {guidance}")
+
+        return "\n".join(lines) if len(lines) > 1 else ""
 
     def match_url_to_product_area(self, url: Optional[str]) -> Optional[str]:
         """

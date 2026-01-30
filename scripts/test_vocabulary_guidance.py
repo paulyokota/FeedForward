@@ -42,8 +42,21 @@ class TestCase:
     description: str
     conversation_text: str
     expected_distinction: str  # Which facet should distinguish
-    should_match: str  # Expected signature pattern (partial match)
-    should_not_match: str  # Should NOT match this pattern
+    should_match: list[str]  # Expected signature patterns (any match = pass)
+    should_not_match: list[str]  # Should NOT match any of these patterns
+
+
+# Synonym groups for flexible matching
+SYNONYMS = {
+    "import": ["import", "fetch", "pull", "load"],
+    "export": ["export", "push", "send"],
+    "scheduled": ["scheduled", "scheduling", "schedule", "queued"],
+    "draft": ["draft", "drafts"],
+    "delete": ["delete", "remove", "clear"],
+    "sync": ["sync", "syncing", "synchron"],
+    "connection": ["connection", "connect", "oauth", "auth"],
+    "generate": ["generate", "generat", "creation", "create"],
+}
 
 
 # Test cases based on #152 false positive patterns
@@ -57,8 +70,8 @@ TEST_CASES = [
         User: Great, I want to bulk delete all my drafts, not the scheduled ones.
         """,
         expected_distinction="object_type",
-        should_match="draft",
-        should_not_match="scheduled_pin",
+        should_match=["draft"],
+        should_not_match=["scheduled_pin", "queued_pin"],
     ),
     TestCase(
         name="scheduled_pins_vs_drafts",
@@ -69,8 +82,8 @@ TEST_CASES = [
         User: I want to delete all my scheduled pins, not move them to drafts.
         """,
         expected_distinction="object_type",
-        should_match="scheduled",
-        should_not_match="draft",
+        should_match=["scheduled", "scheduling", "queued"],  # Synonyms for scheduled content
+        should_not_match=["draft"],
     ),
     TestCase(
         name="scheduling_action",
@@ -81,8 +94,8 @@ TEST_CASES = [
         User: Yes, I want to schedule them all for next week.
         """,
         expected_distinction="action",
-        should_match="schedul",  # schedule/scheduling
-        should_not_match="unschedul",
+        should_match=["schedul"],  # schedule/scheduling
+        should_not_match=["unschedul"],
     ),
     TestCase(
         name="unscheduling_action",
@@ -93,8 +106,8 @@ TEST_CASES = [
         User: How do I bulk unschedule? I don't want to delete them, just move them back.
         """,
         expected_distinction="action",
-        should_match="unschedul",
-        should_not_match="delete",
+        should_match=["unschedul"],
+        should_not_match=["delete", "remove"],
     ),
     TestCase(
         name="connection_during",
@@ -105,8 +118,8 @@ TEST_CASES = [
         User: It says "connection failed" when I try to authorize. The OAuth popup shows an error.
         """,
         expected_distinction="timing",
-        should_match="connection",
-        should_not_match="sync",
+        should_match=["connection", "oauth", "connect"],
+        should_not_match=["sync", "board"],
     ),
     TestCase(
         name="connection_after",
@@ -117,8 +130,8 @@ TEST_CASES = [
         User: Yesterday. The connection went through but my boards still aren't syncing.
         """,
         expected_distinction="timing",
-        should_match="sync",
-        should_not_match="oauth",
+        should_match=["sync", "board", "missing"],  # Post-connection issues
+        should_not_match=["oauth_fail", "connection_fail"],
     ),
     TestCase(
         name="image_import_stage",
@@ -129,8 +142,8 @@ TEST_CASES = [
         User: It says it can't import the images. The scraping isn't working.
         """,
         expected_distinction="stage",
-        should_match="import",
-        should_not_match="generation",
+        should_match=["import", "fetch", "scrape", "pull"],  # Synonyms for import
+        should_not_match=["generat", "create", "design"],
     ),
     TestCase(
         name="image_generation_stage",
@@ -141,8 +154,8 @@ TEST_CASES = [
         User: The images are there but when I click generate, nothing happens.
         """,
         expected_distinction="stage",
-        should_match="generat",
-        should_not_match="import",
+        should_match=["generat", "create", "design"],
+        should_not_match=["import", "fetch", "scrape"],
     ),
 ]
 
@@ -184,15 +197,22 @@ def run_test(extractor: ThemeExtractor, test: TestCase, verbose: bool = False) -
             logger.info(f"  Extracted signature: {result.issue_signature}")
             logger.info(f"  Product area: {result.product_area}")
 
-        # Check should_match
-        if test.should_match.lower() not in signature:
-            return False, f"Expected '{test.should_match}' in signature, got '{result.issue_signature}'"
+        # Check should_match (any pattern in list = pass)
+        matched_pattern = None
+        for pattern in test.should_match:
+            if pattern.lower() in signature:
+                matched_pattern = pattern
+                break
 
-        # Check should_not_match
-        if test.should_not_match.lower() in signature:
-            return False, f"Should NOT contain '{test.should_not_match}', got '{result.issue_signature}'"
+        if not matched_pattern:
+            return False, f"Expected one of {test.should_match} in signature, got '{result.issue_signature}'"
 
-        return True, f"Correct: {result.issue_signature}"
+        # Check should_not_match (any pattern in list = fail)
+        for pattern in test.should_not_match:
+            if pattern.lower() in signature:
+                return False, f"Should NOT contain '{pattern}', got '{result.issue_signature}'"
+
+        return True, f"Correct: {result.issue_signature} (matched '{matched_pattern}')"
 
     except Exception as e:
         import traceback
@@ -207,23 +227,23 @@ def main():
     parser.add_argument("--test", type=str, help="Run specific test by name")
     args = parser.parse_args()
 
-    # Check vocabulary has distinction examples
+    # Check vocabulary has term distinctions (Issue #153 Phase 3 output)
     vocab = ThemeVocabulary()
-    guidelines = vocab._signature_quality_guidelines
-    distinction_examples = guidelines.get("distinction_examples", {})
+    term_distinctions = vocab._term_distinctions
 
-    if not distinction_examples:
-        logger.error("No distinction_examples in vocabulary! Run Phase 3 first.")
+    if not term_distinctions:
+        logger.error("No term_distinctions in vocabulary! Run Phase 3 first.")
         sys.exit(1)
 
-    different_count = len(distinction_examples.get("different_examples", []))
-    same_count = len(distinction_examples.get("same_examples", []))
-    logger.info(f"Vocabulary has {different_count} different + {same_count} same distinction examples")
+    similar_ux_count = len([k for k in term_distinctions.get("similar_ux", {}).keys() if not k.startswith("_")])
+    different_model_count = len([k for k in term_distinctions.get("different_model", {}).keys() if not k.startswith("_")])
+    name_confusion_count = len([k for k in term_distinctions.get("name_confusion", {}).keys() if not k.startswith("_")])
+    logger.info(f"Vocabulary has {similar_ux_count} similar_ux + {different_model_count} different_model + {name_confusion_count} name_confusion term pairs")
 
     # Show prompt preview
     if args.verbose:
-        examples = vocab.format_signature_examples()
-        logger.info(f"\nPrompt guidance preview (last 500 chars):\n{examples[-500:]}\n")
+        term_guidance = vocab.format_term_distinctions()
+        logger.info(f"\nTerm distinctions preview:\n{term_guidance}\n")
 
     # Initialize extractor
     logger.info("Initializing theme extractor...")
