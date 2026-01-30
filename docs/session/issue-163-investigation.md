@@ -102,95 +102,131 @@ class ExplorationResult:
 
 ---
 
-## Proposed Solution
+## Proposed Solution (Refined)
 
-### Option A: Pass code_context to description generator (Recommended)
+**Key insight**: The formatter already serializes `ExplorationResult` back to a dict (`story_formatter.py:666-689`). Reconstructing the dataclass is unnecessary overhead - the formatter can consume `code_context` directly.
 
-1. **Add `code_context` parameter** to `_generate_description()`:
-   ```python
-   def _generate_description(
-       self,
-       signature: str,
-       theme_data: Dict[str, Any],
-       reasoning: str,
-       original_signature: Optional[str] = None,
-       generated_content: Optional["GeneratedStoryContent"] = None,
-       code_context: Optional[Dict[str, Any]] = None,  # NEW
-   ) -> str:
-   ```
+### Implementation Plan
 
-2. **Reconstruct ExplorationResult** from code_context:
-   ```python
-   def _reconstruct_exploration_result(
-       self,
-       code_context: Dict[str, Any]
-   ) -> Optional[ExplorationResult]:
-       """Reconstruct ExplorationResult from stored code_context dict."""
-       if not code_context or not code_context.get("success"):
-           return None
+**1. Add `code_context` parameter to `_generate_description()`:**
+```python
+def _generate_description(
+    self,
+    signature: str,
+    theme_data: Dict[str, Any],
+    reasoning: str,
+    original_signature: Optional[str] = None,
+    generated_content: Optional["GeneratedStoryContent"] = None,
+    code_context: Optional[Dict[str, Any]] = None,  # NEW
+) -> str:
+```
 
-       from .codebase_context_provider import (
-           ExplorationResult, FileReference, CodeSnippet
-       )
+**2. Skip exploration when code_context is valid:**
+```python
+# In _generate_description():
+exploration_result = None
 
-       relevant_files = [
-           FileReference(
-               path=f["path"],
-               line_start=f.get("line_start"),
-               line_end=f.get("line_end"),
-               relevance=f.get("relevance", "")
-           )
-           for f in code_context.get("relevant_files", [])
-       ]
+# Use stored code_context if available and successful
+if code_context and code_context.get("success"):
+    # Pass to formatter via new code_context param (see step 3)
+    pass
+elif self.target_repo and self.codebase_provider:
+    # Only explore if code_context missing or failed
+    exploration_result = self.codebase_provider.explore_for_theme(...)
+```
 
-       code_snippets = [
-           CodeSnippet(
-               file_path=s["file_path"],
-               line_start=s["line_start"],
-               line_end=s["line_end"],
-               content=s["content"],
-               language=s.get("language", "python"),
-               context=s.get("context", "")
-           )
-           for s in code_context.get("code_snippets", [])
-       ]
+**3. Add `code_context` parameter to `DualStoryFormatter.format_story()`:**
+```python
+def format_story(
+    self,
+    theme_data: Dict,
+    exploration_result: Optional["ExplorationResult"] = None,
+    evidence_data: Optional[Dict] = None,
+    generated_content: Optional["GeneratedStoryContent"] = None,
+    code_context: Optional[Dict] = None,  # NEW: direct dict input
+) -> DualFormatOutput:
+```
 
-       return ExplorationResult(
-           relevant_files=relevant_files,
-           code_snippets=code_snippets,
-           investigation_queries=[],  # Not stored in code_context
-           exploration_duration_ms=code_context.get("exploration_duration_ms", 0),
-           success=True,
-           error=None
-       )
-   ```
+**4. Add `format_codebase_context_from_dict()` method:**
+```python
+def format_codebase_context_from_dict(
+    self,
+    code_context: Dict[str, Any],
+) -> str:
+    """Format codebase context directly from stored dict."""
+    if not code_context or not code_context.get("success"):
+        return """## Context & Architecture
 
-3. **Skip redundant exploration** when code_context already exists:
-   ```python
-   # In _generate_description():
-   exploration_result = None
-   if code_context:
-       exploration_result = self._reconstruct_exploration_result(code_context)
-   elif self.target_repo and self.codebase_provider:
-       # Only explore if no code_context provided
-       exploration_result = self.codebase_provider.explore_for_theme(...)
-   ```
+### Architecture Notes:
 
-4. **Update call sites** to pass code_context:
-   ```python
-   description = self._generate_description(
-       signature,
-       theme_data,
-       reasoning,
-       original_signature,
-       generated_content,
-       code_context,  # NEW: pass already-explored context
-   )
-   ```
+- Codebase exploration unavailable
+- Manual investigation required"""
 
-### Option B: Store exploration in formatter-compatible format
+    sections = ["## Context & Architecture"]
 
-Store `ExplorationResult`-like dict instead of the current `code_context` format. Requires schema migration - not recommended.
+    # Relevant Files
+    if code_context.get("relevant_files"):
+        sections.append("### Relevant Files:\n")
+        for ref in code_context["relevant_files"][:10]:
+            line_info = ""
+            if ref.get("line_start"):
+                if ref.get("line_end"):
+                    line_info = f" (lines {ref['line_start']}-{ref['line_end']})"
+                else:
+                    line_info = f" (line {ref['line_start']})"
+            relevance = f" - {ref.get('relevance', '')}" if ref.get('relevance') else ""
+            sections.append(f"- `{ref['path']}`{line_info}{relevance}")
+
+    # Code Snippets
+    if code_context.get("code_snippets"):
+        sections.append("\n### Code Snippets:\n")
+        for i, snippet in enumerate(code_context["code_snippets"][:3], 1):
+            sections.append(f"**{i}. {snippet['file_path']}** (lines {snippet['line_start']}-{snippet['line_end']})")
+            if snippet.get("context"):
+                sections.append(f"Context: {snippet['context']}\n")
+            sections.append(f"```{snippet.get('language', 'python')}\n{snippet['content']}\n```\n")
+
+    return "\n".join(sections)
+```
+
+**5. Update `format_ai_section()` to prefer code_context:**
+```python
+# In format_ai_section():
+if code_context and code_context.get("success"):
+    architecture_section = self.format_codebase_context_from_dict(code_context)
+elif exploration_result:
+    architecture_section = self.format_codebase_context(exploration_result)
+else:
+    architecture_section = """## Context & Architecture
+...placeholder text..."""
+```
+
+**6. Update call sites** (3 locations in `story_creation_service.py`):
+```python
+description = self._generate_description(
+    signature,
+    theme_data,
+    reasoning,
+    original_signature,
+    generated_content,
+    code_context,  # NEW: pass already-explored context
+)
+```
+
+### Edge Cases
+
+| Scenario | Behavior |
+|----------|----------|
+| `code_context` present, `success=True` | Use stored context, skip exploration |
+| `code_context` present, `success=False` | Run exploration if `target_repo` set |
+| `code_context` missing | Run exploration if `target_repo` set |
+| Both `code_context` and `exploration_result` | Prefer `code_context` (already done) |
+
+### Why Not Reconstruct ExplorationResult?
+
+1. **Unnecessary overhead**: Converting dict → dataclass → dict (formatter serializes it back)
+2. **Lost data**: `investigation_queries` not stored in `code_context`
+3. **Simpler code**: Direct dict access is more straightforward
 
 ---
 
@@ -206,7 +242,9 @@ Store `ExplorationResult`-like dict instead of the current `code_context` format
 
 | File | Changes Needed |
 |------|----------------|
-| `src/story_tracking/services/story_creation_service.py` | Add `_reconstruct_exploration_result()`, update `_generate_description()` signature and logic, update 3 call sites |
+| `src/story_formatter.py` | Add `code_context` param to `format_story()`, add `format_codebase_context_from_dict()`, update `format_ai_section()` |
+| `src/story_tracking/services/story_creation_service.py` | Add `code_context` param to `_generate_description()`, skip exploration when context available, update 3 call sites |
+| `tests/test_story_formatter.py` | Add test for `format_codebase_context_from_dict()` |
 | `tests/story_tracking/services/test_story_creation_service.py` | Add test for code_context → description integration |
 
 ---
@@ -228,12 +266,14 @@ Store `ExplorationResult`-like dict instead of the current `code_context` format
 
 ## Next Steps
 
-1. Implement `_reconstruct_exploration_result()` helper method
-2. Update `_generate_description()` to accept and use code_context
-3. Update call sites (3 locations in `story_creation_service.py`)
-4. Write tests
-5. Run functional test with pipeline
-6. Measure: % of stories with code_context that show it in descriptions
+1. Add `format_codebase_context_from_dict()` to `DualStoryFormatter`
+2. Add `code_context` param to `format_story()` and update `format_ai_section()`
+3. Add `code_context` param to `_generate_description()` with skip-exploration logic
+4. Update 3 call sites in `story_creation_service.py`
+5. Write unit tests for new formatter method
+6. Write integration test for code_context → description flow
+7. Run functional test with pipeline
+8. Measure: % of stories with code_context that show it in descriptions (target: ≥90%)
 
 ---
 
