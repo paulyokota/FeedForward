@@ -102,7 +102,8 @@ class TestFormatCodaExcerpt:
 
     def test_no_doc_id_fallback(self, monkeypatch):
         """Test fallback to coda.io when no doc ID available."""
-        monkeypatch.delenv("CODA_DOC_ID", raising=False)
+        # Must patch the module variable, not env var - CODA_DOC_ID is cached at import time
+        monkeypatch.setattr(story_formatter, "CODA_DOC_ID", "")
         result = format_coda_excerpt(text="Test excerpt")
 
         assert "[Research](https://coda.io)" in result

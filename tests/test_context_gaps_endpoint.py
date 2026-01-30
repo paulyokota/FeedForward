@@ -210,7 +210,9 @@ def client(mock_db_generator):
 
     # Import here to avoid import errors during collection
     from api.main import app
-    from api.deps import get_db
+    # IMPORTANT: Must match the import path used by the routers (src.api.deps)
+    # not the shorter path (api.deps) - they're different Python objects!
+    from src.api.deps import get_db
 
     # Override dependency with a generator that yields our mock
     def mock_get_db():

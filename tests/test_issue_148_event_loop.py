@@ -31,6 +31,9 @@ from src.db.models import Conversation
 from src.api.schemas.pipeline import PipelineRunRequest
 from pydantic import ValidationError
 
+# Mark entire module as slow - these are integration tests
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
+
 
 # -----------------------------------------------------------------------------
 # Fixtures

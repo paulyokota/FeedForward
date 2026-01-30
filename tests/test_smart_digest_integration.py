@@ -46,6 +46,9 @@ from api.schemas.analytics import (
     ContextGapsResponse,
 )
 
+# Mark entire module as slow - these are integration tests
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
+
 
 # =============================================================================
 # Phase 3: PM Review uses Smart Digest

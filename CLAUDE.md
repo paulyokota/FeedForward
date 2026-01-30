@@ -13,7 +13,10 @@ LLM-powered Intercom conversation analysis pipeline for extracting product insig
 - **Language**: Python 3.11, **Framework**: FastAPI + Next.js
 - **LLM**: OpenAI (gpt-4o-mini for cost efficiency)
 - **Database**: PostgreSQL for data, **pytest** for testing
-- Key commands: `pytest tests/ -v`, `uvicorn src.api.main:app --reload --port 8000`
+- Key commands:
+  - **Quick verification**: `pytest -m "not slow"` (1,196 tests, ~2 min)
+  - **Full suite**: `pytest tests/ -v` (1,400 tests, ~10 min)
+  - **API server**: `uvicorn src.api.main:app --reload --port 8000`
 
 ## Project Structure
 
@@ -53,8 +56,8 @@ PM Review uses `diagnostic_summary` for story validation (previously used `sourc
 
 ```
 [ ] Tests exist (see docs/process-playbook/gates/test-gate.md)
-[ ] Build passes: pytest tests/ -v
-[ ] Tests pass: pytest tests/ -v
+[ ] Quick check passes: pytest -m "not slow" (use during development)
+[ ] Full suite passes: pytest tests/ -v (required before PR)
 [ ] Cross-component PRs: Integration test verifies full data path (see docs/process-playbook/gates/integration-testing-gate.md)
 [ ] Pipeline PRs: Functional test evidence attached (see docs/process-playbook/gates/functional-testing-gate.md)
 [ ] Review converged: 5-personality, 2+ rounds
@@ -288,7 +291,9 @@ python src/cli.py trending         # Trending themes
 python src/cli.py pending          # Preview pending tickets
 
 # Tests
-pytest tests/ -v
+pytest -m "not slow"           # Fast unit tests (~1,200 tests, ~2 min) - use during development
+pytest tests/ -v               # Full suite (~1,400 tests, ~10 min) - required before PR
+pytest -m "slow"               # Integration tests only (~200 tests)
 ```
 
 ---
@@ -297,6 +302,7 @@ pytest tests/ -v
 
 | Command                       | Purpose                                                              |
 | ----------------------------- | -------------------------------------------------------------------- |
+| `/process-primer`             | Rebuild context on gold standard philosophy and process playbook     |
 | `/checkpoint`                 | **USE OFTEN** - Four-question verification before action (see below) |
 | `/pipeline-monitor [run_id]`  | Spawn Haiku agent to monitor pipeline, alert on errors               |
 | `/update-docs`                | Update all project docs after making changes                         |
@@ -327,6 +333,7 @@ Auto-invoked skills that handle FeedForward-specific tasks. Claude decides when 
 
 | Skill                  | Purpose                                            | Location                               |
 | ---------------------- | -------------------------------------------------- | -------------------------------------- |
+| `process-primer`       | **User-invoked** - Load gold standard + playbook   | `.claude/skills/process-primer/`       |
 | `checkpoint`           | **User-invoked** - Four-question verification gate | `.claude/skills/checkpoint/`           |
 | `prompt-tester`        | Tests classification prompts, measures accuracy    | `.claude/skills/prompt-tester/`        |
 | `schema-validator`     | Validates Pydantic/DB/LLM schema consistency       | `.claude/skills/schema-validator/`     |

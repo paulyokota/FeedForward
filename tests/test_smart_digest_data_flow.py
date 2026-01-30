@@ -36,6 +36,9 @@ from digest_extractor import build_full_conversation_text
 from db.models import Conversation
 from theme_extractor import Theme, ThemeExtractor
 
+# Mark entire module as slow - these are integration tests
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
+
 
 # =============================================================================
 # Test Fixtures - Realistic Intercom Conversation Data
