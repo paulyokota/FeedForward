@@ -1142,3 +1142,431 @@ class TestOrphanCanonicalization:
         assert result.stories_created == 1, "Graduated orphan should increment stories_created"
         assert result.orphans_updated == 1, "Non-graduated should count as orphans_updated"
         assert len(result.created_story_ids) == 1, "Graduated story ID should be tracked"
+
+
+# =============================================================================
+# Test Class: Issue #161 - ConfidenceScorer Pipeline Wiring
+# =============================================================================
+
+
+class TestConfidenceScorerPipelineWiring:
+    """
+    Tests for Issue #161: Enable ConfidenceScorer gate in pipeline story creation.
+
+    Verifies that:
+    1. ConfidenceScorer is available for import in pipeline
+    2. Pipeline properly instantiates and passes scorer to StoryCreationService
+    3. Scorer actually runs and produces confidence scores in results
+    """
+
+    def test_confidence_scorer_is_importable(self):
+        """ConfidenceScorer should be importable from src.confidence_scorer."""
+        from src.confidence_scorer import ConfidenceScorer, ScoredGroup
+
+        # Basic instantiation should work (uses OpenAI API key from env)
+        assert ConfidenceScorer is not None
+        assert ScoredGroup is not None
+
+    def test_pipeline_has_confidence_scorer_available_flag(self):
+        """Pipeline should have CONFIDENCE_SCORER_AVAILABLE flag set True."""
+        from src.api.routers.pipeline import CONFIDENCE_SCORER_AVAILABLE
+
+        assert CONFIDENCE_SCORER_AVAILABLE is True, (
+            "CONFIDENCE_SCORER_AVAILABLE should be True when confidence_scorer module is present"
+        )
+
+    def test_story_creation_service_accepts_confidence_scorer(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """StoryCreationService should accept confidence_scorer parameter."""
+        # Create a mock scorer
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 75.0
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        # Service should accept the scorer without error
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        assert service.confidence_scorer is mock_scorer
+        assert service.confidence_threshold == 50.0
+
+    def test_scorer_is_called_during_processing(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """ConfidenceScorer.score_groups should be called during theme processing."""
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 75.0
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        # Process a group meeting MIN_GROUP_SIZE
+        theme_groups = {
+            "test_signature": [
+                {"id": "conv1", "excerpt": "Test excerpt 1"},
+                {"id": "conv2", "excerpt": "Test excerpt 2"},
+                {"id": "conv3", "excerpt": "Test excerpt 3"},
+            ]
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        # Verify scorer was called
+        mock_scorer.score_groups.assert_called_once()
+
+    def test_quality_gate_result_includes_confidence_score(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """QualityGateResult should contain confidence_score when scorer is used."""
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 82.5
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        # Process a valid group
+        theme_groups = {
+            "test_sig": [
+                {"id": "c1", "excerpt": "E1"},
+                {"id": "c2", "excerpt": "E2"},
+                {"id": "c3", "excerpt": "E3"},
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Story should be created with the confidence score
+        assert mock_story_service.create.call_count == 1
+        created_story = mock_story_service.create.call_args[0][0]
+        assert created_story.confidence_score == 82.5
+
+
+# =============================================================================
+# Test Class: Issue #166 - MIN_GROUP_SIZE Exception for High-Severity Clusters
+# =============================================================================
+
+
+class TestHighSeverityMinGroupSizeBypass:
+    """
+    Tests for Issue #166 and #167: High-severity clusters can bypass MIN_GROUP_SIZE
+    when PM review is enabled.
+
+    Issue #166: Allow high-severity (priority=urgent/high OR churn_risk=True) to bypass MIN_GROUP_SIZE
+    Issue #167: But only when PM review is enabled (for human validation)
+
+    Verifies that:
+    1. High-severity + PM review enabled → story (via PM review)
+    2. High-severity + PM review disabled → orphan (preserves original behavior)
+    3. Low-severity → orphan (regardless of PM review)
+    4. The _is_high_severity() helper works correctly
+    """
+
+    @pytest.fixture
+    def mock_pm_review_service(self):
+        """Create a mock PM review service that returns keep_together."""
+        service = Mock()
+        # Default: keep together decision
+        review_result = Mock()
+        review_result.decision = "keep_together"
+        review_result.reasoning = "High-severity issue validated"
+        review_result.sub_groups = []
+        service.review_group.return_value = review_result
+        return service
+
+    def test_urgent_priority_with_pm_review_creates_story(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+    ):
+        """Single urgent priority conversation with PM review should become a story."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,  # PM review enabled
+            validation_enabled=False,
+        )
+
+        # Single conversation with urgent priority
+        theme_groups = {
+            "critical_bug": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Critical bug affecting production",
+                    "priority": "urgent",
+                    "churn_risk": False,
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should create story (PM review validates high-severity bypass)
+        assert mock_story_service.create.call_count == 1, (
+            "Urgent priority with PM review should create a story"
+        )
+        assert result.stories_created == 1
+
+    def test_urgent_priority_without_pm_review_becomes_orphan(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Single urgent priority conversation WITHOUT PM review should become orphan."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_enabled=False,  # PM review disabled
+            validation_enabled=False,
+        )
+
+        # Single conversation with urgent priority
+        theme_groups = {
+            "critical_bug": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Critical bug affecting production",
+                    "priority": "urgent",
+                    "churn_risk": False,
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should NOT create story - PM review disabled means no bypass
+        assert mock_story_service.create.call_count == 0, (
+            "Urgent priority WITHOUT PM review should become orphan"
+        )
+
+    def test_churn_risk_with_pm_review_creates_story(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+    ):
+        """Single conversation with churn_risk + PM review should become a story."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,
+            validation_enabled=False,
+        )
+
+        # Single conversation with churn_risk
+        theme_groups = {
+            "churn_risk_issue": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Customer threatening to cancel",
+                    "priority": "low",
+                    "churn_risk": True,
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should create story (PM review validates churn risk bypass)
+        assert mock_story_service.create.call_count == 1, (
+            "Churn risk with PM review should create a story"
+        )
+        assert result.stories_created == 1
+
+    def test_churn_risk_without_pm_review_becomes_orphan(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Single conversation with churn_risk but NO PM review should become orphan."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_enabled=False,  # PM review disabled
+            validation_enabled=False,
+        )
+
+        # Single conversation with churn_risk
+        theme_groups = {
+            "churn_risk_issue": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Customer threatening to cancel",
+                    "priority": "low",
+                    "churn_risk": True,
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should NOT create story - PM review disabled
+        assert mock_story_service.create.call_count == 0, (
+            "Churn risk WITHOUT PM review should become orphan"
+        )
+
+    def test_low_priority_no_churn_becomes_orphan(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+    ):
+        """Single low priority conversation without churn_risk should become orphan."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,  # Even with PM review enabled
+            validation_enabled=False,
+        )
+
+        # Single conversation with low priority, no churn risk
+        theme_groups = {
+            "minor_issue": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Minor cosmetic issue",
+                    "priority": "low",
+                    "churn_risk": False,
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should NOT create story (not high-severity)
+        assert mock_story_service.create.call_count == 0, (
+            "Low priority non-churn single-conv should not create a story"
+        )
+
+    def test_missing_severity_fields_becomes_orphan(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+    ):
+        """Single conversation without severity fields should become orphan."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,
+            validation_enabled=False,
+        )
+
+        # Single conversation without priority/churn_risk fields
+        theme_groups = {
+            "no_severity": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Some issue",
+                    # No priority or churn_risk fields
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should NOT create story (becomes orphan)
+        assert mock_story_service.create.call_count == 0, (
+            "Missing severity fields should not bypass MIN_GROUP_SIZE"
+        )
+
+    def test_is_high_severity_helper_with_dicts(self):
+        """_is_high_severity() should work with dict lists."""
+        from story_tracking.services.story_creation_service import _is_high_severity
+
+        # Urgent priority
+        assert _is_high_severity([{"priority": "urgent"}]) is True
+        # High priority
+        assert _is_high_severity([{"priority": "high"}]) is True
+        # Churn risk
+        assert _is_high_severity([{"churn_risk": True}]) is True
+        # Both urgent and churn
+        assert _is_high_severity([{"priority": "urgent", "churn_risk": True}]) is True
+
+        # Low priority, no churn
+        assert _is_high_severity([{"priority": "low", "churn_risk": False}]) is False
+        # Medium priority, no churn
+        assert _is_high_severity([{"priority": "medium"}]) is False
+        # Empty dict
+        assert _is_high_severity([{}]) is False
+        # Empty list
+        assert _is_high_severity([]) is False
+
+    def test_is_high_severity_any_conversation(self):
+        """_is_high_severity() returns True if ANY conversation is high-severity."""
+        from story_tracking.services.story_creation_service import _is_high_severity
+
+        # Multiple conversations, one urgent
+        convs = [
+            {"id": "1", "priority": "low"},
+            {"id": "2", "priority": "urgent"},  # This one
+            {"id": "3", "priority": "low"},
+        ]
+        assert _is_high_severity(convs) is True
+
+        # Multiple conversations, one with churn risk
+        convs = [
+            {"id": "1", "priority": "low", "churn_risk": False},
+            {"id": "2", "churn_risk": True},  # This one
+        ]
+        assert _is_high_severity(convs) is True
+
+    def test_two_high_severity_convs_with_pm_review_create_story(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+    ):
+        """Two high-severity conversations with PM review should create a story."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,  # Required for high-severity bypass
+            validation_enabled=False,
+        )
+
+        # Two conversations with high priority (still below MIN_GROUP_SIZE=3)
+        theme_groups = {
+            "paired_high": [
+                {"id": "conv1", "excerpt": "Issue 1", "priority": "high"},
+                {"id": "conv2", "excerpt": "Issue 2", "priority": "high"},
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should create story since high-severity + PM review enabled
+        assert mock_story_service.create.call_count == 1
+        assert result.stories_created == 1

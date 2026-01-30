@@ -113,6 +113,42 @@ MAX_CODE_SNIPPET_LENGTH = 5000  # 5KB per snippet to prevent bloat
 MAX_CODE_CONTEXT_SIZE = 1_000_000  # 1MB total code_context limit
 
 
+def _is_high_severity(conversations: List[Any]) -> bool:
+    """
+    Check if any conversation in the group is high severity.
+
+    High severity is defined as (Issue #166):
+    - priority in ("urgent", "high") OR
+    - churn_risk is True
+
+    This allows high-severity clusters to bypass MIN_GROUP_SIZE,
+    enabling single-incident critical bugs to become stories.
+
+    NOTE (Issue #167): High-severity bypass only applies when PM review
+    is enabled. This function only checks severity - callers must also
+    verify pm_review_enabled for the full bypass condition.
+
+    Args:
+        conversations: List of conversation dicts OR ConversationData objects
+                       with optional priority/churn_risk fields
+
+    Returns:
+        True if ANY conversation meets high-severity criteria
+    """
+    for conv in conversations:
+        # Handle both dict and ConversationData objects
+        if hasattr(conv, "priority"):
+            priority = conv.priority
+            churn_risk = conv.churn_risk
+        else:
+            priority = conv.get("priority")
+            churn_risk = conv.get("churn_risk")
+
+        if priority in ("urgent", "high") or churn_risk is True:
+            return True
+    return False
+
+
 def _truncate_at_word_boundary(text: str, max_length: int) -> str:
     """
     Truncate text at word boundary to avoid cutting words mid-way.
@@ -179,6 +215,10 @@ class ConversationData:
     root_cause: Optional[str] = None
     solution_provided: Optional[str] = None
     resolution_category: Optional[str] = None
+
+    # Issue #166: Severity fields for MIN_GROUP_SIZE bypass
+    priority: Optional[str] = None
+    churn_risk: Optional[bool] = None
 
 
 @dataclass
@@ -673,20 +713,32 @@ class StoryCreationService:
             result.quality_gate_rejections += 1
             return
 
-        # Check minimum group size before PM review
+        # Check minimum group size before PM review (Issue #166, #167)
         if len(conversations) < MIN_GROUP_SIZE:
-            logger.info(
-                f"Routing hybrid cluster to orphan (below MIN_GROUP_SIZE): "
-                f"stable={stable_signature}, cluster_id={cluster.cluster_id}, "
-                f"count={len(conversations)}"
-            )
-            self._route_to_orphan_integration(
-                signature=stable_signature,
-                conversations=conversations,
-                failure_reason=f"Cluster has {len(conversations)} conversations (min: {MIN_GROUP_SIZE})",
-                result=result,
-            )
-            return
+            # Issue #166: High-severity clusters can bypass MIN_GROUP_SIZE
+            # Issue #167: But only when PM review is enabled (for human validation)
+            if _is_high_severity(conv_dicts) and self.pm_review_enabled:
+                logger.info(
+                    f"High-severity cluster ({len(conversations)} convs) routed to PM review "
+                    f"for potential promotion: stable={stable_signature}, cluster_id={cluster.cluster_id}"
+                )
+                # Continue to PM review below - PM can promote, split, or reject
+            else:
+                reason = f"Cluster has {len(conversations)} conversations (min: {MIN_GROUP_SIZE})"
+                if _is_high_severity(conv_dicts):
+                    reason += " [high-severity but PM review disabled]"
+                logger.info(
+                    f"Routing hybrid cluster to orphan (below MIN_GROUP_SIZE): "
+                    f"stable={stable_signature}, cluster_id={cluster.cluster_id}, "
+                    f"count={len(conversations)}"
+                )
+                self._route_to_orphan_integration(
+                    signature=stable_signature,
+                    conversations=conversations,
+                    failure_reason=reason,
+                    result=result,
+                )
+                return
 
         # PM REVIEW GATE: Validate hybrid cluster coherence
         # Even though clustering groups by embeddings + facets, PM review
@@ -1077,14 +1129,26 @@ class StoryCreationService:
             scoring_passed=True,
         )
 
-        # Early exit: groups with < MIN_GROUP_SIZE always fail (preserves existing behavior)
+        # Early exit: groups with < MIN_GROUP_SIZE fail UNLESS high-severity + PM review (Issue #166, #167)
         # Note: This check is also in _process_single_result_with_pipeline_run, but we
         # duplicate it here to give a clear failure reason in quality gate results.
+        # Issue #166: High-severity clusters (priority=urgent/high OR churn_risk=True)
+        # can bypass MIN_GROUP_SIZE to allow single-incident critical bugs to become stories.
+        # Issue #167: But only when PM review is enabled, to ensure human validation.
         if len(conversations) < MIN_GROUP_SIZE:
-            result.passed = False
-            result.failure_reason = f"Group has {len(conversations)} conversations, minimum is {MIN_GROUP_SIZE}"
-            logger.debug(f"Quality gate FAIL for '{signature}': {result.failure_reason}")
-            return result
+            if _is_high_severity(conv_dicts) and self.pm_review_enabled:
+                logger.info(
+                    f"Quality gate: '{signature}' bypasses MIN_GROUP_SIZE ({len(conversations)} convs) "
+                    f"due to high severity + PM review enabled"
+                )
+            else:
+                reason = f"Group has {len(conversations)} conversations, minimum is {MIN_GROUP_SIZE}"
+                if _is_high_severity(conv_dicts):
+                    reason += " [high-severity but PM review disabled]"
+                result.passed = False
+                result.failure_reason = reason
+                logger.debug(f"Quality gate FAIL for '{signature}': {result.failure_reason}")
+                return result
 
         # GATE 1: Evidence Validation (if enabled)
         if self.validation_enabled and EVIDENCE_VALIDATOR_AVAILABLE and validate_samples:
@@ -1159,7 +1223,8 @@ class StoryCreationService:
         else:
             # No scorer configured - skip scoring, treat as passed
             logger.debug(f"Confidence scoring skipped for '{signature}' (no scorer configured)")
-            # Set a default confidence score for groups without scoring
+            # Conservative default: 0.0 indicates "not evaluated" rather than "very low"
+            # This distinguishes unscored groups from scored groups in downstream analysis
             result.confidence_score = 0.0
 
         logger.debug(f"Quality gates PASS for '{signature}'")
@@ -1468,6 +1533,9 @@ class StoryCreationService:
             root_cause=conv_dict.get("root_cause"),
             solution_provided=conv_dict.get("solution_provided"),
             resolution_category=conv_dict.get("resolution_category"),
+            # Issue #166: Severity fields for MIN_GROUP_SIZE bypass
+            priority=conv_dict.get("priority"),
+            churn_risk=conv_dict.get("churn_risk"),
         )
 
     def _generate_pm_result(
@@ -1523,8 +1591,11 @@ class StoryCreationService:
                     f"treating as keep_together (PM review not yet integrated)"
                 )
 
-            if conversation_count < MIN_GROUP_SIZE:
-                # Create orphan for small groups
+            # Issue #166, #167: High-severity groups can bypass MIN_GROUP_SIZE only with PM review
+            # Logic: reject if (below MIN_GROUP_SIZE AND NOT (high-severity AND pm_review_enabled))
+            # Equivalent to: allow if (meets size OR (high-severity AND pm_review enabled))
+            if conversation_count < MIN_GROUP_SIZE and not (_is_high_severity(conversations) and self.pm_review_enabled):
+                # Create orphan for small groups that don't qualify for bypass
                 self._create_or_update_orphan(
                     signature=pm_result.signature,
                     original_signature=None,
@@ -1532,7 +1603,7 @@ class StoryCreationService:
                     result=result,
                 )
             else:
-                # Create story for valid groups
+                # Create story for valid groups (meets size OR is high-severity)
                 self._create_story_with_evidence(
                     signature=pm_result.signature,
                     conversations=conversations,
@@ -1740,7 +1811,10 @@ class StoryCreationService:
         conversation_ids = [c.id for c in conversations]
         conversation_count = len(conversations) or pm_result.conversation_count or 0
 
-        if conversation_count < MIN_GROUP_SIZE:
+        # Issue #166, #167: High-severity groups can bypass MIN_GROUP_SIZE only with PM review
+        # Logic: reject if (below MIN_GROUP_SIZE AND NOT (high-severity AND pm_review_enabled))
+        # Equivalent to: allow if (meets size OR (high-severity AND pm_review enabled))
+        if conversation_count < MIN_GROUP_SIZE and not (_is_high_severity(conversations) and self.pm_review_enabled):
             # Not enough conversations for a story, create orphan instead
             self._create_or_update_orphan(
                 signature=pm_result.signature,
