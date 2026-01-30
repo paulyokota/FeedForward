@@ -844,7 +844,9 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
                 SELECT t.issue_signature, t.product_area, t.component,
                        t.conversation_id, t.user_intent, t.symptoms,
                        t.affected_flow, c.source_body, c.issue_type,
-                       t.diagnostic_summary, t.key_excerpts
+                       t.diagnostic_summary, t.key_excerpts,
+                       t.resolution_action, t.root_cause,
+                       t.solution_provided, t.resolution_category
                 FROM themes t
                 JOIN conversations c ON t.conversation_id = c.id
                 WHERE t.pipeline_run_id = %s
@@ -881,6 +883,11 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             # Smart Digest fields (Issue #144)
             "diagnostic_summary": diagnostic_summary,
             "key_excerpts": key_excerpts,
+            # Issue #159: Resolution fields for story content
+            "resolution_action": row.get("resolution_action"),
+            "root_cause": row.get("root_cause"),
+            "solution_provided": row.get("solution_provided"),
+            "resolution_category": row.get("resolution_category"),
         }
         conversation_data[row["conversation_id"]] = conv_dict
         groups[row["issue_signature"]].append(conv_dict)

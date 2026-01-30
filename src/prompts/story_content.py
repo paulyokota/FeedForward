@@ -281,6 +281,10 @@ class StoryContentInput:
     root_cause: Optional[str] = None  # LLM hypothesis for WHY this happened
     solution_provided: Optional[str] = None  # Solution given by support (if resolved)
 
+    # Issue #159: Resolution action/category for fix guidance in stories
+    resolution_action: Optional[str] = None  # escalated_to_engineering | provided_workaround | user_education | manual_intervention | no_resolution
+    resolution_category: Optional[str] = None  # escalation | workaround | education | self_service_gap | unresolved
+
 
 def format_user_intents(user_intents: List[str]) -> str:
     """
@@ -324,6 +328,8 @@ def format_optional_context(
     excerpts: Optional[List[str]] = None,
     root_cause: Optional[str] = None,
     solution_provided: Optional[str] = None,
+    resolution_action: Optional[str] = None,
+    resolution_category: Optional[str] = None,
 ) -> str:
     """
     Format optional context sections for the prompt.
@@ -334,6 +340,8 @@ def format_optional_context(
         excerpts: Conversation excerpts for additional context
         root_cause: LLM-extracted root cause hypothesis (Issue #146)
         solution_provided: LLM-extracted solution from support (Issue #146)
+        resolution_action: Support action taken (Issue #159)
+        resolution_category: Resolution category for analytics (Issue #159)
 
     Returns:
         Formatted optional context string
@@ -346,13 +354,18 @@ def format_optional_context(
     if affected_flow:
         sections.append(f"### Affected User Flow\n{affected_flow}")
 
-    # Issue #146: Add resolution context when available
-    if root_cause or solution_provided:
+    # Issue #146 + #159: Add resolution context when available
+    if root_cause or solution_provided or resolution_action or resolution_category:
         resolution_parts = []
         if root_cause:
             resolution_parts.append(f"**Root Cause Analysis**: {root_cause}")
         if solution_provided:
             resolution_parts.append(f"**Current Workaround**: {solution_provided}")
+        # Issue #159: Include resolution action and category for fix guidance
+        if resolution_action:
+            resolution_parts.append(f"**Support Action Taken**: {resolution_action}")
+        if resolution_category:
+            resolution_parts.append(f"**Resolution Category**: {resolution_category}")
         sections.append("### Resolution Context\n" + "\n".join(resolution_parts))
 
     if excerpts:
@@ -382,13 +395,15 @@ def build_story_content_prompt(content_input: StoryContentInput) -> str:
     # Format symptoms
     symptoms_formatted = format_symptoms(content_input.symptoms)
 
-    # Format optional context (including Issue #146 resolution fields)
+    # Format optional context (including Issue #146 + #159 resolution fields)
     optional_context = format_optional_context(
         root_cause_hypothesis=content_input.root_cause_hypothesis,
         affected_flow=content_input.affected_flow,
         excerpts=content_input.excerpts,
         root_cause=content_input.root_cause,
         solution_provided=content_input.solution_provided,
+        resolution_action=content_input.resolution_action,
+        resolution_category=content_input.resolution_category,
     )
 
     return STORY_CONTENT_PROMPT.format(

@@ -1980,6 +1980,9 @@ class StoryCreationService:
             # Issue #146: LLM-extracted resolution context for story content
             "root_cause": first_non_null("root_cause"),
             "solution_provided": first_non_null("solution_provided"),
+            # Issue #159: Resolution action/category for fix guidance in stories
+            "resolution_action": first_non_null("resolution_action"),
+            "resolution_category": first_non_null("resolution_category"),
         }
 
     def _generate_story_content(
@@ -2073,6 +2076,9 @@ class StoryCreationService:
             # Issue #146: LLM-extracted resolution context for richer story content
             root_cause=theme_data.get("root_cause"),
             solution_provided=theme_data.get("solution_provided"),
+            # Issue #159: Resolution action/category for fix guidance
+            resolution_action=theme_data.get("resolution_action"),
+            resolution_category=theme_data.get("resolution_category"),
         )
 
     def _generate_title(
