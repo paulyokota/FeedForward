@@ -20,7 +20,46 @@
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 **Test Suite Optimization (Issue #147): COMPLETE** ✅
 
-## Latest: Test Suite Optimization (2026-01-30)
+## Latest: Evidence Bundle Improvements (2026-01-30)
+
+**Issues #156, #157, #158** - Milestone 10 Stream A (PR #174 - pending merge)
+
+### What Changed
+
+Implemented signal-based evidence ranking, diagnostic summary preference, and evidence metadata completeness:
+
+| Issue | Feature                                               | Status      |
+| ----- | ----------------------------------------------------- | ----------- |
+| #156  | Diagnostic summary + key_excerpts over raw excerpt    | ✅ Complete |
+| #157  | Evidence metadata (email, intercom_url, org/user IDs) | ✅ Complete |
+| #158  | Signal-based ranking (replaces first-N selection)     | ✅ Complete |
+
+**Key implementation details:**
+
+- Ranking factors: key_excerpts > diagnostic_summary > error patterns > symptoms > text length
+- Jaccard similarity (0.65 threshold) dedupes key_excerpts against diagnostic_summary
+- Pre-compiled regex patterns at module level for performance
+- Total excerpt cap prevents unbounded memory growth
+
+**5-personality review converged** after 2 rounds with fixes:
+
+- Fixed inverted tie-breaker sort order
+- Fixed HTTP status regex (was matching any 3-digit number)
+- Fixed no-op test (`ids == ids`)
+- Added explanatory comments for magic numbers
+
+**Files changed:**
+
+- `src/story_tracking/services/story_creation_service.py` - main implementation
+- `src/api/routers/pipeline.py` - pipeline query for metadata
+- `src/story_tracking/models/__init__.py` - EvidenceExcerpt model
+- `src/story_tracking/services/evidence_service.py` - JSON serialization
+- `tests/test_story_creation_service.py` - 36 new tests
+- `tests/test_evidence_pipeline_integration.py` - new integration test file
+
+---
+
+## Previous: Test Suite Optimization (2026-01-30)
 
 **Issue #147 CLOSED** - Pytest markers for fast/slow test split
 
