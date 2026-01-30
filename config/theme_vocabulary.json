@@ -1,7 +1,7 @@
 {
-  "version": "2.15",
-  "updated_at": "2026-01-22T02:50:00.000000",
-  "description": "v2.15: Deprecated overly broad catch-all signatures (general_product_question, create_design_question, scheduling_feature_question, integration_feature_question) to force more specific theme extraction",
+  "version": "2.16",
+  "updated_at": "2026-01-30T09:27:12.768521",
+  "description": "v2.16: Added term_distinctions section for vocabulary enhancement (Issue #153) - distinguishes similar_ux, different_model, and name_confusion term pairs",
   "url_context_mapping": {
     "_comment": "Maps Intercom source.url patterns to Product Areas for disambiguating vague messages. Three schedulers: Pin Scheduler (Next Publisher, Pinterest-only new), Legacy Publisher (Pinterest-only old), Multi-Network (cross-platform).",
     "/insights/pinterest/": "Analytics",
@@ -140,6 +140,170 @@
       }
     ]
   },
+  "term_distinctions": {
+    "_metadata": {
+      "source": "Issue #153 Phase 3",
+      "method": "Two-dimensional analysis: code paths (Phase 2) + user symptom clusters (Jaccard/Exclusivity)",
+      "calibration_date": "2026-01-30",
+      "thresholds": {
+        "jaccard_high": 0.15,
+        "excl_ratio_p10": 0.516,
+        "excl_ratio_p25": 0.757,
+        "tolerance": 0.03
+      },
+      "recalibration": {
+        "trigger": "Re-run when themes table grows >50% from calibration baseline (543 themes)",
+        "baseline_theme_count": 543,
+        "percentile_definitions": {
+          "excl_ratio_p10": "10th percentile of exclusivity ratio distribution",
+          "excl_ratio_p25": "25th percentile of exclusivity ratio distribution"
+        },
+        "script": "See docs/session/issue-153-phase3-plan.md for calibration methodology",
+        "note": "Current thresholds derived from 543 themes on 2026-01-30. Values will drift as data grows."
+      }
+    },
+    "similar_ux": {
+      "_description": "Terms that co-occur in user complaints. Users mention these together, so clarify which is affected.",
+      "title_vs_description": {
+        "terms": [
+          "title",
+          "description"
+        ],
+        "jaccard": 0.471,
+        "excl_ratio": 0.36,
+        "co_occurrence_reason": "Both are text fields generated together by Ghostwriter or edited together in bulk operations",
+        "guidance": "Often mentioned together in content generation issues. Ask: 'Is the issue with the title, the description, or both?'"
+      },
+      "account_vs_pinterest_account": {
+        "terms": [
+          "account",
+          "pinterest_account"
+        ],
+        "jaccard": 0.338,
+        "excl_ratio": 0.33,
+        "co_occurrence_reason": "Users say 'account' generically when they mean their connected Pinterest account",
+        "guidance": "Clarify: 'Are you referring to your Tailwind account settings, or your connected Pinterest account?'"
+      },
+      "pin_vs_board": {
+        "terms": [
+          "pin",
+          "board"
+        ],
+        "jaccard": 0.22,
+        "excl_ratio": 0.47,
+        "co_occurrence_reason": "Relationship co-occurrence: pins belong to boards, so issues mention both",
+        "guidance": "These co-occur because pins go on boards. Ask: 'Is the issue with the pin content itself, or with which board it's assigned to?'"
+      },
+      "pin_vs_scheduled_pin": {
+        "terms": [
+          "pin",
+          "scheduled_pin"
+        ],
+        "jaccard": 0.197,
+        "excl_ratio": 0.4,
+        "co_occurrence_reason": "Both refer to Pinterest content but at different lifecycle stages",
+        "guidance": "Clarify state: 'Is this about a pin already published on Pinterest, or one scheduled to post later?'"
+      },
+      "account_vs_instagram_account": {
+        "terms": [
+          "account",
+          "instagram_account"
+        ],
+        "jaccard": 0.175,
+        "excl_ratio": 0.41,
+        "co_occurrence_reason": "Users say 'account' generically when they mean their connected Instagram account",
+        "guidance": "Clarify: 'Are you referring to your Tailwind account, or your connected Instagram account?'"
+      }
+    },
+    "different_model": {
+      "_description": "Same underlying code path but different user lifecycle states. These share PostFacet.put() but users think about them differently.",
+      "scheduled_pin_vs_draft": {
+        "terms": [
+          "scheduled_pin",
+          "draft"
+        ],
+        "jaccard": 0.152,
+        "excl_ratio": 0.73,
+        "code_path": "Both use PostFacet.put() in tack service",
+        "user_difference": "scheduled_pin has a publish time set; draft is saved but not scheduled",
+        "symptoms_scheduled_pin": [
+          "bulk delete requests",
+          "spam filter flags",
+          "pins not showing in queue",
+          "publishing failures"
+        ],
+        "symptoms_draft": [
+          "bulk editing questions",
+          "ghostwriter generation issues",
+          "content creation workflow confusion"
+        ],
+        "guidance": "Ask: 'Is this content scheduled to post at a specific time, or is it saved as a draft you're still working on?'"
+      },
+      "post_vs_draft": {
+        "terms": [
+          "post",
+          "draft"
+        ],
+        "jaccard": 0.116,
+        "excl_ratio": 0.74,
+        "code_path": "Both use PostFacet.put() in tack service",
+        "user_difference": "post is ready/published content; draft is work-in-progress",
+        "guidance": "Ask: 'Has this content been published or scheduled, or is it still a draft?'"
+      },
+      "post_vs_scheduled_pin": {
+        "terms": [
+          "post",
+          "scheduled_pin"
+        ],
+        "jaccard": 0.099,
+        "excl_ratio": 0.79,
+        "code_path": "Both use PostFacet.put() in tack service",
+        "user_difference": "post is general content term; scheduled_pin is Pinterest-specific queue item",
+        "guidance": "Ask: 'Are you referring to content across platforms, or specifically to Pinterest scheduled pins?'"
+      }
+    },
+    "name_confusion": {
+      "_description": "Names overlap but these are different features with different code paths. Explicitly distinguish when users mention these.",
+      "pin_vs_turbo_pin": {
+        "terms": [
+          "pin",
+          "turbo_pin"
+        ],
+        "jaccard": 0.089,
+        "excl_ratio": 0.48,
+        "name_overlap_type": "suffix 'pin'",
+        "pin_definition": "Regular Pinterest content (published or scheduled via tack service)",
+        "turbo_pin_definition": "Paid promotion feature that boosts pin visibility (aero service, Postgres BoostedPins table)",
+        "code_difference": "pin \u2192 tack/PostFacet or Pinterest API; turbo_pin \u2192 aero/Postgres.BoostedPins",
+        "guidance": "If user mentions 'turbo', 'boost', or 'promoted', they mean turbo_pin. Otherwise ask: 'Are you asking about regular pins or the Turbo promotion feature?'"
+      },
+      "pin_vs_smartpin": {
+        "terms": [
+          "pin",
+          "smartpin"
+        ],
+        "jaccard": 0.14,
+        "excl_ratio": 0.45,
+        "name_overlap_type": "suffix 'pin'",
+        "pin_definition": "Regular Pinterest content",
+        "smartpin_definition": "Automated pin generation feature (aero service, MySQL smartPinSettings table)",
+        "code_difference": "pin \u2192 tack service; smartpin \u2192 aero/SmartPinService",
+        "guidance": "If user mentions 'auto', 'generate', 'automatic pins', or 'SmartPin', they mean the automation feature. Otherwise clarify."
+      },
+      "pinterest_account_vs_instagram_account": {
+        "terms": [
+          "pinterest_account",
+          "instagram_account"
+        ],
+        "jaccard": 0.025,
+        "excl_ratio": 0.95,
+        "name_overlap_type": "token 'account'",
+        "pinterest_account_code": "tack service, TokenV5Facet (DynamoDB)",
+        "instagram_account_code": "zuck service, Graph API (no local storage)",
+        "guidance": "Always clarify which platform when user says 'my account' or 'connected account'."
+      }
+    }
+  },
   "product_area_mapping": {
     "_comment": "Terminology: THREE SCHEDULERS - Next Publisher = Pin Scheduler (Pinterest-only, new), Legacy Publisher = Original Publisher (Pinterest-only, old), Multi-Network = cross-platform scheduler (Pinterest/Instagram/Facebook). Product Dashboard = e-commerce integration (Shopify). CoPilot = Planning tool. GW Labs = Ghostwriter. Made For You vs SmartPin = both AI content, different features. Create = Tailwind Create design tool.",
     "Analytics": [
@@ -184,13 +348,18 @@
       "legacy_pin_editing_blocked",
       "scheduling_failure_legacy"
     ],
-    "SmartLoop": ["smartloop_pin_loading_failure", "smartloop_ui_bug"],
+    "SmartLoop": [
+      "smartloop_pin_loading_failure",
+      "smartloop_ui_bug"
+    ],
     "Multi-Network": [
       "crossposting_failure",
       "multinetwork_scheduling_failure",
       "multinetwork_feature_question"
     ],
-    "Communities": ["communities_feature_question"],
+    "Communities": [
+      "communities_feature_question"
+    ],
     "CoPilot": [
       "copilot_plan_reset_request",
       "copilot_personalization_issue",
@@ -223,7 +392,10 @@
       "product_dashboard_integration_loop",
       "product_dashboard_feature_question"
     ],
-    "Smart.bio": ["smartbio_configuration", "smartbio_display_issue"],
+    "Smart.bio": [
+      "smartbio_configuration",
+      "smartbio_display_issue"
+    ],
     "Extension": [
       "integration_connection_failure",
       "extension_ui_bug",
@@ -467,8 +639,16 @@
       "product_area": "billing",
       "component": "payments",
       "description": "User requesting refund for any reason",
-      "keywords": ["get refund", "money back", "refund", "want refund"],
-      "example_intents": ["I want a refund", "Can I get my money back?"],
+      "keywords": [
+        "get refund",
+        "money back",
+        "refund",
+        "want refund"
+      ],
+      "example_intents": [
+        "I want a refund",
+        "Can I get my money back?"
+      ],
       "engineering_fix": "Refund policy clarity, self-service refund flow, support process automation",
       "status": "active",
       "merged_into": null,
@@ -1457,7 +1637,10 @@
         "pricing",
         "what can tailwind do"
       ],
-      "example_intents": ["What can Tailwind do?", "How do I get started?"],
+      "example_intents": [
+        "What can Tailwind do?",
+        "How do I get started?"
+      ],
       "engineering_fix": "Onboarding improvement, marketing site clarity, help center, feature education",
       "status": "deprecated",
       "merged_into": null,
@@ -1494,7 +1677,12 @@
       "product_area": "other",
       "component": "review_queue",
       "description": "Issue doesn't fit existing themes well - needs human review to determine if new theme is needed",
-      "keywords": ["ambiguous", "doesn't fit", "new category", "unclear"],
+      "keywords": [
+        "ambiguous",
+        "doesn't fit",
+        "new category",
+        "unclear"
+      ],
       "example_intents": [
         "[Conversation that doesn't match any known theme pattern]"
       ],
