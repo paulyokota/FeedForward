@@ -1,105 +1,43 @@
 #!/usr/bin/env python3
 """
-Phase 1: Extract Domain TERMS from Conversations (Issue #153 - CORRECT VERSION)
+Phase 1: Extract Terms from Conversations (Issue #153)
 
-This extracts actual TERMS (not signatures) from conversation data:
-- Object types: drafts, pins, boards, posts, images, accounts, etc.
-- Actions: delete, schedule, unschedule, connect, import, create, etc.
-- Stages: selection, generation, publishing, etc.
-- Timing: during, after, before, etc.
-
-Then finds candidate TERM PAIRS that might need distinction validation.
+Extracts object types, actions, and stages from theme diagnostic summaries.
+Finds candidate object pairs using semantic similarity (co-occurrence, name similarity).
 
 Usage:
     python scripts/vocabulary_extract_terms.py
-    python scripts/vocabulary_extract_terms.py --min-count 3
+    python scripts/vocabulary_extract_terms.py --limit 50
 """
 
 import argparse
 import json
 import logging
-import re
 import sys
 from collections import Counter, defaultdict
-from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from openai import OpenAI
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-# Paths
 DATA_DIR = Path(__file__).parent.parent / "data" / "vocabulary_enhancement"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-# Known domain terms to look for (seed list - LLM will expand)
-SEED_TERMS = {
-    "object_type": [
-        "drafts", "draft", "pins", "pin", "boards", "board", "posts", "post",
-        "images", "image", "videos", "video", "accounts", "account", "profiles", "profile",
-        "slots", "slot", "queues", "queue", "schedules", "schedule",
-        "connections", "connection", "tokens", "token",
-    ],
-    "action": [
-        "delete", "remove", "schedule", "unschedule", "reschedule",
-        "create", "add", "edit", "update", "modify",
-        "connect", "disconnect", "reconnect", "sync", "refresh",
-        "import", "export", "fetch", "upload", "download",
-        "generate", "publish", "post", "share",
-        "lock", "unlock", "enable", "disable",
-    ],
-    "stage": [
-        "selection", "generation", "publishing", "importing", "uploading",
-        "authentication", "authorization", "validation", "processing",
-        "creation", "editing", "preview", "confirmation",
-    ],
-    "timing": [
-        "during", "after", "before", "while", "when",
-    ],
-}
 
-
-@dataclass
-class ExtractedTerms:
-    """Terms extracted from a single conversation/theme."""
-    conversation_id: str
-    object_types: list[str]
-    actions: list[str]
-    stages: list[str]
-    timing: list[str]
-    raw_text: str  # The diagnostic summary used
-
-
-@dataclass
-class TermCandidate:
-    """A candidate term pair that might need distinction."""
-    category: str  # object_type, action, stage, timing
-    term_a: str
-    term_b: str
-    co_occurrence_count: int  # How often they appear in similar contexts
-    example_contexts: list[str]  # Sample diagnostic summaries where both appear
-
-
-def get_themes_from_db(run_id: int = 95, limit: Optional[int] = None) -> list[dict]:
+def get_themes_from_db(run_id: int = 95, limit: int | None = None) -> list[dict]:
     """Get themes with diagnostic summaries from database."""
     from src.db.connection import get_connection
 
     query = """
         SELECT
             t.conversation_id,
-            t.issue_signature,
-            t.product_area,
-            t.diagnostic_summary,
-            t.user_intent,
-            c.source_body
+            t.diagnostic_summary
         FROM themes t
-        JOIN conversations c ON t.conversation_id = c.id
         WHERE t.pipeline_run_id = %s
         AND t.diagnostic_summary IS NOT NULL
         AND t.diagnostic_summary != ''
@@ -112,262 +50,186 @@ def get_themes_from_db(run_id: int = 95, limit: Optional[int] = None) -> list[di
             cur.execute(query, (run_id,))
             rows = cur.fetchall()
 
-    themes = []
-    for row in rows:
-        themes.append({
-            "conversation_id": row[0],
-            "issue_signature": row[1],
-            "product_area": row[2],
-            "diagnostic_summary": row[3],
-            "user_intent": row[4],
-            "source_body": row[5][:500] if row[5] else "",
-        })
-
-    logger.info(f"Loaded {len(themes)} themes with diagnostic summaries")
-    return themes
+    logger.info(f"Loaded {len(rows)} themes")
+    return [{"conversation_id": row[0], "diagnostic_summary": row[1]} for row in rows]
 
 
-def extract_terms_with_llm(client: OpenAI, text: str) -> dict:
-    """Use LLM to extract domain terms from text."""
+def extract_terms(client: OpenAI, themes: list[dict]) -> list[dict]:
+    """Extract objects, actions, stages from each theme."""
 
-    prompt = f"""Extract domain-specific terms from this support conversation summary.
+    results = []
+    BATCH_SIZE = 20
 
-TEXT:
-{text}
+    for i in range(0, len(themes), BATCH_SIZE):
+        batch = themes[i:i + BATCH_SIZE]
+        logger.info(f"Batch {i // BATCH_SIZE + 1}/{(len(themes) + BATCH_SIZE - 1) // BATCH_SIZE}...")
 
-Extract terms in these categories:
-1. OBJECT_TYPES: Things being acted on (drafts, pins, boards, posts, images, accounts, etc.)
-2. ACTIONS: What the user wants to do (delete, schedule, unschedule, connect, import, etc.)
-3. STAGES: Where in the workflow (selection, generation, publishing, authentication, etc.)
-4. TIMING: When issues occur (during, after, before connection/publishing/etc.)
+        texts = [f"[{j}] {t['diagnostic_summary'][:400]}" for j, t in enumerate(batch)]
 
-Return JSON only:
+        prompt = f"""Extract terms from each support conversation summary.
+
+{chr(10).join(texts)}
+
+For EACH [index], extract:
+
+OBJECTS: Things discussed (nouns, singular, lowercase)
+  - Be specific: "scheduled_pin" not "pin" if about scheduled content
+  - Examples: draft, scheduled_pin, pin, board, post, image, account, connection
+
+ACTIONS: What user wants to do (verbs, lowercase)
+  - Examples: delete, schedule, unschedule, connect, import, generate
+
+STAGES: Workflow position (lowercase)
+  - Examples: selection, generation, publishing, authentication
+
+Return JSON:
 {{
-  "object_types": ["term1", "term2"],
-  "actions": ["term1", "term2"],
-  "stages": ["term1"],
-  "timing": ["during X", "after Y"]
-}}
+  "0": {{"objects": ["draft"], "actions": ["delete"], "stages": ["publishing"]}},
+  "1": {{"objects": ["scheduled_pin"], "actions": ["schedule"], "stages": []}},
+  ...
+}}"""
 
-Extract the ACTUAL terms used, normalized to lowercase singular form where appropriate.
-Only include terms that are clearly mentioned or implied in the text."""
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0,
-        response_format={"type": "json_object"},
-    )
+        try:
+            data = json.loads(response.choices[0].message.content)
+            for j, t in enumerate(batch):
+                terms = data.get(str(j), {})
+                results.append({
+                    "conversation_id": t["conversation_id"],
+                    "objects": terms.get("objects", []),
+                    "actions": terms.get("actions", []),
+                    "stages": terms.get("stages", []),
+                })
+        except json.JSONDecodeError:
+            logger.warning(f"Parse error batch {i // BATCH_SIZE + 1}")
+            for t in batch:
+                results.append({"conversation_id": t["conversation_id"], "objects": [], "actions": [], "stages": []})
 
-    try:
-        return json.loads(response.choices[0].message.content)
-    except json.JSONDecodeError:
-        return {"object_types": [], "actions": [], "stages": [], "timing": []}
-
-
-def extract_terms_regex(text: str) -> dict:
-    """Fast regex-based term extraction using seed terms."""
-    text_lower = text.lower()
-
-    result = {
-        "object_types": [],
-        "actions": [],
-        "stages": [],
-        "timing": [],
-    }
-
-    for category, terms in SEED_TERMS.items():
-        for term in terms:
-            if re.search(rf'\b{term}\b', text_lower):
-                # Normalize to singular
-                normalized = term.rstrip('s') if term.endswith('s') and len(term) > 3 else term
-                if normalized not in result[category]:
-                    result[category].append(normalized)
-
-    return result
+    return results
 
 
-def find_term_pairs(term_counts: dict[str, Counter], min_count: int = 3) -> list[TermCandidate]:
-    """Find candidate term pairs within each category that might need distinction."""
+def find_candidate_pairs(results: list[dict], object_counts: Counter) -> list[dict]:
+    """Find candidate object pairs using semantic similarity."""
+
+    # Build co-occurrence: which objects appear with which actions
+    obj_actions = defaultdict(set)
+    for r in results:
+        for obj in set(r["objects"]):
+            for action in set(r["actions"]):
+                obj_actions[obj].add(action)
+
+    # Find pairs that share actions (semantic similarity via co-occurrence)
     candidates = []
+    objects = [o for o, c in object_counts.items() if c >= 5]
 
-    for category, counts in term_counts.items():
-        # Get terms that appear frequently enough
-        frequent_terms = [term for term, count in counts.items() if count >= min_count]
+    for i, obj_a in enumerate(objects):
+        for obj_b in objects[i + 1:]:
+            reasons = []
 
-        # Find pairs of similar/related terms
-        for i, term_a in enumerate(frequent_terms):
-            for term_b in frequent_terms[i+1:]:
-                # Skip if terms are too similar (singular/plural)
-                if term_a.rstrip('s') == term_b.rstrip('s'):
-                    continue
-                if term_a in term_b or term_b in term_a:
-                    continue
+            # Check shared actions
+            shared = obj_actions[obj_a] & obj_actions[obj_b]
+            if shared:
+                reasons.append(f"shared actions: {', '.join(sorted(shared))}")
 
-                candidates.append(TermCandidate(
-                    category=category,
-                    term_a=term_a,
-                    term_b=term_b,
-                    co_occurrence_count=0,  # Will be computed
-                    example_contexts=[],
-                ))
+            # Check name similarity
+            if obj_a in obj_b or obj_b in obj_a:
+                reasons.append("name overlap")
+            else:
+                words_a = set(obj_a.split("_"))
+                words_b = set(obj_b.split("_"))
+                common = words_a & words_b
+                if common:
+                    reasons.append(f"shared word: {', '.join(common)}")
 
-    return candidates
+            if reasons:
+                candidates.append({
+                    "object_a": obj_a,
+                    "object_b": obj_b,
+                    "count_a": object_counts[obj_a],
+                    "count_b": object_counts[obj_b],
+                    "similarity": reasons,
+                })
 
-
-def compute_co_occurrences(
-    candidates: list[TermCandidate],
-    extractions: list[ExtractedTerms],
-) -> list[TermCandidate]:
-    """Compute how often term pairs appear in similar contexts."""
-
-    # Build index: term -> list of conversation_ids
-    term_to_convs: dict[str, set[str]] = defaultdict(set)
-    conv_to_text: dict[str, str] = {}
-
-    for ext in extractions:
-        conv_to_text[ext.conversation_id] = ext.raw_text
-        for term in ext.object_types:
-            term_to_convs[f"object_type:{term}"].add(ext.conversation_id)
-        for term in ext.actions:
-            term_to_convs[f"action:{term}"].add(ext.conversation_id)
-        for term in ext.stages:
-            term_to_convs[f"stage:{term}"].add(ext.conversation_id)
-        for term in ext.timing:
-            term_to_convs[f"timing:{term}"].add(ext.conversation_id)
-
-    # Compute co-occurrences
-    for candidate in candidates:
-        key_a = f"{candidate.category}:{candidate.term_a}"
-        key_b = f"{candidate.category}:{candidate.term_b}"
-
-        convs_a = term_to_convs.get(key_a, set())
-        convs_b = term_to_convs.get(key_b, set())
-
-        # Co-occurrence = conversations mentioning both OR in same product area
-        shared = convs_a & convs_b
-        candidate.co_occurrence_count = len(shared)
-
-        # Get example contexts
-        for conv_id in list(shared)[:3]:
-            if conv_id in conv_to_text:
-                candidate.example_contexts.append(conv_to_text[conv_id][:200])
-
+    # Sort by number of similarity signals, then by frequency
+    candidates.sort(key=lambda x: (-len(x["similarity"]), -(x["count_a"] + x["count_b"])))
     return candidates
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Phase 1: Extract domain TERMS from conversations")
-    parser.add_argument("--run-id", type=int, default=95, help="Pipeline run ID")
-    parser.add_argument("--min-count", type=int, default=3, help="Minimum term frequency")
-    parser.add_argument("--use-llm", action="store_true", help="Use LLM for extraction (slower but better)")
-    parser.add_argument("--limit", type=int, help="Limit number of themes to process")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-id", type=int, default=95)
+    parser.add_argument("--limit", type=int)
     args = parser.parse_args()
 
-    # Load themes
     themes = get_themes_from_db(args.run_id, args.limit)
-
     if not themes:
         logger.error("No themes found")
         sys.exit(1)
 
-    # Initialize OpenAI client if using LLM
-    client = None
-    if args.use_llm:
-        client = OpenAI()
-        logger.info("Using LLM for term extraction")
-    else:
-        logger.info("Using regex for term extraction (use --use-llm for better results)")
+    client = OpenAI()
+    results = extract_terms(client, themes)
 
-    # Extract terms from each theme
-    extractions: list[ExtractedTerms] = []
-    term_counts = {
-        "object_type": Counter(),
-        "action": Counter(),
-        "stage": Counter(),
-        "timing": Counter(),
-    }
+    # Count terms (dedupe within theme)
+    object_counts = Counter()
+    action_counts = Counter()
+    stage_counts = Counter()
+    for r in results:
+        object_counts.update(set(r["objects"]))
+        action_counts.update(set(r["actions"]))
+        stage_counts.update(set(r["stages"]))
 
-    for i, theme in enumerate(themes):
-        if i % 50 == 0:
-            logger.info(f"Processing {i}/{len(themes)}...")
+    # Find candidate pairs
+    candidates = find_candidate_pairs(results, object_counts)
 
-        text = theme["diagnostic_summary"]
-        if theme["user_intent"]:
-            text += " " + theme["user_intent"]
+    # Output
+    print("\n" + "=" * 70)
+    print("PHASE 1 RESULTS")
+    print("=" * 70)
+    print(f"\nThemes processed: {len(themes)}")
 
-        # Extract terms
-        if args.use_llm and client:
-            terms = extract_terms_with_llm(client, text)
-        else:
-            terms = extract_terms_regex(text)
+    print("\n--- OBJECTS ---")
+    for obj, count in object_counts.most_common(20):
+        print(f"  {obj}: {count}")
 
-        extraction = ExtractedTerms(
-            conversation_id=theme["conversation_id"],
-            object_types=terms.get("object_types", []),
-            actions=terms.get("actions", []),
-            stages=terms.get("stages", []),
-            timing=terms.get("timing", []),
-            raw_text=text,
-        )
-        extractions.append(extraction)
+    print("\n--- ACTIONS ---")
+    for action, count in action_counts.most_common(15):
+        print(f"  {action}: {count}")
 
-        # Count terms
-        for term in extraction.object_types:
-            term_counts["object_type"][term] += 1
-        for term in extraction.actions:
-            term_counts["action"][term] += 1
-        for term in extraction.stages:
-            term_counts["stage"][term] += 1
-        for term in extraction.timing:
-            term_counts["timing"][term] += 1
+    print("\n--- STAGES ---")
+    for stage, count in stage_counts.most_common(10):
+        print(f"  {stage}: {count}")
 
-    # Show term frequency
-    print("\n" + "=" * 60)
-    print("TERM FREQUENCIES")
-    print("=" * 60)
+    print("\n" + "=" * 70)
+    print("CANDIDATE PAIRS (semantic similarity)")
+    print("=" * 70)
+    print("\nQuestion for each: Are these distinct objects in the codebase?\n")
 
-    for category, counts in term_counts.items():
-        print(f"\n{category.upper()} (top 15):")
-        for term, count in counts.most_common(15):
-            print(f"  {term}: {count}")
+    for pair in candidates[:20]:
+        print(f"  {pair['object_a']} vs {pair['object_b']}")
+        print(f"    Themes: {pair['count_a']} vs {pair['count_b']}")
+        print(f"    Why similar: {', '.join(pair['similarity'])}")
+        print()
 
-    # Find candidate term pairs
-    candidates = find_term_pairs(term_counts, args.min_count)
-    candidates = compute_co_occurrences(candidates, extractions)
-
-    # Sort by co-occurrence (pairs that appear together might need distinction)
-    candidates.sort(key=lambda c: -c.co_occurrence_count)
-
-    print("\n" + "=" * 60)
-    print(f"CANDIDATE TERM PAIRS FOR VALIDATION ({len(candidates)} total)")
-    print("=" * 60)
-
-    for category in ["object_type", "action", "stage", "timing"]:
-        cat_candidates = [c for c in candidates if c.category == category][:10]
-        if cat_candidates:
-            print(f"\n{category.upper()} distinctions to validate:")
-            for c in cat_candidates:
-                print(f"  {c.term_a} vs {c.term_b} (co-occur: {c.co_occurrence_count})")
-
-    # Save results
+    # Save
     output = {
-        "metadata": {
-            "run_id": args.run_id,
-            "timestamp": datetime.utcnow().isoformat(),
-            "themes_processed": len(themes),
-            "extraction_method": "llm" if args.use_llm else "regex",
-        },
-        "term_counts": {cat: dict(counts) for cat, counts in term_counts.items()},
-        "candidate_pairs": [asdict(c) for c in candidates],
+        "metadata": {"run_id": args.run_id, "timestamp": datetime.utcnow().isoformat(), "themes": len(themes)},
+        "object_counts": dict(object_counts.most_common()),
+        "action_counts": dict(action_counts.most_common()),
+        "stage_counts": dict(stage_counts.most_common()),
+        "candidate_pairs": candidates,
     }
 
     output_path = DATA_DIR / "phase1_terms.json"
     with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
 
-    print(f"\nResults saved to: {output_path}")
-    print(f"\nNext: Run Phase 2 to validate term distinctions against codebase")
+    print(f"Saved to: {output_path}")
 
 
 if __name__ == "__main__":
