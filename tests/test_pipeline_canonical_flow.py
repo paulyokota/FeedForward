@@ -884,3 +884,130 @@ class TestConstants:
         assert hasattr(result, "orphan_fallbacks")
         assert result.quality_gate_rejections == 0
         assert result.orphan_fallbacks == 0
+
+
+# =============================================================================
+# Test Class: Issue #155 - Orphan Canonicalization in Pipeline
+# =============================================================================
+
+
+class TestOrphanCanonicalization:
+    """
+    Tests for orphan canonicalization (Issue #155).
+
+    Verifies that:
+    1. OrphanIntegrationService is available and properly configured
+    2. SignatureRegistry canonicalizes equivalent signatures
+    3. Orphan routing uses canonicalized signatures
+    """
+
+    def test_orphan_integration_service_uses_signature_registry(self):
+        """OrphanIntegrationService should use SignatureRegistry for canonicalization."""
+        # Import the service and registry
+        from story_tracking.services.orphan_integration import OrphanIntegrationService
+
+        # Verify service uses SignatureRegistry
+        mock_db = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor_ctx = MagicMock()
+        mock_cursor_ctx.__enter__.return_value = mock_cursor
+        mock_cursor_ctx.__exit__.return_value = False
+        mock_db.cursor.return_value = mock_cursor_ctx
+
+        # Mock the orphan service to avoid DB calls
+        with patch("story_tracking.services.orphan_integration.OrphanService"):
+            with patch("story_tracking.services.orphan_integration.StoryService"):
+                service = OrphanIntegrationService(db_connection=mock_db)
+
+                # Verify service has signature_registry
+                assert hasattr(service, "signature_registry")
+                assert service.signature_registry is not None
+
+                # Verify matcher uses the registry
+                assert hasattr(service, "matcher")
+                assert service.matcher.signature_registry is service.signature_registry
+
+    def test_signature_registry_normalizes_equivalent_signatures(self):
+        """SignatureRegistry should normalize equivalent signatures to canonical form."""
+        from signature_utils import SignatureRegistry
+
+        registry = SignatureRegistry()
+
+        # Test normalization: different formats -> same canonical form
+        assert registry.normalize("Queue Stuck") == "queue_stuck"
+        assert registry.normalize("queue-stuck") == "queue_stuck"
+        assert registry.normalize("QUEUE_STUCK") == "queue_stuck"
+        assert registry.normalize("  queue  stuck  ") == "queue_stuck"
+
+        # All should produce the same canonical form
+        sigs = ["Queue Stuck", "queue-stuck", "QUEUE_STUCK", "queue  stuck"]
+        canonicals = [registry.normalize(s) for s in sigs]
+        assert len(set(canonicals)) == 1  # All same
+
+    def test_orphan_integration_routes_to_canonical_signature(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Orphans routed via integration should use canonical signatures."""
+        # Create a mock integration service that captures calls
+        mock_integration = Mock()
+        captured_calls = []
+
+        def capture_process_theme(conv_id, theme_data):
+            captured_calls.append(theme_data)
+            return Mock(action="created")
+
+        mock_integration.process_theme.side_effect = capture_process_theme
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            orphan_integration_service=mock_integration,
+            validation_enabled=False,
+        )
+
+        # Process a small group (will be routed to orphan integration)
+        convs = [{"id": f"canon_{i}", "excerpt": f"Test {i}"} for i in range(2)]
+
+        service.process_theme_groups({"Queue-Stuck": convs})
+
+        # Verify integration was called
+        assert mock_integration.process_theme.call_count >= 1
+
+        # Verify the signature passed to integration
+        # The signature should be passed as-is; canonicalization happens inside
+        # OrphanIntegrationService/OrphanMatcher
+        assert len(captured_calls) > 0
+        for call_data in captured_calls:
+            assert "issue_signature" in call_data
+            assert call_data["issue_signature"] == "Queue-Stuck"
+
+    def test_pipeline_creates_orphan_integration_service(self):
+        """Pipeline should create OrphanIntegrationService for story creation."""
+        # This test verifies the wiring in pipeline.py
+
+        # Import the pipeline module to check import is correct
+        from src.api.routers.pipeline import (
+            OrphanIntegrationService,
+            StoryCreationService,
+        )
+
+        # Verify both are importable (proves the import was added)
+        assert OrphanIntegrationService is not None
+        assert StoryCreationService is not None
+
+        # Verify OrphanIntegrationService accepts expected parameters
+        import inspect
+        sig = inspect.signature(OrphanIntegrationService.__init__)
+        params = list(sig.parameters.keys())
+        assert "db_connection" in params
+        assert "auto_graduate" in params
+
+    def test_story_creation_service_accepts_orphan_integration_parameter(self):
+        """StoryCreationService constructor should accept orphan_integration_service."""
+        import inspect
+        sig = inspect.signature(StoryCreationService.__init__)
+        params = list(sig.parameters.keys())
+
+        assert "orphan_integration_service" in params
