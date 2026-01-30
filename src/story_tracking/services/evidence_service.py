@@ -60,11 +60,17 @@ class EvidenceService:
         excerpts: List[EvidenceExcerpt],
     ) -> StoryEvidence:
         """Create or update evidence bundle for a story."""
+        # Issue #157: Include metadata fields in excerpt serialization
         excerpts_json = json.dumps([
             {
                 "text": e.text,
                 "source": e.source,
                 "conversation_id": e.conversation_id,
+                "email": e.email,
+                "intercom_url": e.intercom_url,
+                "org_id": e.org_id,
+                "user_id": e.user_id,
+                "contact_id": e.contact_id,
             }
             for e in excerpts
         ])

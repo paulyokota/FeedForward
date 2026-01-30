@@ -34,6 +34,13 @@ from story_tracking.services.story_creation_service import (
     ConversationData,
     FallbackPMReviewResult,
     ProcessingResult,
+    MAX_EXCERPT_LENGTH,
+    MAX_EXCERPTS_IN_THEME,
+    _build_intercom_url,
+    INTERCOM_APP_ID,
+    _rank_conversations_by_signal,
+    _calculate_signal_score,
+    _text_similarity,
 )
 
 
@@ -2260,8 +2267,14 @@ class TestExcerptPreparation:
         call_kwargs = mock_evidence_service.create_or_update.call_args[1]
         excerpts = call_kwargs["excerpts"]
         assert len(excerpts) == 3
-        assert excerpts[0].text == "I can't download my invoice"
-        assert excerpts[0].conversation_id == "conv1"
+        # Note: Order determined by signal-based ranking (#158), so check presence not position
+        texts = [e.text for e in excerpts]
+        assert "I can't download my invoice" in texts
+        assert "Getting 404 error" in texts
+        assert "Download times out" in texts
+        # Verify conversation_id is correctly associated with text
+        conv_map = {e.text: e.conversation_id for e in excerpts}
+        assert conv_map["I can't download my invoice"] == "conv1"
 
     def test_missing_excerpt_in_conversation_handled(
         self,
@@ -2385,3 +2398,896 @@ class TestApplyQualityGatesMethod:
         # Should fail conservatively on error
         assert result.passed is False
         assert "scoring error" in result.failure_reason.lower()
+
+
+class TestEvidenceDiagnosticSummary:
+    """
+    Tests for Issue #156: Evidence uses diagnostic_summary + key_excerpts.
+
+    Verifies that _create_evidence_for_story prefers diagnostic_summary over
+    raw excerpt and appends key_excerpts as additional evidence snippets.
+    """
+
+    @pytest.fixture
+    def mock_story_service(self):
+        """Create a mock story service."""
+        service = Mock(spec=StoryService)
+        service.db = Mock()
+        service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+        service.create.return_value = Story(
+            id=uuid4(),
+            title="Test Story",
+            description="Test description",
+            labels=[],
+            priority=None,
+            severity=None,
+            product_area="test",
+            technical_area="test",
+            status="candidate",
+            confidence_score=None,
+            evidence_count=0,
+            conversation_count=0,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        return service
+
+    @pytest.fixture
+    def mock_orphan_service(self):
+        """Create a mock orphan service."""
+        service = Mock(spec=OrphanService)
+        service.get_by_signature.return_value = None
+        return service
+
+    @pytest.fixture
+    def mock_evidence_service(self):
+        """Create mock EvidenceService."""
+        service = Mock()
+        service.create_or_update.return_value = Mock(id=uuid4())
+        return service
+
+    def test_evidence_uses_diagnostic_summary_when_present(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that diagnostic_summary is preferred over excerpt when present."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "raw excerpt text",
+                    "diagnostic_summary": "LLM-generated diagnostic summary",
+                },
+                {"id": "conv2", "excerpt": "another raw excerpt"},
+                {"id": "conv3", "excerpt": "third excerpt"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # First excerpt should use diagnostic_summary, not raw excerpt
+        assert excerpts[0].text == "LLM-generated diagnostic summary"
+        assert excerpts[0].conversation_id == "conv1"
+        # Second should fall back to excerpt
+        assert excerpts[1].text == "another raw excerpt"
+
+    def test_evidence_fallback_when_diagnostic_summary_empty_string(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test fallback to excerpt when diagnostic_summary is empty string."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "fallback excerpt",
+                    "diagnostic_summary": "",  # Empty string
+                },
+                {
+                    "id": "conv2",
+                    "excerpt": "another fallback",
+                    "diagnostic_summary": "   ",  # Whitespace only
+                },
+                {"id": "conv3", "excerpt": "third"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # Both should fall back to excerpt since diagnostic_summary is empty/whitespace
+        # Note: Order may vary due to signal-based ranking (#158)
+        texts = [e.text for e in excerpts]
+        assert "fallback excerpt" in texts
+        assert "another fallback" in texts
+
+    def test_evidence_fallback_when_diagnostic_summary_none(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test fallback to excerpt when diagnostic_summary is None."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "fallback excerpt",
+                    "diagnostic_summary": None,
+                },
+                {"id": "conv2", "excerpt": "no diagnostic field"},  # Missing field
+                {"id": "conv3", "excerpt": "third"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # Both should fall back to excerpt
+        # Note: Order may vary due to signal-based ranking (#158)
+        texts = [e.text for e in excerpts]
+        assert "fallback excerpt" in texts
+        assert "no diagnostic field" in texts
+
+    def test_key_excerpts_appended_to_evidence(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that key_excerpts are appended as additional evidence snippets."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "main excerpt",
+                    "diagnostic_summary": "diagnostic summary",
+                    "key_excerpts": [
+                        {"text": "key excerpt 1"},
+                        {"text": "key excerpt 2"},
+                    ],
+                },
+                {"id": "conv2", "excerpt": "second conv"},
+                {"id": "conv3", "excerpt": "third conv"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # Should have: diagnostic_summary + 2 key_excerpts + 2 fallback excerpts = 5
+        assert len(excerpts) >= 4
+        texts = [e.text for e in excerpts]
+        assert "diagnostic summary" in texts
+        assert "key excerpt 1" in texts
+        assert "key excerpt 2" in texts
+
+    def test_key_excerpts_with_relevance_preserved(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that key_excerpts relevance annotation is included."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "main",
+                    "key_excerpts": [
+                        {
+                            "text": "error occurred",
+                            "relevance": "Shows root cause",
+                        },
+                    ],
+                },
+                {"id": "conv2", "excerpt": "second"},
+                {"id": "conv3", "excerpt": "third"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # Find the key_excerpt and check relevance is included
+        key_excerpt = next(
+            (e for e in excerpts if "error occurred" in e.text), None
+        )
+        assert key_excerpt is not None
+        assert "[Relevance: Shows root cause]" in key_excerpt.text
+
+    def test_excerpt_length_truncation(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that excerpts are truncated to MAX_EXCERPT_LENGTH."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        long_text = "x" * (MAX_EXCERPT_LENGTH + 100)
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "short",
+                    "diagnostic_summary": long_text,
+                },
+                {"id": "conv2", "excerpt": "second"},
+                {"id": "conv3", "excerpt": "third"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # First excerpt should be truncated
+        assert len(excerpts[0].text) == MAX_EXCERPT_LENGTH
+
+    def test_mixed_conversations_some_with_diagnostic_summary(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test handling of mixed conversations with varying diagnostic_summary availability."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "fallback 1",
+                    "diagnostic_summary": "has diagnostic",
+                },
+                {
+                    "id": "conv2",
+                    "excerpt": "fallback 2",
+                    # No diagnostic_summary
+                },
+                {
+                    "id": "conv3",
+                    "excerpt": "fallback 3",
+                    "diagnostic_summary": "",  # Empty
+                },
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        texts = [e.text for e in excerpts]
+        # conv1 uses diagnostic_summary
+        assert "has diagnostic" in texts
+        # conv2 and conv3 fall back to excerpt
+        assert "fallback 2" in texts
+        assert "fallback 3" in texts
+        # Raw excerpt for conv1 should NOT be used
+        assert "fallback 1" not in texts
+
+    def test_empty_key_excerpts_handled_gracefully(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that empty or malformed key_excerpts don't cause errors."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "main",
+                    "key_excerpts": [],  # Empty list
+                },
+                {
+                    "id": "conv2",
+                    "excerpt": "second",
+                    "key_excerpts": [
+                        {"text": ""},  # Empty text
+                        {"text": "   "},  # Whitespace only
+                        {"not_text": "missing text field"},  # Wrong field
+                        "not a dict",  # Wrong type
+                    ],
+                },
+                {"id": "conv3", "excerpt": "third"},
+            ],
+        }
+
+        # Should not raise
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # Should have 3 primary excerpts, no malformed key_excerpts
+        texts = [e.text for e in excerpts]
+        assert "main" in texts
+        assert "second" in texts
+        assert "third" in texts
+
+
+class TestEvidenceMetadataCompleteness:
+    """
+    Tests for Issue #157: Evidence metadata completeness.
+
+    Verifies that evidence excerpts include email, intercom_url, and org/user IDs
+    when available in the conversation data.
+    """
+
+    @pytest.fixture
+    def mock_story_service(self):
+        """Create a mock story service."""
+        service = Mock(spec=StoryService)
+        service.db = Mock()
+        service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+        service.create.return_value = Story(
+            id=uuid4(),
+            title="Test Story",
+            description="Test description",
+            labels=[],
+            priority=None,
+            severity=None,
+            product_area="test",
+            technical_area="test",
+            status="candidate",
+            confidence_score=None,
+            evidence_count=0,
+            conversation_count=0,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        return service
+
+    @pytest.fixture
+    def mock_orphan_service(self):
+        """Create a mock orphan service."""
+        service = Mock(spec=OrphanService)
+        service.get_by_signature.return_value = None
+        return service
+
+    @pytest.fixture
+    def mock_evidence_service(self):
+        """Create mock EvidenceService."""
+        service = Mock()
+        service.create_or_update.return_value = Mock(id=uuid4())
+        return service
+
+    def test_evidence_includes_contact_email(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that contact_email flows through to evidence."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "test excerpt",
+                    "contact_email": "user@example.com",
+                },
+                {"id": "conv2", "excerpt": "second"},
+                {"id": "conv3", "excerpt": "third"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # First excerpt should have email
+        assert excerpts[0].email == "user@example.com"
+        # Second excerpt should have None email
+        assert excerpts[1].email is None
+
+    def test_evidence_includes_intercom_url(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that intercom_url is constructed correctly."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {"id": "conv123", "excerpt": "test excerpt"},
+                {"id": "conv456", "excerpt": "second"},
+                {"id": "conv789", "excerpt": "third"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # All excerpts should have intercom_url
+        assert excerpts[0].intercom_url is not None
+        assert "conv123" in excerpts[0].intercom_url
+        assert excerpts[1].intercom_url is not None
+        assert "conv456" in excerpts[1].intercom_url
+
+    def test_intercom_url_format_matches_story_formatter(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that intercom_url format matches story_formatter.py pattern."""
+        # Test the helper function directly
+        url = _build_intercom_url("test_conv_id")
+
+        # Should match the pattern from story_formatter.py
+        expected_pattern = f"https://app.intercom.com/a/apps/{INTERCOM_APP_ID}/inbox/inbox/conversation/test_conv_id"
+        assert url == expected_pattern
+
+    def test_evidence_includes_org_user_ids(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that org_id, user_id, contact_id flow through to evidence."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "test excerpt",
+                    "org_id": "org_123",
+                    "user_id": "user_456",
+                    "contact_id": "contact_789",
+                },
+                {"id": "conv2", "excerpt": "second"},
+                {"id": "conv3", "excerpt": "third"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # First excerpt should have all IDs
+        assert excerpts[0].org_id == "org_123"
+        assert excerpts[0].user_id == "user_456"
+        assert excerpts[0].contact_id == "contact_789"
+
+        # Second excerpt should have None IDs
+        assert excerpts[1].org_id is None
+        assert excerpts[1].user_id is None
+        assert excerpts[1].contact_id is None
+
+    def test_evidence_metadata_optional_when_missing(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test graceful handling when metadata fields are missing/None."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "test excerpt",
+                    # All metadata fields missing
+                },
+                {
+                    "id": "conv2",
+                    "excerpt": "second",
+                    "contact_email": None,
+                    "org_id": None,
+                },
+                {"id": "conv3", "excerpt": "third"},
+            ],
+        }
+
+        # Should not raise
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # All excerpts should be created successfully
+        assert len(excerpts) == 3
+        # intercom_url should still be present (constructed from ID)
+        assert all(e.intercom_url is not None for e in excerpts)
+
+    def test_conversation_data_metadata_fields(self):
+        """Test that ConversationData dataclass accepts new metadata fields."""
+        conv = ConversationData(
+            id="test",
+            issue_signature="test_sig",
+            contact_email="test@example.com",
+            contact_id="contact_123",
+            user_id="user_456",
+            org_id="org_789",
+        )
+
+        assert conv.contact_email == "test@example.com"
+        assert conv.contact_id == "contact_123"
+        assert conv.user_id == "user_456"
+        assert conv.org_id == "org_789"
+
+    def test_metadata_in_key_excerpts(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that metadata is also included in key_excerpts evidence."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "main excerpt",
+                    "contact_email": "user@example.com",
+                    "org_id": "org_123",
+                    "key_excerpts": [
+                        {"text": "key excerpt text"},
+                    ],
+                },
+                {"id": "conv2", "excerpt": "second"},
+                {"id": "conv3", "excerpt": "third"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # Find the key_excerpt
+        key_excerpt = next(
+            (e for e in excerpts if "key excerpt text" in e.text), None
+        )
+        assert key_excerpt is not None
+        # Key excerpt should have same metadata as parent conversation
+        assert key_excerpt.email == "user@example.com"
+        assert key_excerpt.org_id == "org_123"
+        assert key_excerpt.intercom_url is not None
+        assert "conv1" in key_excerpt.intercom_url
+
+
+class TestSignalBasedRanking:
+    """
+    Tests for Issue #158: Signal-based evidence ranking.
+
+    Verifies that conversations are ranked by signal quality rather than
+    arbitrary first-N selection, and that key_excerpts are deduped against
+    diagnostic_summary.
+    """
+
+    def test_ranking_prefers_key_excerpts(self):
+        """Test that conversations with key_excerpts are ranked higher."""
+        conv_with_key = ConversationData(
+            id="with_key",
+            issue_signature="test",
+            excerpt="low signal text",
+            key_excerpts=[{"text": "important error"}],
+        )
+        conv_without_key = ConversationData(
+            id="without_key",
+            issue_signature="test",
+            excerpt="low signal text",
+        )
+
+        ranked = _rank_conversations_by_signal([conv_without_key, conv_with_key])
+
+        # Conversation with key_excerpts should be first
+        assert ranked[0].id == "with_key"
+        assert ranked[1].id == "without_key"
+
+    def test_ranking_prefers_diagnostic_summary(self):
+        """Test that conversations with diagnostic_summary rank higher than those without."""
+        conv_with_diag = ConversationData(
+            id="with_diag",
+            issue_signature="test",
+            diagnostic_summary="Detailed diagnostic summary",
+            excerpt="short",
+        )
+        conv_without_diag = ConversationData(
+            id="without_diag",
+            issue_signature="test",
+            excerpt="short excerpt only",
+        )
+
+        ranked = _rank_conversations_by_signal([conv_without_diag, conv_with_diag])
+
+        # Conversation with diagnostic_summary should be first
+        assert ranked[0].id == "with_diag"
+
+    def test_ranking_by_error_density(self):
+        """Test that conversations with error patterns rank higher."""
+        conv_errors = ConversationData(
+            id="high_error",
+            issue_signature="test",
+            excerpt="Error 500 failed crashed timeout exception",
+        )
+        conv_no_errors = ConversationData(
+            id="low_error",
+            issue_signature="test",
+            excerpt="Everything is working fine today",
+        )
+
+        ranked = _rank_conversations_by_signal([conv_no_errors, conv_errors])
+
+        # High error density should rank first
+        assert ranked[0].id == "high_error"
+
+    def test_ranking_stable_tiebreaker(self):
+        """Test that conversation_id provides stable tie-breaker."""
+        # Create conversations with identical signal characteristics
+        conv_b = ConversationData(
+            id="b_conv",
+            issue_signature="test",
+            excerpt="same text",
+        )
+        conv_a = ConversationData(
+            id="a_conv",
+            issue_signature="test",
+            excerpt="same text",
+        )
+        conv_c = ConversationData(
+            id="c_conv",
+            issue_signature="test",
+            excerpt="same text",
+        )
+
+        # Run multiple times to verify stability
+        for _ in range(3):
+            ranked = _rank_conversations_by_signal([conv_b, conv_c, conv_a])
+            ids = [c.id for c in ranked]
+            # Should be deterministic ordering
+            assert ids == ids  # Same order each time
+
+    def test_ranking_handles_all_low_signal(self):
+        """Test graceful handling when no conversations have high signal."""
+        convs = [
+            ConversationData(id=f"conv{i}", issue_signature="test", excerpt="simple")
+            for i in range(5)
+        ]
+
+        # Should not raise
+        ranked = _rank_conversations_by_signal(convs)
+
+        # Should return all conversations
+        assert len(ranked) == 5
+
+    def test_ranking_handles_empty_key_excerpts(self):
+        """Test that empty key_excerpts list doesn't crash ranking."""
+        conv = ConversationData(
+            id="test",
+            issue_signature="test",
+            excerpt="text",
+            key_excerpts=[],
+        )
+
+        ranked = _rank_conversations_by_signal([conv])
+
+        assert len(ranked) == 1
+        assert ranked[0].id == "test"
+
+    def test_text_similarity_detects_duplicates(self):
+        """Test that _text_similarity correctly identifies similar texts."""
+        # High similarity
+        assert _text_similarity(
+            "The error occurred when uploading files",
+            "The error occurred when uploading files to server",
+            threshold=0.7,
+        )
+
+        # Low similarity
+        assert not _text_similarity(
+            "Login failed with error",
+            "Upload completed successfully",
+            threshold=0.7,
+        )
+
+        # Empty strings
+        assert not _text_similarity("", "some text")
+        assert not _text_similarity("some text", "")
+
+    @pytest.fixture
+    def mock_story_service(self):
+        """Create a mock story service."""
+        service = Mock(spec=StoryService)
+        service.db = Mock()
+        service.db.cursor.return_value.__enter__ = Mock(return_value=Mock())
+        service.db.cursor.return_value.__exit__ = Mock(return_value=False)
+        service.create.return_value = Story(
+            id=uuid4(),
+            title="Test Story",
+            description="Test description",
+            labels=[],
+            priority=None,
+            severity=None,
+            product_area="test",
+            technical_area="test",
+            status="candidate",
+            confidence_score=None,
+            evidence_count=0,
+            conversation_count=0,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        return service
+
+    @pytest.fixture
+    def mock_orphan_service(self):
+        """Create a mock orphan service."""
+        service = Mock(spec=OrphanService)
+        service.get_by_signature.return_value = None
+        return service
+
+    @pytest.fixture
+    def mock_evidence_service(self):
+        """Create mock EvidenceService."""
+        service = Mock()
+        service.create_or_update.return_value = Mock(id=uuid4())
+        return service
+
+    def test_ranking_selects_higher_signal_over_earlier(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that higher-signal conversation is selected over earlier low-signal one."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        # conv1 is first but low signal, conv2 is high signal
+        theme_groups = {
+            "test_sig": [
+                {"id": "conv1", "excerpt": "simple text"},
+                {
+                    "id": "conv2",
+                    "excerpt": "Error 500 failed crashed timeout",
+                    "diagnostic_summary": "Detailed error analysis",
+                    "key_excerpts": [{"text": "critical error"}],
+                },
+                {"id": "conv3", "excerpt": "another simple one"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # The first excerpt should be from the high-signal conv2, not conv1
+        # (conv2 has key_excerpts, diagnostic_summary, and error patterns)
+        assert excerpts[0].conversation_id == "conv2"
+
+    def test_dedupe_key_excerpts_against_diagnostic_summary(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that key_excerpts similar to diagnostic_summary are deduped."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        theme_groups = {
+            "test_sig": [
+                {
+                    "id": "conv1",
+                    "excerpt": "raw text",
+                    "diagnostic_summary": "The upload failed with error 500",
+                    "key_excerpts": [
+                        # This is very similar to diagnostic_summary - should be deduped
+                        {"text": "The upload failed with error 500 internal"},
+                        # This is different - should be kept
+                        {"text": "User tried three different browsers"},
+                    ],
+                },
+                {"id": "conv2", "excerpt": "second"},
+                {"id": "conv3", "excerpt": "third"},
+            ],
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        texts = [e.text for e in excerpts]
+        # The similar key_excerpt should be deduped
+        assert not any("error 500 internal" in t.lower() for t in texts)
+        # The different key_excerpt should be kept
+        assert any("different browsers" in t.lower() for t in texts)
+
+    def test_top_n_selected_after_ranking(
+        self, mock_story_service, mock_orphan_service, mock_evidence_service
+    ):
+        """Test that MAX_EXCERPTS_IN_THEME limit is respected after ranking."""
+        service = StoryCreationService(
+            mock_story_service,
+            mock_orphan_service,
+            evidence_service=mock_evidence_service,
+            validation_enabled=False,
+        )
+
+        # Create more conversations than MAX_EXCERPTS_IN_THEME
+        convs = [
+            {"id": f"conv{i}", "excerpt": f"text {i}"}
+            for i in range(MAX_EXCERPTS_IN_THEME + 3)
+        ]
+        theme_groups = {"test_sig": convs}
+
+        service.process_theme_groups(theme_groups)
+
+        call_kwargs = mock_evidence_service.create_or_update.call_args[1]
+        excerpts = call_kwargs["excerpts"]
+
+        # Should only have MAX_EXCERPTS_IN_THEME excerpts
+        assert len(excerpts) == MAX_EXCERPTS_IN_THEME

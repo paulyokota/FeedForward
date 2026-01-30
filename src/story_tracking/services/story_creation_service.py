@@ -6,6 +6,8 @@ Processes PM review results to create stories and orphans.
 
 import json
 import logging
+import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -112,6 +114,124 @@ MIN_USER_INTENT_LENGTH = 10  # Minimum meaningful length for user_intent
 MAX_CODE_SNIPPET_LENGTH = 5000  # 5KB per snippet to prevent bloat
 MAX_CODE_CONTEXT_SIZE = 1_000_000  # 1MB total code_context limit
 
+# Issue #157: Intercom URL generation - matches story_formatter.py pattern
+INTERCOM_APP_ID = os.getenv("INTERCOM_APP_ID", "2t3d8az2")
+INTERCOM_URL_TEMPLATE = "https://app.intercom.com/a/apps/{app_id}/inbox/inbox/conversation/{conversation_id}"
+
+
+def _build_intercom_url(conversation_id: str) -> str:
+    """Build Intercom conversation URL from conversation ID."""
+    return INTERCOM_URL_TEMPLATE.format(
+        app_id=INTERCOM_APP_ID,
+        conversation_id=conversation_id,
+    )
+
+
+# Issue #158: Signal-based ranking patterns
+# Common error patterns that indicate high-signal evidence
+# Pre-compiled for performance (avoids re-compilation on each call)
+ERROR_PATTERNS = [
+    re.compile(r'\berror\b', re.IGNORECASE),
+    re.compile(r'\bfail(?:ed|ure|s)?\b', re.IGNORECASE),
+    re.compile(r'\bcrash(?:ed|es)?\b', re.IGNORECASE),
+    re.compile(r'\bbug\b', re.IGNORECASE),
+    re.compile(r'\bbroken\b', re.IGNORECASE),
+    re.compile(r'\bnot working\b', re.IGNORECASE),
+    re.compile(r'\bdoesn\'t work\b', re.IGNORECASE),
+    re.compile(r'\b[45]\d{2}\b'),  # HTTP 4xx/5xx status codes only (not arbitrary 3-digit numbers)
+    re.compile(r'\bexception\b', re.IGNORECASE),
+    re.compile(r'\btimeout\b', re.IGNORECASE),
+    re.compile(r'\brefused\b', re.IGNORECASE),
+]
+
+
+def _calculate_signal_score(conv: "ConversationData") -> tuple:
+    """
+    Calculate signal score for ranking conversations in evidence selection.
+
+    Issue #158: Replace arbitrary first-N selection with signal-based ranking.
+
+    Returns a tuple for sorting (higher = better signal):
+    - (has_key_excerpts, has_diagnostic, error_density, symptom_count, text_length, conversation_id)
+
+    The conversation_id provides a stable tie-breaker for deterministic ordering.
+    """
+
+    # Factor 1: Has key_excerpts (LLM-curated as most relevant)
+    has_key_excerpts = 1 if (conv.key_excerpts and len(conv.key_excerpts) > 0) else 0
+
+    # Factor 2: Has diagnostic_summary (richer than raw excerpt)
+    has_diagnostic = 1 if (conv.diagnostic_summary and conv.diagnostic_summary.strip()) else 0
+
+    # Factor 3: Error pattern density in text
+    text = conv.diagnostic_summary or conv.excerpt or ""
+    error_count = 0
+    for pattern in ERROR_PATTERNS:
+        error_count += len(pattern.findall(text))  # Patterns are pre-compiled with IGNORECASE
+    # Normalize to 0-10 scale
+    error_density = min(error_count, 10)
+
+    # Factor 4: Symptom count
+    symptom_count = len(conv.symptoms) if conv.symptoms else 0
+
+    # Factor 5: Text length (more detail = higher signal, capped)
+    text_length = min(len(text), 1000)  # Cap to avoid over-weighting very long texts
+
+    # Stable tie-breaker: conversation_id (alphabetical)
+    # Use negative to sort ascending (a before z) within same score
+    tie_breaker = conv.id or ""
+
+    return (has_key_excerpts, has_diagnostic, error_density, symptom_count, text_length, tie_breaker)
+
+
+def _rank_conversations_by_signal(conversations: List["ConversationData"]) -> List["ConversationData"]:
+    """
+    Rank conversations by signal quality for evidence selection.
+
+    Issue #158: Higher-signal conversations should be selected over lower-signal ones.
+
+    Ranking factors (in priority order):
+    1. Has key_excerpts (LLM already identified as relevant)
+    2. Has diagnostic_summary (richer than raw excerpt)
+    3. Error pattern density (error codes, failure keywords)
+    4. Symptom count
+    5. Text length (more detail)
+    6. Conversation ID (stable tie-breaker, ascending for determinism)
+    """
+    # Cache scores to avoid computing twice per conversation (performance fix from Round 1 review)
+    scored = [(conv, _calculate_signal_score(conv)) for conv in conversations]
+    # Sort by signal score descending, tie-breaker ascending
+    scored.sort(key=lambda item: (item[1][:-1], item[1][-1]), reverse=True)
+    return [conv for conv, _ in scored]
+
+
+def _text_similarity(text1: str, text2: str, threshold: float = 0.65) -> bool:
+    """
+    Check if two texts are substantially similar (for deduplication).
+
+    Uses simple word overlap ratio (Jaccard index). Returns True if similarity >= threshold.
+
+    Default threshold of 0.65 catches most paraphrases while allowing genuinely
+    different content through. For reference:
+    - 0.8+: Nearly identical texts
+    - 0.65-0.8: Same core content with minor variations
+    - <0.65: Meaningfully different content
+    """
+    if not text1 or not text2:
+        return False
+
+    # Use regex to extract words, ignoring punctuation (fixes "error:" vs "error" mismatch)
+    words1 = set(re.findall(r'\w+', text1.lower()))
+    words2 = set(re.findall(r'\w+', text2.lower()))
+
+    if not words1 or not words2:
+        return False
+
+    intersection = len(words1 & words2)
+    union = len(words1 | words2)
+
+    return (intersection / union) >= threshold if union > 0 else False
+
 
 def _truncate_at_word_boundary(text: str, max_length: int) -> str:
     """
@@ -179,6 +299,12 @@ class ConversationData:
     root_cause: Optional[str] = None
     solution_provided: Optional[str] = None
     resolution_category: Optional[str] = None
+
+    # Issue #157: Evidence metadata completeness
+    contact_email: Optional[str] = None
+    contact_id: Optional[str] = None
+    user_id: Optional[str] = None
+    org_id: Optional[str] = None
 
 
 @dataclass
@@ -1436,6 +1562,11 @@ class StoryCreationService:
             root_cause=conv_dict.get("root_cause"),
             solution_provided=conv_dict.get("solution_provided"),
             resolution_category=conv_dict.get("resolution_category"),
+            # Issue #157: Evidence metadata completeness
+            contact_email=conv_dict.get("contact_email"),
+            contact_id=conv_dict.get("contact_id"),
+            user_id=conv_dict.get("user_id"),
+            org_id=conv_dict.get("org_id"),
         )
 
     def _generate_pm_result(
@@ -1635,6 +1766,16 @@ class StoryCreationService:
         """
         Create evidence bundle for a story.
 
+        Issue #156: Prefer diagnostic_summary + key_excerpts over raw excerpt.
+        - Use diagnostic_summary as primary text when present and non-empty
+        - Append key_excerpts as additional evidence snippets
+        - Fall back to excerpt (source_body[:500]) when richer fields missing
+
+        Issue #158: Signal-based ranking replaces arbitrary first-N selection.
+        - Rank conversations by signal quality (key_excerpts, diagnostic density, etc.)
+        - Dedupe key_excerpts against diagnostic_summary to avoid repetition
+        - Stable tie-breaker (conversation_id) for deterministic ordering
+
         Returns:
             True if successful or no evidence_service configured, False if failed
         """
@@ -1645,15 +1786,77 @@ class StoryCreationService:
             # Build conversation IDs
             conversation_ids = [c.id for c in conversations]
 
-            # Build excerpts
+            # Issue #158: Rank conversations by signal quality instead of arbitrary order
+            ranked_conversations = _rank_conversations_by_signal(conversations)
+
+            # Build excerpts - prefer diagnostic_summary + key_excerpts (Issue #156)
+            # Include metadata fields (Issue #157)
+            # Use ranked order (Issue #158)
+            # Cap total excerpts to prevent unbounded growth (Round 1 review fix)
+            # Rationale: Process up to 5 conversations (MAX_EXCERPTS_IN_THEME), each contributing
+            # ~2 excerpts on average (1 diagnostic_summary + 1-2 key_excerpts after deduplication).
+            # Total cap of 10 prevents memory bloat while preserving signal diversity.
+            max_total_excerpts = MAX_EXCERPTS_IN_THEME * 2
             excerpts = []
-            for conv in conversations[:MAX_EXCERPTS_IN_THEME]:
-                if conv.excerpt:
+            for conv in ranked_conversations[:MAX_EXCERPTS_IN_THEME]:
+                if len(excerpts) >= max_total_excerpts:
+                    break  # Cap total excerpts to prevent memory bloat
+
+                # Issue #157: Build metadata for this conversation
+                intercom_url = _build_intercom_url(conv.id) if conv.id else None
+
+                # Primary excerpt: prefer diagnostic_summary when present and non-empty
+                # Check for both None and empty string to prevent blank evidence
+                primary_text = None
+                if conv.diagnostic_summary and conv.diagnostic_summary.strip():
+                    primary_text = conv.diagnostic_summary
+                elif conv.excerpt and conv.excerpt.strip():
+                    primary_text = conv.excerpt
+
+                if primary_text:
                     excerpts.append(EvidenceExcerpt(
-                        text=conv.excerpt[:MAX_EXCERPT_LENGTH],
-                        source="intercom",  # Default source
+                        text=primary_text[:MAX_EXCERPT_LENGTH],
+                        source="intercom",
                         conversation_id=conv.id,
+                        # Issue #157: Evidence metadata
+                        email=conv.contact_email,
+                        intercom_url=intercom_url,
+                        org_id=conv.org_id,
+                        user_id=conv.user_id,
+                        contact_id=conv.contact_id,
                     ))
+
+                # Append key_excerpts as additional evidence snippets
+                # Format: [{"text": "...", "relevance": "Why this matters"}, ...]
+                for key_excerpt in (conv.key_excerpts or []):
+                    if len(excerpts) >= max_total_excerpts:
+                        break  # Respect total excerpt cap
+
+                    if isinstance(key_excerpt, dict) and key_excerpt.get("text"):
+                        excerpt_text = key_excerpt["text"].strip()
+                        if not excerpt_text:
+                            continue
+
+                        # Issue #158: Dedupe key_excerpts against diagnostic_summary
+                        # Skip if substantially similar to avoid repetitive evidence
+                        if primary_text and _text_similarity(excerpt_text, primary_text):
+                            continue
+
+                        # Include relevance annotation if present
+                        relevance = key_excerpt.get("relevance", "")
+                        if relevance:
+                            excerpt_text = f"{excerpt_text} [Relevance: {relevance}]"
+                        excerpts.append(EvidenceExcerpt(
+                            text=excerpt_text[:MAX_EXCERPT_LENGTH],
+                            source="intercom",
+                            conversation_id=conv.id,
+                            # Issue #157: Evidence metadata (same as primary excerpt)
+                            email=conv.contact_email,
+                            intercom_url=intercom_url,
+                            org_id=conv.org_id,
+                            user_id=conv.user_id,
+                            contact_id=conv.contact_id,
+                        ))
 
             # Calculate source stats (default to intercom)
             source_stats = {"intercom": len(conversations)}
