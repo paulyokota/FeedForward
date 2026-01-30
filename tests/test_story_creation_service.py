@@ -3103,8 +3103,8 @@ class TestSignalBasedRanking:
         for _ in range(3):
             ranked = _rank_conversations_by_signal([conv_b, conv_c, conv_a])
             ids = [c.id for c in ranked]
-            # Should be deterministic ordering
-            assert ids == ids  # Same order each time
+            # Should be deterministic ordering: ascending alphabetical for equal scores
+            assert ids == ["a_conv", "b_conv", "c_conv"], f"Expected alphabetical order, got {ids}"
 
     def test_ranking_handles_all_low_signal(self):
         """Test graceful handling when no conversations have high signal."""

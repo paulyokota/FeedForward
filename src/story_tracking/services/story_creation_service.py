@@ -200,8 +200,16 @@ def _rank_conversations_by_signal(conversations: List["ConversationData"]) -> Li
     """
     # Cache scores to avoid computing twice per conversation (performance fix from Round 1 review)
     scored = [(conv, _calculate_signal_score(conv)) for conv in conversations]
-    # Sort by signal score descending, tie-breaker ascending
-    scored.sort(key=lambda item: (item[1][:-1], item[1][-1]), reverse=True)
+    # Sort by signal score descending (negate numerics), tie-breaker ascending (string as-is)
+    # Score tuple: (has_key_excerpts, has_diagnostic, error_density, symptom_count, text_length, tie_breaker)
+    scored.sort(key=lambda item: (
+        -item[1][0],  # has_key_excerpts: descending (negate)
+        -item[1][1],  # has_diagnostic: descending (negate)
+        -item[1][2],  # error_density: descending (negate)
+        -item[1][3],  # symptom_count: descending (negate)
+        -item[1][4],  # text_length: descending (negate)
+        item[1][5],   # tie_breaker: ascending (string, no change)
+    ))
     return [conv for conv, _ in scored]
 
 
