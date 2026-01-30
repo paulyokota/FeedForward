@@ -47,7 +47,7 @@ from api.schemas.analytics import (
 )
 
 # Mark entire module as slow - these are integration tests
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
 
 
 # =============================================================================

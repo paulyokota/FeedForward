@@ -13,7 +13,7 @@ from src.story_tracking.services.codebase_context_provider import CodebaseContex
 from src.story_tracking.services.domain_classifier import ClassificationResult
 
 # Mark entire module as slow - these are integration tests
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
 
 
 class TestClassificationGuidedExploration:

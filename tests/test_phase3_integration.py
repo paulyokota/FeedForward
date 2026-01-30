@@ -25,7 +25,7 @@ from src.api.routers.labels import get_label_service
 from src.api.routers.analytics import get_analytics_service
 
 # Mark entire module as slow - these are integration tests
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
 
 
 # -----------------------------------------------------------------------------

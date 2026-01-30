@@ -37,7 +37,7 @@ from db.models import Conversation
 from theme_extractor import Theme, ThemeExtractor
 
 # Mark entire module as slow - these are integration tests
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
 
 
 # =============================================================================

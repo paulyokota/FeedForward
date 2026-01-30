@@ -39,7 +39,7 @@ from story_tracking.services.story_creation_service import ConversationData, Sto
 from prompts.story_content import StoryContentInput, format_optional_context
 
 # Mark entire module as slow - these are integration tests
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
 
 
 # =============================================================================
