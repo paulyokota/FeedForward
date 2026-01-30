@@ -121,9 +121,9 @@ class TestThemeExtractionQueryUsesExplicitRunId:
         # Check that we have the NULL fallback pattern
         import re
 
-        # Find the _run_theme_extraction function
+        # Find the _run_theme_extraction_async function (Issue #148 moved SQL here)
         theme_func_match = re.search(
-            r'def _run_theme_extraction\([^)]+\)[^:]*:.*?(?=\ndef |\Z)',
+            r'async def _run_theme_extraction_async\([^)]+\)[^:]*:.*?(?=\nasync def |\ndef |\Z)',
             content,
             re.DOTALL
         )
