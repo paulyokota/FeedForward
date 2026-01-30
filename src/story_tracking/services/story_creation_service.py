@@ -438,7 +438,7 @@ class StoryCreationService:
         confidence_scorer: Optional["ConfidenceScorer"] = None,
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
         validation_enabled: bool = DEFAULT_VALIDATION_ENABLED,
-        dual_format_enabled: bool = False,
+        dual_format_enabled: bool = True,
         target_repo: Optional[str] = None,
         pm_review_service: Optional["PMReviewService"] = None,
         pm_review_enabled: bool = False,
@@ -459,7 +459,7 @@ class StoryCreationService:
             validation_enabled: If True, enforce evidence validation (default: True).
                                Set to False to disable validation during migration.
             dual_format_enabled: If True, generate dual-format stories (v2) with
-                                codebase context. Default False for backward compatibility.
+                                codebase context. Default True (Issue #178).
             target_repo: Repository name for codebase exploration (required if dual_format_enabled)
             pm_review_service: Service for PM review of theme groups (optional).
                               Required if pm_review_enabled=True.
@@ -2853,26 +2853,16 @@ class StoryCreationService:
         """
         parts = []
 
-        # User intent is the primary signal
+        # Primary signals: user_intent, symptoms, excerpts (provide actual issue context)
         if user_intent := theme_data.get("user_intent"):
             parts.append(f"Issue: {user_intent}")
 
-        # Add symptoms as context
         if symptoms := theme_data.get("symptoms"):
             symptoms_text = ", ".join(symptoms[:5])  # Top 5
             parts.append(f"Symptoms: {symptoms_text}")
 
-        # Add product area and component if available
-        if product_area := theme_data.get("product_area"):
-            parts.append(f"Product Area: {product_area}")
-
-        if component := theme_data.get("component"):
-            parts.append(f"Component: {component}")
-
-        # Add excerpt text if available
         excerpts = theme_data.get("excerpts", [])
         if excerpts:
-            # Get first excerpt text
             first_excerpt = excerpts[0]
             if isinstance(first_excerpt, dict):
                 excerpt_text = first_excerpt.get("text", "")
@@ -2882,6 +2872,7 @@ class StoryCreationService:
                 parts.append(f"Customer message: {excerpt_text[:500]}")
 
         # Issue #178: Fallback chain when primary fields are empty
+        # diagnostic_summary provides better context than just product_area/component
         if not parts:
             # Fallback 1: Use diagnostic_summary (Smart Digest from Issue #144)
             diagnostic_summary = theme_data.get("diagnostic_summary")
@@ -2895,7 +2886,6 @@ class StoryCreationService:
         if not parts:
             # Fallback 2: Use issue_signature (always present for signature-based groups)
             if issue_signature := theme_data.get("issue_signature"):
-                # Convert signature to human-readable text
                 readable_signature = issue_signature.replace("_", " ").replace("-", " ")
                 parts.append(f"Issue topic: {readable_signature}")
                 logger.debug(
@@ -2903,8 +2893,13 @@ class StoryCreationService:
                     extra={"issue_signature": issue_signature},
                 )
 
-        # Note: No Fallback 3 needed - product_area/component are already added
-        # unconditionally in lines 2866-2870 when they exist.
+        # Always append product_area/component as supplementary context (not primary signal)
+        # These help narrow the search but don't provide issue description
+        if product_area := theme_data.get("product_area"):
+            parts.append(f"Product Area: {product_area}")
+
+        if component := theme_data.get("component"):
+            parts.append(f"Component: {component}")
 
         # Log warning if still empty (should be rare)
         if not parts:

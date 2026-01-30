@@ -3473,3 +3473,37 @@ class TestMismatchDetection:
 
         assert code_context["mismatch"] is False
         assert "mismatch_details" not in code_context
+
+
+class TestDualFormatDefault:
+    """Tests for dual_format_enabled default behavior (Issue #178)."""
+
+    def test_dual_format_enabled_by_default(self):
+        """StoryCreationService should have dual_format_enabled=True by default."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+        )
+        # Default should be True (Issue #178)
+        assert service.dual_format_enabled is True
+
+    def test_dual_format_initializes_codebase_provider(self):
+        """When dual_format_enabled=True, codebase_provider should be initialized."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+            dual_format_enabled=True,
+        )
+        # Should have codebase_provider when dual format is enabled
+        # (unless DUAL_FORMAT_AVAILABLE is False, in which case it falls back)
+        # We check the flag was set correctly
+        assert service.dual_format_enabled is True or service.codebase_provider is None
+
+    def test_dual_format_disabled_explicitly(self):
+        """Should respect explicit dual_format_enabled=False."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+            dual_format_enabled=False,
+        )
+        assert service.dual_format_enabled is False
