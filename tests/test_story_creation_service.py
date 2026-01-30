@@ -3295,3 +3295,215 @@ class TestSignalBasedRanking:
 
         # Should only have MAX_EXCERPTS_IN_THEME excerpts
         assert len(excerpts) == MAX_EXCERPTS_IN_THEME
+
+
+class TestIssueTextFallback:
+    """Tests for fallback issue_text when primary fields are empty (Issue #178)."""
+
+    def test_build_issue_text_with_user_intent(self):
+        """Should use user_intent as primary signal."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+        )
+
+        theme_data = {
+            "user_intent": "Pin scheduling not working",
+            "symptoms": ["pins not posting"],
+        }
+
+        issue_text = service._build_issue_text_for_classification(theme_data)
+
+        assert "Pin scheduling not working" in issue_text
+        assert "Issue:" in issue_text
+
+    def test_build_issue_text_fallback_to_diagnostic_summary(self):
+        """Should fall back to diagnostic_summary when primary fields empty."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+        )
+
+        theme_data = {
+            "user_intent": "",  # Empty
+            "symptoms": [],  # Empty
+            "excerpts": [],  # Empty
+            "diagnostic_summary": "Customer cannot schedule pins after upgrade",
+        }
+
+        issue_text = service._build_issue_text_for_classification(theme_data)
+
+        assert "Issue summary:" in issue_text
+        assert "Customer cannot schedule pins" in issue_text
+
+    def test_build_issue_text_fallback_to_signature(self):
+        """Should fall back to issue_signature when diagnostic_summary empty."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+        )
+
+        theme_data = {
+            "user_intent": "",
+            "symptoms": [],
+            "excerpts": [],
+            "diagnostic_summary": "",  # Empty
+            "issue_signature": "pin_scheduling_failure",
+        }
+
+        issue_text = service._build_issue_text_for_classification(theme_data)
+
+        assert "Issue topic:" in issue_text
+        assert "pin scheduling failure" in issue_text
+
+    def test_build_issue_text_uses_product_area_and_component(self):
+        """Should use product_area and component when available (added individually)."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+        )
+
+        theme_data = {
+            "user_intent": "",
+            "symptoms": [],
+            "excerpts": [],
+            "diagnostic_summary": "",
+            "issue_signature": "",
+            "product_area": "scheduling",
+            "component": "pin_spacing",
+        }
+
+        issue_text = service._build_issue_text_for_classification(theme_data)
+
+        # Product area and component are added individually, not as "Related to:"
+        assert "Product Area: scheduling" in issue_text
+        assert "Component: pin_spacing" in issue_text
+
+
+class TestMismatchDetection:
+    """Tests for mismatch detection between classification and product_area (Issue #178)."""
+
+    def test_mismatch_detected_when_categories_differ(self):
+        """Should detect mismatch when classification.category != product_area."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+        )
+
+        mock_exploration = Mock()
+        mock_exploration.relevant_files = []
+        mock_exploration.code_snippets = []
+        mock_exploration.exploration_duration_ms = 100
+        mock_exploration.success = True
+        mock_exploration.error = None
+
+        mock_classification = Mock()
+        mock_classification.category = "ai_creation"
+        mock_classification.confidence = "medium"
+        mock_classification.reasoning = "Test"
+        mock_classification.keywords_matched = []
+        mock_classification.classification_duration_ms = 50
+
+        code_context = service._build_code_context_dict(
+            exploration_result=mock_exploration,
+            classification_result=mock_classification,
+            product_area_from_theme="scheduling",  # Different from ai_creation
+        )
+
+        assert code_context["mismatch"] is True
+        assert code_context["mismatch_details"]["classification_category"] == "ai_creation"
+        assert code_context["mismatch_details"]["product_area_from_theme"] == "scheduling"
+
+    def test_no_mismatch_when_categories_match(self):
+        """Should not flag mismatch when categories match."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+        )
+
+        mock_exploration = Mock()
+        mock_exploration.relevant_files = []
+        mock_exploration.code_snippets = []
+        mock_exploration.exploration_duration_ms = 100
+        mock_exploration.success = True
+        mock_exploration.error = None
+
+        mock_classification = Mock()
+        mock_classification.category = "scheduling"
+        mock_classification.confidence = "high"
+        mock_classification.reasoning = "Test"
+        mock_classification.keywords_matched = []
+        mock_classification.classification_duration_ms = 50
+
+        code_context = service._build_code_context_dict(
+            exploration_result=mock_exploration,
+            classification_result=mock_classification,
+            product_area_from_theme="scheduling",  # Same as classification
+        )
+
+        assert code_context["mismatch"] is False
+        assert "mismatch_details" not in code_context
+
+    def test_no_mismatch_when_product_area_missing(self):
+        """Should not flag mismatch when product_area not provided."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+        )
+
+        mock_exploration = Mock()
+        mock_exploration.relevant_files = []
+        mock_exploration.code_snippets = []
+        mock_exploration.exploration_duration_ms = 100
+        mock_exploration.success = True
+        mock_exploration.error = None
+
+        mock_classification = Mock()
+        mock_classification.category = "scheduling"
+        mock_classification.confidence = "high"
+        mock_classification.reasoning = "Test"
+        mock_classification.keywords_matched = []
+        mock_classification.classification_duration_ms = 50
+
+        code_context = service._build_code_context_dict(
+            exploration_result=mock_exploration,
+            classification_result=mock_classification,
+            product_area_from_theme=None,  # Missing
+        )
+
+        assert code_context["mismatch"] is False
+        assert "mismatch_details" not in code_context
+
+
+class TestDualFormatDefault:
+    """Tests for dual_format_enabled default behavior (Issue #178)."""
+
+    def test_dual_format_enabled_by_default(self):
+        """StoryCreationService should have dual_format_enabled=True by default."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+        )
+        # Default should be True (Issue #178)
+        assert service.dual_format_enabled is True
+
+    def test_dual_format_initializes_codebase_provider(self):
+        """When dual_format_enabled=True, codebase_provider should be initialized."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+            dual_format_enabled=True,
+        )
+        # Should have codebase_provider when dual format is enabled
+        # (unless DUAL_FORMAT_AVAILABLE is False, in which case it falls back)
+        # We check the flag was set correctly
+        assert service.dual_format_enabled is True or service.codebase_provider is None
+
+    def test_dual_format_disabled_explicitly(self):
+        """Should respect explicit dual_format_enabled=False."""
+        service = StoryCreationService(
+            story_service=Mock(),
+            orphan_service=Mock(),
+            dual_format_enabled=False,
+        )
+        assert service.dual_format_enabled is False

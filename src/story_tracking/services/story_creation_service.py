@@ -438,7 +438,7 @@ class StoryCreationService:
         confidence_scorer: Optional["ConfidenceScorer"] = None,
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
         validation_enabled: bool = DEFAULT_VALIDATION_ENABLED,
-        dual_format_enabled: bool = False,
+        dual_format_enabled: bool = True,
         target_repo: Optional[str] = None,
         pm_review_service: Optional["PMReviewService"] = None,
         pm_review_enabled: bool = False,
@@ -459,7 +459,7 @@ class StoryCreationService:
             validation_enabled: If True, enforce evidence validation (default: True).
                                Set to False to disable validation during migration.
             dual_format_enabled: If True, generate dual-format stories (v2) with
-                                codebase context. Default False for backward compatibility.
+                                codebase context. Default True (Issue #178).
             target_repo: Repository name for codebase exploration (required if dual_format_enabled)
             pm_review_service: Service for PM review of theme groups (optional).
                               Required if pm_review_enabled=True.
@@ -2374,6 +2374,8 @@ class StoryCreationService:
             # Issue #159: Resolution action/category for fix guidance in stories
             "resolution_action": first_non_null("resolution_action"),
             "resolution_category": first_non_null("resolution_category"),
+            # Issue #178: Include diagnostic_summary for classification fallback
+            "diagnostic_summary": first_non_null("diagnostic_summary"),
         }
 
     def _generate_story_content(
@@ -2739,29 +2741,54 @@ class StoryCreationService:
             to determine if exploration produced usable results.
         """
         if not self.codebase_provider:
-            logger.debug("Codebase provider not available, skipping exploration")
+            logger.info(
+                "Codebase exploration skipped: provider not available",
+                extra={
+                    "reason": "codebase_provider_unavailable",
+                    "dual_format_enabled": self.dual_format_enabled,
+                },
+            )
             return None
 
         # Build issue text from theme data for classification
         issue_text = self._build_issue_text_for_classification(theme_data)
         if not issue_text:
-            logger.debug("No issue text available for classification")
+            # Issue #178: This should be rare after fallback chain was added
+            logger.warning(
+                "Codebase exploration skipped: no issue text after fallback chain",
+                extra={
+                    "reason": "empty_issue_text",
+                    "theme_data_keys": list(theme_data.keys()),
+                    "has_user_intent": bool(theme_data.get("user_intent")),
+                    "has_diagnostic_summary": bool(theme_data.get("diagnostic_summary")),
+                    "has_issue_signature": bool(theme_data.get("issue_signature")),
+                },
+            )
             return None
 
         try:
             logger.info("Starting classification-guided codebase exploration")
+
+            # Issue #178: Pass product_area from theme_data as hint
+            # This allows the classifier to prefer the known product_area
+            # over its own classification when appropriate
+            product_area_hint = theme_data.get("product_area")
 
             # Use classification-guided exploration
             exploration_result, classification_result = (
                 self.codebase_provider.explore_with_classification(
                     issue_text=issue_text,
                     target_repo=self.target_repo,
+                    product_area_hint=product_area_hint,
                 )
             )
 
             # Build code_context dict for storage
+            # Issue #178: Pass product_area for mismatch detection
             code_context = self._build_code_context_dict(
-                exploration_result, classification_result
+                exploration_result,
+                classification_result,
+                product_area_from_theme=product_area_hint,
             )
 
             if exploration_result.success:
@@ -2811,34 +2838,31 @@ class StoryCreationService:
         Combines user_intent, symptoms, and excerpts into a coherent
         text that the classifier can analyze.
 
+        Issue #178: Added fallback chain to guarantee non-empty issue_text:
+        1. Primary fields: user_intent, symptoms, excerpts
+        2. Fallback 1: diagnostic_summary (Smart Digest from Issue #144)
+        3. Fallback 2: issue_signature (always present for signature-based groups)
+        4. Fallback 3: product_area + component
+
         Args:
             theme_data: Aggregated theme data
 
         Returns:
-            Combined issue text for classification
+            Combined issue text for classification (guaranteed non-empty if any
+            theme_data field is present)
         """
         parts = []
 
-        # User intent is the primary signal
+        # Primary signals: user_intent, symptoms, excerpts (provide actual issue context)
         if user_intent := theme_data.get("user_intent"):
             parts.append(f"Issue: {user_intent}")
 
-        # Add symptoms as context
         if symptoms := theme_data.get("symptoms"):
             symptoms_text = ", ".join(symptoms[:5])  # Top 5
             parts.append(f"Symptoms: {symptoms_text}")
 
-        # Add product area and component if available
-        if product_area := theme_data.get("product_area"):
-            parts.append(f"Product Area: {product_area}")
-
-        if component := theme_data.get("component"):
-            parts.append(f"Component: {component}")
-
-        # Add excerpt text if available
         excerpts = theme_data.get("excerpts", [])
         if excerpts:
-            # Get first excerpt text
             first_excerpt = excerpts[0]
             if isinstance(first_excerpt, dict):
                 excerpt_text = first_excerpt.get("text", "")
@@ -2847,12 +2871,57 @@ class StoryCreationService:
             if excerpt_text:
                 parts.append(f"Customer message: {excerpt_text[:500]}")
 
+        # Issue #178: Fallback chain when primary fields are empty
+        # diagnostic_summary provides better context than just product_area/component
+        if not parts:
+            # Fallback 1: Use diagnostic_summary (Smart Digest from Issue #144)
+            diagnostic_summary = theme_data.get("diagnostic_summary")
+            if diagnostic_summary and diagnostic_summary.strip():
+                parts.append(f"Issue summary: {diagnostic_summary}")
+                logger.debug(
+                    "Using diagnostic_summary fallback for classification",
+                    extra={"has_diagnostic_summary": True},
+                )
+
+        if not parts:
+            # Fallback 2: Use issue_signature (always present for signature-based groups)
+            if issue_signature := theme_data.get("issue_signature"):
+                readable_signature = issue_signature.replace("_", " ").replace("-", " ")
+                parts.append(f"Issue topic: {readable_signature}")
+                logger.debug(
+                    "Using issue_signature fallback for classification",
+                    extra={"issue_signature": issue_signature},
+                )
+
+        # Always append product_area/component as supplementary context (not primary signal)
+        # These help narrow the search but don't provide issue description
+        if product_area := theme_data.get("product_area"):
+            parts.append(f"Product Area: {product_area}")
+
+        if component := theme_data.get("component"):
+            parts.append(f"Component: {component}")
+
+        # Log warning if still empty (should be rare)
+        if not parts:
+            logger.warning(
+                "Empty issue_text for classification - all fallbacks exhausted",
+                extra={
+                    "theme_data_keys": list(theme_data.keys()),
+                    "has_user_intent": bool(theme_data.get("user_intent")),
+                    "has_symptoms": bool(theme_data.get("symptoms")),
+                    "has_excerpts": bool(theme_data.get("excerpts")),
+                    "has_diagnostic_summary": bool(theme_data.get("diagnostic_summary")),
+                    "has_issue_signature": bool(theme_data.get("issue_signature")),
+                },
+            )
+
         return "\n".join(parts)
 
     def _build_code_context_dict(
         self,
         exploration_result,  # ExplorationResult
         classification_result,  # Optional[ClassificationResult]
+        product_area_from_theme: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Build code_context dict from exploration and classification results.
@@ -2862,9 +2931,20 @@ class StoryCreationService:
         Args:
             exploration_result: Result from codebase exploration
             classification_result: Result from issue classification (may be None)
+            product_area_from_theme: Product area from theme metadata (optional).
+                Used for detecting mismatch between theme's product_area and
+                classifier's category. When mismatch is detected, it's annotated
+                in the code_context for PM review and classifier tuning.
 
         Returns:
             Dict ready for JSON serialization and storage
+
+        Note:
+            Issue #178: Mismatch detection enables:
+            1. PM review visibility - PMs can spot when classifier disagrees with theme
+            2. Classifier tuning - mismatch patterns identify keyword gaps in domain map
+            3. Search broadening - when high-confidence classifier disagrees, we include
+               both categories' search paths (handled in codebase_context_provider)
         """
         # Build classification sub-dict
         classification_dict = None
@@ -2878,6 +2958,30 @@ class StoryCreationService:
                 "keywords_matched": classification_result.keywords_matched,
             }
             classification_duration = classification_result.classification_duration_ms
+
+        # Issue #178: Detect mismatch between classification and product_area
+        # Only annotate when BOTH product_area_from_theme AND classification.category exist
+        mismatch = False
+        mismatch_details = None
+        if (
+            classification_result
+            and product_area_from_theme
+            and classification_result.category != product_area_from_theme
+        ):
+            mismatch = True
+            mismatch_details = {
+                "classification_category": classification_result.category,
+                "product_area_from_theme": product_area_from_theme,
+                "classification_confidence": classification_result.confidence,
+            }
+            logger.info(
+                "Classification mismatch detected",
+                extra={
+                    "classification_category": classification_result.category,
+                    "product_area_from_theme": product_area_from_theme,
+                    "classification_confidence": classification_result.confidence,
+                },
+            )
 
         # Build relevant_files list
         relevant_files = []
@@ -2908,7 +3012,7 @@ class StoryCreationService:
                 "context": snippet.context,
             })
 
-        return {
+        result = {
             "classification": classification_dict,
             "relevant_files": relevant_files,
             "code_snippets": code_snippets,
@@ -2917,4 +3021,12 @@ class StoryCreationService:
             "explored_at": datetime.now(timezone.utc).isoformat(),
             "success": exploration_result.success,
             "error": exploration_result.error,
+            # Issue #178: Mismatch annotation
+            "mismatch": mismatch,
         }
+
+        # Only include mismatch_details when mismatch=True
+        if mismatch_details:
+            result["mismatch_details"] = mismatch_details
+
+        return result

@@ -24,7 +24,6 @@ description: "v1.0: Initial domain knowledge map with category-to-codebase mappi
 #   - related_categories: Related categories (for disambiguation)
 
 categories:
-
   # Scheduling & Content Calendar
   scheduling:
     description: "Pin scheduling, smartschedule, pin spacing, posting time optimization"
@@ -38,10 +37,14 @@ categories:
       - "publish"
       - "post now"
       - "smartschedule"
+      # Issue #178: Disambiguating keywords to reduce ai_creation misclassification
+      - "smartschedule settings"
+      - "smartschedule configuration"
+      - "schedule settings"
     repos:
-      - aero      # Primary frontend/API
-      - tack      # Backend services
-      - zuck      # Backend utilities
+      - aero # Primary frontend/API
+      - tack # Backend services
+      - zuck # Backend utilities
     search_paths:
       - "packages/**/scheduler/**/*"
       - "packages/**/schedule/**/*"
@@ -77,9 +80,9 @@ categories:
       - "ai labs"
       - "copilot"
     repos:
-      - ghostwriter  # Primary AI service
-      - aero         # Frontend integration
-      - charlotte    # Related services
+      - ghostwriter # Primary AI service
+      - aero # Frontend integration
+      - charlotte # Related services
     search_paths:
       - "stack/**/*.py"
       - "stack/**/*.ts"
@@ -113,9 +116,9 @@ categories:
       - "board permission"
       - "pin creation"
     repos:
-      - aero      # Main integration
-      - tack      # Backend
-      - zuck      # Utilities
+      - aero # Main integration
+      - tack # Backend
+      - zuck # Utilities
     search_paths:
       - "packages/**/pinterest/**/*"
       - "service/**/pinterest/**/*"
@@ -148,9 +151,9 @@ categories:
       - "feed post"
       - "carousel"
     repos:
-      - aero      # Main integration
-      - tack      # Backend
-      - zuck      # Utilities
+      - aero # Main integration
+      - tack # Backend
+      - zuck # Utilities
     search_paths:
       - "packages/**/instagram/**/*"
       - "service/**/instagram/**/*"
@@ -181,9 +184,9 @@ categories:
       - "fb"
       - "facebook api"
     repos:
-      - aero      # Main integration
-      - tack      # Backend
-      - zuck      # Utilities
+      - aero # Main integration
+      - tack # Backend
+      - zuck # Utilities
     search_paths:
       - "packages/**/facebook/**/*"
       - "service/**/facebook/**/*"
@@ -214,8 +217,8 @@ categories:
       - "insights"
       - "pin inspector"
     repos:
-      - aero      # Main analytics dashboard
-      - tack      # Backend calculations
+      - aero # Main analytics dashboard
+      - tack # Backend calculations
       - charlotte # Data services
     search_paths:
       - "packages/**/analytics/**/*"
@@ -249,8 +252,8 @@ categories:
       - "charge"
       - "invoice"
     repos:
-      - tack      # Primary billing service
-      - aero      # Frontend
+      - tack # Primary billing service
+      - aero # Frontend
       - charlotte # Data services
     search_paths:
       - "service/**/billing/**/*"
@@ -283,10 +286,16 @@ categories:
       - "email"
       - "username"
       - "auth"
+      # Issue #178: Disambiguating keywords to reduce pinterest_publishing misclassification
+      - "switch account"
+      - "connect account"
+      - "account switching"
+      - "change account"
+      - "add account"
     repos:
-      - aero      # Auth frontend
-      - tack      # Auth backend
-      - zuck      # Utilities
+      - aero # Auth frontend
+      - tack # Auth backend
+      - zuck # Utilities
     search_paths:
       - "service/**/auth/**/*"
       - "service/**/account/**/*"
@@ -321,8 +330,8 @@ categories:
       - "zapier"
       - "api"
     repos:
-      - aero      # Frontend integrations
-      - tack      # Backend
+      - aero # Frontend integrations
+      - tack # Backend
       - charlotte # Data handling
     search_paths:
       - "packages/**/integrations/**/*"
@@ -357,9 +366,9 @@ categories:
       - "tribes"
       - "collaborative"
     repos:
-      - aero      # Frontend
+      - aero # Frontend
       - charlotte # Primary service
-      - tack      # Backend support
+      - tack # Backend support
     search_paths:
       - "packages/**/communities/**/*"
       - "stacks/**/communities/**/*"
@@ -388,8 +397,8 @@ categories:
       - "migration"
       - "encoding"
     repos:
-      - aero      # Frontend
-      - tack      # Backend processing
+      - aero # Frontend
+      - tack # Backend processing
       - charlotte # Data services
     search_paths:
       - "packages/**/data/**/*"
@@ -422,9 +431,9 @@ categories:
       - "http"
       - "error code"
     repos:
-      - aero      # API layer
-      - tack      # Backend API
-      - zuck      # Utilities
+      - aero # API layer
+      - tack # Backend API
+      - zuck # Utilities
       - charlotte # Data API
     search_paths:
       - "packages/**/api/**/*"
@@ -457,8 +466,8 @@ categories:
       - "optimize"
       - "memory"
     repos:
-      - aero      # Frontend performance
-      - tack      # Backend optimization
+      - aero # Frontend performance
+      - tack # Backend optimization
       - charlotte # Data optimization
     search_paths:
       - "packages/**/performance/**/*"
@@ -537,7 +546,7 @@ categories:
       - "explain"
       - "confused"
     repos:
-      - aero      # For UI guidance
+      - aero # For UI guidance
     search_paths:
       - "docs/**/*.md"
       - "**/README*"
@@ -553,7 +562,15 @@ repositories:
     description: "Main frontend monorepo and API integration layer"
     language: "TypeScript"
     path_pattern: "packages/**"
-    serves: ["scheduling", "ai_creation", "pinterest_publishing", "instagram_publishing", "analytics", "integrations"]
+    serves:
+      [
+        "scheduling",
+        "ai_creation",
+        "pinterest_publishing",
+        "instagram_publishing",
+        "analytics",
+        "integrations",
+      ]
 
   tack:
     description: "Primary backend services (scheduling, billing, auth)"
@@ -565,7 +582,8 @@ repositories:
     description: "Backend utilities and shared services"
     language: "Python/TypeScript"
     path_pattern: "service/**"
-    serves: ["scheduling", "pinterest_publishing", "instagram_publishing", "api"]
+    serves:
+      ["scheduling", "pinterest_publishing", "instagram_publishing", "api"]
 
   charlotte:
     description: "Data services and analytics backend"

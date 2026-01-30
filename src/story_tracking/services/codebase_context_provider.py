@@ -500,12 +500,58 @@ class CodebaseContextProvider:
                 error=str(e),
             )
 
+    def _resolve_product_area(
+        self,
+        classification: "ClassificationResult",
+        product_area_hint: Optional[str],
+    ) -> tuple[str, bool]:
+        """
+        Resolve effective product_area for codebase exploration.
+
+        Issue #178: product_area_hint ALWAYS wins when valid.
+        When high-confidence classification disagrees, we still use hint
+        but return should_broaden=True to include both categories' paths.
+
+        Args:
+            classification: Classification result from Haiku
+            product_area_hint: Hint from theme metadata (optional)
+
+        Returns:
+            (effective_product_area, should_broaden_search)
+            - effective_product_area: The category to use for primary search
+            - should_broaden_search: True only when hint is valid AND high-confidence
+              classification disagrees (indicating both categories may be relevant)
+        """
+        # If hint exists and is a known category, ALWAYS prefer it
+        if product_area_hint and self.classifier and product_area_hint in self.classifier.categories:
+            # Check if high-confidence classification disagrees
+            should_broaden = (
+                classification.confidence == "high"
+                and classification.category != product_area_hint
+            )
+            if should_broaden:
+                logger.info(
+                    f"High-confidence classification ({classification.category}) "
+                    f"differs from product_area_hint ({product_area_hint}). "
+                    f"Using hint, broadening search to include both.",
+                    extra={
+                        "product_area_hint": product_area_hint,
+                        "classification_category": classification.category,
+                        "classification_confidence": classification.confidence,
+                    },
+                )
+            return product_area_hint, should_broaden
+
+        # No valid hint, use classification (no broadening needed)
+        return classification.category, False
+
     def explore_with_classification(
         self,
         issue_text: str,
         target_repo: Optional[str] = None,
         stage2_context: Optional[str] = None,
         theme_component: Optional[str] = None,
+        product_area_hint: Optional[str] = None,
     ) -> tuple[ExplorationResult, Optional[ClassificationResult]]:
         """
         Explore codebase with semantic issue classification.
@@ -528,6 +574,10 @@ class CodebaseContextProvider:
                 or "pin_scheduler") but the classifier returns a broad category (e.g.,
                 "integration" or "scheduling"). Fixes issue #134 where broad categories
                 were overwriting specific component names in search patterns.
+            product_area_hint: Hint from theme metadata for product area (optional).
+                Issue #178: When provided and valid, this ALWAYS takes precedence over
+                the classifier's category. If high-confidence classification disagrees,
+                search is broadened to include both categories' paths.
 
         Returns:
             Tuple of (ExplorationResult, ClassificationResult)
@@ -562,12 +612,17 @@ class CodebaseContextProvider:
                     exploration_duration_ms=int((time.time() - start_time) * 1000),
                 ), classification
 
+            # Issue #178: Resolve product_area with hint taking precedence
+            effective_product_area, should_broaden = self._resolve_product_area(
+                classification, product_area_hint
+            )
+
             # Stage 2: Build theme_data from classification results
             # IMPORTANT: Preserve theme_component if provided, don't overwrite with category
             # This fixes issue #134 where broad category replaced specific component
             theme_data = {
-                "product_area": classification.category,
-                "component": theme_component or classification.category,  # Preserve component if provided
+                "product_area": effective_product_area,  # Issue #178: Use resolved product_area
+                "component": theme_component or effective_product_area,  # Preserve component if provided
                 "user_intent": issue_text[:200],  # First 200 chars as intent
                 "symptoms": [],
             }
@@ -587,13 +642,18 @@ class CodebaseContextProvider:
                 f"Exploring with classification guidance",
                 extra={
                     "category": classification.category,
+                    "effective_product_area": effective_product_area,
+                    "should_broaden": should_broaden,
                     "repo": target_repo,
                     "suggested_paths": len(classification.suggested_search_paths),
                 }
             )
 
             # Use original explore_for_theme but with enhanced paths from classifier
-            exploration = self._explore_with_classifier_hints(theme_data, target_repo, classification)
+            # Issue #178: Pass should_broaden to include both categories if needed
+            exploration = self._explore_with_classifier_hints(
+                theme_data, target_repo, classification, should_broaden
+            )
 
             return exploration, classification
 
@@ -610,12 +670,20 @@ class CodebaseContextProvider:
         self,
         theme_data: Dict,
         target_repo: str,
-        classification: ClassificationResult
+        classification: ClassificationResult,
+        should_broaden: bool = False,
     ) -> ExplorationResult:
         """
         Internal helper to explore using classifier hints.
 
         Prioritizes search paths recommended by the classifier.
+
+        Args:
+            theme_data: Theme data with product_area, component, etc.
+            target_repo: Repository to search
+            classification: Classification result from Haiku
+            should_broaden: Issue #178 - If True, include search paths from BOTH
+                the effective product_area AND the classifier's category (when they differ)
         """
         start_time = time.time()
 
@@ -629,9 +697,59 @@ class CodebaseContextProvider:
             if classification.suggested_search_paths:
                 search_patterns = classification.suggested_search_paths + search_patterns
 
+            # Issue #178: If should_broaden, also include paths from classifier's category
+            # even when effective product_area differs (high-confidence mismatch case)
+            if should_broaden and self.classifier:
+                classifier_category = classification.category
+                effective_category = theme_data.get("product_area")
+                if classifier_category != effective_category:
+                    # Get search paths for the classifier's category from domain map
+                    classifier_category_config = self.classifier.categories.get(classifier_category, {})
+                    additional_paths = classifier_category_config.get("search_paths", [])
+                    if additional_paths:
+                        search_patterns = search_patterns + additional_paths
+                        logger.info(
+                            f"Broadened search: added {len(additional_paths)} paths from "
+                            f"classifier category '{classifier_category}'",
+                            extra={
+                                "effective_category": effective_category,
+                                "classifier_category": classifier_category,
+                                "additional_paths_count": len(additional_paths),
+                            },
+                        )
+
+            # Issue #178: Confidence gating - broaden search for low/medium confidence
+            # by including paths from related_categories (defined in domain map)
+            if classification.confidence in ["low", "medium"] and self.classifier:
+                effective_category = theme_data.get("product_area")
+                category_config = self.classifier.categories.get(effective_category, {})
+                related_categories = category_config.get("related_categories", [])
+
+                if related_categories:
+                    related_paths = []
+                    for related_cat in related_categories:
+                        related_config = self.classifier.categories.get(related_cat, {})
+                        related_paths.extend(related_config.get("search_paths", []))
+
+                    if related_paths:
+                        search_patterns = search_patterns + related_paths
+                        logger.info(
+                            f"Confidence gating: added {len(related_paths)} paths from "
+                            f"related categories {related_categories} (confidence={classification.confidence})",
+                            extra={
+                                "effective_category": effective_category,
+                                "related_categories": related_categories,
+                                "confidence": classification.confidence,
+                                "additional_paths_count": len(related_paths),
+                            },
+                        )
+
             logger.debug(
                 f"Using {len(search_patterns)} search patterns",
-                extra={"classifier_hints": len(classification.suggested_search_paths)}
+                extra={
+                    "classifier_hints": len(classification.suggested_search_paths),
+                    "broadened": should_broaden,
+                },
             )
 
             # Find relevant files
