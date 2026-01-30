@@ -363,6 +363,7 @@ class ProcessingResult:
     orphans_created: int = 0
     stories_updated: int = 0
     orphans_updated: int = 0
+    stories_appended: int = 0  # Conversations added to existing stories (post-graduation)
     errors: List[str] = field(default_factory=list)
     created_story_ids: List[UUID] = field(default_factory=list)
     created_orphan_ids: List[UUID] = field(default_factory=list)
@@ -2173,39 +2174,109 @@ class StoryCreationService:
         conversations: List[ConversationData],
         result: ProcessingResult,
     ) -> None:
-        """Create a new orphan or add to existing one."""
+        """Create a new orphan, add to existing one, or route to graduated story.
+
+        Handles three cases:
+        1. No orphan exists → create new orphan
+        2. Active orphan exists → add conversations to it
+        3. Graduated orphan exists → route conversations to its story
+
+        Note (Issue #176): This parallels OrphanMatcher._create_new_orphan() and
+        OrphanMatcher._add_to_graduated_story(). Both implementations must handle
+        the same three cases consistently. If routing logic changes, update BOTH.
+        See also: src/orphan_matcher.py:271-319 for the parallel implementation.
+        """
         conversation_ids = [c.id for c in conversations]
         theme_data = self._build_theme_data(conversations)
 
-        # Check if orphan already exists for this signature
+        # Check if orphan already exists for this signature (active OR graduated)
         existing = self.orphan_service.get_by_signature(signature)
 
         if existing:
-            # Add conversations to existing orphan
-            self.orphan_service.add_conversations(
-                existing.id,
-                conversation_ids,
-                theme_data,
-            )
-            result.orphans_updated += 1
-            logger.info(
-                f"Updated orphan {existing.id} for '{signature}' "
-                f"(added {len(conversation_ids)} conversations)"
-            )
+            if existing.graduated_at and existing.story_id:
+                # Graduated → route conversations to the story
+                if self.evidence_service:
+                    for conv in conversations:
+                        excerpt = conv.excerpt[:500] if conv.excerpt else None
+                        self.evidence_service.add_conversation(
+                            story_id=existing.story_id,
+                            conversation_id=conv.id,
+                            source="intercom",
+                            excerpt=excerpt,
+                        )
+                    result.stories_appended += len(conversation_ids)
+                    logger.info(
+                        f"Added {len(conversation_ids)} conversations to graduated story "
+                        f"{existing.story_id} for '{signature}'"
+                    )
+                else:
+                    logger.warning(
+                        f"No evidence_service - cannot add {len(conversation_ids)} "
+                        f"conversations to graduated story {existing.story_id}"
+                    )
+            else:
+                # Active orphan → add conversations to it
+                self.orphan_service.add_conversations(
+                    existing.id,
+                    conversation_ids,
+                    theme_data,
+                )
+                result.orphans_updated += 1
+                logger.info(
+                    f"Updated orphan {existing.id} for '{signature}' "
+                    f"(added {len(conversation_ids)} conversations)"
+                )
         else:
-            # Create new orphan
-            orphan = self.orphan_service.create(OrphanCreate(
+            # No orphan exists → create new orphan (idempotent)
+            orphan, created = self.orphan_service.create_or_get(OrphanCreate(
                 signature=signature,
                 original_signature=original_signature,
                 conversation_ids=conversation_ids,
                 theme_data=theme_data,
             ))
-            result.orphans_created += 1
-            result.created_orphan_ids.append(orphan.id)
-            logger.info(
-                f"Created orphan {orphan.id} for '{signature}' "
-                f"({len(conversation_ids)} conversations)"
-            )
+
+            if created:
+                result.orphans_created += 1
+                result.created_orphan_ids.append(orphan.id)
+                logger.info(
+                    f"Created orphan {orphan.id} for '{signature}' "
+                    f"({len(conversation_ids)} conversations)"
+                )
+            else:
+                # Race condition: orphan was created between our check and insert
+                # Re-route based on orphan state
+                if orphan.graduated_at and orphan.story_id:
+                    if self.evidence_service:
+                        for conv in conversations:
+                            excerpt = conv.excerpt[:500] if conv.excerpt else None
+                            self.evidence_service.add_conversation(
+                                story_id=orphan.story_id,
+                                conversation_id=conv.id,
+                                source="intercom",
+                                excerpt=excerpt,
+                            )
+                        result.stories_appended += len(conversation_ids)
+                        logger.info(
+                            f"Race condition: routed {len(conversation_ids)} conversations "
+                            f"to graduated story {orphan.story_id} for '{signature}'"
+                        )
+                    else:
+                        logger.warning(
+                            f"Race condition: no evidence_service - cannot add "
+                            f"{len(conversation_ids)} conversations to graduated story "
+                            f"{orphan.story_id} for '{signature}'"
+                        )
+                else:
+                    self.orphan_service.add_conversations(
+                        orphan.id,
+                        conversation_ids,
+                        theme_data,
+                    )
+                    result.orphans_updated += 1
+                    logger.info(
+                        f"Race condition: updated orphan {orphan.id} for '{signature}' "
+                        f"(added {len(conversation_ids)} conversations)"
+                    )
 
     def _load_pm_results(self, path: Path) -> List[FallbackPMReviewResult]:
         """Load PM review results from JSON file."""

@@ -20,7 +20,46 @@
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 **Test Suite Optimization (Issue #147): COMPLETE** ✅
 
-## Latest: Test Suite Optimization (2026-01-30)
+## Latest: Evidence Bundle Improvements (2026-01-30)
+
+**Issues #156, #157, #158** - Milestone 10 Stream A (PR #174 - pending merge)
+
+### What Changed
+
+Implemented signal-based evidence ranking, diagnostic summary preference, and evidence metadata completeness:
+
+| Issue | Feature                                               | Status      |
+| ----- | ----------------------------------------------------- | ----------- |
+| #156  | Diagnostic summary + key_excerpts over raw excerpt    | ✅ Complete |
+| #157  | Evidence metadata (email, intercom_url, org/user IDs) | ✅ Complete |
+| #158  | Signal-based ranking (replaces first-N selection)     | ✅ Complete |
+
+**Key implementation details:**
+
+- Ranking factors: key_excerpts > diagnostic_summary > error patterns > symptoms > text length
+- Jaccard similarity (0.65 threshold) dedupes key_excerpts against diagnostic_summary
+- Pre-compiled regex patterns at module level for performance
+- Total excerpt cap prevents unbounded memory growth
+
+**5-personality review converged** after 2 rounds with fixes:
+
+- Fixed inverted tie-breaker sort order
+- Fixed HTTP status regex (was matching any 3-digit number)
+- Fixed no-op test (`ids == ids`)
+- Added explanatory comments for magic numbers
+
+**Files changed:**
+
+- `src/story_tracking/services/story_creation_service.py` - main implementation
+- `src/api/routers/pipeline.py` - pipeline query for metadata
+- `src/story_tracking/models/__init__.py` - EvidenceExcerpt model
+- `src/story_tracking/services/evidence_service.py` - JSON serialization
+- `tests/test_story_creation_service.py` - 36 new tests
+- `tests/test_evidence_pipeline_integration.py` - new integration test file
+
+---
+
+## Previous: Test Suite Optimization (2026-01-30)
 
 **Issue #147 CLOSED** - Pytest markers for fast/slow test split
 
@@ -2981,23 +3020,60 @@ python -m src.pipeline --dry-run            # No DB writes
 
 ## What's Next
 
-**Phase 4: Real-Time Workflows** (optional)
+**Immediate: Fix #176 (Story Creation Cascade Failure)**
 
-Webhook-driven processing for time-sensitive issues:
+- This blocks pipeline from producing stories
+- Fix orphan signature duplicate handling
+- Add transaction savepoints for isolation
 
-- Intercom webhooks trigger immediate classification
-- Critical issues alert within 5 minutes
-- Requires infrastructure changes (webhook endpoint)
+**Then: Re-run Pipeline Validation**
 
-**Or continue with**:
+- Run `./scripts/dev-pipeline-run.sh --days 30`
+- Verify stories are created successfully
+- Review story quality and grouping
 
-- Add `SLACK_WEBHOOK_URL` to test real Slack alerts
+**Future Options**:
+
+- Add `SLACK_WEBHOOK_URL` for real Slack alerts
 - Add `SHORTCUT_API_TOKEN` for real ticket creation
-- Run pipeline on larger dataset (30 days)
+- Phase 4: Real-Time Workflows (webhook-driven processing)
 
 ## Blockers
 
-None
+**#176 - Story creation cascade failure** (P1)
+
+- Duplicate orphan signature causes transaction abort
+- All story/orphan creation fails after first error
+- Pipeline run #96: 593 themes extracted, 0 stories created
+- Fix required before next pipeline run produces stories
+
+## Recent Session Notes
+
+### 2026-01-30: Post-Milestone 10 Pipeline Validation
+
+**Objective**: Run full pipeline on 30 days of data to validate Milestone 10 changes.
+
+**Results**:
+
+- Pipeline run #96 completed
+- ✅ 1,530 conversations classified
+- ✅ 593 themes extracted (12 filtered as `unclassified_needs_review` - appropriate)
+- ❌ 0 stories created (blocked by #176)
+- ❌ 0 orphans created (blocked by #176)
+
+**Issues Filed**:
+| Issue | Description |
+|-------|-------------|
+| #175 | API `/api/stories` returns 4 stories when DB has 15 |
+| #176 | Orphan signature duplicate causes cascade transaction abort |
+
+**Root Cause (#176)**: After orphan graduates to story, code attempts to insert another orphan with same signature → unique constraint violation → transaction not rolled back → all subsequent operations fail.
+
+**Suggested Fixes**:
+
+1. Use upsert: `ON CONFLICT (signature) DO UPDATE`
+2. Ensure graduation clears/reuses orphan record
+3. Add savepoints for isolation
 
 ## Decision Log
 

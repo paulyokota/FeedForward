@@ -172,7 +172,7 @@ class TestOrphanMatcherBasic:
     ):
         """Test creating new orphan when no existing orphan matches."""
         mock_orphan_service.get_by_signature.return_value = None
-        mock_orphan_service.create.return_value = Orphan(
+        new_orphan = Orphan(
             id=uuid4(),
             signature="billing_cancellation",
             original_signature=None,
@@ -184,6 +184,8 @@ class TestOrphanMatcherBasic:
             graduated_at=None,
             story_id=None,
         )
+        # Now uses create_or_get which returns (orphan, created) tuple
+        mock_orphan_service.create_or_get.return_value = (new_orphan, True)
 
         matcher = OrphanMatcher(
             mock_orphan_service,
@@ -195,7 +197,7 @@ class TestOrphanMatcherBasic:
 
         assert result.matched is True
         assert result.action == "created"
-        mock_orphan_service.create.assert_called_once()
+        mock_orphan_service.create_or_get.assert_called_once()
 
     def test_update_existing_orphan(
         self,
@@ -357,7 +359,7 @@ class TestOrphanMatcherSignatureNormalization:
         registry.get_canonical.return_value = "billing_cancellation_canonical"
 
         mock_orphan_service.get_by_signature.return_value = None
-        mock_orphan_service.create.return_value = Orphan(
+        new_orphan = Orphan(
             id=uuid4(),
             signature="billing_cancellation_canonical",
             original_signature="billing_cancellation",
@@ -369,6 +371,8 @@ class TestOrphanMatcherSignatureNormalization:
             graduated_at=None,
             story_id=None,
         )
+        # Now uses create_or_get which returns (orphan, created) tuple
+        mock_orphan_service.create_or_get.return_value = (new_orphan, True)
 
         matcher = OrphanMatcher(
             mock_orphan_service,
@@ -395,7 +399,7 @@ class TestOrphanMatcherBatch:
     ):
         """Test batch matching multiple conversations."""
         mock_orphan_service.get_by_signature.return_value = None
-        mock_orphan_service.create.return_value = Orphan(
+        new_orphan = Orphan(
             id=uuid4(),
             signature="test",
             original_signature=None,
@@ -407,6 +411,8 @@ class TestOrphanMatcherBatch:
             graduated_at=None,
             story_id=None,
         )
+        # Now uses create_or_get which returns (orphan, created) tuple
+        mock_orphan_service.create_or_get.return_value = (new_orphan, True)
 
         matcher = OrphanMatcher(
             mock_orphan_service,
@@ -433,6 +439,169 @@ class TestOrphanMatcherBatch:
 
         assert len(results) == 2
         assert all(r.matched for r in results)
+
+
+class TestOrphanMatcherGraduatedFlow:
+    """Tests for graduated orphan routing (Issue #176 fix)."""
+
+    @pytest.fixture
+    def graduated_orphan(self, sample_story):
+        """Sample orphan that has already graduated to a story."""
+        return Orphan(
+            id=uuid4(),
+            signature="billing_cancellation",
+            original_signature=None,
+            conversation_ids=["conv1", "conv2", "conv3"],
+            theme_data={"user_intent": "Cancel subscription"},
+            confidence_score=None,
+            first_seen_at=datetime.now(),
+            last_updated_at=datetime.now(),
+            graduated_at=datetime.now(),
+            story_id=sample_story.id,
+        )
+
+    @pytest.fixture
+    def mock_evidence_service(self):
+        """Create a mock evidence service."""
+        from unittest.mock import Mock
+        service = Mock()
+        return service
+
+    def test_match_adds_to_graduated_story(
+        self,
+        mock_orphan_service,
+        mock_story_service,
+        mock_signature_registry,
+        graduated_orphan,
+        sample_extracted_theme,
+        mock_evidence_service,
+    ):
+        """When orphan is graduated, conversation flows to story."""
+        mock_orphan_service.get_by_signature.return_value = graduated_orphan
+
+        matcher = OrphanMatcher(
+            mock_orphan_service,
+            mock_story_service,
+            mock_signature_registry,
+            evidence_service=mock_evidence_service,
+        )
+
+        result = matcher.match_and_accumulate("conv_new", sample_extracted_theme)
+
+        assert result.matched is True
+        assert result.action == "added_to_story"
+        assert result.story_id == str(graduated_orphan.story_id)
+        mock_evidence_service.add_conversation.assert_called_once_with(
+            story_id=graduated_orphan.story_id,
+            conversation_id="conv_new",
+            source="intercom",
+            excerpt="I want to cancel my subscription"[:500],
+        )
+
+    def test_match_returns_no_evidence_service_when_missing(
+        self,
+        mock_orphan_service,
+        mock_story_service,
+        mock_signature_registry,
+        graduated_orphan,
+        sample_extracted_theme,
+    ):
+        """Without evidence_service, graduated orphan returns no_evidence_service action."""
+        mock_orphan_service.get_by_signature.return_value = graduated_orphan
+
+        matcher = OrphanMatcher(
+            mock_orphan_service,
+            mock_story_service,
+            mock_signature_registry,
+            evidence_service=None,  # No evidence service
+        )
+
+        result = matcher.match_and_accumulate("conv_new", sample_extracted_theme)
+
+        assert result.matched is False
+        assert result.action == "no_evidence_service"
+        assert result.story_id == str(graduated_orphan.story_id)
+
+    def test_create_handles_race_to_graduated(
+        self,
+        mock_orphan_service,
+        mock_story_service,
+        mock_signature_registry,
+        graduated_orphan,
+        sample_extracted_theme,
+        mock_evidence_service,
+    ):
+        """Race condition: create_or_get returns graduated orphan → flows to story."""
+        # First get_by_signature returns None (no orphan)
+        mock_orphan_service.get_by_signature.return_value = None
+        # But create_or_get returns an existing graduated orphan (race condition)
+        mock_orphan_service.create_or_get.return_value = (graduated_orphan, False)
+
+        matcher = OrphanMatcher(
+            mock_orphan_service,
+            mock_story_service,
+            mock_signature_registry,
+            evidence_service=mock_evidence_service,
+        )
+
+        result = matcher.match_and_accumulate("conv_new", sample_extracted_theme)
+
+        assert result.matched is True
+        assert result.action == "added_to_story"
+        assert result.story_id == str(graduated_orphan.story_id)
+        mock_evidence_service.add_conversation.assert_called_once()
+
+    def test_create_handles_race_to_active(
+        self,
+        mock_orphan_service,
+        mock_story_service,
+        mock_signature_registry,
+        sample_orphan,
+        sample_extracted_theme,
+    ):
+        """Race condition: create_or_get returns active orphan → updates orphan."""
+        # First get_by_signature returns None (no orphan)
+        mock_orphan_service.get_by_signature.return_value = None
+        # But create_or_get returns an existing active orphan (race condition)
+        mock_orphan_service.create_or_get.return_value = (sample_orphan, False)
+        mock_orphan_service.add_conversations.return_value = sample_orphan
+
+        matcher = OrphanMatcher(
+            mock_orphan_service,
+            mock_story_service,
+            mock_signature_registry,
+        )
+
+        result = matcher.match_and_accumulate("conv_new", sample_extracted_theme)
+
+        assert result.matched is True
+        assert result.action == "updated"
+        mock_orphan_service.add_conversations.assert_called_once()
+
+    def test_match_updates_active_orphan(
+        self,
+        mock_orphan_service,
+        mock_story_service,
+        mock_signature_registry,
+        sample_orphan,
+        sample_extracted_theme,
+    ):
+        """When orphan is active, conversation added to orphan (not story)."""
+        mock_orphan_service.get_by_signature.return_value = sample_orphan
+        mock_orphan_service.add_conversations.return_value = sample_orphan
+
+        matcher = OrphanMatcher(
+            mock_orphan_service,
+            mock_story_service,
+            mock_signature_registry,
+        )
+
+        result = matcher.match_and_accumulate("conv_new", sample_extracted_theme)
+
+        assert result.matched is True
+        assert result.action == "updated"
+        assert result.story_id is None
+        mock_orphan_service.add_conversations.assert_called_once()
 
 
 class TestMatchResult:

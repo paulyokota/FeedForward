@@ -10,6 +10,33 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Evidence Bundle Improvements (2026-01-30)** - Issues #156, #157, #158, PR #174:
+
+- **Signal-based evidence ranking** (#158): Replaces arbitrary first-N selection with quality-based ranking
+  - Ranking factors: key_excerpts > diagnostic_summary > error patterns > symptoms > text length
+  - Deterministic tie-breaker using conversation ID (ascending alphabetical)
+  - Pre-compiled regex patterns for performance
+- **Diagnostic summary preference** (#156): Evidence bundles now use `diagnostic_summary` over raw excerpt
+  - Falls back to `excerpt` when diagnostic_summary is empty/missing
+  - Appends `key_excerpts` as additional evidence (deduped via Jaccard similarity)
+- **Evidence metadata completeness** (#157): Added metadata fields to `EvidenceExcerpt` model
+  - New fields: `email`, `intercom_url`, `org_id`, `user_id`, `contact_id`
+  - Pipeline query updated to fetch metadata from conversations table
+  - Evidence service serializes new fields to JSONB
+- **Integration tests**: Full end-to-end evidence pipeline test covering all three issues
+
+### Fixed
+
+**Evidence Pipeline (2026-01-30)** - PR #174 (5-personality review fixes):
+
+- Fixed tie-breaker sort order (was inverted: z before a → now correct: a before z)
+- Fixed HTTP status regex matching any 3-digit number → now only matches 4xx/5xx codes
+- Fixed no-op test that always passed (`ids == ids` → concrete expected order)
+- Capped total excerpts to prevent unbounded memory growth
+- Fixed punctuation breaking text similarity detection
+
+### Added
+
 **Test Suite Optimization (2026-01-30)** - Issue #147, PR #169:
 
 - **Pytest markers for fast/slow test split** (`pytest.ini`):
