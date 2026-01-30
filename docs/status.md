@@ -3020,23 +3020,60 @@ python -m src.pipeline --dry-run            # No DB writes
 
 ## What's Next
 
-**Phase 4: Real-Time Workflows** (optional)
+**Immediate: Fix #176 (Story Creation Cascade Failure)**
 
-Webhook-driven processing for time-sensitive issues:
+- This blocks pipeline from producing stories
+- Fix orphan signature duplicate handling
+- Add transaction savepoints for isolation
 
-- Intercom webhooks trigger immediate classification
-- Critical issues alert within 5 minutes
-- Requires infrastructure changes (webhook endpoint)
+**Then: Re-run Pipeline Validation**
 
-**Or continue with**:
+- Run `./scripts/dev-pipeline-run.sh --days 30`
+- Verify stories are created successfully
+- Review story quality and grouping
 
-- Add `SLACK_WEBHOOK_URL` to test real Slack alerts
+**Future Options**:
+
+- Add `SLACK_WEBHOOK_URL` for real Slack alerts
 - Add `SHORTCUT_API_TOKEN` for real ticket creation
-- Run pipeline on larger dataset (30 days)
+- Phase 4: Real-Time Workflows (webhook-driven processing)
 
 ## Blockers
 
-None
+**#176 - Story creation cascade failure** (P1)
+
+- Duplicate orphan signature causes transaction abort
+- All story/orphan creation fails after first error
+- Pipeline run #96: 593 themes extracted, 0 stories created
+- Fix required before next pipeline run produces stories
+
+## Recent Session Notes
+
+### 2026-01-30: Post-Milestone 10 Pipeline Validation
+
+**Objective**: Run full pipeline on 30 days of data to validate Milestone 10 changes.
+
+**Results**:
+
+- Pipeline run #96 completed
+- ✅ 1,530 conversations classified
+- ✅ 593 themes extracted (12 filtered as `unclassified_needs_review` - appropriate)
+- ❌ 0 stories created (blocked by #176)
+- ❌ 0 orphans created (blocked by #176)
+
+**Issues Filed**:
+| Issue | Description |
+|-------|-------------|
+| #175 | API `/api/stories` returns 4 stories when DB has 15 |
+| #176 | Orphan signature duplicate causes cascade transaction abort |
+
+**Root Cause (#176)**: After orphan graduates to story, code attempts to insert another orphan with same signature → unique constraint violation → transaction not rolled back → all subsequent operations fail.
+
+**Suggested Fixes**:
+
+1. Use upsert: `ON CONFLICT (signature) DO UPDATE`
+2. Ensure graduation clears/reuses orphan record
+3. Add savepoints for isolation
 
 ## Decision Log
 

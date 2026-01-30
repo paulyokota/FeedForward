@@ -1,61 +1,71 @@
-# Session Notes: 2026-01-30
+# Last Session Notes
 
-## Session: Milestone 10 Stream A - Evidence Bundle Improvements
+## Date: 2026-01-30
 
-### Completed
+## Session: Post-Milestone 10 Pipeline Validation
 
-**Issues #156, #157, #158** implemented and PR #174 opened:
+### Objective
 
-1. **#156: Diagnostic summary preference**
-   - Evidence bundles now prefer `diagnostic_summary` over raw `excerpt`
-   - Falls back gracefully when diagnostic_summary is empty/missing
-   - Appends `key_excerpts` as additional evidence snippets
-   - Deduplication via Jaccard similarity (0.65 threshold)
+Run full 30-day pipeline to validate Milestone 10 (Evidence Bundle Improvements) changes in production-like conditions.
 
-2. **#157: Evidence metadata completeness**
-   - Added fields to `EvidenceExcerpt`: email, intercom_url, org_id, user_id, contact_id
-   - Updated pipeline query to fetch from conversations table
-   - Evidence service serializes new fields to JSONB
+### What Happened
 
-3. **#158: Signal-based ranking**
-   - Replaced arbitrary first-N selection with quality-based ranking
-   - Factors: key_excerpts > diagnostic_summary > error patterns > symptoms > text length
-   - Deterministic tie-breaker (conversation ID, ascending alphabetical)
+1. **Started servers fresh** - Killed stale Next.js (running since Jan 22), restarted both API (8000) and frontend (3000)
 
-### Review Process
+2. **Ran pipeline** - `./scripts/dev-pipeline-run.sh --days 30`
+   - Pre-flight checks passed
+   - Cleanup removed 402 orphans, 15 stories, 543 themes from previous run
 
-**5-personality review converged after 2 rounds:**
+3. **Pipeline completed** (~55 min):
+   - ✅ 1,530 conversations classified
+   - ✅ 593 themes extracted
+   - ✅ 12 appropriately filtered as `unclassified_needs_review` (Dutch content, vague follow-ups, general feedback)
+   - ❌ 0 stories created
+   - ❌ 0 orphans created
 
-Round 1 issues identified:
+4. **Discovered cascade failure** in story creation phase:
+   - First error: duplicate key violation on `story_orphans.signature`
+   - Orphan graduated to story, then code tried to re-insert with same signature
+   - Transaction not rolled back → all subsequent operations failed
 
-- Double signal score calculation (performance)
-- HTTP status regex too broad (`\b\d{3}\b` → any 3-digit number)
-- Unbounded key_excerpts per conversation
-- Punctuation breaks text similarity
-- Inverted tie-breaker sort order
-- No-op test (`ids == ids`)
+### Issues Filed
 
-Round 2 verified all fixes:
+| Issue | Title                                                                             | Priority      |
+| ----- | --------------------------------------------------------------------------------- | ------------- |
+| #175  | API `/api/stories` returns fewer stories than exist in database                   | Bug           |
+| #176  | Story creation fails: duplicate orphan signature causes cascade transaction abort | Bug (Blocker) |
 
-- Pre-compiled regex patterns at module level
-- Changed pattern to `\b[45]\d{2}\b` (only 4xx/5xx codes)
-- Added `max_total_excerpts` cap with break statements
-- Used `re.findall(r'\w+', ...)` instead of `.split()`
-- Negated numeric scores for correct descending sort with ascending tie-breaker
-- Test now asserts concrete expected order
+### Root Cause Analysis (#176)
 
-### Merge Status
+```
+Sequence:
+1. Orphan created with signature X
+2. Conversations added (1, 2, 3)
+3. Orphan graduated to story ✅
+4. Code tried to insert ANOTHER orphan with signature X → BOOM
+5. No rollback → cascade failure
+```
 
-PR #174 approved, conflicts resolved (merged with Issue #166 severity fields from main).
+### Suggested Fixes
 
-### Key Decisions
+1. **Use upsert**: `ON CONFLICT (signature) DO UPDATE`
+2. **Clean up after graduation**: Don't re-insert; attach to existing orphan if needed
+3. **Add savepoints**: Isolate cluster processing failures
 
-1. **Similarity threshold 0.65**: Catches most paraphrases while allowing distinct content through
-2. **MAX_EXCERPTS_IN_THEME \* 2 cap**: Prevents memory bloat while preserving signal diversity
-3. **Declined URL/email validation**: Low risk since data comes from Intercom API via our database, not user input
+### Key Observations
 
-### Test Coverage
+- Theme extraction working well (593 themes from 1,530 conversations)
+- `unclassified_needs_review` filter correctly catching ambiguous content (~2%)
+- Pipeline status API counters don't update during Intercom fetch phase (minor bug)
+- Story creation is the critical path blocker
 
-- 36 new unit tests across 3 test classes
-- 1 new integration test file (11 tests)
-- All 1230 fast tests pass
+### Next Session
+
+1. Fix #176 (story creation cascade failure)
+2. Re-run pipeline validation
+3. Review story quality and grouping results
+
+### Files Changed
+
+- `docs/status.md` - Updated blockers, what's next, session notes
+- `docs/session/last-session.md` - This file
