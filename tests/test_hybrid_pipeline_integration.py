@@ -62,6 +62,9 @@ from story_tracking.services import (
     StoryService,
 )
 
+# Mark entire module as slow - these are integration tests
+pytestmark = pytest.mark.slow
+
 
 # -----------------------------------------------------------------------------
 # Timing Instrumentation

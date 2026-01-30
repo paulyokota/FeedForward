@@ -26,6 +26,9 @@ import pytest
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+# Mark entire module as slow - these are integration tests
+pytestmark = pytest.mark.slow
+
 
 # =============================================================================
 # Test Fixtures

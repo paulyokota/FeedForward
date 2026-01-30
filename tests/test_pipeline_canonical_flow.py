@@ -42,6 +42,9 @@ from story_tracking.services.story_creation_service import (
 )
 from evidence_validator import validate_samples, EvidenceQuality
 
+# Mark entire module as slow - these are integration tests
+pytestmark = pytest.mark.slow
+
 
 # =============================================================================
 # Fixtures

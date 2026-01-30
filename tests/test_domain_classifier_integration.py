@@ -12,6 +12,9 @@ from pathlib import Path
 from src.story_tracking.services.codebase_context_provider import CodebaseContextProvider
 from src.story_tracking.services.domain_classifier import ClassificationResult
 
+# Mark entire module as slow - these are integration tests
+pytestmark = pytest.mark.slow
+
 
 class TestClassificationGuidedExploration:
     """Test explore_with_classification integration."""

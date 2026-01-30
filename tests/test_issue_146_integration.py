@@ -38,6 +38,9 @@ from story_tracking.services.pm_review_service import ConversationContext
 from story_tracking.services.story_creation_service import ConversationData, StoryCreationService
 from prompts.story_content import StoryContentInput, format_optional_context
 
+# Mark entire module as slow - these are integration tests
+pytestmark = pytest.mark.slow
+
 
 # =============================================================================
 # Test 1: Theme Dataclass Has Resolution Fields
