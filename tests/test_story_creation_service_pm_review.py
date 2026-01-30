@@ -74,7 +74,7 @@ def mock_orphan_service():
     """Create a mock orphan service."""
     service = Mock(spec=OrphanService)
     service.get_by_signature.return_value = None  # No existing orphan
-    service.create.return_value = Orphan(
+    default_orphan = Orphan(
         id=uuid4(),
         signature="test_sig",
         original_signature=None,
@@ -83,6 +83,9 @@ def mock_orphan_service():
         first_seen_at=datetime.now(),
         last_updated_at=datetime.now(),
     )
+    service.create.return_value = default_orphan
+    # create_or_get returns (orphan, created) tuple - used by updated _create_or_update_orphan
+    service.create_or_get.return_value = (default_orphan, True)
     return service
 
 

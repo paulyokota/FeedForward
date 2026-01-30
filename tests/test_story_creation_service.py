@@ -77,7 +77,7 @@ def mock_orphan_service():
     """Create a mock orphan service."""
     service = Mock(spec=OrphanService)
     service.get_by_signature.return_value = None  # No existing orphan by default
-    service.create.return_value = Orphan(
+    default_orphan = Orphan(
         id=uuid4(),
         signature="test_signature",
         original_signature=None,
@@ -89,6 +89,9 @@ def mock_orphan_service():
         graduated_at=None,
         story_id=None,
     )
+    service.create.return_value = default_orphan
+    # create_or_get returns (orphan, created) tuple - used by updated _create_or_update_orphan
+    service.create_or_get.return_value = (default_orphan, True)
     return service
 
 
@@ -1323,7 +1326,8 @@ class TestProcessThemeGroups:
 
         # scheduler_pin_deletion has 1 conv -> should create orphan
         assert result.orphans_created >= 1
-        assert mock_orphan_service.create.called
+        # Now uses create_or_get for idempotent orphan creation
+        assert mock_orphan_service.create_or_get.called
 
     def test_creates_evidence_for_stories(
         self, mock_story_service, mock_orphan_service, mock_evidence_service, sample_theme_groups
@@ -1983,8 +1987,8 @@ class TestOrphanRouting:
 
         result = service.process_theme_groups(sample_valid_group)
 
-        # Should fall back to orphan_service.create (via _create_or_update_orphan)
-        assert mock_orphan_service.create.called or mock_orphan_service.add_conversations.called
+        # Should fall back to orphan_service.create_or_get (via _create_or_update_orphan)
+        assert mock_orphan_service.create_or_get.called or mock_orphan_service.add_conversations.called
 
     def test_orphan_routing_counts_as_update(
         self,
@@ -2051,8 +2055,8 @@ class TestOrphanRouting:
 
         result = service.process_theme_groups(sample_valid_group)
 
-        # Should fall back to direct orphan creation
-        assert mock_orphan_service.create.called or mock_orphan_service.add_conversations.called
+        # Should fall back to direct orphan creation (via create_or_get)
+        assert mock_orphan_service.create_or_get.called or mock_orphan_service.add_conversations.called
 
     def test_orphan_fallback_counter_incremented_on_integration_error(
         self,

@@ -34,6 +34,12 @@ class OrphanIntegrationResult:
     orphans_created: int = 0
     orphans_updated: int = 0
     stories_graduated: int = 0
+    # stories_appended (Issue #176): When an orphan graduates to a story, its signature
+    # row remains in story_orphans (UNIQUE constraint). New conversations matching that
+    # signature are routed directly to the story via EvidenceService.add_conversation().
+    # This counter tracks those post-graduation additions (distinct from stories_graduated
+    # which counts the graduation events themselves).
+    stories_appended: int = 0
     errors: List[str] = None
 
     def __post_init__(self):
@@ -78,10 +84,12 @@ class OrphanIntegrationService:
         # Lazy imports to avoid circular import issues
         from orphan_matcher import OrphanMatcher
         from signature_utils import get_registry
+        from .evidence_service import EvidenceService
 
         self.db = db_connection
         self.story_service = StoryService(db_connection)
         self.orphan_service = OrphanService(db_connection)
+        self.evidence_service = EvidenceService(db_connection)
         self.signature_registry = get_registry()
 
         self.matcher = OrphanMatcher(
@@ -89,6 +97,7 @@ class OrphanIntegrationService:
             story_service=self.story_service,
             signature_registry=self.signature_registry,
             auto_graduate=auto_graduate,
+            evidence_service=self.evidence_service,
         )
 
     def process_theme(
@@ -185,6 +194,8 @@ class OrphanIntegrationService:
                     result.orphans_updated += 1
                 elif match_result.action == "graduated":
                     result.stories_graduated += 1
+                elif match_result.action == "added_to_story":
+                    result.stories_appended += 1
 
             except Exception as e:
                 error_msg = f"Error processing theme: {e}"
@@ -195,7 +206,8 @@ class OrphanIntegrationService:
             f"Orphan integration complete: {result.total_processed} processed, "
             f"{result.orphans_created} orphans created, "
             f"{result.orphans_updated} updated, "
-            f"{result.stories_graduated} graduated"
+            f"{result.stories_graduated} graduated, "
+            f"{result.stories_appended} appended to stories"
         )
 
         return result

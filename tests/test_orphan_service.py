@@ -427,6 +427,109 @@ class TestOrphanModels:
         assert MIN_GROUP_SIZE == 3
 
 
+class TestGetBySignatureGraduatedOrphans:
+    """Tests for get_by_signature with graduated orphans (Issue #176 fix)."""
+
+    def test_get_by_signature_returns_active_orphan(self, mock_db, sample_orphan_row):
+        """Should return active orphan (graduated_at IS NULL)."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = sample_orphan_row  # graduated_at is None
+
+        service = OrphanService(db)
+        result = service.get_by_signature("Scheduler: Pin fails to post")
+
+        assert result is not None
+        assert result.signature == "Scheduler: Pin fails to post"
+        assert result.is_active is True
+        assert result.graduated_at is None
+
+    def test_get_by_signature_returns_graduated_orphan(self, mock_db, graduated_orphan_row):
+        """Should return graduated orphan (graduated_at IS NOT NULL)."""
+        db, cursor = mock_db
+        cursor.fetchone.return_value = graduated_orphan_row
+
+        service = OrphanService(db)
+        result = service.get_by_signature("Scheduler: Pin fails to post")
+
+        assert result is not None
+        assert result.signature == "Scheduler: Pin fails to post"
+        assert result.is_active is False
+        assert result.graduated_at is not None
+        assert result.story_id is not None
+
+
+class TestCreateOrGet:
+    """Tests for create_or_get idempotent orphan creation (Issue #176 fix)."""
+
+    def test_create_or_get_creates_new(self, mock_db, sample_orphan_row):
+        """Should create orphan and return (orphan, True) when no conflict."""
+        db, cursor = mock_db
+        # INSERT succeeds, RETURNING provides the row
+        cursor.fetchone.return_value = sample_orphan_row
+
+        service = OrphanService(db)
+        orphan, created = service.create_or_get(OrphanCreate(
+            signature="Scheduler: Pin fails to post",
+            conversation_ids=["conv1"],
+            theme_data={"user_intent": "Schedule a pin"},
+        ))
+
+        assert created is True
+        assert orphan.signature == "Scheduler: Pin fails to post"
+
+    def test_create_or_get_returns_existing_on_conflict(self, mock_db, sample_orphan_row):
+        """Should return (existing_orphan, False) on signature conflict."""
+        db, cursor = mock_db
+        # First fetchone returns None (INSERT conflict - DO NOTHING)
+        # Second fetchone returns the existing orphan
+        cursor.fetchone.side_effect = [None, sample_orphan_row]
+
+        service = OrphanService(db)
+        orphan, created = service.create_or_get(OrphanCreate(
+            signature="Scheduler: Pin fails to post",
+            conversation_ids=["conv_new"],
+            theme_data={"user_intent": "New intent"},
+        ))
+
+        assert created is False
+        assert orphan.signature == "Scheduler: Pin fails to post"
+        # Should have queried twice (INSERT, then SELECT)
+        assert cursor.execute.call_count == 2
+
+    def test_create_or_get_returns_graduated_orphan_on_conflict(
+        self, mock_db, graduated_orphan_row
+    ):
+        """Should return graduated orphan on conflict (for routing to story)."""
+        db, cursor = mock_db
+        cursor.fetchone.side_effect = [None, graduated_orphan_row]
+
+        service = OrphanService(db)
+        orphan, created = service.create_or_get(OrphanCreate(
+            signature="Scheduler: Pin fails to post",
+            conversation_ids=["conv_new"],
+            theme_data={},
+        ))
+
+        assert created is False
+        assert orphan.graduated_at is not None
+        assert orphan.story_id is not None
+
+    def test_create_or_get_raises_on_conflict_without_row(self, mock_db):
+        """Should raise RuntimeError if conflict happens but no row found."""
+        db, cursor = mock_db
+        # Both queries return None (conflict but no row - should never happen)
+        cursor.fetchone.side_effect = [None, None]
+
+        service = OrphanService(db)
+
+        with pytest.raises(RuntimeError, match="Orphan conflict without existing row"):
+            service.create_or_get(OrphanCreate(
+                signature="ghost_signature",
+                conversation_ids=["conv1"],
+                theme_data={},
+            ))
+
+
 class TestThemeDataMerging:
     """Tests for theme data merging logic."""
 

@@ -91,6 +91,61 @@ class OrphanService:
             row = cur.fetchone()
             return self._row_to_orphan(row)
 
+    def create_or_get(self, orphan: OrphanCreate) -> tuple[Orphan, bool]:
+        """Create orphan or get existing if signature conflict.
+
+        Uses INSERT ... ON CONFLICT DO NOTHING for idempotent creation.
+        This prevents duplicate key violations from crashing transactions.
+
+        Returns:
+            (orphan, created): orphan object and whether it was newly created
+
+        Note: Uses single cursor to ensure read consistency after ON CONFLICT.
+        """
+        theme_data_json = json.dumps(orphan.theme_data) if orphan.theme_data else "{}"
+
+        with self.db.cursor() as cur:
+            cur.execute("""
+                INSERT INTO story_orphans (
+                    signature, original_signature, conversation_ids,
+                    theme_data, confidence_score
+                ) VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (signature) DO NOTHING
+                RETURNING id, signature, original_signature, conversation_ids,
+                          theme_data, confidence_score, first_seen_at,
+                          last_updated_at, graduated_at, story_id
+            """, (
+                orphan.signature,
+                orphan.original_signature,
+                orphan.conversation_ids,
+                theme_data_json,
+                orphan.confidence_score,
+            ))
+            row = cur.fetchone()
+
+            if row:
+                # Insert succeeded
+                return self._row_to_orphan(row), True
+            else:
+                # Conflict - get existing orphan (same cursor for read consistency)
+                cur.execute("""
+                    SELECT id, signature, original_signature, conversation_ids,
+                           theme_data, confidence_score, first_seen_at,
+                           last_updated_at, graduated_at, story_id
+                    FROM story_orphans
+                    WHERE signature = %s
+                """, (orphan.signature,))
+                existing_row = cur.fetchone()
+                if not existing_row:
+                    # Should never happen: conflict but no row found
+                    logger.error(
+                        f"ON CONFLICT but no orphan found for signature: {orphan.signature}"
+                    )
+                    raise RuntimeError(
+                        f"Orphan conflict without existing row: {orphan.signature}"
+                    )
+                return self._row_to_orphan(existing_row), False
+
     def get(self, orphan_id: UUID) -> Optional[Orphan]:
         """Get orphan by ID."""
         with self.db.cursor() as cur:
@@ -105,14 +160,23 @@ class OrphanService:
             return self._row_to_orphan(row) if row else None
 
     def get_by_signature(self, signature: str) -> Optional[Orphan]:
-        """Find an active orphan by its canonical signature."""
+        """Find orphan by canonical signature (active OR graduated).
+
+        Returns any orphan with this signature. Caller should check
+        graduated_at/story_id to determine if it's active or graduated.
+
+        Note (Issue #176): This intentionally returns graduated orphans to support
+        post-graduation routing. When a conversation matches a graduated orphan's
+        signature, it should flow to the story (not create a new orphan).
+        Do NOT add `WHERE graduated_at IS NULL` - that would reintroduce cascade failures.
+        """
         with self.db.cursor() as cur:
             cur.execute("""
                 SELECT id, signature, original_signature, conversation_ids,
                        theme_data, confidence_score, first_seen_at,
                        last_updated_at, graduated_at, story_id
                 FROM story_orphans
-                WHERE signature = %s AND graduated_at IS NULL
+                WHERE signature = %s
             """, (signature,))
             row = cur.fetchone()
             return self._row_to_orphan(row) if row else None
