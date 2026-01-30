@@ -48,6 +48,7 @@ from digest_extractor import (
     build_customer_digest,
     build_full_conversation_text,
 )
+from context_provider import get_context_provider
 
 # Async OpenAI client for parallel processing
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -209,6 +210,11 @@ async def classify_stage2_async(
     """Async Stage 2 classification."""
     import json as json_module
 
+    # Issue #160: Fetch context in parallel BEFORE entering semaphore
+    # This allows context fetch to run concurrently with other classifications
+    context_provider = get_context_provider()
+    help_context, shortcut_context = await context_provider.get_all_context(customer_message)
+
     async with semaphore:
         # Format support messages
         support_text = "\n\n".join([f"[Support {i+1}]: {msg[:1000]}" for i, msg in enumerate(support_messages[:5])])
@@ -219,8 +225,8 @@ async def classify_stage2_async(
             stage1_type=stage1_type,
             customer_message=customer_message[:2000],
             support_messages=support_text,
-            help_article_context="",
-            shortcut_story_context="",
+            help_article_context=help_context,
+            shortcut_story_context=shortcut_context,
         )
 
         try:
@@ -402,10 +408,15 @@ async def run_pipeline_async(
     since = datetime.utcnow() - timedelta(days=days)
 
     # Phase 1: Fetch all conversations (fully async with aiohttp)
+    # Issue #164: Track recovery candidates (filtered but potentially recoverable)
     print("Phase 1: Fetching conversations from Intercom...", flush=True)
     conversations = []
+    recovery_candidates = []  # Issue #164: Track filtered conversations for recovery
 
-    async for parsed, raw_conv in client.fetch_quality_conversations_async(since=since):
+    async for parsed, raw_conv in client.fetch_quality_conversations_async(
+        since=since,
+        recovery_candidates=recovery_candidates,
+    ):
         # Check for stop signal during fetch
         if should_stop():
             print("  Stop signal received during fetch, stopping...", flush=True)
@@ -422,10 +433,18 @@ async def run_pipeline_async(
             break
 
     print(f"  Total fetched: {len(conversations)}", flush=True)
+    if recovery_candidates:
+        print(f"  Recovery candidates: {len(recovery_candidates)}", flush=True)
 
     # Phase 1b: Fetch full conversation details in parallel
-    if conversations:
-        print(f"  Fetching full conversation details for {len(conversations)} conversations...")
+    # Issue #164: Also fetch details for recovery candidates
+    recovered_count = 0  # Issue #164: Track recovered conversations
+    all_to_fetch = [(p, r) for p, r in conversations]
+    recovery_indices_start = len(all_to_fetch)
+    all_to_fetch.extend([(p, r) for p, r, _ in recovery_candidates])
+
+    if all_to_fetch:
+        print(f"  Fetching full conversation details for {len(all_to_fetch)} conversations...")
         async with client._get_aiohttp_session() as session:
             # Batch fetch with semaphore for rate limiting
             detail_semaphore = asyncio.Semaphore(concurrency)
@@ -439,17 +458,35 @@ async def run_pipeline_async(
                         logger.warning(f"Failed to fetch details for {parsed.id}: {e}")
                         return (parsed, raw_conv)  # Fall back to raw_conv
 
-            tasks = [fetch_detail(p, r) for p, r in conversations]
-            conversations = await asyncio.gather(*tasks)
-            conversations = list(conversations)  # Convert from tuple
+            tasks = [fetch_detail(p, r) for p, r in all_to_fetch]
+            all_results = await asyncio.gather(*tasks)
+            all_results = list(all_results)
+
+        # Split results back into conversations and recovery candidates
+        conversations = all_results[:recovery_indices_start]
+        recovery_results = all_results[recovery_indices_start:]
 
         print(f"  Fetched details for {len(conversations)} conversations")
+
+        # Issue #164: Evaluate recovery candidates with full conversation details
+        recovered_count = 0
+        for i, (parsed, full_conv) in enumerate(recovery_results):
+            _, _, had_template = recovery_candidates[i]
+            # Get conversation parts/messages from full_conv
+            parts = full_conv.get("conversation_parts", {}).get("conversation_parts", [])
+            if client.should_recover_conversation(parts, had_template_opener=had_template):
+                conversations.append((parsed, full_conv))
+                recovered_count += 1
+
+        if recovered_count > 0:
+            print(f"  Recovered {recovered_count} conversations with detailed follow-ups")
 
     # Check for stop signal before classification
     if should_stop():
         print("  Stop signal received, returning early...")
         return {
             "fetched": len(conversations),
+            "recovered": recovered_count,  # Issue #164
             "filtered": 0,
             "classified": 0,
             "stored": 0,
@@ -499,6 +536,7 @@ async def run_pipeline_async(
     # Phase 3: Batch store to database
     stats = {
         "fetched": len(conversations),
+        "recovered": recovered_count,  # Issue #164
         "classified": len(results),
         "stored": 0,
         "stage2_run": sum(1 for r in results if r["stage2_result"]),
@@ -519,6 +557,8 @@ async def run_pipeline_async(
     print(f"Pipeline Complete")
     print(f"{'='*60}")
     print(f"Conversations fetched:    {stats['fetched']}")
+    if stats['recovered'] > 0:
+        print(f"Conversations recovered:  {stats['recovered']}")  # Issue #164
     print(f"Conversations classified: {stats['classified']}")
     print(f"Stage 2 run:              {stats['stage2_run']}")
     print(f"Classifications changed:  {stats['classification_changed']}")
