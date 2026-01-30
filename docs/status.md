@@ -20,9 +20,49 @@
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 **Test Suite Optimization (Issue #147): COMPLETE** ✅
 
-## Latest: Evidence Bundle Improvements (2026-01-30)
+## Latest: Issue #176 Fix - Duplicate Orphan Signature Cascade (2026-01-30)
 
-**Issues #156, #157, #158** - Milestone 10 Stream A (PR #174 - pending merge)
+**Issue #176 CLOSED** - PR #177 merged
+
+### Problem
+
+Run #96 failed catastrophically: 593 themes extracted, 0 stories/orphans persisted. When an orphan graduated to a story, its signature row remained in `story_orphans` (UNIQUE constraint). New conversations with the same signature tried INSERT → duplicate key violation → transaction abort cascaded to all subsequent clusters.
+
+### Solution
+
+Made orphan creation idempotent and added post-graduation routing:
+
+| Component                                  | Change                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------- |
+| `OrphanService.create_or_get()`            | `ON CONFLICT DO NOTHING` + same-cursor re-read                    |
+| `OrphanService.get_by_signature()`         | Returns ANY orphan (active or graduated)                          |
+| `OrphanMatcher._add_to_graduated_story()`  | Routes post-graduation conversations to story via EvidenceService |
+| `OrphanIntegrationResult.stories_appended` | New metric for post-graduation additions                          |
+
+**5-personality review converged** after 2 rounds.
+
+### Run #96 Recovery
+
+Used manual endpoint `POST /api/pipeline/96/create-stories` to resume story creation:
+
+| Metric          | Before Fix | After Fix |
+| --------------- | ---------- | --------- |
+| stories_created | 0          | **35**    |
+| orphans_created | 0          | **376**   |
+
+**Files changed:**
+
+- `src/story_tracking/services/orphan_service.py` - idempotent creation
+- `src/orphan_matcher.py` - graduated flow routing
+- `src/story_tracking/services/orphan_integration.py` - EvidenceService injection
+- `src/story_tracking/services/story_creation_service.py` - parallel graduated handling
+- `tests/test_orphan_service.py`, `tests/test_orphan_matcher.py`, `tests/test_orphan_integration.py` - new tests
+
+---
+
+## Previous: Evidence Bundle Improvements (2026-01-30)
+
+**Issues #156, #157, #158** - Milestone 10 Stream A (PR #174 - merged)
 
 ### What Changed
 
@@ -3020,17 +3060,10 @@ python -m src.pipeline --dry-run            # No DB writes
 
 ## What's Next
 
-**Immediate: Fix #176 (Story Creation Cascade Failure)**
+**Immediate: Fix #175 (Story API Count Mismatch)**
 
-- This blocks pipeline from producing stories
-- Fix orphan signature duplicate handling
-- Add transaction savepoints for isolation
-
-**Then: Re-run Pipeline Validation**
-
-- Run `./scripts/dev-pipeline-run.sh --days 30`
-- Verify stories are created successfully
-- Review story quality and grouping
+- API `/api/stories` returns 4 stories when DB has more
+- Likely a filter or query issue
 
 **Future Options**:
 
@@ -3040,14 +3073,31 @@ python -m src.pipeline --dry-run            # No DB writes
 
 ## Blockers
 
-**#176 - Story creation cascade failure** (P1)
-
-- Duplicate orphan signature causes transaction abort
-- All story/orphan creation fails after first error
-- Pipeline run #96: 593 themes extracted, 0 stories created
-- Fix required before next pipeline run produces stories
+None currently - #176 resolved, pipeline producing stories.
 
 ## Recent Session Notes
+
+### 2026-01-30: Issue #176 Fix and Run #96 Recovery
+
+**Objective**: Fix duplicate orphan signature cascade failure and recover run #96.
+
+**Implementation**:
+
+- `create_or_get()` with `ON CONFLICT DO NOTHING` for idempotent creation
+- `get_by_signature()` returns graduated orphans for post-graduation routing
+- `_add_to_graduated_story()` routes conversations to their story via EvidenceService
+- New `stories_appended` metric tracks post-graduation additions
+
+**Review**: 5-personality (2 rounds) → CONVERGED → PR #177 merged
+
+**Recovery**: `POST /api/pipeline/96/create-stories` resumed story creation:
+
+- Before: 0 stories, 0 orphans
+- After: **35 stories, 376 orphans**
+
+**Issue #176**: CLOSED
+
+---
 
 ### 2026-01-30: Post-Milestone 10 Pipeline Validation
 
