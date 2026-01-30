@@ -1193,6 +1193,9 @@ class StoryCreationService:
         if self.orphan_integration_service:
             # Track successfully processed conversations in case of mid-loop failure
             processed_conv_ids: set[str] = set()
+            # Track actions to update metrics correctly (Issue #155 PR feedback)
+            actions_seen: dict[str, int] = {"created": 0, "updated": 0, "graduated": 0}
+            graduated_story_ids: list[str] = []
             try:
                 for conv in conversations:
                     # Build theme data dict for orphan integration
@@ -1207,13 +1210,36 @@ class StoryCreationService:
                         "affected_flow": conv.affected_flow,
                         "excerpt": conv.excerpt,
                     }
-                    self.orphan_integration_service.process_theme(conv.id, theme_data)
+                    match_result = self.orphan_integration_service.process_theme(conv.id, theme_data)
                     processed_conv_ids.add(conv.id)
 
-                # Count as orphan updates (OrphanIntegrationService handles create vs update)
-                result.orphans_updated += 1
+                    # Track action for accurate metrics
+                    if match_result and match_result.action:
+                        if match_result.action in actions_seen:
+                            actions_seen[match_result.action] += 1
+                        if match_result.action == "graduated" and match_result.story_id:
+                            graduated_story_ids.append(match_result.story_id)
+
+                # Update metrics based on actual actions (not just orphans_updated)
+                if actions_seen["graduated"] > 0:
+                    result.stories_created += actions_seen["graduated"]
+                    for story_id in graduated_story_ids:
+                        try:
+                            result.created_story_ids.append(UUID(story_id))
+                        except (ValueError, TypeError):
+                            pass  # Invalid UUID, skip
+                    logger.info(
+                        f"OrphanIntegrationService graduated {actions_seen['graduated']} orphans to stories"
+                    )
+                if actions_seen["created"] > 0:
+                    result.orphans_created += actions_seen["created"]
+                if actions_seen["updated"] > 0:
+                    result.orphans_updated += actions_seen["updated"]
+
                 logger.debug(
-                    f"Routed {len(conversations)} conversations to OrphanIntegrationService"
+                    f"Routed {len(conversations)} conversations to OrphanIntegrationService: "
+                    f"created={actions_seen['created']}, updated={actions_seen['updated']}, "
+                    f"graduated={actions_seen['graduated']}"
                 )
                 return
 
@@ -1230,7 +1256,13 @@ class StoryCreationService:
                 ]
                 if not remaining_conversations:
                     # All conversations were processed before the failure
-                    result.orphans_updated += 1
+                    # Use actions tracked so far
+                    if actions_seen["graduated"] > 0:
+                        result.stories_created += actions_seen["graduated"]
+                    if actions_seen["created"] > 0:
+                        result.orphans_created += actions_seen["created"]
+                    if actions_seen["updated"] > 0:
+                        result.orphans_updated += actions_seen["updated"]
                     return
                 # Fall through to fallback path with only remaining conversations
                 conversations = remaining_conversations

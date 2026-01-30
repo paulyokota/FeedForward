@@ -1084,3 +1084,58 @@ class TestOrphanCanonicalization:
         assert canonical_a == "queue_stuck"
         assert canonical_b == "login_failed"
         assert canonical_a != canonical_b  # Must remain distinct
+
+    def test_orphan_integration_tracks_graduation_in_metrics(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """When orphan graduates to story, metrics should reflect stories_created not orphans_updated.
+
+        This is a regression test for PR feedback on Issue #155: _route_to_orphan_integration()
+        must track MatchResult.action to correctly count graduated orphans as stories.
+        """
+        from orphan_matcher import MatchResult
+
+        # Mock integration service that returns "graduated" action
+        mock_integration = Mock()
+        graduated_story_id = str(uuid4())
+
+        def mock_process_theme(conv_id, theme_data):
+            # Simulate graduation on the last conversation
+            if conv_id == "grad_1":
+                return MatchResult(
+                    matched=True,
+                    orphan_id=str(uuid4()),
+                    orphan_signature="queue_stuck",
+                    action="graduated",
+                    story_id=graduated_story_id,
+                )
+            return MatchResult(
+                matched=True,
+                orphan_id=str(uuid4()),
+                orphan_signature="queue_stuck",
+                action="updated",
+            )
+
+        mock_integration.process_theme.side_effect = mock_process_theme
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            orphan_integration_service=mock_integration,
+            validation_enabled=False,
+        )
+
+        # Process a small group - one will trigger graduation
+        convs = [
+            {"id": "grad_0", "excerpt": "Test 0"},
+            {"id": "grad_1", "excerpt": "Test 1"},
+        ]
+
+        result = service.process_theme_groups({"queue_stuck": convs})
+
+        # CRITICAL: graduated orphan should count as story, not orphan update
+        assert result.stories_created == 1, "Graduated orphan should increment stories_created"
+        assert result.orphans_updated == 1, "Non-graduated should count as orphans_updated"
+        assert len(result.created_story_ids) == 1, "Graduated story ID should be tracked"
