@@ -215,6 +215,15 @@ async def classify_stage2_async(
     context_provider = get_context_provider()
     help_context, shortcut_context = await context_provider.get_all_context(customer_message)
 
+    # Review fix: Log context retrieval for observability
+    if help_context or shortcut_context:
+        logger.debug(f"Context retrieved: help={len(help_context)} chars, shortcut={len(shortcut_context)} chars")
+
+    # Review fix: Handle None semaphore gracefully (allows standalone testing)
+    if semaphore is None:
+        logger.warning("classify_stage2_async called without semaphore - no rate limiting")
+        semaphore = asyncio.Semaphore(1)  # Create dummy semaphore
+
     async with semaphore:
         # Format support messages
         support_text = "\n\n".join([f"[Support {i+1}]: {msg[:1000]}" for i, msg in enumerate(support_messages[:5])])

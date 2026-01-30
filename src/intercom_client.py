@@ -545,12 +545,19 @@ class IntercomClient:
         if not user_messages:
             return False
 
-        # If opener was template, skip first user message in evaluation
-        if had_template_opener and len(user_messages) > 1:
-            user_messages = user_messages[1:]
-        elif had_template_opener and len(user_messages) == 1:
-            # Only had template opener, no real follow-up
-            return False
+        # Review fix: Filter out template messages by text content, not position
+        # This handles cases where messages may not be in chronological order
+        if had_template_opener:
+            non_template_messages = []
+            for msg in user_messages:
+                body = self.strip_html(msg.get("body", "")).lower().strip()
+                if body not in self.TEMPLATE_MESSAGES:
+                    non_template_messages.append(msg)
+            user_messages = non_template_messages
+
+            # If only template messages, no real follow-up
+            if not user_messages:
+                return False
 
         # Check if any single message meets threshold
         for msg in user_messages:

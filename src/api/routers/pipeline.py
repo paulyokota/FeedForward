@@ -46,6 +46,8 @@ logger = logging.getLogger(__name__)
 # TODO: Replace keyword-based filtering with subtype-based filtering when
 # Stage 2 classifier supports stable subtypes.
 
+import re
+
 # Types that always pass theme extraction filter
 THEME_EXTRACTION_ALWAYS_ALLOWED = {'product_issue', 'feature_request', 'how_to_question'}
 
@@ -53,13 +55,25 @@ THEME_EXTRACTION_ALWAYS_ALLOWED = {'product_issue', 'feature_request', 'how_to_q
 THEME_EXTRACTION_CONDITIONAL = {'account_issue', 'configuration_help'}
 
 # Keywords indicating actionable technical issues (not general account support)
+# Organized by category for maintainability
 ACTIONABLE_KEYWORDS = frozenset({
-    'oauth', 'token', 'tokens', 'permissions', 'permission',
-    'api', 'integration', 'integrations', 'refresh', 'auth',
-    'authorize', 'authorization', 'credential', 'credentials',
-    'webhook', 'webhooks', 'scope', 'scopes', 'access_token',
-    'bearer', 'jwt', 'ssl', 'tls', 'certificate', 'cors',
+    # Authentication
+    'oauth', 'auth', 'authorize', 'authorization', 'bearer', 'jwt',
+    # Tokens & Credentials
+    'token', 'tokens', 'access_token', 'credential', 'credentials', 'refresh',
+    # Integration
+    'api', 'integration', 'integrations', 'webhook', 'webhooks',
+    # Permissions
+    'permissions', 'permission', 'scope', 'scopes',
+    # Security/TLS
+    'ssl', 'tls', 'certificate', 'cors',
 })
+
+# Pre-compile regex pattern for word boundary matching (Review fix: avoid substring false positives)
+_ACTIONABLE_PATTERN = re.compile(
+    r'\b(' + '|'.join(re.escape(kw) for kw in ACTIONABLE_KEYWORDS) + r')\b',
+    re.IGNORECASE
+)
 
 
 def is_actionable_for_theme_extraction(
@@ -88,24 +102,22 @@ def is_actionable_for_theme_extraction(
     if issue_type not in THEME_EXTRACTION_CONDITIONAL:
         return False
 
-    # For conditional types, check for actionable keywords
+    # For conditional types, check for actionable keywords using word boundary matching
+    # (Review fix: use regex to avoid substring false positives like "auth" in "authenticated")
+
     # Priority 1: Check support_insights.products_mentioned and features_mentioned
     if support_insights:
         products = support_insights.get('products_mentioned', []) or []
         features = support_insights.get('features_mentioned', []) or []
-        insights_text = ' '.join(products + features).lower()
+        insights_text = ' '.join(products + features)
 
-        if any(kw in insights_text for kw in ACTIONABLE_KEYWORDS):
+        if _ACTIONABLE_PATTERN.search(insights_text):
             return True
 
     # Priority 2: Fallback - scan customer message and full conversation
-    fallback_text = ''
-    if source_body:
-        fallback_text += source_body.lower() + ' '
-    if full_conversation:
-        fallback_text += full_conversation.lower()
+    fallback_text = (full_conversation or source_body or '')
 
-    if fallback_text and any(kw in fallback_text for kw in ACTIONABLE_KEYWORDS):
+    if fallback_text and _ACTIONABLE_PATTERN.search(fallback_text):
         return True
 
     # No actionable signals found - filter out
