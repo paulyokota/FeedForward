@@ -241,6 +241,42 @@ def _text_similarity(text1: str, text2: str, threshold: float = 0.65) -> bool:
     return (intersection / union) >= threshold if union > 0 else False
 
 
+def _is_high_severity(conversations: List[Any]) -> bool:
+    """
+    Check if any conversation in the group is high severity.
+
+    High severity is defined as (Issue #166):
+    - priority in ("urgent", "high") OR
+    - churn_risk is True
+
+    This allows high-severity clusters to bypass MIN_GROUP_SIZE,
+    enabling single-incident critical bugs to become stories.
+
+    NOTE (Issue #167): High-severity bypass only applies when PM review
+    is enabled. This function only checks severity - callers must also
+    verify pm_review_enabled for the full bypass condition.
+
+    Args:
+        conversations: List of conversation dicts OR ConversationData objects
+                       with optional priority/churn_risk fields
+
+    Returns:
+        True if ANY conversation meets high-severity criteria
+    """
+    for conv in conversations:
+        # Handle both dict and ConversationData objects
+        if hasattr(conv, "priority"):
+            priority = conv.priority
+            churn_risk = conv.churn_risk
+        else:
+            priority = conv.get("priority")
+            churn_risk = conv.get("churn_risk")
+
+        if priority in ("urgent", "high") or churn_risk is True:
+            return True
+    return False
+
+
 def _truncate_at_word_boundary(text: str, max_length: int) -> str:
     """
     Truncate text at word boundary to avoid cutting words mid-way.
@@ -313,6 +349,10 @@ class ConversationData:
     contact_id: Optional[str] = None
     user_id: Optional[str] = None
     org_id: Optional[str] = None
+
+    # Issue #166: Severity fields for MIN_GROUP_SIZE bypass
+    priority: Optional[str] = None
+    churn_risk: Optional[bool] = None
 
 
 @dataclass
@@ -807,20 +847,32 @@ class StoryCreationService:
             result.quality_gate_rejections += 1
             return
 
-        # Check minimum group size before PM review
+        # Check minimum group size before PM review (Issue #166, #167)
         if len(conversations) < MIN_GROUP_SIZE:
-            logger.info(
-                f"Routing hybrid cluster to orphan (below MIN_GROUP_SIZE): "
-                f"stable={stable_signature}, cluster_id={cluster.cluster_id}, "
-                f"count={len(conversations)}"
-            )
-            self._route_to_orphan_integration(
-                signature=stable_signature,
-                conversations=conversations,
-                failure_reason=f"Cluster has {len(conversations)} conversations (min: {MIN_GROUP_SIZE})",
-                result=result,
-            )
-            return
+            # Issue #166: High-severity clusters can bypass MIN_GROUP_SIZE
+            # Issue #167: But only when PM review is enabled (for human validation)
+            if _is_high_severity(conv_dicts) and self.pm_review_enabled:
+                logger.info(
+                    f"High-severity cluster ({len(conversations)} convs) routed to PM review "
+                    f"for potential promotion: stable={stable_signature}, cluster_id={cluster.cluster_id}"
+                )
+                # Continue to PM review below - PM can promote, split, or reject
+            else:
+                reason = f"Cluster has {len(conversations)} conversations (min: {MIN_GROUP_SIZE})"
+                if _is_high_severity(conv_dicts):
+                    reason += " [high-severity but PM review disabled]"
+                logger.info(
+                    f"Routing hybrid cluster to orphan (below MIN_GROUP_SIZE): "
+                    f"stable={stable_signature}, cluster_id={cluster.cluster_id}, "
+                    f"count={len(conversations)}"
+                )
+                self._route_to_orphan_integration(
+                    signature=stable_signature,
+                    conversations=conversations,
+                    failure_reason=reason,
+                    result=result,
+                )
+                return
 
         # PM REVIEW GATE: Validate hybrid cluster coherence
         # Even though clustering groups by embeddings + facets, PM review
@@ -1211,14 +1263,26 @@ class StoryCreationService:
             scoring_passed=True,
         )
 
-        # Early exit: groups with < MIN_GROUP_SIZE always fail (preserves existing behavior)
+        # Early exit: groups with < MIN_GROUP_SIZE fail UNLESS high-severity + PM review (Issue #166, #167)
         # Note: This check is also in _process_single_result_with_pipeline_run, but we
         # duplicate it here to give a clear failure reason in quality gate results.
+        # Issue #166: High-severity clusters (priority=urgent/high OR churn_risk=True)
+        # can bypass MIN_GROUP_SIZE to allow single-incident critical bugs to become stories.
+        # Issue #167: But only when PM review is enabled, to ensure human validation.
         if len(conversations) < MIN_GROUP_SIZE:
-            result.passed = False
-            result.failure_reason = f"Group has {len(conversations)} conversations, minimum is {MIN_GROUP_SIZE}"
-            logger.debug(f"Quality gate FAIL for '{signature}': {result.failure_reason}")
-            return result
+            if _is_high_severity(conv_dicts) and self.pm_review_enabled:
+                logger.info(
+                    f"Quality gate: '{signature}' bypasses MIN_GROUP_SIZE ({len(conversations)} convs) "
+                    f"due to high severity + PM review enabled"
+                )
+            else:
+                reason = f"Group has {len(conversations)} conversations, minimum is {MIN_GROUP_SIZE}"
+                if _is_high_severity(conv_dicts):
+                    reason += " [high-severity but PM review disabled]"
+                result.passed = False
+                result.failure_reason = reason
+                logger.debug(f"Quality gate FAIL for '{signature}': {result.failure_reason}")
+                return result
 
         # GATE 1: Evidence Validation (if enabled)
         if self.validation_enabled and EVIDENCE_VALIDATOR_AVAILABLE and validate_samples:
@@ -1293,7 +1357,8 @@ class StoryCreationService:
         else:
             # No scorer configured - skip scoring, treat as passed
             logger.debug(f"Confidence scoring skipped for '{signature}' (no scorer configured)")
-            # Set a default confidence score for groups without scoring
+            # Conservative default: 0.0 indicates "not evaluated" rather than "very low"
+            # This distinguishes unscored groups from scored groups in downstream analysis
             result.confidence_score = 0.0
 
         logger.debug(f"Quality gates PASS for '{signature}'")
@@ -1327,6 +1392,9 @@ class StoryCreationService:
         if self.orphan_integration_service:
             # Track successfully processed conversations in case of mid-loop failure
             processed_conv_ids: set[str] = set()
+            # Track actions to update metrics correctly (Issue #155 PR feedback)
+            actions_seen: dict[str, int] = {"created": 0, "updated": 0, "graduated": 0}
+            graduated_story_ids: list[str] = []
             try:
                 for conv in conversations:
                     # Build theme data dict for orphan integration
@@ -1341,13 +1409,36 @@ class StoryCreationService:
                         "affected_flow": conv.affected_flow,
                         "excerpt": conv.excerpt,
                     }
-                    self.orphan_integration_service.process_theme(conv.id, theme_data)
+                    match_result = self.orphan_integration_service.process_theme(conv.id, theme_data)
                     processed_conv_ids.add(conv.id)
 
-                # Count as orphan updates (OrphanIntegrationService handles create vs update)
-                result.orphans_updated += 1
+                    # Track action for accurate metrics
+                    if match_result and match_result.action:
+                        if match_result.action in actions_seen:
+                            actions_seen[match_result.action] += 1
+                        if match_result.action == "graduated" and match_result.story_id:
+                            graduated_story_ids.append(match_result.story_id)
+
+                # Update metrics based on actual actions (not just orphans_updated)
+                if actions_seen["graduated"] > 0:
+                    result.stories_created += actions_seen["graduated"]
+                    for story_id in graduated_story_ids:
+                        try:
+                            result.created_story_ids.append(UUID(story_id))
+                        except (ValueError, TypeError):
+                            pass  # Invalid UUID, skip
+                    logger.info(
+                        f"OrphanIntegrationService graduated {actions_seen['graduated']} orphans to stories"
+                    )
+                if actions_seen["created"] > 0:
+                    result.orphans_created += actions_seen["created"]
+                if actions_seen["updated"] > 0:
+                    result.orphans_updated += actions_seen["updated"]
+
                 logger.debug(
-                    f"Routed {len(conversations)} conversations to OrphanIntegrationService"
+                    f"Routed {len(conversations)} conversations to OrphanIntegrationService: "
+                    f"created={actions_seen['created']}, updated={actions_seen['updated']}, "
+                    f"graduated={actions_seen['graduated']}"
                 )
                 return
 
@@ -1364,7 +1455,13 @@ class StoryCreationService:
                 ]
                 if not remaining_conversations:
                     # All conversations were processed before the failure
-                    result.orphans_updated += 1
+                    # Use actions tracked so far
+                    if actions_seen["graduated"] > 0:
+                        result.stories_created += actions_seen["graduated"]
+                    if actions_seen["created"] > 0:
+                        result.orphans_created += actions_seen["created"]
+                    if actions_seen["updated"] > 0:
+                        result.orphans_updated += actions_seen["updated"]
                     return
                 # Fall through to fallback path with only remaining conversations
                 conversations = remaining_conversations
@@ -1575,6 +1672,9 @@ class StoryCreationService:
             contact_id=conv_dict.get("contact_id"),
             user_id=conv_dict.get("user_id"),
             org_id=conv_dict.get("org_id"),
+            # Issue #166: Severity fields for MIN_GROUP_SIZE bypass
+            priority=conv_dict.get("priority"),
+            churn_risk=conv_dict.get("churn_risk"),
         )
 
     def _generate_pm_result(
@@ -1630,8 +1730,11 @@ class StoryCreationService:
                     f"treating as keep_together (PM review not yet integrated)"
                 )
 
-            if conversation_count < MIN_GROUP_SIZE:
-                # Create orphan for small groups
+            # Issue #166, #167: High-severity groups can bypass MIN_GROUP_SIZE only with PM review
+            # Logic: reject if (below MIN_GROUP_SIZE AND NOT (high-severity AND pm_review_enabled))
+            # Equivalent to: allow if (meets size OR (high-severity AND pm_review enabled))
+            if conversation_count < MIN_GROUP_SIZE and not (_is_high_severity(conversations) and self.pm_review_enabled):
+                # Create orphan for small groups that don't qualify for bypass
                 self._create_or_update_orphan(
                     signature=pm_result.signature,
                     original_signature=None,
@@ -1639,7 +1742,7 @@ class StoryCreationService:
                     result=result,
                 )
             else:
-                # Create story for valid groups
+                # Create story for valid groups (meets size OR is high-severity)
                 self._create_story_with_evidence(
                     signature=pm_result.signature,
                     conversations=conversations,
@@ -1699,6 +1802,7 @@ class StoryCreationService:
                 reasoning,
                 original_signature,
                 generated_content,
+                code_context,  # Pass pre-explored context to avoid redundant exploration
             ),
             labels=[],
             confidence_score=confidence_score,
@@ -1918,7 +2022,10 @@ class StoryCreationService:
         conversation_ids = [c.id for c in conversations]
         conversation_count = len(conversations) or pm_result.conversation_count or 0
 
-        if conversation_count < MIN_GROUP_SIZE:
+        # Issue #166, #167: High-severity groups can bypass MIN_GROUP_SIZE only with PM review
+        # Logic: reject if (below MIN_GROUP_SIZE AND NOT (high-severity AND pm_review_enabled))
+        # Equivalent to: allow if (meets size OR (high-severity AND pm_review enabled))
+        if conversation_count < MIN_GROUP_SIZE and not (_is_high_severity(conversations) and self.pm_review_enabled):
             # Not enough conversations for a story, create orphan instead
             self._create_or_update_orphan(
                 signature=pm_result.signature,
@@ -1949,6 +2056,7 @@ class StoryCreationService:
                 theme_data,
                 pm_result.reasoning,
                 generated_content=generated_content,
+                code_context=code_context,  # Pass pre-explored context
             ),
             labels=[],
             product_area=theme_data.get("product_area"),
@@ -2036,6 +2144,7 @@ class StoryCreationService:
                 rationale,
                 original_signature,
                 generated_content,
+                code_context,  # Pass pre-explored context
             ),
             labels=[],
             product_area=theme_data.get("product_area"),
@@ -2334,6 +2443,7 @@ class StoryCreationService:
         reasoning: str,
         original_signature: Optional[str] = None,
         generated_content: Optional["GeneratedStoryContent"] = None,
+        code_context: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Generate story description, optionally with dual format.
@@ -2349,6 +2459,9 @@ class StoryCreationService:
             generated_content: Optional LLM-generated content for user story and AI goal.
                              If provided, includes user_type, user_story_want,
                              user_story_benefit, and ai_agent_goal in formatted output.
+            code_context: Optional dict with pre-explored codebase context.
+                         If provided and success=True, skips redundant exploration
+                         and uses this context directly in the description.
 
         Returns:
             Formatted story description (markdown)
@@ -2360,8 +2473,16 @@ class StoryCreationService:
             )
 
         # Use DualStoryFormatter for v2 format
+        # Skip exploration if code_context already available and successful
         exploration_result = None
-        if self.target_repo and self.codebase_provider:
+        if code_context and code_context.get("success"):
+            # Use pre-explored code_context - no need for redundant exploration
+            logger.debug(
+                f"Using pre-explored code_context for {signature}: "
+                f"{len(code_context.get('relevant_files', []))} files"
+            )
+        elif self.target_repo and self.codebase_provider:
+            # Only explore if code_context missing or failed
             try:
                 logger.debug(f"Exploring codebase for {signature}")
                 exploration_result = self.codebase_provider.explore_for_theme(
@@ -2386,10 +2507,12 @@ class StoryCreationService:
         )
 
         # Generate dual-format output with generated content
+        # Pass code_context for direct consumption by formatter
         dual_output = self.dual_formatter.format_story(
             theme_data=formatter_theme_data,
             exploration_result=exploration_result,
             generated_content=generated_content,
+            code_context=code_context,
         )
 
         logger.info(

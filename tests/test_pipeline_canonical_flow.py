@@ -887,3 +887,686 @@ class TestConstants:
         assert hasattr(result, "orphan_fallbacks")
         assert result.quality_gate_rejections == 0
         assert result.orphan_fallbacks == 0
+
+
+# =============================================================================
+# Test Class: Issue #155 - Orphan Canonicalization in Pipeline
+# =============================================================================
+
+
+class TestOrphanCanonicalization:
+    """
+    Tests for orphan canonicalization (Issue #155).
+
+    Canonicalization ensures that equivalent signatures (e.g., "Queue Stuck",
+    "queue-stuck", "QUEUE_STUCK") are normalized to a single canonical form
+    ("queue_stuck") before orphan lookup. This prevents fragmentation where
+    slightly different signature formats create separate orphan records.
+
+    Verifies that:
+    1. OrphanIntegrationService is available and properly configured
+    2. SignatureRegistry canonicalizes equivalent signatures
+    3. Orphan routing uses canonicalized signatures for lookup
+    4. Equivalent signatures consolidate into the same orphan
+    """
+
+    def test_orphan_integration_service_uses_signature_registry(self):
+        """OrphanIntegrationService should use SignatureRegistry for canonicalization."""
+        # Import the service and registry
+        from story_tracking.services.orphan_integration import OrphanIntegrationService
+
+        # Verify service uses SignatureRegistry
+        mock_db = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor_ctx = MagicMock()
+        mock_cursor_ctx.__enter__.return_value = mock_cursor
+        mock_cursor_ctx.__exit__.return_value = False
+        mock_db.cursor.return_value = mock_cursor_ctx
+
+        # Mock the orphan service to avoid DB calls
+        with patch("story_tracking.services.orphan_integration.OrphanService"):
+            with patch("story_tracking.services.orphan_integration.StoryService"):
+                service = OrphanIntegrationService(db_connection=mock_db)
+
+                # Verify service has signature_registry
+                assert hasattr(service, "signature_registry")
+                assert service.signature_registry is not None
+
+                # Verify matcher uses the registry
+                assert hasattr(service, "matcher")
+                assert service.matcher.signature_registry is service.signature_registry
+
+    def test_signature_registry_normalizes_equivalent_signatures(self):
+        """SignatureRegistry should normalize equivalent signatures to canonical form."""
+        from signature_utils import SignatureRegistry
+
+        registry = SignatureRegistry()
+
+        # Test normalization: different formats -> same canonical form
+        assert registry.normalize("Queue Stuck") == "queue_stuck"
+        assert registry.normalize("queue-stuck") == "queue_stuck"
+        assert registry.normalize("QUEUE_STUCK") == "queue_stuck"
+        assert registry.normalize("  queue  stuck  ") == "queue_stuck"
+
+        # All should produce the same canonical form
+        sigs = ["Queue Stuck", "queue-stuck", "QUEUE_STUCK", "queue  stuck"]
+        canonicals = [registry.normalize(s) for s in sigs]
+        assert len(set(canonicals)) == 1  # All same
+
+    def test_orphan_integration_routes_to_canonical_signature(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Orphans routed via integration should use canonical signatures."""
+        # Create a mock integration service that captures calls
+        mock_integration = Mock()
+        captured_calls = []
+
+        def capture_process_theme(conv_id, theme_data):
+            captured_calls.append(theme_data)
+            return Mock(action="created")
+
+        mock_integration.process_theme.side_effect = capture_process_theme
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            orphan_integration_service=mock_integration,
+            validation_enabled=False,
+        )
+
+        # Process a small group (will be routed to orphan integration)
+        convs = [{"id": f"canon_{i}", "excerpt": f"Test {i}"} for i in range(2)]
+
+        service.process_theme_groups({"Queue-Stuck": convs})
+
+        # Verify integration was called
+        assert mock_integration.process_theme.call_count >= 1
+
+        # Verify the signature passed to integration
+        # The signature should be passed as-is; canonicalization happens inside
+        # OrphanIntegrationService/OrphanMatcher
+        assert len(captured_calls) > 0
+        for call_data in captured_calls:
+            assert "issue_signature" in call_data
+            assert call_data["issue_signature"] == "Queue-Stuck"
+
+    def test_pipeline_creates_orphan_integration_service(self):
+        """Pipeline should create OrphanIntegrationService for story creation."""
+        # This test verifies the wiring in pipeline.py
+
+        # Import the pipeline module to check import is correct
+        from src.api.routers.pipeline import (
+            OrphanIntegrationService,
+            StoryCreationService,
+        )
+
+        # Verify both are importable (proves the import was added)
+        assert OrphanIntegrationService is not None
+        assert StoryCreationService is not None
+
+        # Verify OrphanIntegrationService accepts expected parameters
+        import inspect
+        sig = inspect.signature(OrphanIntegrationService.__init__)
+        params = list(sig.parameters.keys())
+        assert "db_connection" in params
+        assert "auto_graduate" in params
+
+    def test_story_creation_service_accepts_orphan_integration_parameter(self):
+        """StoryCreationService constructor should accept orphan_integration_service."""
+        import inspect
+        sig = inspect.signature(StoryCreationService.__init__)
+        params = list(sig.parameters.keys())
+
+        assert "orphan_integration_service" in params
+
+    def test_orphan_matcher_uses_canonical_signature_for_lookup(self):
+        """OrphanMatcher should look up orphans by canonical signature, not raw signature.
+
+        This is the core test for Issue #155: verifies that equivalent signatures
+        consolidate into the same orphan rather than creating duplicates.
+        """
+        from orphan_matcher import OrphanMatcher, ExtractedTheme
+        from signature_utils import SignatureRegistry
+
+        # Create mock services
+        mock_orphan_service = Mock()
+        mock_story_service = Mock()
+        registry = SignatureRegistry()
+
+        matcher = OrphanMatcher(
+            orphan_service=mock_orphan_service,
+            story_service=mock_story_service,
+            signature_registry=registry,
+            auto_graduate=False,  # Don't graduate for this test
+        )
+
+        # Simulate: existing orphan with canonical signature "queue_stuck"
+        existing_orphan = Mock()
+        existing_orphan.id = uuid4()
+        existing_orphan.signature = "queue_stuck"
+        existing_orphan.conversation_ids = ["conv_1"]
+        existing_orphan.theme_data = {"symptoms": ["posts stuck"]}
+
+        # Mock: get_by_signature returns orphan for canonical "queue_stuck"
+        def mock_get_by_signature(sig):
+            if sig == "queue_stuck":
+                return existing_orphan
+            return None
+
+        mock_orphan_service.get_by_signature.side_effect = mock_get_by_signature
+
+        # Process theme with variant signature "Queue-Stuck" (should canonicalize)
+        theme = ExtractedTheme(
+            signature="Queue-Stuck",  # Raw signature with different format
+            user_intent="Schedule posts",
+            symptoms=["posts not going live"],
+        )
+
+        # This should: 1) canonicalize to "queue_stuck", 2) find existing orphan
+        matcher.match_and_accumulate("conv_2", theme)
+
+        # CRITICAL VERIFICATION: lookup used canonical signature
+        mock_orphan_service.get_by_signature.assert_called_with("queue_stuck")
+
+        # Should update existing orphan, not create new one
+        assert mock_orphan_service.create.call_count == 0
+        mock_orphan_service.add_conversations.assert_called()
+
+    def test_different_signatures_get_different_canonicals(self):
+        """Truly different signatures should remain separate after canonicalization."""
+        from signature_utils import SignatureRegistry
+
+        registry = SignatureRegistry()
+
+        # These are genuinely different issues
+        canonical_a = registry.normalize("Queue Stuck")
+        canonical_b = registry.normalize("Login Failed")
+
+        assert canonical_a == "queue_stuck"
+        assert canonical_b == "login_failed"
+        assert canonical_a != canonical_b  # Must remain distinct
+
+    def test_orphan_integration_tracks_graduation_in_metrics(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """When orphan graduates to story, metrics should reflect stories_created not orphans_updated.
+
+        This is a regression test for PR feedback on Issue #155: _route_to_orphan_integration()
+        must track MatchResult.action to correctly count graduated orphans as stories.
+        """
+        from orphan_matcher import MatchResult
+
+        # Mock integration service that returns "graduated" action
+        mock_integration = Mock()
+        graduated_story_id = str(uuid4())
+
+        def mock_process_theme(conv_id, theme_data):
+            # Simulate graduation on the last conversation
+            if conv_id == "grad_1":
+                return MatchResult(
+                    matched=True,
+                    orphan_id=str(uuid4()),
+                    orphan_signature="queue_stuck",
+                    action="graduated",
+                    story_id=graduated_story_id,
+                )
+            return MatchResult(
+                matched=True,
+                orphan_id=str(uuid4()),
+                orphan_signature="queue_stuck",
+                action="updated",
+            )
+
+        mock_integration.process_theme.side_effect = mock_process_theme
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            orphan_integration_service=mock_integration,
+            validation_enabled=False,
+        )
+
+        # Process a small group - one will trigger graduation
+        convs = [
+            {"id": "grad_0", "excerpt": "Test 0"},
+            {"id": "grad_1", "excerpt": "Test 1"},
+        ]
+
+        result = service.process_theme_groups({"queue_stuck": convs})
+
+        # CRITICAL: graduated orphan should count as story, not orphan update
+        assert result.stories_created == 1, "Graduated orphan should increment stories_created"
+        assert result.orphans_updated == 1, "Non-graduated should count as orphans_updated"
+        assert len(result.created_story_ids) == 1, "Graduated story ID should be tracked"
+
+
+# =============================================================================
+# Test Class: Issue #161 - ConfidenceScorer Pipeline Wiring
+# =============================================================================
+
+
+class TestConfidenceScorerPipelineWiring:
+    """
+    Tests for Issue #161: Enable ConfidenceScorer gate in pipeline story creation.
+
+    Verifies that:
+    1. ConfidenceScorer is available for import in pipeline
+    2. Pipeline properly instantiates and passes scorer to StoryCreationService
+    3. Scorer actually runs and produces confidence scores in results
+    """
+
+    def test_confidence_scorer_is_importable(self):
+        """ConfidenceScorer should be importable from src.confidence_scorer."""
+        from src.confidence_scorer import ConfidenceScorer, ScoredGroup
+
+        # Basic instantiation should work (uses OpenAI API key from env)
+        assert ConfidenceScorer is not None
+        assert ScoredGroup is not None
+
+    def test_pipeline_has_confidence_scorer_available_flag(self):
+        """Pipeline should have CONFIDENCE_SCORER_AVAILABLE flag set True."""
+        from src.api.routers.pipeline import CONFIDENCE_SCORER_AVAILABLE
+
+        assert CONFIDENCE_SCORER_AVAILABLE is True, (
+            "CONFIDENCE_SCORER_AVAILABLE should be True when confidence_scorer module is present"
+        )
+
+    def test_story_creation_service_accepts_confidence_scorer(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """StoryCreationService should accept confidence_scorer parameter."""
+        # Create a mock scorer
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 75.0
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        # Service should accept the scorer without error
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        assert service.confidence_scorer is mock_scorer
+        assert service.confidence_threshold == 50.0
+
+    def test_scorer_is_called_during_processing(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """ConfidenceScorer.score_groups should be called during theme processing."""
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 75.0
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        # Process a group meeting MIN_GROUP_SIZE
+        theme_groups = {
+            "test_signature": [
+                {"id": "conv1", "excerpt": "Test excerpt 1"},
+                {"id": "conv2", "excerpt": "Test excerpt 2"},
+                {"id": "conv3", "excerpt": "Test excerpt 3"},
+            ]
+        }
+
+        service.process_theme_groups(theme_groups)
+
+        # Verify scorer was called
+        mock_scorer.score_groups.assert_called_once()
+
+    def test_quality_gate_result_includes_confidence_score(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """QualityGateResult should contain confidence_score when scorer is used."""
+        mock_scorer = Mock()
+        scored_group = Mock()
+        scored_group.confidence_score = 82.5
+        mock_scorer.score_groups.return_value = [scored_group]
+
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            confidence_scorer=mock_scorer,
+            confidence_threshold=50.0,
+            validation_enabled=False,
+        )
+
+        # Process a valid group
+        theme_groups = {
+            "test_sig": [
+                {"id": "c1", "excerpt": "E1"},
+                {"id": "c2", "excerpt": "E2"},
+                {"id": "c3", "excerpt": "E3"},
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Story should be created with the confidence score
+        assert mock_story_service.create.call_count == 1
+        created_story = mock_story_service.create.call_args[0][0]
+        assert created_story.confidence_score == 82.5
+
+
+# =============================================================================
+# Test Class: Issue #166 - MIN_GROUP_SIZE Exception for High-Severity Clusters
+# =============================================================================
+
+
+class TestHighSeverityMinGroupSizeBypass:
+    """
+    Tests for Issue #166 and #167: High-severity clusters can bypass MIN_GROUP_SIZE
+    when PM review is enabled.
+
+    Issue #166: Allow high-severity (priority=urgent/high OR churn_risk=True) to bypass MIN_GROUP_SIZE
+    Issue #167: But only when PM review is enabled (for human validation)
+
+    Verifies that:
+    1. High-severity + PM review enabled → story (via PM review)
+    2. High-severity + PM review disabled → orphan (preserves original behavior)
+    3. Low-severity → orphan (regardless of PM review)
+    4. The _is_high_severity() helper works correctly
+    """
+
+    @pytest.fixture
+    def mock_pm_review_service(self):
+        """Create a mock PM review service that returns keep_together."""
+        service = Mock()
+        # Default: keep together decision
+        review_result = Mock()
+        review_result.decision = "keep_together"
+        review_result.reasoning = "High-severity issue validated"
+        review_result.sub_groups = []
+        service.review_group.return_value = review_result
+        return service
+
+    def test_urgent_priority_with_pm_review_creates_story(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+    ):
+        """Single urgent priority conversation with PM review should become a story."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,  # PM review enabled
+            validation_enabled=False,
+        )
+
+        # Single conversation with urgent priority
+        theme_groups = {
+            "critical_bug": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Critical bug affecting production",
+                    "priority": "urgent",
+                    "churn_risk": False,
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should create story (PM review validates high-severity bypass)
+        assert mock_story_service.create.call_count == 1, (
+            "Urgent priority with PM review should create a story"
+        )
+        assert result.stories_created == 1
+
+    def test_urgent_priority_without_pm_review_becomes_orphan(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Single urgent priority conversation WITHOUT PM review should become orphan."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_enabled=False,  # PM review disabled
+            validation_enabled=False,
+        )
+
+        # Single conversation with urgent priority
+        theme_groups = {
+            "critical_bug": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Critical bug affecting production",
+                    "priority": "urgent",
+                    "churn_risk": False,
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should NOT create story - PM review disabled means no bypass
+        assert mock_story_service.create.call_count == 0, (
+            "Urgent priority WITHOUT PM review should become orphan"
+        )
+
+    def test_churn_risk_with_pm_review_creates_story(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+    ):
+        """Single conversation with churn_risk + PM review should become a story."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,
+            validation_enabled=False,
+        )
+
+        # Single conversation with churn_risk
+        theme_groups = {
+            "churn_risk_issue": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Customer threatening to cancel",
+                    "priority": "low",
+                    "churn_risk": True,
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should create story (PM review validates churn risk bypass)
+        assert mock_story_service.create.call_count == 1, (
+            "Churn risk with PM review should create a story"
+        )
+        assert result.stories_created == 1
+
+    def test_churn_risk_without_pm_review_becomes_orphan(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+    ):
+        """Single conversation with churn_risk but NO PM review should become orphan."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_enabled=False,  # PM review disabled
+            validation_enabled=False,
+        )
+
+        # Single conversation with churn_risk
+        theme_groups = {
+            "churn_risk_issue": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Customer threatening to cancel",
+                    "priority": "low",
+                    "churn_risk": True,
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should NOT create story - PM review disabled
+        assert mock_story_service.create.call_count == 0, (
+            "Churn risk WITHOUT PM review should become orphan"
+        )
+
+    def test_low_priority_no_churn_becomes_orphan(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+    ):
+        """Single low priority conversation without churn_risk should become orphan."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,  # Even with PM review enabled
+            validation_enabled=False,
+        )
+
+        # Single conversation with low priority, no churn risk
+        theme_groups = {
+            "minor_issue": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Minor cosmetic issue",
+                    "priority": "low",
+                    "churn_risk": False,
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should NOT create story (not high-severity)
+        assert mock_story_service.create.call_count == 0, (
+            "Low priority non-churn single-conv should not create a story"
+        )
+
+    def test_missing_severity_fields_becomes_orphan(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+    ):
+        """Single conversation without severity fields should become orphan."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,
+            validation_enabled=False,
+        )
+
+        # Single conversation without priority/churn_risk fields
+        theme_groups = {
+            "no_severity": [
+                {
+                    "id": "conv1",
+                    "excerpt": "Some issue",
+                    # No priority or churn_risk fields
+                },
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should NOT create story (becomes orphan)
+        assert mock_story_service.create.call_count == 0, (
+            "Missing severity fields should not bypass MIN_GROUP_SIZE"
+        )
+
+    def test_is_high_severity_helper_with_dicts(self):
+        """_is_high_severity() should work with dict lists."""
+        from story_tracking.services.story_creation_service import _is_high_severity
+
+        # Urgent priority
+        assert _is_high_severity([{"priority": "urgent"}]) is True
+        # High priority
+        assert _is_high_severity([{"priority": "high"}]) is True
+        # Churn risk
+        assert _is_high_severity([{"churn_risk": True}]) is True
+        # Both urgent and churn
+        assert _is_high_severity([{"priority": "urgent", "churn_risk": True}]) is True
+
+        # Low priority, no churn
+        assert _is_high_severity([{"priority": "low", "churn_risk": False}]) is False
+        # Medium priority, no churn
+        assert _is_high_severity([{"priority": "medium"}]) is False
+        # Empty dict
+        assert _is_high_severity([{}]) is False
+        # Empty list
+        assert _is_high_severity([]) is False
+
+    def test_is_high_severity_any_conversation(self):
+        """_is_high_severity() returns True if ANY conversation is high-severity."""
+        from story_tracking.services.story_creation_service import _is_high_severity
+
+        # Multiple conversations, one urgent
+        convs = [
+            {"id": "1", "priority": "low"},
+            {"id": "2", "priority": "urgent"},  # This one
+            {"id": "3", "priority": "low"},
+        ]
+        assert _is_high_severity(convs) is True
+
+        # Multiple conversations, one with churn risk
+        convs = [
+            {"id": "1", "priority": "low", "churn_risk": False},
+            {"id": "2", "churn_risk": True},  # This one
+        ]
+        assert _is_high_severity(convs) is True
+
+    def test_two_high_severity_convs_with_pm_review_create_story(
+        self,
+        mock_story_service,
+        mock_orphan_service,
+        mock_pm_review_service,
+    ):
+        """Two high-severity conversations with PM review should create a story."""
+        service = StoryCreationService(
+            story_service=mock_story_service,
+            orphan_service=mock_orphan_service,
+            pm_review_service=mock_pm_review_service,
+            pm_review_enabled=True,  # Required for high-severity bypass
+            validation_enabled=False,
+        )
+
+        # Two conversations with high priority (still below MIN_GROUP_SIZE=3)
+        theme_groups = {
+            "paired_high": [
+                {"id": "conv1", "excerpt": "Issue 1", "priority": "high"},
+                {"id": "conv2", "excerpt": "Issue 2", "priority": "high"},
+            ]
+        }
+
+        result = service.process_theme_groups(theme_groups)
+
+        # Should create story since high-severity + PM review enabled
+        assert mock_story_service.create.call_count == 1
+        assert result.stories_created == 1

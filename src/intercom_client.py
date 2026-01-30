@@ -71,6 +71,12 @@ class IntercomClient:
         "hello",
     ]
 
+    # Issue #164: Recovery thresholds for quality-filtered conversations
+    # If any single user message meets this threshold, recover the conversation
+    RECOVERY_MIN_MESSAGE_CHARS = 100
+    # If total user content meets this threshold, recover the conversation
+    RECOVERY_MIN_TOTAL_CHARS = 200
+
 
     def __init__(self, access_token: Optional[str] = None, timeout: tuple = None, max_retries: int = None):
         self.access_token = access_token or os.getenv("INTERCOM_ACCESS_TOKEN")
@@ -321,6 +327,7 @@ class IntercomClient:
         until: Optional[datetime] = None,
         per_page: int = 50,
         max_results: Optional[int] = None,
+        recovery_candidates: Optional[list] = None,
     ) -> AsyncGenerator[tuple["IntercomConversation", dict], None]:
         """
         Fetch and filter conversations, returning only quality ones (async version).
@@ -333,6 +340,9 @@ class IntercomClient:
             until: End of date range (exclusive), defaults to now
             per_page: Results per API page
             max_results: Maximum conversations to return
+            recovery_candidates: Issue #164 - If provided, filtered conversations
+                that are potentially recoverable (short body, not template) are
+                appended to this list for later recovery evaluation.
 
         Yields:
             (parsed_conversation, raw_conversation) tuples for quality conversations
@@ -348,6 +358,16 @@ class IntercomClient:
             if filter_result.passed:
                 parsed = self.parse_conversation(raw_conv)
                 yield parsed, raw_conv
+            elif recovery_candidates is not None:
+                # Issue #164: Track potentially recoverable conversations
+                # Only track if filtered for "body too short" - not for template/author issues
+                if filter_result.reason and "body too short" in filter_result.reason:
+                    parsed = self.parse_conversation(raw_conv)
+                    recovery_candidates.append((parsed, raw_conv, False))  # (parsed, raw, had_template)
+                elif filter_result.reason == "template message":
+                    # Template openers might have real follow-ups
+                    parsed = self.parse_conversation(raw_conv)
+                    recovery_candidates.append((parsed, raw_conv, True))  # had_template=True
 
     async def get_conversation_async(self, session: aiohttp.ClientSession, conv_id: str) -> dict:
         """Fetch a single conversation by ID (async version).
@@ -493,6 +513,64 @@ class IntercomClient:
             )
 
         return QualityFilterResult(passed=True)
+
+    def should_recover_conversation(
+        self,
+        full_messages: list[dict],
+        had_template_opener: bool = False,
+    ) -> bool:
+        """
+        Check if a quality-filtered conversation should be recovered based on follow-ups.
+
+        Issue #164: Short initial messages can later include high-signal details.
+        This method evaluates the full conversation thread to determine if
+        subsequent messages contain enough content to warrant classification.
+
+        Args:
+            full_messages: List of message dicts from the full conversation
+            had_template_opener: If True, the opener was a template message;
+                                 skip it when evaluating user content
+
+        Returns:
+            True if the conversation should be recovered for classification
+        """
+        # Extract user messages only
+        user_messages = []
+        for msg in full_messages:
+            author = msg.get("author", {})
+            if author.get("type") == "user":
+                user_messages.append(msg)
+
+        # Skip if no user messages
+        if not user_messages:
+            return False
+
+        # Review fix: Filter out template messages by text content, not position
+        # This handles cases where messages may not be in chronological order
+        if had_template_opener:
+            non_template_messages = []
+            for msg in user_messages:
+                body = self.strip_html(msg.get("body", "")).lower().strip()
+                if body not in self.TEMPLATE_MESSAGES:
+                    non_template_messages.append(msg)
+            user_messages = non_template_messages
+
+            # If only template messages, no real follow-up
+            if not user_messages:
+                return False
+
+        # Check if any single message meets threshold
+        for msg in user_messages:
+            body = self.strip_html(msg.get("body", ""))
+            if len(body) >= self.RECOVERY_MIN_MESSAGE_CHARS:
+                return True
+
+        # Check total user content
+        total_chars = sum(
+            len(self.strip_html(msg.get("body", "")))
+            for msg in user_messages
+        )
+        return total_chars >= self.RECOVERY_MIN_TOTAL_CHARS
 
     def parse_conversation(self, conv: dict) -> IntercomConversation:
         """Parse raw Intercom conversation to our model."""
