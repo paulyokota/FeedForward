@@ -986,10 +986,17 @@ Follow project conventions in `CLAUDE.md` and established patterns.
             for i, snippet in enumerate(code_snippets[:3], 1):  # Top 3
                 if not isinstance(snippet, dict) or not snippet.get("file_path"):
                     continue
-                line_start = snippet.get("line_start", 0)
-                line_end = snippet.get("line_end", 0)
+                line_start = snippet.get("line_start")
+                line_end = snippet.get("line_end")
+                # Only show line info if we have valid values
+                if line_start and line_end:
+                    line_info = f" (lines {line_start}-{line_end})"
+                elif line_start:
+                    line_info = f" (line {line_start})"
+                else:
+                    line_info = ""
                 sections.append(
-                    f"**{i}. {snippet['file_path']}** (lines {line_start}-{line_end})"
+                    f"**{i}. {snippet['file_path']}**{line_info}"
                 )
                 if snippet.get("context"):
                     sections.append(f"Context: {snippet['context']}\n")

@@ -719,6 +719,37 @@ class TestFormatCodebaseContextFromDict:
         assert "snippet2.py" in result
         assert "snippet3.py" not in result  # 4th snippet excluded
 
+    def test_avoids_lines_0_0_for_missing_line_info(self, formatter):
+        """Test that missing line info doesn't show (lines 0-0)."""
+        code_context = {
+            "success": True,
+            "code_snippets": [
+                {
+                    "file_path": "no_lines.py",
+                    "content": "# no line info",
+                    # line_start and line_end missing
+                },
+                {
+                    "file_path": "only_start.py",
+                    "line_start": 10,
+                    # line_end missing
+                    "content": "# only start",
+                },
+                {
+                    "file_path": "zero_lines.py",
+                    "line_start": 0,
+                    "line_end": 0,
+                    "content": "# zero values",
+                },
+            ]
+        }
+        result = formatter.format_codebase_context_from_dict(code_context)
+
+        # Should not show "(lines 0-0)"
+        assert "(lines 0-0)" not in result
+        # only_start.py should show single line
+        assert "(line 10)" in result
+
 
 class TestFormatAiSectionWithCodeContext:
     """Tests for format_ai_section with code_context parameter (Issue #163)."""
