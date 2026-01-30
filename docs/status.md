@@ -19,9 +19,44 @@
 **LLM Resolution Extraction (Issue #146): COMPLETE** ✅
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 
-## Latest: Race Condition in Parallel Theme Extraction (2026-01-28)
+## Latest: Vocabulary Enhancement & Race Condition Fix (2026-01-30)
 
-**Issue #151 Opened** - Parallel extraction creates duplicate signatures
+**Issue #152 CLOSED** - Race condition in parallel theme extraction fixed
+**Issue #153 CLOSED** - Systematic vocabulary enhancement complete
+
+### Issue #152: Race Condition Fix
+
+Serialized the canonicalization critical section to prevent concurrent extractions from creating near-duplicate signatures.
+
+**Changes:**
+
+- Wrapped `canonicalize_signature()` + `add_session_signature()` in `_session_lock`
+- Changed `threading.Lock()` to `threading.RLock()` for reentrant acquisition
+- Added 4 deterministic concurrency tests
+- No performance degradation (48.33s vs 50.42s baseline for 20 extractions)
+
+**Validation:** Next pipeline run should show no >90% similar signature pairs.
+
+### Issue #153: Vocabulary Enhancement
+
+Added data-driven term distinctions to help LLM disambiguate similar concepts during theme extraction.
+
+**Changes:**
+
+- Added `term_distinctions` section to `config/theme_vocabulary.json` with 11 term pairs across 3 categories:
+  - **similar_ux** (5 pairs): title/description, account/pinterest_account, pin/board, etc.
+  - **different_model** (3 pairs): scheduled_pin/draft, post/draft, post/scheduled_pin
+  - **name_confusion** (3 pairs): pin/turbo_pin, pin/smartpin, pinterest_account/instagram_account
+- Integrated term distinctions into extraction prompt via `vocabulary.format_term_distinctions()`
+- Functional tests: 8/8 pass (100%)
+
+**Methodology:** Two-dimensional analysis combining code path validation (SAME_FIX test) with user symptom clustering (Jaccard similarity, exclusivity ratios). Thresholds calibrated to percentiles from actual data distribution.
+
+---
+
+## Previous: Race Condition Discovery (2026-01-28)
+
+**Issue #151 Opened** - Parallel extraction creates duplicate signatures (superseded by #152)
 
 ### Discovery
 
@@ -41,15 +76,6 @@ Signature similarity analysis found pairs like:
 
 - `multi_network_scheduling_failure` vs `multinetwork_scheduling_failure` (98% similar)
 - `pinterest_connection_failure` vs `pinterest_connection_issue` (89% similar)
-
-### Impact
-
-Signature fragmentation may explain the high orphan-to-story ratio. Groups that should form stories (3+ conversations) get split across duplicate signatures, each falling below threshold.
-
-### Resolution Options
-
-1. **Short-term**: Roll back to sequential extraction (change concurrency from 20 to 1)
-2. **Long-term**: Implement Option 7 from issue #151 — separate signature generation into sequential phase after parallel issue extraction
 
 ### Bug Fixes (Same Session)
 

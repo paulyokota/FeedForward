@@ -10,6 +10,42 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Systematic Vocabulary Enhancement (2026-01-30)** - Issue #153:
+
+- **Term distinctions for LLM disambiguation** (`config/theme_vocabulary.json`):
+  - 11 term pairs across 3 categories to help LLM distinguish similar concepts
+  - **similar_ux** (5 pairs): Terms that co-occur in complaints (title/description, pin/board, etc.)
+  - **different_model** (3 pairs): Same code path, different user lifecycle states (scheduled_pin/draft, etc.)
+  - **name_confusion** (3 pairs): Overlapping names but different features (pin/turbo_pin, etc.)
+- **Vocabulary integration** (`src/vocabulary.py`):
+  - New `format_term_distinctions()` method formats guidance for extraction prompt
+  - Integrated into `format_signature_examples()` for automatic inclusion
+- **Functional tests** (`scripts/test_vocabulary_guidance.py`):
+  - 8 test cases covering object_type, action, timing, and stage distinctions
+  - Synonym support for flexible pattern matching
+  - 100% pass rate (8/8)
+- **Data-driven methodology**:
+  - Two-dimensional analysis: code paths (SAME_FIX test) + user symptoms (Jaccard/exclusivity)
+  - Percentile-based thresholds calibrated from actual data distribution
+  - Recalibration trigger documented (>50% theme growth)
+
+### Fixed
+
+**Race Condition in Parallel Theme Extraction (2026-01-30)** - Issue #152:
+
+- **Serialized canonicalization critical section** (`src/theme_extractor.py`):
+  - Wrapped `canonicalize_signature()` + `add_session_signature()` in `_session_lock`
+  - Prevents concurrent extractions from creating near-duplicate signatures
+- **Changed Lock to RLock** for reentrant acquisition:
+  - Required because `add_session_signature()` also acquires the lock internally
+  - Prevents deadlock in nested lock acquisition
+- **Concurrency tests** (`tests/test_canonicalization_concurrency.py`):
+  - 4 deterministic tests using mocked canonicalizer (no LLM calls)
+  - Verifies lock prevents duplicates, allows distinct signatures, no deadlock
+- **Timing script** (`scripts/timing_canonicalization.py`):
+  - Measures throughput impact of serialization
+  - No performance degradation: 48.33s vs 50.42s baseline (20 extractions)
+
 **Async Pipeline Responsiveness (2026-01-28)** - Issue #148, PR #150:
 
 - **Eliminated server unresponsiveness during pipeline runs**:
@@ -69,17 +105,6 @@ Format: [ISO Date] - Summary of changes
 - **context_usage_logs missing unique constraint** (schema):
   - `ON CONFLICT (theme_id)` required unique constraint that didn't exist
   - Added: `ALTER TABLE context_usage_logs ADD CONSTRAINT context_usage_logs_theme_id_unique UNIQUE (theme_id)`
-
-### Known Issues
-
-**Parallel Theme Extraction Race Condition** - Issue #151:
-
-- **Problem**: Two concurrent threads can process similar issues and both create "new" signatures before either registers theirs
-- **Evidence**: Found signature pairs like `multi_network_scheduling_failure` vs `multinetwork_scheduling_failure` (98% similar)
-- **Impact**: Fragments groups that should be together, potentially preventing story formation when groups fall below 3+ threshold
-- **Mitigation options**:
-  - Short-term: Roll back to sequential extraction (concurrency=1)
-  - Long-term: Separate signature generation phase (Option 7 in issue #151)
 
 ### Changed
 
