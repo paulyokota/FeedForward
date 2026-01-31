@@ -180,8 +180,9 @@ def table_exists(cur, table):
 
 with get_connection() as conn:
     with conn.cursor() as cur:
-        # Delete orphans
-        cur.execute("DELETE FROM story_orphans WHERE graduated_at IS NULL")
+        # Delete ALL orphans first (dev cleanup needs clean slate)
+        # Must delete before stories due to FK constraint on story_id
+        cur.execute("DELETE FROM story_orphans")
         orphans_deleted = cur.rowcount
 
         # Delete stories (cascades to evidence, comments, sync_metadata)
