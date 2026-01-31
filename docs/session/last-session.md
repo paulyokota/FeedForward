@@ -1,63 +1,42 @@
 # Last Session Summary
 
 **Date**: 2026-01-31
-**Branch**: main (PR #194 merged)
+**Branch**: main
 
 ## Goal
 
-Implement Issue #188: Multi-factor story scoring for prioritization
+Dev pipeline run with 30 days of data to generate stories for testing, plus UI bug fixes.
 
-## Progress
+## Accomplished
 
-- Completed: Issue #188 fully implemented and merged
+### 1. Pipeline Run & Missing Migration Fix
 
-## What Was Done
+- Ran dev pipeline (run 118) with 30 days of data: 1,531 conversations, 601 themes
+- **Root cause found**: Migration 020 (multi-factor scoring from Issue #188) was never applied
+- Story creation silently failed on missing `actionability_score` column
+- Applied migration 020, re-ran story creation: **33 stories, 400 orphans created**
 
-### Issue #188: Multi-Factor Story Scoring
+### 2. Frontend Bug Fixes
 
-- **Database**: Migration 020 adding 4 score columns + indexes
-- **Scorer**: `MultiFactorScorer` class with heuristic formulas:
-  - actionability_score: Implementation readiness (0-100)
-  - fix_size_score: Estimated complexity (0-100)
-  - severity_score: Business impact from priority + error keywords (0-100)
-  - churn_risk_score: Customer retention risk (0-100)
-- **Backend**:
-  - StoryService: sort_by/sort_dir params with SQL injection protection
-  - StoryCreationService: Scorer integration at all story creation paths
-  - API: Query params for sorting
-- **Frontend**:
-  - Sort dropdown with 7 dimensions
-  - Context-aware labels ("Newest first" for dates, "High to Low" for scores)
-  - Score badges on StoryCard showing active sort dimension
-- **Tests**: 25 unit tests + integration tests for API sorting
-- **Backfill**: Script with --dry-run support for existing stories
-
-### Code Review
-
-- 5-personality review completed (2 rounds, CONVERGED)
-- Codex re-review addressed:
-  1. Backfill script: Fixed import to use `get_connection()` context manager
-  2. Backfill script: Added `RealDictCursor` for dict-style row access
-  3. Severity bonus: Wired `platform_uniformity` and `product_area_match` from scored_group
-
-### Data Cleanup
-
-- Cleaned tainted pipeline data from rogue session
-- Preserved source data (conversations, research_embeddings)
-- Verified research_embeddings are valid (1536 dims, correct model)
+- **EvidenceBrowser duplicate key warning**: Fixed by including index in excerpt key generation
+- **Sort dropdown not responding to clicks**: z-index stacking issue where backdrop (z-index 25) was intercepting clicks meant for dropdown buttons
+  - Fix: backdrop z-index 5, wrappers z-index 100, dropdown z-index 50
+  - Added stopPropagation on dropdown container
 
 ## Key Decisions
 
-1. **Hardcoded weights** - YAGNI, tune via code changes not config
-2. **Client-side sorting** for board view (server-side for list API)
-3. **Board view sorting** tracked separately as Issue #192
+1. **Silent failure diagnosis**: Pipeline showed `stories_created=0` with `errors=[]` because story creation errors weren't propagated to pipeline_runs.errors field
+2. **z-index hierarchy**: Established proper stacking: backdrop (5) < dropdowns (50) < wrappers (100)
 
-## Files Changed (PR #194)
+## Commits
 
-- 14 files, +2,329 lines
-- New: multi_factor_scorer.py, migration 020, backfill script, 2 test files
-- Modified: story_service, story_creation_service, API, frontend components
+1. `605ccef` - fix: Sort dropdown click handling and duplicate key warning
+
+## Follow-up Items
+
+- Consider adding error propagation from story creation to pipeline_runs.errors for better observability
+- Migration 020 needs to be documented as required for new installs
 
 ---
 
-_Session ended: 2026-01-31_
+_Session ended 2026-01-31_
