@@ -205,8 +205,10 @@ class ImplementationContextService:
         """
         Retrieve top-K similar candidates via vector search.
 
-        Searches across Coda pages, Coda themes, and Intercom content.
-        Applies min_similarity as a hard filter.
+        Currently searches Coda pages and themes from research_embeddings table.
+        Stories and orphans are not yet embedded - expansion planned for follow-up.
+
+        Applies min_similarity as a hard filter to prevent noisy matches.
         """
         candidates = []
 

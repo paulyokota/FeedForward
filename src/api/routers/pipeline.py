@@ -45,6 +45,18 @@ except ImportError:
     ConfidenceScorer = None
     CONFIDENCE_SCORER_AVAILABLE = False
 
+# Optional: ImplementationContextService for hybrid context (Issue #180)
+try:
+    from src.story_tracking.services.implementation_context_service import (
+        ImplementationContextService,
+    )
+    from src.research.unified_search import UnifiedSearchService
+    IMPLEMENTATION_CONTEXT_AVAILABLE = True
+except ImportError:
+    ImplementationContextService = None
+    UnifiedSearchService = None
+    IMPLEMENTATION_CONTEXT_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -1089,6 +1101,51 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
                     f"Groups will not be confidence-scored (quality gate disabled)."
                 )
 
+        # Initialize ImplementationContextService for hybrid context (Issue #180)
+        # Retrieves similar evidence via vector search + synthesizes guidance
+        implementation_context_service = None
+        if IMPLEMENTATION_CONTEXT_AVAILABLE:
+            try:
+                import os
+                import yaml
+                from pathlib import Path
+
+                # Check feature flag
+                impl_context_enabled = os.getenv(
+                    "IMPLEMENTATION_CONTEXT_ENABLED", "true"
+                ).lower() == "true"
+
+                if impl_context_enabled:
+                    # Load config from research_search.yaml
+                    config_path = Path(__file__).parent.parent.parent.parent / "config" / "research_search.yaml"
+                    impl_config = {}
+                    if config_path.exists():
+                        with open(config_path) as f:
+                            full_config = yaml.safe_load(f)
+                            impl_config = full_config.get("implementation_context", {})
+
+                    # Initialize UnifiedSearchService (uses same config file for embeddings)
+                    search_service = UnifiedSearchService()
+
+                    # Initialize ImplementationContextService with config values
+                    implementation_context_service = ImplementationContextService(
+                        search_service=search_service,
+                        model=impl_config.get("model", "gpt-4o-mini"),
+                        top_k=impl_config.get("top_k", 10),
+                        min_similarity=impl_config.get("min_similarity", 0.5),
+                        timeout=impl_config.get("timeout", 15),
+                    )
+                    logger.info(
+                        f"Run {run_id}: ImplementationContextService enabled "
+                        f"(top_k={impl_config.get('top_k', 10)}, "
+                        f"min_similarity={impl_config.get('min_similarity', 0.5)})"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Run {run_id}: Failed to initialize ImplementationContextService: {e}. "
+                    f"Implementation context generation will be skipped."
+                )
+
         story_creation_service = StoryCreationService(
             story_service=story_service,
             orphan_service=orphan_service,
@@ -1099,6 +1156,7 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             target_repo=target_repo,
             pm_review_service=pm_review_service,
             pm_review_enabled=pm_review_enabled,  # PM review works for both signature and hybrid clustering
+            implementation_context_service=implementation_context_service,  # Issue #180
         )
 
         # Try hybrid clustering if enabled
