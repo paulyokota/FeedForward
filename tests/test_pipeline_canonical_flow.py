@@ -102,7 +102,13 @@ def mock_orphan_service():
         created_orphans.append(orphan)
         return orphan
 
+    def create_or_get_orphan(orphan_create):
+        """create_or_get returns (orphan, created_bool) tuple."""
+        orphan = create_orphan(orphan_create)
+        return (orphan, True)  # Always "newly created" for test isolation
+
     service.create.side_effect = create_orphan
+    service.create_or_get.side_effect = create_or_get_orphan
     service.get_by_signature.return_value = None  # No existing orphans by default
     service.created_orphans = created_orphans
     return service
@@ -192,6 +198,7 @@ class TestPipelineFlowIntegration:
             story_service=mock_story_service,
             orphan_service=mock_orphan_service,
             validation_enabled=False,
+            dual_format_enabled=False,  # Disable to avoid codebase exploration in tests
         )
 
         theme_groups = {
@@ -217,6 +224,7 @@ class TestPipelineFlowIntegration:
             story_service=mock_story_service,
             orphan_service=mock_orphan_service,
             validation_enabled=False,
+            dual_format_enabled=False,  # Disable to avoid codebase exploration in tests
         )
 
         theme_groups = {
@@ -241,6 +249,7 @@ class TestPipelineFlowIntegration:
             story_service=mock_story_service,
             orphan_service=mock_orphan_service,
             validation_enabled=False,
+            dual_format_enabled=False,  # Disable to avoid codebase exploration in tests
         )
 
         # Create multiple theme groups
@@ -313,6 +322,7 @@ class TestStoryCreationServiceBehavior:
             story_service=mock_story_service,
             orphan_service=mock_orphan_service,
             validation_enabled=False,
+            dual_format_enabled=False,  # Disable to avoid codebase exploration in tests
         )
 
         # One below boundary
@@ -397,6 +407,7 @@ class TestStoryCreationServiceBehavior:
             orphan_service=mock_orphan_service,
             orphan_integration_service=mock_integration,
             validation_enabled=False,
+            dual_format_enabled=False,  # Disable to avoid codebase exploration in tests
         )
 
         convs = [{"id": f"fb_{i}", "excerpt": f"Test {i}"} for i in range(2)]
@@ -470,6 +481,7 @@ class TestQualityGateRegression:
             confidence_scorer=mock_scorer,
             confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD,
             validation_enabled=False,
+            dual_format_enabled=False,  # Disable to avoid codebase exploration in tests
         )
 
         convs = [
@@ -492,6 +504,7 @@ class TestQualityGateRegression:
             story_service=mock_story_service,
             orphan_service=mock_orphan_service,
             validation_enabled=True,  # Enable validation
+            dual_format_enabled=False,  # Disable to avoid codebase exploration in tests
         )
 
         # Conversations missing required 'id' or 'excerpt' fields
@@ -1048,6 +1061,9 @@ class TestOrphanCanonicalization:
         existing_orphan.signature = "queue_stuck"
         existing_orphan.conversation_ids = ["conv_1"]
         existing_orphan.theme_data = {"symptoms": ["posts stuck"]}
+        # Mark as active (not graduated) to route to _update_existing_orphan
+        existing_orphan.graduated_at = None
+        existing_orphan.story_id = None
 
         # Mock: get_by_signature returns orphan for canonical "queue_stuck"
         def mock_get_by_signature(sig):
@@ -1056,6 +1072,13 @@ class TestOrphanCanonicalization:
             return None
 
         mock_orphan_service.get_by_signature.side_effect = mock_get_by_signature
+
+        # Mock: add_conversations returns updated orphan with proper attributes
+        updated_orphan = Mock()
+        updated_orphan.id = existing_orphan.id
+        updated_orphan.signature = "queue_stuck"
+        updated_orphan.conversation_count = 2  # Now has 2 conversations
+        mock_orphan_service.add_conversations.return_value = updated_orphan
 
         # Process theme with variant signature "Queue-Stuck" (should canonicalize)
         theme = ExtractedTheme(

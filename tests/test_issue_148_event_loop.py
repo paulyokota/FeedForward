@@ -29,6 +29,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from src.db.models import Conversation
 from src.api.schemas.pipeline import PipelineRunRequest
+from src.theme_quality import QualityCheckResult
 from pydantic import ValidationError
 
 # Mark entire module as slow - these are integration tests
@@ -269,10 +270,13 @@ class TestRunThemeExtractionAsync:
                 ) as mock_filter:
                     mock_filter.return_value = ([mock_theme] * 5, [], [])
 
-                    # Mock check_theme_quality to avoid QualityCheckResult issues
-                    mock_quality_result = Mock()
-                    mock_quality_result.quality_score = 0.8
-                    mock_quality_result.to_dict = Mock(return_value={})
+                    # Use actual QualityCheckResult dataclass (required for asdict())
+                    mock_quality_result = QualityCheckResult(
+                        passed=True,
+                        quality_score=0.8,
+                        reason=None,
+                        details={},
+                    )
                     with patch(
                         "src.theme_quality.check_theme_quality",
                         return_value=mock_quality_result
@@ -354,10 +358,13 @@ class TestRunThemeExtractionAsync:
                 ) as mock_filter:
                     mock_filter.return_value = ([mock_theme] * 5, [], [])
 
-                    # Mock check_theme_quality
-                    mock_quality_result = Mock()
-                    mock_quality_result.quality_score = 0.8
-                    mock_quality_result.to_dict = Mock(return_value={})
+                    # Use actual QualityCheckResult dataclass (required for asdict())
+                    mock_quality_result = QualityCheckResult(
+                        passed=True,
+                        quality_score=0.8,
+                        reason=None,
+                        details={},
+                    )
                     with patch(
                         "src.theme_quality.check_theme_quality",
                         return_value=mock_quality_result
@@ -513,10 +520,13 @@ class TestRunThemeExtractionAsync:
                     # Only 3 succeed (5 conversations, 2 fail)
                     mock_filter.return_value = ([mock_theme] * 3, [], [])
 
-                    # Mock check_theme_quality
-                    mock_quality_result = Mock()
-                    mock_quality_result.quality_score = 0.8
-                    mock_quality_result.to_dict = Mock(return_value={})
+                    # Use actual QualityCheckResult dataclass (required for asdict())
+                    mock_quality_result = QualityCheckResult(
+                        passed=True,
+                        quality_score=0.8,
+                        reason=None,
+                        details={},
+                    )
                     with patch(
                         "src.theme_quality.check_theme_quality",
                         return_value=mock_quality_result

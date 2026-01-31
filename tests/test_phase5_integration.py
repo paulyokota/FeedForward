@@ -288,7 +288,7 @@ class TestPMReviewToStoriesFlow:
 
         mock_orphan_service = Mock(spec=OrphanService)
         mock_orphan_service.get_by_signature.return_value = None
-        mock_orphan_service.create.return_value = Orphan(
+        orphan_for_test = Orphan(
             id=uuid4(),
             signature="test",
             original_signature=None,
@@ -300,8 +300,14 @@ class TestPMReviewToStoriesFlow:
             graduated_at=None,
             story_id=None,
         )
+        mock_orphan_service.create.return_value = orphan_for_test
+        # create_or_get returns (orphan, created_bool) tuple
+        mock_orphan_service.create_or_get.return_value = (orphan_for_test, True)
 
-        service = StoryCreationService(mock_story_service, mock_orphan_service)
+        # Disable dual_format to avoid codebase exploration in unit tests
+        service = StoryCreationService(
+            mock_story_service, mock_orphan_service, dual_format_enabled=False
+        )
 
         # Create PM review results with mixed decisions
         pm_results = [
