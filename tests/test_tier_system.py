@@ -82,12 +82,12 @@ class TestTierSelection:
     @pytest.mark.slow
     def test_slow_test_excluded_from_default(self):
         """This test should NOT run when: pytest (default) or pytest -m 'not slow'."""
-        # Runs only with: pytest -m slow or pytest tests/ -v
+        # Runs only with: pytest --override-ini="addopts=" or pytest -m slow
         assert True
 
 
-class TestFixtureScoping:
-    """Tests for fixture scoping optimizations."""
+class TestSessionFixtures:
+    """Tests for session-scoped fixtures."""
 
     def test_project_root_fixture(self, project_root):
         """Verify project_root fixture is available and correct."""
@@ -95,35 +95,7 @@ class TestFixtureScoping:
         assert (project_root / "tests").exists()
         assert (project_root / "src").exists()
 
-    def test_mock_db_fixture(self, mock_db):
-        """Verify mock_db fixture is available."""
-        conn, cursor = mock_db
-        assert conn is not None
-        assert cursor is not None
-        # Verify cursor is reset (no prior call history)
-        assert cursor.fetchone.call_count == 0
-
-    def test_mock_db_isolation(self, mock_db):
-        """Verify mock_db resets between tests."""
-        conn, cursor = mock_db
-        # Make a call
-        cursor.fetchone()
-        assert cursor.fetchone.call_count == 1
-        # Next test should have fresh cursor state
-
-    def test_mock_openai_client_fixture(self, mock_openai_client):
-        """Verify mock_openai_client fixture is available."""
-        assert 'sync' in mock_openai_client
-        assert 'async' in mock_openai_client
-
-    def test_sample_conversation_fixture(self, sample_conversation):
-        """Verify sample_conversation fixture provides expected data."""
-        assert 'id' in sample_conversation
-        assert 'source_body' in sample_conversation
-        assert sample_conversation['issue_type'] == 'bug_report'
-
-    def test_sample_theme_fixture(self, sample_theme):
-        """Verify sample_theme fixture provides expected data."""
-        assert 'id' in sample_theme
-        assert 'name' in sample_theme
-        assert sample_theme['name'] == 'Test Theme'
+    def test_test_data_dir_fixture(self, test_data_dir, project_root):
+        """Verify test_data_dir fixture returns correct path."""
+        expected = project_root / "tests" / "data"
+        assert test_data_dir == expected

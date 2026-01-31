@@ -16,7 +16,7 @@ LLM-powered Intercom conversation analysis pipeline for extracting product insig
 - Key commands:
   - **Quick feedback**: `pytest` (fast tier only, <2 min)
   - **Pre-merge**: `pytest -m "not slow"` (fast + medium, ~8 min)
-  - **Full suite**: `pytest tests/ -v` (all tiers, ~10 min)
+  - **Full suite**: `pytest --override-ini="addopts=" -v` (all tiers, ~10 min)
   - **Parallel**: `pytest -n auto -m "not slow"` (pre-merge with xdist)
   - **API server**: `uvicorn src.api.main:app --reload --port 8000`
 
@@ -60,7 +60,7 @@ PM Review uses `diagnostic_summary` for story validation (previously used `sourc
 [ ] Tests exist (see docs/process-playbook/gates/test-gate.md)
 [ ] Quick check passes: pytest (fast tier, use during development)
 [ ] Pre-merge passes: pytest -m "not slow" (fast + medium tiers)
-[ ] Full suite passes: pytest tests/ -v (all tiers, required before PR)
+[ ] Full suite passes: pytest --override-ini="addopts=" -v (all tiers, required before PR)
 [ ] Cross-component PRs: Integration test verifies full data path (see docs/process-playbook/gates/integration-testing-gate.md)
 [ ] Pipeline PRs: Functional test evidence attached (see docs/process-playbook/gates/functional-testing-gate.md)
 [ ] Review converged: 5-personality, 2+ rounds
@@ -295,13 +295,13 @@ python src/cli.py pending          # Preview pending tickets
 
 # Tests (Issue #190 - Three-Tier System)
 # Tiers: fast (default), medium (API TestClient), slow (external APIs, pipeline)
-pytest                         # Fast tier only (<2 min) - quick feedback during development
-pytest -m "not slow"           # Fast + medium (~8 min) - PRE-MERGE (don't skip medium tests!)
-pytest tests/ -v               # Full suite (~10 min) - required before PR
-pytest -m medium               # Medium tier only (API TestClient tests)
-pytest -m slow                 # Slow tier only (integration tests with real services)
-pytest -n auto                 # Parallel execution with pytest-xdist
-pytest -n auto -m "not slow"   # Parallel pre-merge run (recommended)
+pytest                              # Fast tier only (<2 min) - quick feedback during development
+pytest -m "not slow"                # Fast + medium (~8 min) - PRE-MERGE (don't skip medium tests!)
+pytest --override-ini="addopts=" -v # Full suite (~10 min) - required before PR
+pytest -m medium                    # Medium tier only (API TestClient tests)
+pytest -m slow                      # Slow tier only (integration tests with real services)
+pytest -n auto                      # Parallel execution with pytest-xdist
+pytest -n auto -m "not slow"        # Parallel pre-merge run (recommended)
 ```
 
 ---
