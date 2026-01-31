@@ -20,6 +20,11 @@ from .story_content import (
     build_story_content_prompt,
 )
 
+from .implementation_context import (
+    IMPLEMENTATION_CONTEXT_SYSTEM_PROMPT,
+    build_implementation_context_prompt,
+)
+
 __all__ = [
     # PM Review
     "PM_REVIEW_PROMPT",
@@ -33,4 +38,7 @@ __all__ = [
     "format_symptoms",
     "format_optional_context",
     "build_story_content_prompt",
+    # Implementation Context (#180)
+    "IMPLEMENTATION_CONTEXT_SYSTEM_PROMPT",
+    "build_implementation_context_prompt",
 ]

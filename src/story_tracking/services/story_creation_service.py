@@ -100,6 +100,14 @@ except ImportError:
     StoryContentInput = None
     STORY_CONTENT_GENERATOR_AVAILABLE = False
 
+# ImplementationContextService for hybrid retrieval + synthesis (#180)
+try:
+    from .implementation_context_service import ImplementationContextService
+    IMPLEMENTATION_CONTEXT_SERVICE_AVAILABLE = True
+except ImportError:
+    ImplementationContextService = None
+    IMPLEMENTATION_CONTEXT_SERVICE_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Constants for data limits (used in theme data building and story generation)
@@ -442,6 +450,7 @@ class StoryCreationService:
         target_repo: Optional[str] = None,
         pm_review_service: Optional["PMReviewService"] = None,
         pm_review_enabled: bool = False,
+        implementation_context_service: Optional["ImplementationContextService"] = None,
     ):
         """
         Initialize the story creation service.
@@ -532,6 +541,28 @@ class StoryCreationService:
         else:
             self.content_generator = None
             logger.debug("StoryContentGenerator not available, using mechanical fallbacks")
+
+        # Initialize implementation context service (#180)
+        # Feature flag controlled via environment variable
+        self.implementation_context_enabled = (
+            os.getenv("IMPLEMENTATION_CONTEXT_ENABLED", "true").lower() == "true"
+        )
+        self.implementation_context_service = implementation_context_service
+
+        if self.implementation_context_enabled:
+            if implementation_context_service:
+                logger.info("Implementation context generation enabled (service provided)")
+            elif IMPLEMENTATION_CONTEXT_SERVICE_AVAILABLE:
+                logger.debug(
+                    "Implementation context enabled but no service provided. "
+                    "Context generation will be skipped."
+                )
+            else:
+                logger.warning(
+                    "Implementation context enabled but service not available. "
+                    "Will be skipped during story creation."
+                )
+                self.implementation_context_enabled = False
 
     def process_pm_review_results(
         self,
@@ -969,6 +1000,14 @@ class StoryCreationService:
         if self.dual_format_enabled:
             code_context = self._explore_codebase_with_classification(theme_data)
 
+        # Generate implementation context (Issue #180)
+        implementation_context = None
+        if self.implementation_context_enabled and self.implementation_context_service:
+            implementation_context = self._generate_implementation_context(
+                title=title,
+                theme_data=theme_data,
+            )
+
         # Create story with hybrid cluster metadata
         story = self.story_service.create(StoryCreate(
             title=title,
@@ -979,6 +1018,7 @@ class StoryCreationService:
             technical_area=theme_data.get("component"),
             status="candidate",
             code_context=code_context,
+            implementation_context=implementation_context,
             # Hybrid clustering fields (#109)
             grouping_method="hybrid_cluster",
             cluster_id=cluster.cluster_id,
@@ -2826,6 +2866,94 @@ class StoryCreationService:
                 "explored_at": datetime.now(timezone.utc).isoformat(),
                 "success": False,
                 "error": error_details,
+            }
+
+    def _generate_implementation_context(
+        self,
+        title: str,
+        theme_data: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Generate hybrid implementation context using retrieval + synthesis.
+
+        Uses ImplementationContextService to:
+        1. Retrieve similar prior stories/orphans/evidence via vector search
+        2. Synthesize actionable implementation guidance using OpenAI
+
+        Args:
+            title: The story title
+            theme_data: Aggregated theme data from conversations
+
+        Returns:
+            Dict with implementation context (see ImplementationContext model)
+            or None if service not available.
+
+        Issue: #180
+        """
+        if not self.implementation_context_service:
+            logger.debug(
+                "Implementation context skipped: service not available",
+                extra={"implementation_context_enabled": self.implementation_context_enabled},
+            )
+            return None
+
+        try:
+            logger.info("Generating implementation context via hybrid retrieval + synthesis")
+
+            context = self.implementation_context_service.generate(
+                story_title=title,
+                theme_data=theme_data,
+            )
+
+            # Convert to dict for JSONB storage
+            context_dict = context.model_dump()
+
+            # Convert datetime to ISO string for JSON serialization
+            if context_dict.get("synthesized_at"):
+                context_dict["synthesized_at"] = context_dict["synthesized_at"].isoformat()
+
+            if context.success:
+                logger.info(
+                    f"Implementation context generated: "
+                    f"{context.candidates_retrieved} candidates, "
+                    f"{len(context.relevant_files)} files, "
+                    f"{len(context.next_steps)} steps, "
+                    f"source={context.source}"
+                )
+            else:
+                logger.warning(
+                    f"Implementation context generation failed: {context.error}"
+                )
+
+            return context_dict
+
+        except Exception as e:
+            error_details = f"{type(e).__name__}: {str(e)}"
+            logger.warning(
+                f"Implementation context generation failed: {error_details}",
+                exc_info=True,
+                extra={
+                    "story_title": title[:100],
+                    "product_area": theme_data.get("product_area"),
+                },
+            )
+            # Return error context for debugging
+            return {
+                "summary": "",
+                "relevant_files": [],
+                "next_steps": [],
+                "prior_art_references": [],
+                "candidates_retrieved": 0,
+                "top_k": 10,
+                "retrieval_query": "",
+                "retrieval_duration_ms": 0,
+                "model": "gpt-4o-mini",
+                "synthesis_duration_ms": 0,
+                "synthesized_at": datetime.now(timezone.utc).isoformat(),
+                "source": "hybrid",
+                "success": False,
+                "error": error_details,
+                "schema_version": "1.0",
             }
 
     def _build_issue_text_for_classification(

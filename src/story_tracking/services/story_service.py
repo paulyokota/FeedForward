@@ -13,6 +13,7 @@ from uuid import UUID
 
 # Size limit for code_context JSONB to prevent storage bloat
 MAX_CODE_CONTEXT_SIZE = 1_000_000  # 1MB
+MAX_IMPLEMENTATION_CONTEXT_SIZE = 500_000  # 500KB
 
 from ..models import (
     ClusterMetadata,
@@ -20,6 +21,8 @@ from ..models import (
     CodeContextClassification,
     CodeContextFile,
     CodeContextSnippet,
+    ImplementationContext,
+    ImplementationContextFile,
     Story,
     StoryCreate,
     StoryUpdate,
@@ -62,6 +65,20 @@ class StoryService:
                 truncated_context["code_snippets"] = []
                 code_context_json = json.dumps(truncated_context)
 
+        # Serialize implementation_context to JSON if present (#180)
+        implementation_context_json = None
+        if story.implementation_context is not None:
+            implementation_context_json = json.dumps(story.implementation_context)
+            if sys.getsizeof(implementation_context_json) > MAX_IMPLEMENTATION_CONTEXT_SIZE:
+                logger.warning(
+                    f"implementation_context exceeds size limit "
+                    f"({sys.getsizeof(implementation_context_json)} bytes), truncating"
+                )
+                # Truncate by removing prior_art_references first
+                truncated_context = story.implementation_context.copy()
+                truncated_context["prior_art_references"] = []
+                implementation_context_json = json.dumps(truncated_context)
+
         # Serialize cluster_metadata to JSON if present (#109)
         cluster_metadata_json = None
         if story.cluster_metadata is not None:
@@ -72,11 +89,13 @@ class StoryService:
                 INSERT INTO stories (
                     title, description, labels, priority, severity,
                     product_area, technical_area, status, confidence_score,
-                    code_context, grouping_method, cluster_id, cluster_metadata
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    code_context, implementation_context,
+                    grouping_method, cluster_id, cluster_metadata
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, title, description, labels, priority, severity,
                           product_area, technical_area, status, confidence_score,
-                          code_context, evidence_count, conversation_count,
+                          code_context, implementation_context,
+                          evidence_count, conversation_count,
                           grouping_method, cluster_id, cluster_metadata,
                           created_at, updated_at
             """, (
@@ -90,6 +109,7 @@ class StoryService:
                 story.status,
                 story.confidence_score,
                 code_context_json,
+                implementation_context_json,
                 story.grouping_method,
                 story.cluster_id,
                 cluster_metadata_json,
@@ -104,7 +124,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       code_context, evidence_count, conversation_count,
+                       code_context, implementation_context,
+                       evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -200,6 +221,19 @@ class StoryService:
                 code_context_json = json.dumps(truncated_context)
             update_fields.append("code_context = %s")
             values.append(code_context_json)
+        # Implementation context (#180)
+        if updates.implementation_context is not None:
+            impl_context_json = json.dumps(updates.implementation_context)
+            if sys.getsizeof(impl_context_json) > MAX_IMPLEMENTATION_CONTEXT_SIZE:
+                logger.warning(
+                    f"implementation_context update exceeds size limit "
+                    f"({sys.getsizeof(impl_context_json)} bytes), truncating"
+                )
+                truncated_context = updates.implementation_context.copy()
+                truncated_context["prior_art_references"] = []
+                impl_context_json = json.dumps(truncated_context)
+            update_fields.append("implementation_context = %s")
+            values.append(impl_context_json)
         # Hybrid clustering fields (#109)
         if updates.grouping_method is not None:
             update_fields.append("grouping_method = %s")
@@ -224,7 +258,8 @@ class StoryService:
                 WHERE id = %s
                 RETURNING id, title, description, labels, priority, severity,
                           product_area, technical_area, status, confidence_score,
-                          code_context, evidence_count, conversation_count,
+                          code_context, implementation_context,
+                          evidence_count, conversation_count,
                           grouping_method, cluster_id, cluster_metadata,
                           created_at, updated_at
             """, values)
@@ -283,7 +318,8 @@ class StoryService:
             cur.execute(f"""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       code_context, evidence_count, conversation_count,
+                       code_context, implementation_context,
+                       evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -308,7 +344,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       code_context, evidence_count, conversation_count,
+                       code_context, implementation_context,
+                       evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -324,7 +361,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       code_context, evidence_count, conversation_count,
+                       code_context, implementation_context,
+                       evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -350,7 +388,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       code_context, evidence_count, conversation_count,
+                       code_context, implementation_context,
+                       evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -402,7 +441,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
-                       code_context, evidence_count, conversation_count,
+                       code_context, implementation_context,
+                       evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -415,6 +455,11 @@ class StoryService:
         """Convert database row to Story model."""
         # Parse code_context JSONB
         code_context = self._parse_code_context(row.get("code_context"))
+
+        # Parse implementation_context JSONB (#180)
+        implementation_context = self._parse_implementation_context(
+            row.get("implementation_context")
+        )
 
         # Parse cluster_metadata JSONB (#109)
         cluster_metadata = self._parse_cluster_metadata(row.get("cluster_metadata"))
@@ -431,6 +476,7 @@ class StoryService:
             status=row["status"],
             confidence_score=float(row["confidence_score"]) if row["confidence_score"] else None,
             code_context=code_context,
+            implementation_context=implementation_context,
             evidence_count=row["evidence_count"],
             conversation_count=row["conversation_count"],
             grouping_method=row.get("grouping_method", "signature"),
@@ -473,6 +519,86 @@ class StoryService:
             )
         except Exception as e:
             logger.warning(f"Failed to parse cluster_metadata: {e}")
+            return None
+
+    def _parse_implementation_context(
+        self, raw_data
+    ) -> Optional[ImplementationContext]:
+        """
+        Parse implementation_context JSONB from database into ImplementationContext model.
+
+        Handles both dict (from psycopg JSONB) and str (edge case) formats.
+
+        Args:
+            raw_data: JSONB data from database (dict or str or None)
+
+        Returns:
+            ImplementationContext model or None if no data
+
+        Issue: #180
+        """
+        if raw_data is None:
+            return None
+
+        # Parse JSON string if needed
+        if isinstance(raw_data, str):
+            try:
+                raw_data = json.loads(raw_data)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse implementation_context JSON string")
+                return None
+
+        if not isinstance(raw_data, dict):
+            return None
+
+        try:
+            # Parse relevant_files list
+            relevant_files = []
+            for file_data in raw_data.get("relevant_files", []):
+                relevant_files.append(ImplementationContextFile(
+                    path=file_data.get("path", ""),
+                    rationale=file_data.get("rationale", ""),
+                    priority=file_data.get("priority", "medium"),
+                ))
+
+            # Parse synthesized_at timestamp
+            synthesized_at = None
+            if raw_data.get("synthesized_at"):
+                from datetime import datetime
+                try:
+                    synthesized_at = datetime.fromisoformat(
+                        raw_data["synthesized_at"].replace("Z", "+00:00")
+                    )
+                except (ValueError, AttributeError):
+                    pass
+
+            return ImplementationContext(
+                summary=raw_data.get("summary", ""),
+                relevant_files=relevant_files,
+                next_steps=raw_data.get("next_steps", []),
+                prior_art_references=raw_data.get("prior_art_references", []),
+                candidates_retrieved=raw_data.get("candidates_retrieved", 0),
+                top_k=raw_data.get("top_k", 10),
+                retrieval_query=raw_data.get("retrieval_query", ""),
+                retrieval_duration_ms=raw_data.get("retrieval_duration_ms", 0),
+                model=raw_data.get("model", "gpt-4o-mini"),
+                synthesis_duration_ms=raw_data.get("synthesis_duration_ms", 0),
+                synthesized_at=synthesized_at,
+                source=raw_data.get("source", "hybrid"),
+                success=raw_data.get("success", True),
+                error=raw_data.get("error"),
+                schema_version=raw_data.get("schema_version", "1.0"),
+            )
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to parse implementation_context: {type(e).__name__}: {e}",
+                extra={
+                    "raw_data_type": type(raw_data).__name__,
+                    "raw_data_preview": str(raw_data)[:200] if raw_data else None,
+                },
+                exc_info=True,
+            )
             return None
 
     def _parse_code_context(self, raw_data) -> Optional[CodeContext]:

@@ -96,6 +96,69 @@ class CodeContext(BaseModel):
     error: Optional[str] = None
 
 
+# Implementation context models for hybrid retrieval + synthesis (Issue #180)
+# Must be defined before Story which uses ImplementationContext
+
+from typing import Literal
+
+
+class ImplementationContextCandidate(BaseModel):
+    """A candidate retrieved via vector search for implementation context."""
+
+    source_type: Literal["story", "orphan", "evidence"]
+    source_id: str
+    title: str
+    snippet: str
+    similarity: float
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ImplementationContextFile(BaseModel):
+    """A file reference with rationale from implementation context synthesis."""
+
+    path: str
+    rationale: str
+    priority: Literal["high", "medium", "low"] = "medium"
+
+
+class ImplementationContext(BaseModel):
+    """
+    AI-synthesized implementation context for a story.
+
+    Stored as JSONB in stories.implementation_context column.
+    Generated at story creation time using:
+    1. Vector search for similar prior stories/orphans/evidence
+    2. Claude synthesis of implementation guidance
+
+    Issue: #180
+    """
+
+    # Synthesis output
+    summary: str = ""
+    relevant_files: List[ImplementationContextFile] = Field(default_factory=list)
+    next_steps: List[str] = Field(default_factory=list)
+    prior_art_references: List[str] = Field(default_factory=list)
+
+    # Retrieval metadata
+    candidates_retrieved: int = 0
+    top_k: int = 10
+    retrieval_query: str = ""
+    retrieval_duration_ms: int = 0
+
+    # Synthesis metadata
+    model: str = "gpt-4o-mini"
+    synthesis_duration_ms: int = 0
+    synthesized_at: Optional[datetime] = None
+
+    # Status
+    source: Literal["hybrid", "none"] = "hybrid"
+    success: bool = True
+    error: Optional[str] = None
+
+    # Schema versioning
+    schema_version: str = "1.0"
+
+
 class StoryBase(BaseModel):
     """Base story fields shared across create/update/response."""
 
@@ -114,6 +177,7 @@ class StoryCreate(StoryBase):
 
     confidence_score: Optional[float] = None
     code_context: Optional[Dict[str, Any]] = None  # JSONB for code exploration results
+    implementation_context: Optional[Dict[str, Any]] = None  # JSONB for hybrid context (#180)
     # Hybrid clustering fields (#109)
     grouping_method: str = "signature"  # "signature" or "hybrid_cluster"
     cluster_id: Optional[str] = None  # Format: emb_{n}_facet_{action_type}_{direction}
@@ -133,6 +197,7 @@ class StoryUpdate(BaseModel):
     status: Optional[str] = None
     confidence_score: Optional[float] = None
     code_context: Optional[Dict[str, Any]] = None
+    implementation_context: Optional[Dict[str, Any]] = None  # JSONB for hybrid context (#180)
     grouping_method: Optional[str] = None
     cluster_id: Optional[str] = None
     cluster_metadata: Optional[Dict[str, Any]] = None
@@ -155,6 +220,7 @@ class Story(StoryBase):
     id: UUID
     confidence_score: Optional[float] = None
     code_context: Optional[CodeContext] = None
+    implementation_context: Optional[ImplementationContext] = None  # Issue #180
     evidence_count: int = 0
     conversation_count: int = 0
     # Hybrid clustering fields (#109)
