@@ -477,7 +477,9 @@ def run_embedding_pipeline(
 if __name__ == "__main__":
     import argparse
 
-    logging.basicConfig(level=logging.INFO)
+    # Configure safe logging for standalone CLI usage (Issue #185)
+    from src.logging_utils import configure_safe_logging
+    configure_safe_logging()
 
     parser = argparse.ArgumentParser(description="Run embedding pipeline")
     parser.add_argument("--source", type=str, help="Specific source type to process")
@@ -494,13 +496,14 @@ if __name__ == "__main__":
         limit=args.limit,
     )
 
-    print(f"\nPipeline Result:")
-    print(f"  Status: {result.status}")
-    print(f"  Sources: {', '.join(result.source_types)}")
-    print(f"  Processed: {result.items_processed}")
-    print(f"  Updated: {result.items_updated}")
-    print(f"  Failed: {result.items_failed}")
+    logger.info("")
+    logger.info("Pipeline Result:")
+    logger.info("  Status: %s", result.status)
+    logger.info("  Sources: %s", ", ".join(result.source_types))
+    logger.info("  Processed: %d", result.items_processed)
+    logger.info("  Updated: %d", result.items_updated)
+    logger.info("  Failed: %d", result.items_failed)
     if result.duration_seconds:
-        print(f"  Duration: {result.duration_seconds:.2f}s")
+        logger.info("  Duration: %.2fs", result.duration_seconds)
     if result.error:
-        print(f"  Error: {result.error}")
+        logger.error("  Error: %s", result.error)

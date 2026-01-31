@@ -20,6 +20,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
+from src.logging_utils import SafeStreamHandler
+
 # =============================================================================
 # File-based logging (survives stdout/pipe issues)
 # =============================================================================
@@ -42,8 +44,8 @@ _file_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
 _file_handler.setLevel(logging.INFO)
 _root_logger.addHandler(_file_handler)
 
-# Stream handler - may fail if stdout closed, but useful when available
-_stream_handler = logging.StreamHandler()
+# Stream handler - uses SafeStreamHandler to gracefully handle broken pipes (Issue #185)
+_stream_handler = SafeStreamHandler()
 _stream_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
 _stream_handler.setLevel(logging.INFO)
 _root_logger.addHandler(_stream_handler)

@@ -100,13 +100,13 @@ def classify_conversation(
     full_conversation_text = build_full_conversation_text(raw_conversation)
 
     # Stage 1: Fast routing (always runs)
-    print(f"  [Stage 1] Classifying conversation {parsed.id}...")
+    logger.info("[Stage 1] Classifying conversation %s...", parsed.id)
     stage1_result = classify_stage1(
         customer_message=parsed.source_body,
         source_type=parsed.source_type
     )
 
-    print(f"    → {stage1_result['conversation_type']} ({stage1_result['confidence']} confidence)")
+    logger.info("  → %s (%s confidence)", stage1_result['conversation_type'], stage1_result['confidence'])
 
     # Stage 2: Refined analysis (only if support responded)
     stage2_result = None
@@ -120,7 +120,7 @@ def classify_conversation(
     }
 
     if support_messages:
-        print(f"  [Stage 2] Found {len(support_messages)} support messages, running refined analysis...")
+        logger.info("[Stage 2] Found %d support messages, running refined analysis...", len(support_messages))
 
         stage2_result = classify_stage2(
             customer_message=parsed.source_body,
@@ -130,9 +130,9 @@ def classify_conversation(
         )
 
         if stage2_result.get("changed_from_stage_1"):
-            print(f"    → Classification changed: {stage1_result['conversation_type']} → {stage2_result['conversation_type']}")
+            logger.info("  → Classification changed: %s → %s", stage1_result['conversation_type'], stage2_result['conversation_type'])
         else:
-            print(f"    → Classification confirmed: {stage2_result['conversation_type']} ({stage2_result['confidence']} confidence)")
+            logger.info("  → Classification confirmed: %s (%s confidence)", stage2_result['conversation_type'], stage2_result['confidence'])
 
     return {
         "stage1_result": stage1_result,
@@ -382,16 +382,17 @@ async def run_pipeline_async(
     Returns:
         Statistics dictionary
     """
-    print(f"\n{'='*60}")
-    print(f"Two-Stage Classification Pipeline (ASYNC)")
-    print(f"{'='*60}")
-    print(f"Data source: {data_source.upper()}")
-    print(f"Fetching conversations from last {days} days...")
-    print(f"Concurrency: {concurrency} parallel requests")
-    print(f"Batch size: {batch_size} for DB inserts")
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("Two-Stage Classification Pipeline (ASYNC)")
+    logger.info("=" * 60)
+    logger.info("Data source: %s", data_source.upper())
+    logger.info("Fetching conversations from last %d days...", days)
+    logger.info("Concurrency: %d parallel requests", concurrency)
+    logger.info("Batch size: %d for DB inserts", batch_size)
     if dry_run:
-        print("DRY RUN - Will not store to database")
-    print()
+        logger.info("DRY RUN - Will not store to database")
+    logger.info("")
 
     # Initialize semaphore
     semaphore = asyncio.Semaphore(concurrency)
@@ -418,7 +419,7 @@ async def run_pipeline_async(
 
     # Phase 1: Fetch all conversations (fully async with aiohttp)
     # Issue #164: Track recovery candidates (filtered but potentially recoverable)
-    print("Phase 1: Fetching conversations from Intercom...", flush=True)
+    logger.info("Phase 1: Fetching conversations from Intercom...")
     conversations = []
     recovery_candidates = []  # Issue #164: Track filtered conversations for recovery
 
@@ -428,7 +429,7 @@ async def run_pipeline_async(
     ):
         # Check for stop signal during fetch
         if should_stop():
-            print("  Stop signal received during fetch, stopping...", flush=True)
+            logger.info("  Stop signal received during fetch, stopping...")
             break
 
         # Get full conversation with parts (need session for this)
@@ -436,14 +437,14 @@ async def run_pipeline_async(
         conversations.append((parsed, raw_conv))
 
         if len(conversations) % 50 == 0:
-            print(f"  Fetched {len(conversations)} conversations...", flush=True)
+            logger.info("  Fetched %d conversations...", len(conversations))
 
         if max_conversations and len(conversations) >= max_conversations:
             break
 
-    print(f"  Total fetched: {len(conversations)}", flush=True)
+    logger.info("  Total fetched: %d", len(conversations))
     if recovery_candidates:
-        print(f"  Recovery candidates: {len(recovery_candidates)}", flush=True)
+        logger.info("  Recovery candidates: %d", len(recovery_candidates))
 
     # Phase 1b: Fetch full conversation details in parallel
     # Issue #164: Also fetch details for recovery candidates
@@ -453,7 +454,7 @@ async def run_pipeline_async(
     all_to_fetch.extend([(p, r) for p, r, _ in recovery_candidates])
 
     if all_to_fetch:
-        print(f"  Fetching full conversation details for {len(all_to_fetch)} conversations...")
+        logger.info("  Fetching full conversation details for %d conversations...", len(all_to_fetch))
         async with client._get_aiohttp_session() as session:
             # Batch fetch with semaphore for rate limiting
             detail_semaphore = asyncio.Semaphore(concurrency)
@@ -475,7 +476,7 @@ async def run_pipeline_async(
         conversations = all_results[:recovery_indices_start]
         recovery_results = all_results[recovery_indices_start:]
 
-        print(f"  Fetched details for {len(conversations)} conversations")
+        logger.info("  Fetched details for %d conversations", len(conversations))
 
         # Issue #164: Evaluate recovery candidates with full conversation details
         recovered_count = 0
@@ -488,11 +489,11 @@ async def run_pipeline_async(
                 recovered_count += 1
 
         if recovered_count > 0:
-            print(f"  Recovered {recovered_count} conversations with detailed follow-ups")
+            logger.info("  Recovered %d conversations with detailed follow-ups", recovered_count)
 
     # Check for stop signal before classification
     if should_stop():
-        print("  Stop signal received, returning early...")
+        logger.info("  Stop signal received, returning early...")
         return {
             "fetched": len(conversations),
             "recovered": recovered_count,  # Issue #164
@@ -504,7 +505,8 @@ async def run_pipeline_async(
         }
 
     # Phase 2: Classify in parallel (with stop checks between batches)
-    print(f"\nPhase 2: Classifying {len(conversations)} conversations in parallel...")
+    logger.info("")
+    logger.info("Phase 2: Classifying %d conversations in parallel...", len(conversations))
     start_time = datetime.now()
 
     # Process in batches to allow stop signal checks between batches
@@ -514,7 +516,7 @@ async def run_pipeline_async(
     for batch_start in range(0, len(conversations), CLASSIFICATION_BATCH_SIZE):
         # Check for stop signal between classification batches
         if should_stop():
-            print(f"  Stop signal received during classification (batch {batch_start // CLASSIFICATION_BATCH_SIZE + 1}), stopping...")
+            logger.info("  Stop signal received during classification (batch %d), stopping...", batch_start // CLASSIFICATION_BATCH_SIZE + 1)
             break
 
         batch_end = min(batch_start + CLASSIFICATION_BATCH_SIZE, len(conversations))
@@ -530,17 +532,16 @@ async def run_pipeline_async(
         for i, result in enumerate(batch_results):
             if isinstance(result, Exception):
                 conv_id = batch[i][0].id if i < len(batch) else "unknown"
-                print(f"  ERROR classifying conversation {conv_id}: {result}")
-                logger.error(f"Classification failed for {conv_id}: {result}", exc_info=result)
+                logger.error("ERROR classifying conversation %s: %s", conv_id, result, exc_info=result)
             else:
                 results.append(result)
 
         if len(conversations) > CLASSIFICATION_BATCH_SIZE:
-            print(f"  Classified batch {batch_start // CLASSIFICATION_BATCH_SIZE + 1}: {len(batch_results)} conversations")
+            logger.info("  Classified batch %d: %d conversations", batch_start // CLASSIFICATION_BATCH_SIZE + 1, len(batch_results))
 
     elapsed = (datetime.now() - start_time).total_seconds()
     throughput = len(results) / elapsed if elapsed > 0 else 0
-    print(f"  Classification complete in {elapsed:.1f}s ({throughput:.1f} conv/sec)")
+    logger.info("  Classification complete in %.1fs (%.1f conv/sec)", elapsed, throughput)
 
     # Phase 3: Batch store to database
     stats = {
@@ -553,29 +554,31 @@ async def run_pipeline_async(
     }
 
     if not dry_run:
-        print(f"\nPhase 3: Storing {len(results)} results in batches of {batch_size}...")
+        logger.info("")
+        logger.info("Phase 3: Storing %d results in batches of %d...", len(results), batch_size)
 
         for i in range(0, len(results), batch_size):
             batch = results[i:i + batch_size]
             stored = store_classification_results_batch(batch, pipeline_run_id=pipeline_run_id)
             stats["stored"] += stored
-            print(f"  Stored batch {i//batch_size + 1}: {stored} rows")
+            logger.info("  Stored batch %d: %d rows", i // batch_size + 1, stored)
 
-    # Print summary
-    print(f"\n{'='*60}")
-    print(f"Pipeline Complete")
-    print(f"{'='*60}")
-    print(f"Conversations fetched:    {stats['fetched']}")
+    # Log summary
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("Pipeline Complete")
+    logger.info("=" * 60)
+    logger.info("Conversations fetched:    %d", stats['fetched'])
     if stats['recovered'] > 0:
-        print(f"Conversations recovered:  {stats['recovered']}")  # Issue #164
-    print(f"Conversations classified: {stats['classified']}")
-    print(f"Stage 2 run:              {stats['stage2_run']}")
-    print(f"Classifications changed:  {stats['classification_changed']}")
+        logger.info("Conversations recovered:  %d", stats['recovered'])  # Issue #164
+    logger.info("Conversations classified: %d", stats['classified'])
+    logger.info("Stage 2 run:              %d", stats['stage2_run'])
+    logger.info("Classifications changed:  %d", stats['classification_changed'])
     if not dry_run:
-        print(f"Stored to database:       {stats['stored']}")
-    print(f"Total time:               {elapsed:.1f}s")
-    print(f"Throughput:               {stats['classified']/elapsed:.1f} conv/sec")
-    print()
+        logger.info("Stored to database:       %d", stats['stored'])
+    logger.info("Total time:               %.1fs", elapsed)
+    logger.info("Throughput:               %.1f conv/sec", stats['classified'] / elapsed if elapsed > 0 else 0)
+    logger.info("")
 
     # For dry runs, include results for preview (Issue #75)
     if dry_run:
@@ -609,13 +612,13 @@ async def _run_coda_pipeline_async(
     adapter = CodaAdapter()
 
     # Fetch Coda data
-    print("Phase 1: Fetching research data from Coda...")
+    logger.info("Phase 1: Fetching research data from Coda...")
     raw_items = adapter.fetch(max_items=max_conversations, include_tables=True, include_pages=True)
-    print(f"  Total fetched: {len(raw_items)} items")
+    logger.info("  Total fetched: %d items", len(raw_items))
 
     # Check for stop signal after fetch
     if should_stop():
-        print("  Stop signal received after fetch, stopping...")
+        logger.info("  Stop signal received after fetch, stopping...")
         return {
             "fetched": len(raw_items),
             "filtered": 0,
@@ -625,25 +628,26 @@ async def _run_coda_pipeline_async(
         }
 
     # Normalize to common format
-    print("\nPhase 2: Normalizing Coda data...")
+    logger.info("")
+    logger.info("Phase 2: Normalizing Coda data...")
     normalized = []
     for item in raw_items:
         # Check for stop signal during normalization
         if should_stop():
-            print("  Stop signal received during normalization, stopping...")
+            logger.info("  Stop signal received during normalization, stopping...")
             break
         try:
             conv = adapter.normalize(item)
             if conv.text and len(conv.text) > 50:  # Skip empty content
                 normalized.append(conv)
         except Exception as e:
-            print(f"  Warning: Failed to normalize item: {e}")
+            logger.warning("  Failed to normalize item: %s", e)
 
-    print(f"  Normalized: {len(normalized)} items with content")
+    logger.info("  Normalized: %d items with content", len(normalized))
 
     # Check for stop signal before classification
     if should_stop():
-        print("  Stop signal received, returning early...")
+        logger.info("  Stop signal received, returning early...")
         return {
             "fetched": len(raw_items),
             "filtered": len(raw_items) - len(normalized),
@@ -653,7 +657,8 @@ async def _run_coda_pipeline_async(
         }
 
     # Classify in parallel (Stage 1 only for research data)
-    print(f"\nPhase 3: Classifying {len(normalized)} items...")
+    logger.info("")
+    logger.info("Phase 3: Classifying %d items...", len(normalized))
     start_time = datetime.now()
 
     async def classify_coda_item(conv: NormalizedConversation) -> Dict[str, Any]:
@@ -716,7 +721,7 @@ Return JSON with:
     for batch_start in range(0, len(normalized), CLASSIFICATION_BATCH_SIZE):
         # Check for stop signal between classification batches
         if should_stop():
-            print(f"  Stop signal received during classification (batch {batch_start // CLASSIFICATION_BATCH_SIZE + 1}), stopping...")
+            logger.info("  Stop signal received during classification (batch %d), stopping...", batch_start // CLASSIFICATION_BATCH_SIZE + 1)
             break
 
         batch_end = min(batch_start + CLASSIFICATION_BATCH_SIZE, len(normalized))
@@ -727,10 +732,10 @@ Return JSON with:
         results.extend(batch_results)
 
         if len(normalized) > CLASSIFICATION_BATCH_SIZE:
-            print(f"  Classified batch {batch_start // CLASSIFICATION_BATCH_SIZE + 1}: {len(batch_results)} items")
+            logger.info("  Classified batch %d: %d items", batch_start // CLASSIFICATION_BATCH_SIZE + 1, len(batch_results))
 
     elapsed = (datetime.now() - start_time).total_seconds()
-    print(f"  Classification complete in {elapsed:.1f}s")
+    logger.info("  Classification complete in %.1fs", elapsed)
 
     # Stats
     stats = {
@@ -744,23 +749,25 @@ Return JSON with:
 
     # Store to database
     if not dry_run:
-        print(f"\nPhase 4: Storing {len(results)} results...")
+        logger.info("")
+        logger.info("Phase 4: Storing %d results...", len(results))
         for i in range(0, len(results), batch_size):
             batch = results[i:i + batch_size]
             stored = store_classification_results_batch(batch, pipeline_run_id=pipeline_run_id)
             stats["stored"] += stored
-            print(f"  Stored batch {i//batch_size + 1}: {stored} rows")
+            logger.info("  Stored batch %d: %d rows", i // batch_size + 1, stored)
 
-    # Print summary
-    print(f"\n{'='*60}")
-    print(f"Coda Pipeline Complete")
-    print(f"{'='*60}")
-    print(f"Items fetched:     {stats['fetched']}")
-    print(f"Items classified:  {stats['classified']}")
+    # Log summary
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("Coda Pipeline Complete")
+    logger.info("=" * 60)
+    logger.info("Items fetched:     %d", stats['fetched'])
+    logger.info("Items classified:  %d", stats['classified'])
     if not dry_run:
-        print(f"Stored to database: {stats['stored']}")
-    print(f"Total time:        {elapsed:.1f}s")
-    print()
+        logger.info("Stored to database: %d", stats['stored'])
+    logger.info("Total time:        %.1fs", elapsed)
+    logger.info("")
 
     return stats
 
@@ -786,13 +793,14 @@ def run_pipeline(
     Returns:
         Statistics dictionary
     """
-    print(f"\n{'='*60}")
-    print(f"Two-Stage Classification Pipeline (SYNC)")
-    print(f"{'='*60}")
-    print(f"Fetching conversations from last {days} days...")
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("Two-Stage Classification Pipeline (SYNC)")
+    logger.info("=" * 60)
+    logger.info("Fetching conversations from last %d days...", days)
     if dry_run:
-        print("DRY RUN - Will not store to database")
-    print()
+        logger.info("DRY RUN - Will not store to database")
+    logger.info("")
 
     # Initialize client
     client = IntercomClient()
@@ -845,10 +853,10 @@ def run_pipeline(
             if len(results_batch) >= BATCH_SIZE:
                 stored = store_classification_results_batch(results_batch, pipeline_run_id=pipeline_run_id)
                 stats["stored"] += stored
-                print(f"  [Batch] Stored {stored} results")
+                logger.info("  [Batch] Stored %d results", stored)
                 results_batch = []
 
-        print()
+        logger.info("")
 
         # Check limit
         if max_conversations and stats["classified"] >= max_conversations:
@@ -858,25 +866,30 @@ def run_pipeline(
     if results_batch and not dry_run:
         stored = store_classification_results_batch(results_batch, pipeline_run_id=pipeline_run_id)
         stats["stored"] += stored
-        print(f"  [Batch] Stored final {stored} results")
+        logger.info("  [Batch] Stored final %d results", stored)
 
-    # Print summary
-    print(f"\n{'='*60}")
-    print(f"Pipeline Complete")
-    print(f"{'='*60}")
-    print(f"Conversations fetched:    {stats['fetched']}")
-    print(f"Conversations classified: {stats['classified']}")
-    print(f"Stage 2 run:              {stats['stage2_run']}")
-    print(f"Classifications changed:  {stats['classification_changed']}")
+    # Log summary
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("Pipeline Complete")
+    logger.info("=" * 60)
+    logger.info("Conversations fetched:    %d", stats['fetched'])
+    logger.info("Conversations classified: %d", stats['classified'])
+    logger.info("Stage 2 run:              %d", stats['stage2_run'])
+    logger.info("Classifications changed:  %d", stats['classification_changed'])
     if not dry_run:
-        print(f"Stored to database:       {stats['stored']}")
-    print()
+        logger.info("Stored to database:       %d", stats['stored'])
+    logger.info("")
 
     return stats
 
 
 def main():
     """Run pipeline with default settings."""
+    # Configure safe logging for standalone CLI usage (Issue #185)
+    from src.logging_utils import configure_safe_logging
+    configure_safe_logging()
+
     import argparse
 
     parser = argparse.ArgumentParser(description="Two-Stage Classification Pipeline")
@@ -906,7 +919,7 @@ def main():
             status="running",
         )
         pipeline_run_id = create_pipeline_run(run)
-        print(f"Created pipeline run: {pipeline_run_id}")
+        logger.info("Created pipeline run: %d", pipeline_run_id)
 
     if args.use_async:
         asyncio.run(run_pipeline_async(
