@@ -533,8 +533,11 @@ class TestDescriptionGeneration:
         mock_story_service,
         mock_orphan_service,
     ):
-        """Test that description includes all available theme data."""
-        service = StoryCreationService(mock_story_service, mock_orphan_service)
+        """Test that description includes all available theme data (simple format)."""
+        # Use simple format to test basic description generation
+        service = StoryCreationService(
+            mock_story_service, mock_orphan_service, dual_format_enabled=False
+        )
 
         theme_data = {
             "user_intent": "Schedule pins",
@@ -563,8 +566,11 @@ class TestDescriptionGeneration:
         mock_story_service,
         mock_orphan_service,
     ):
-        """Test that split origin is included in description."""
-        service = StoryCreationService(mock_story_service, mock_orphan_service)
+        """Test that split origin is included in description (simple format)."""
+        # Use simple format to test basic description generation
+        service = StoryCreationService(
+            mock_story_service, mock_orphan_service, dual_format_enabled=False
+        )
 
         description = service._generate_description(
             "specific_signature",
@@ -615,17 +621,19 @@ class TestPMResultModels:
 class TestDualFormatIntegration:
     """Tests for dual-format story generation integration."""
 
-    def test_dual_format_disabled_by_default(
+    def test_dual_format_enabled_by_default(
         self,
         mock_story_service,
         mock_orphan_service,
     ):
-        """Test that dual format is disabled by default (backward compatibility)."""
+        """Test that dual format is enabled by default (Issue #178)."""
         service = StoryCreationService(mock_story_service, mock_orphan_service)
 
-        assert service.dual_format_enabled is False
-        assert service.dual_formatter is None
-        assert service.codebase_provider is None
+        # Issue #178: dual_format_enabled is now True by default
+        assert service.dual_format_enabled is True
+        # Formatter and provider are initialized when dual format is enabled
+        # (or None if DUAL_FORMAT_AVAILABLE is False)
+        # Just verify the flag is set correctly
 
     def test_dual_format_enabled_without_dependencies(
         self,

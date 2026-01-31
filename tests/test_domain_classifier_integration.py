@@ -4,6 +4,7 @@ Integration Tests for Domain Classifier with CodebaseContextProvider
 Tests the end-to-end flow of classifying issues and exploring the codebase.
 """
 
+import os
 import pytest
 from unittest.mock import MagicMock, patch, Mock
 import json
@@ -326,9 +327,17 @@ class TestSearchPathPrioritization:
 class TestCostAndLatency:
     """Test that solution meets cost and latency requirements."""
 
+    @pytest.mark.skipif(
+        not os.path.exists(os.path.expanduser("~/repos")),
+        reason="Local repos not available for integration test"
+    )
     @patch("src.story_tracking.services.domain_classifier.Anthropic")
     def test_total_latency_under_500ms(self, mock_anthropic_class):
-        """Total classification should complete under 500ms."""
+        """Total classification should complete under 500ms.
+
+        Note: This test does real filesystem operations (grep, file reads)
+        and requires local repo clones at ~/repos to pass reliably.
+        """
         mock_client = MagicMock()
         mock_anthropic_class.return_value = mock_client
 
