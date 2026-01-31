@@ -328,15 +328,19 @@ class TestCostAndLatency:
     """Test that solution meets cost and latency requirements."""
 
     @pytest.mark.skipif(
-        not os.path.exists(os.path.expanduser("~/repos")),
-        reason="Local repos not available for integration test"
+        not os.path.exists(os.environ.get(
+            "FEEDFORWARD_REPOS_PATH",
+            "/Users/paulyokota/Documents/GitHub"
+        )),
+        reason="REPO_BASE_PATH not available for integration test"
     )
     @patch("src.story_tracking.services.domain_classifier.Anthropic")
     def test_total_latency_under_500ms(self, mock_anthropic_class):
         """Total classification should complete under 500ms.
 
         Note: This test does real filesystem operations (grep, file reads)
-        and requires local repo clones at ~/repos to pass reliably.
+        and requires local repo clones at REPO_BASE_PATH to pass reliably.
+        Uses FEEDFORWARD_REPOS_PATH env var or defaults to /Users/paulyokota/Documents/GitHub.
         """
         mock_client = MagicMock()
         mock_anthropic_class.return_value = mock_client
