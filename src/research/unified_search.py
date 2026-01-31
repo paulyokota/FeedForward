@@ -2,6 +2,15 @@
 Unified Search Service
 
 Provides semantic search across all embedded content sources using pgvector.
+
+IMPORTANT: This service MUST use the same embedding model as EmbeddingPipeline.
+Vector similarity only works when embeddings are generated with the same model.
+Both services read from config/research_search.yaml to ensure alignment.
+
+If you change the model in config:
+1. All existing embeddings become incompatible with search queries
+2. You MUST re-run the embedding pipeline to re-index all content
+3. Use the /api/research/stats endpoint to verify the current model
 """
 
 import logging
@@ -22,8 +31,16 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-# Configuration path
+# Resolves to {project_root}/config/research_search.yaml
+# Path: this file → research/ → src/ → project_root/
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "research_search.yaml"
+
+# Valid OpenAI embedding models - validated to prevent config errors
+VALID_EMBEDDING_MODELS = {
+    "text-embedding-3-small",
+    "text-embedding-3-large",
+    "text-embedding-ada-002",
+}
 
 
 class EmbeddingServiceError(Exception):
@@ -49,26 +66,58 @@ class UnifiedSearchService:
 
     def __init__(
         self,
-        embedding_model: str = "text-embedding-3-small",
-        embedding_dimensions: int = 1536,
+        embedding_model: Optional[str] = None,
+        embedding_dimensions: Optional[int] = None,
         config_path: Optional[Path] = None,
     ):
         """
         Initialize the search service.
 
+        Configuration precedence: explicit params > config file > hardcoded defaults.
+        This ensures both UnifiedSearchService and EmbeddingPipeline use the same
+        model from config by default, while allowing overrides for testing.
+
         Args:
-            embedding_model: OpenAI embedding model name
-            embedding_dimensions: Vector dimensions
-            config_path: Path to configuration YAML
+            embedding_model: OpenAI embedding model name (defaults to config)
+            embedding_dimensions: Vector dimensions (defaults to config)
+            config_path: Path to configuration YAML (for testing)
         """
         self._client = OpenAI()
-        self._embedding_model = embedding_model
-        self._embedding_dimensions = embedding_dimensions
         self._config = self._load_config(config_path or CONFIG_PATH)
 
+        # Apply config values, allowing explicit overrides
+        embedding_config = self._config["embedding"]
+        self._embedding_model = embedding_model or embedding_config["model"]
+        self._embedding_dimensions = embedding_dimensions or embedding_config["dimensions"]
+
+        # Validate model name to catch config errors early
+        if self._embedding_model not in VALID_EMBEDDING_MODELS:
+            logger.warning(
+                f"Unknown embedding model: {self._embedding_model}. "
+                f"Valid models: {VALID_EMBEDDING_MODELS}"
+            )
+
+        # Validate dimensions
+        if not (1 <= self._embedding_dimensions <= 4096):
+            raise ValueError(f"Invalid embedding dimensions: {self._embedding_dimensions}")
+
+        logger.info(f"Search service initialized with model: {self._embedding_model}")
+
     def _load_config(self, path: Path) -> dict:
-        """Load configuration from YAML file."""
+        """
+        Load configuration from YAML file.
+
+        Merges loaded config with defaults. If config file is missing or malformed,
+        falls back to hardcoded defaults (same as EmbeddingPipeline).
+
+        IMPORTANT: Default values here MUST match those in EmbeddingPipeline._load_config()
+        to ensure alignment when config file is unavailable.
+        """
         defaults = {
+            "embedding": {
+                "model": "text-embedding-3-small",
+                "dimensions": 1536,
+            },
             "search": {
                 "default_limit": 20,
                 "max_limit": 100,
@@ -90,13 +139,20 @@ class UnifiedSearchService:
                 with open(path) as f:
                     loaded = yaml.safe_load(f)
                     if loaded:
-                        # Merge with defaults
+                        # Merge with defaults (type-safe)
                         for key in defaults:
-                            if key in loaded:
+                            if key in loaded and isinstance(loaded[key], dict):
                                 defaults[key].update(loaded[key])
+                            elif key in loaded:
+                                logger.warning(
+                                    f"Config key '{key}' should be a dict, got {type(loaded[key]).__name__}"
+                                )
                         return defaults
             except Exception as e:
-                logger.warning(f"Failed to load config from {path}: {e}")
+                logger.error(
+                    f"Failed to load config from {path}: {e}. "
+                    f"Using hardcoded defaults. Check config file format."
+                )
 
         return defaults
 
@@ -122,6 +178,7 @@ class UnifiedSearchService:
             response = self._client.embeddings.create(
                 model=self._embedding_model,
                 input=text,
+                dimensions=self._embedding_dimensions,
             )
             return response.data[0].embedding
         except Exception as e:
