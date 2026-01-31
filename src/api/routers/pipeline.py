@@ -1330,39 +1330,6 @@ def _run_pipeline_task(
     Checks for stop signal between phases and exits gracefully if stopping.
     """
     import asyncio
-    import os
-    from pathlib import Path
-    from datetime import datetime, timezone
-    from dotenv import load_dotenv
-
-    # Issue #189: Ensure env vars are loaded before IntercomClient instantiation.
-    # uvicorn --reload can change working directory, causing relative .env paths to fail.
-    # Use resolved absolute path anchored to this file's location (4 levels up from
-    # src/api/routers/pipeline.py → project root where .env lives).
-    env_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
-    load_dotenv(env_path)
-
-    # Log token presence (not value) for debugging pipeline startup issues
-    token_present = os.getenv("INTERCOM_ACCESS_TOKEN") is not None
-    logger.info(f"Run {run_id}: INTERCOM_ACCESS_TOKEN present: {token_present}")
-
-    # Fail fast if token missing - prevents pipeline from appearing to start successfully
-    # then getting stuck at fetched=0 when IntercomClient can't authenticate (Issue #189)
-    if not token_present:
-        logger.error(f"Run {run_id}: INTERCOM_ACCESS_TOKEN not found. Checked .env at: {env_path}")
-        from src.db.connection import get_connection
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    UPDATE pipeline_runs SET
-                        completed_at = %s,
-                        status = 'failed',
-                        error_message = %s
-                    WHERE id = %s
-                """, (datetime.now(timezone.utc), "INTERCOM_ACCESS_TOKEN not configured", run_id))
-        _active_runs[run_id] = "failed"
-        return
-
     from src.db.connection import get_connection
     from src.classification_pipeline import run_pipeline_async
 
