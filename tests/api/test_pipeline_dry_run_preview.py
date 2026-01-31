@@ -11,6 +11,9 @@ Run with: pytest tests/api/test_pipeline_dry_run_preview.py -v
 """
 
 import pytest
+
+# Mark entire module as medium - uses TestClient with mocked dependencies
+pytestmark = pytest.mark.medium
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
