@@ -37,8 +37,26 @@ class TestTierMarkerConfiguration:
         assert True
 
     @pytest.mark.integration
-    def test_integration_marker(self):
-        """Verify 'integration' marker can be combined with tiers."""
+    def test_integration_marker_defaults_to_medium(self):
+        """
+        Verify 'integration' marker without tier defaults to medium.
+
+        This test is marked only with @pytest.mark.integration (no tier).
+        Per PR feedback, it should auto-assign to 'medium' tier, not 'fast'.
+
+        This test should:
+        - NOT run with: pytest (default fast tier)
+        - Run with: pytest -m medium
+        - Run with: pytest -m "not slow" (pre-merge)
+        - Run with: pytest --override-ini="addopts=" (full suite)
+        """
+        assert True
+
+    @pytest.mark.integration
+    @pytest.mark.slow
+    def test_integration_with_explicit_tier(self):
+        """Verify explicit tier marker overrides integration default."""
+        # Marked with both integration and slow - should be slow, not medium
         assert True
 
     @pytest.mark.serial
