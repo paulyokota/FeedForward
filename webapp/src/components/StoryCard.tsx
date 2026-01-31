@@ -1,7 +1,7 @@
 "use client";
 
-import type { Story } from "@/lib/types";
-import { PRIORITY_CONFIG, getSyncState } from "@/lib/types";
+import type { Story, SortKey } from "@/lib/types";
+import { PRIORITY_CONFIG, getSyncState, SORT_CONFIG } from "@/lib/types";
 import Link from "next/link";
 import React from "react";
 import { SyncStatusBadge } from "./SyncStatusBadge";
@@ -15,14 +15,53 @@ interface StoryCardProps {
   story: StoryWithSync;
   isDragOverlay?: boolean;
   style?: React.CSSProperties;
+  sortBy?: SortKey;
+}
+
+// Score fields that can be displayed as badges
+// Note: Must be updated if new score fields are added to SortKey
+type ScoreSortKey =
+  | "confidence_score"
+  | "actionability_score"
+  | "fix_size_score"
+  | "severity_score"
+  | "churn_risk_score";
+
+const SCORE_FIELDS: ScoreSortKey[] = [
+  "confidence_score",
+  "actionability_score",
+  "fix_size_score",
+  "severity_score",
+  "churn_risk_score",
+];
+
+function isScoreField(key: SortKey): key is ScoreSortKey {
+  return (SCORE_FIELDS as string[]).includes(key);
+}
+
+// Get score value and label for the active sort dimension
+function getActiveScore(
+  story: StoryWithSync,
+  sortBy?: SortKey,
+): { value: number | null; label: string } | null {
+  if (!sortBy || !isScoreField(sortBy)) return null;
+
+  // Type-safe score access via explicit mapping
+  const value = story[sortBy];
+  const label = SORT_CONFIG[sortBy].label;
+  return { value, label };
 }
 
 export const StoryCard = React.forwardRef<HTMLElement, StoryCardProps>(
-  function StoryCard({ story, isDragOverlay = false, style, ...props }, ref) {
+  function StoryCard(
+    { story, isDragOverlay = false, style, sortBy, ...props },
+    ref,
+  ) {
     const priorityConfig = story.priority
       ? PRIORITY_CONFIG[story.priority]
       : null;
     const syncState = getSyncState(story.sync_status);
+    const activeScore = getActiveScore(story, sortBy);
 
     const cardContent = (
       <article
@@ -91,7 +130,18 @@ export const StoryCard = React.forwardRef<HTMLElement, StoryCardProps>(
             <SyncStatusBadge state={syncState} size="sm" />
           </div>
 
-          {story.confidence_score !== null && (
+          {/* Active sort score badge - shows % for consistency with confidence */}
+          {activeScore && activeScore.value !== null && (
+            <div className="meta-item score-badge" title={activeScore.label}>
+              <span className="score-label">{activeScore.label}</span>
+              <span className="score-value">
+                {Math.round(activeScore.value)}%
+              </span>
+            </div>
+          )}
+
+          {/* Fallback: show confidence if no active sort score */}
+          {!activeScore && story.confidence_score !== null && (
             <div className="meta-item confidence" title="Confidence score">
               <span className="confidence-value">
                 {Math.round(story.confidence_score)}%
@@ -172,6 +222,29 @@ export const StoryCard = React.forwardRef<HTMLElement, StoryCardProps>(
             font-size: 11px;
             font-weight: 600;
             color: var(--accent-green);
+          }
+
+          .score-badge {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--bg-elevated);
+            padding: 2px 8px;
+            border-radius: 4px;
+          }
+
+          .score-label {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+          }
+
+          .score-value {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-blue);
           }
         `}</style>
       </article>

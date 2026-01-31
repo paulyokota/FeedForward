@@ -84,16 +84,25 @@ class StoryService:
         if story.cluster_metadata is not None:
             cluster_metadata_json = json.dumps(story.cluster_metadata)
 
+        # Serialize score_metadata to JSON if present (#188)
+        score_metadata_json = None
+        if story.score_metadata is not None:
+            score_metadata_json = json.dumps(story.score_metadata)
+
         with self.db.cursor() as cur:
             cur.execute("""
                 INSERT INTO stories (
                     title, description, labels, priority, severity,
                     product_area, technical_area, status, confidence_score,
+                    actionability_score, fix_size_score, severity_score, churn_risk_score,
+                    score_metadata,
                     code_context, implementation_context,
                     grouping_method, cluster_id, cluster_metadata
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, title, description, labels, priority, severity,
                           product_area, technical_area, status, confidence_score,
+                          actionability_score, fix_size_score, severity_score, churn_risk_score,
+                          score_metadata,
                           code_context, implementation_context,
                           evidence_count, conversation_count,
                           grouping_method, cluster_id, cluster_metadata,
@@ -108,6 +117,11 @@ class StoryService:
                 story.technical_area,
                 story.status,
                 story.confidence_score,
+                story.actionability_score,
+                story.fix_size_score,
+                story.severity_score,
+                story.churn_risk_score,
+                score_metadata_json,
                 code_context_json,
                 implementation_context_json,
                 story.grouping_method,
@@ -124,6 +138,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
+                       actionability_score, fix_size_score, severity_score, churn_risk_score,
+                       score_metadata,
                        code_context, implementation_context,
                        evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
@@ -244,6 +260,22 @@ class StoryService:
         if updates.cluster_metadata is not None:
             update_fields.append("cluster_metadata = %s")
             values.append(json.dumps(updates.cluster_metadata))
+        # Multi-factor scores (#188)
+        if updates.actionability_score is not None:
+            update_fields.append("actionability_score = %s")
+            values.append(updates.actionability_score)
+        if updates.fix_size_score is not None:
+            update_fields.append("fix_size_score = %s")
+            values.append(updates.fix_size_score)
+        if updates.severity_score is not None:
+            update_fields.append("severity_score = %s")
+            values.append(updates.severity_score)
+        if updates.churn_risk_score is not None:
+            update_fields.append("churn_risk_score = %s")
+            values.append(updates.churn_risk_score)
+        if updates.score_metadata is not None:
+            update_fields.append("score_metadata = %s")
+            values.append(json.dumps(updates.score_metadata))
 
         if not update_fields:
             # No fields to update, just return current story
@@ -258,6 +290,8 @@ class StoryService:
                 WHERE id = %s
                 RETURNING id, title, description, labels, priority, severity,
                           product_area, technical_area, status, confidence_score,
+                          actionability_score, fix_size_score, severity_score, churn_risk_score,
+                          score_metadata,
                           code_context, implementation_context,
                           evidence_count, conversation_count,
                           grouping_method, cluster_id, cluster_metadata,
@@ -275,20 +309,30 @@ class StoryService:
             cur.execute("DELETE FROM stories WHERE id = %s", (str(story_id),))
             return cur.rowcount > 0
 
+    # Valid columns for sorting (whitelist to prevent SQL injection)
+    VALID_SORT_COLUMNS = {
+        "updated_at", "created_at", "confidence_score",
+        "actionability_score", "fix_size_score", "severity_score", "churn_risk_score"
+    }
+
     def list(
         self,
         status: Optional[str] = None,
         product_area: Optional[str] = None,
         created_since: Optional[str] = None,
+        sort_by: str = "updated_at",
+        sort_dir: str = "desc",
         limit: int = 50,
         offset: int = 0,
     ) -> StoryListResponse:
-        """List stories with optional filtering.
+        """List stories with optional filtering and sorting.
 
         Args:
             status: Filter by story status
             product_area: Filter by product area
             created_since: Filter to stories created at or after this ISO timestamp
+            sort_by: Column to sort by (Issue #188)
+            sort_dir: Sort direction - 'asc' or 'desc' (Issue #188)
             limit: Max stories to return
             offset: Pagination offset
         """
@@ -309,6 +353,16 @@ class StoryService:
         if conditions:
             where_clause = "WHERE " + " AND ".join(conditions)
 
+        # Validate and build ORDER BY clause (#188)
+        if sort_by not in self.VALID_SORT_COLUMNS:
+            logging.warning(
+                f"Invalid sort_by column '{sort_by}', falling back to 'updated_at'. "
+                f"Valid columns: {self.VALID_SORT_COLUMNS}"
+            )
+        sort_col = sort_by if sort_by in self.VALID_SORT_COLUMNS else "updated_at"
+        sort_direction = "ASC" if sort_dir.lower() == "asc" else "DESC"
+        order_clause = f"ORDER BY {sort_col} {sort_direction} NULLS LAST"
+
         with self.db.cursor() as cur:
             # Get total count
             cur.execute(f"SELECT COUNT(*) as count FROM stories {where_clause}", values)
@@ -318,13 +372,15 @@ class StoryService:
             cur.execute(f"""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
+                       actionability_score, fix_size_score, severity_score, churn_risk_score,
+                       score_metadata,
                        code_context, implementation_context,
                        evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
                 {where_clause}
-                ORDER BY updated_at DESC
+                {order_clause}
                 LIMIT %s OFFSET %s
             """, values + [limit, offset])
             rows = cur.fetchall()
@@ -344,6 +400,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
+                       actionability_score, fix_size_score, severity_score, churn_risk_score,
+                       score_metadata,
                        code_context, implementation_context,
                        evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
@@ -361,6 +419,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
+                       actionability_score, fix_size_score, severity_score, churn_risk_score,
+                       score_metadata,
                        code_context, implementation_context,
                        evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
@@ -388,6 +448,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
+                       actionability_score, fix_size_score, severity_score, churn_risk_score,
+                       score_metadata,
                        code_context, implementation_context,
                        evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
@@ -441,6 +503,8 @@ class StoryService:
             cur.execute("""
                 SELECT id, title, description, labels, priority, severity,
                        product_area, technical_area, status, confidence_score,
+                       actionability_score, fix_size_score, severity_score, churn_risk_score,
+                       score_metadata,
                        code_context, implementation_context,
                        evidence_count, conversation_count,
                        grouping_method, cluster_id, cluster_metadata,
@@ -464,6 +528,9 @@ class StoryService:
         # Parse cluster_metadata JSONB (#109)
         cluster_metadata = self._parse_cluster_metadata(row.get("cluster_metadata"))
 
+        # Parse score_metadata JSONB (#188)
+        score_metadata = self._parse_score_metadata(row.get("score_metadata"))
+
         return Story(
             id=row["id"],
             title=row["title"],
@@ -475,6 +542,12 @@ class StoryService:
             technical_area=row["technical_area"],
             status=row["status"],
             confidence_score=float(row["confidence_score"]) if row["confidence_score"] else None,
+            # Multi-factor scores (#188)
+            actionability_score=float(row["actionability_score"]) if row.get("actionability_score") else None,
+            fix_size_score=float(row["fix_size_score"]) if row.get("fix_size_score") else None,
+            severity_score=float(row["severity_score"]) if row.get("severity_score") else None,
+            churn_risk_score=float(row["churn_risk_score"]) if row.get("churn_risk_score") else None,
+            score_metadata=score_metadata,
             code_context=code_context,
             implementation_context=implementation_context,
             evidence_count=row["evidence_count"],
@@ -520,6 +593,34 @@ class StoryService:
         except Exception as e:
             logger.warning(f"Failed to parse cluster_metadata: {e}")
             return None
+
+    def _parse_score_metadata(self, raw_data) -> Optional[dict]:
+        """
+        Parse score_metadata JSONB from database.
+
+        Args:
+            raw_data: JSONB data from database (dict or str or None)
+
+        Returns:
+            Dict or None if no data
+
+        Issue: #188
+        """
+        if raw_data is None:
+            return None
+
+        # Parse JSON string if needed
+        if isinstance(raw_data, str):
+            try:
+                raw_data = json.loads(raw_data)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse score_metadata JSON string")
+                return None
+
+        if not isinstance(raw_data, dict):
+            return None
+
+        return raw_data
 
     def _parse_implementation_context(
         self, raw_data

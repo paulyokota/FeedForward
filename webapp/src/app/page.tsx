@@ -2,8 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
-import type { Story, StatusKey, BoardView } from "@/lib/types";
-import { STATUS_ORDER, STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/types";
+import type { Story, StatusKey, BoardView, SortKey } from "@/lib/types";
+import {
+  STATUS_ORDER,
+  STATUS_CONFIG,
+  PRIORITY_CONFIG,
+  SORT_CONFIG,
+} from "@/lib/types";
 import { DroppableColumn } from "@/components/DroppableColumn";
 import { DndBoardProvider } from "@/components/DndBoardProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -25,6 +30,9 @@ export default function BoardPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [productAreaFilter, setProductAreaFilter] = useState<string>("");
+  const [sortBy, setSortBy] = useState<SortKey>("updated_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [isSortOpen, setIsSortOpen] = useState(false);
 
   const fetchBoard = useCallback(async () => {
     try {
@@ -159,6 +167,65 @@ export default function BoardPage() {
 
       return true;
     });
+  };
+
+  // Sort stories by selected column (client-side within each status column)
+  const sortStories = (stories: Story[]): Story[] => {
+    return [...stories].sort((a, b) => {
+      let aVal: number | string | null = null;
+      let bVal: number | string | null = null;
+
+      switch (sortBy) {
+        case "updated_at":
+          aVal = a.updated_at;
+          bVal = b.updated_at;
+          break;
+        case "created_at":
+          aVal = a.created_at;
+          bVal = b.created_at;
+          break;
+        case "confidence_score":
+          aVal = a.confidence_score;
+          bVal = b.confidence_score;
+          break;
+        case "actionability_score":
+          aVal = a.actionability_score;
+          bVal = b.actionability_score;
+          break;
+        case "fix_size_score":
+          aVal = a.fix_size_score;
+          bVal = b.fix_size_score;
+          break;
+        case "severity_score":
+          aVal = a.severity_score;
+          bVal = b.severity_score;
+          break;
+        case "churn_risk_score":
+          aVal = a.churn_risk_score;
+          bVal = b.churn_risk_score;
+          break;
+      }
+
+      // NULLS LAST behavior
+      if (aVal === null && bVal === null) return 0;
+      if (aVal === null) return 1;
+      if (bVal === null) return -1;
+
+      // Compare values
+      let comparison = 0;
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        comparison = aVal.localeCompare(bVal);
+      } else {
+        comparison = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+      }
+
+      return sortDir === "desc" ? -comparison : comparison;
+    });
+  };
+
+  // Combined filter and sort
+  const processStories = (stories: Story[]): Story[] => {
+    return sortStories(filterStories(stories));
   };
 
   // Get unique product areas from all stories
@@ -353,6 +420,88 @@ export default function BoardPage() {
             Pipeline
           </Link>
           <ThemeToggle />
+          <div className="sort-wrapper">
+            <button
+              className={`btn-secondary ${sortBy !== "updated_at" ? "active" : ""}`}
+              onClick={() => setIsSortOpen(!isSortOpen)}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M3 6h18M6 12h12M9 18h6" />
+              </svg>
+              {SORT_CONFIG[sortBy].label}
+              {sortDir === "asc" && (
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M18 15l-6-6-6 6" />
+                </svg>
+              )}
+              {sortDir === "desc" && (
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              )}
+            </button>
+
+            {isSortOpen && (
+              <div className="sort-dropdown">
+                <div className="sort-header">
+                  <span>Sort by</span>
+                  <button
+                    className="sort-direction"
+                    onClick={() =>
+                      setSortDir(sortDir === "desc" ? "asc" : "desc")
+                    }
+                    title={sortDir === "desc" ? "Descending" : "Ascending"}
+                  >
+                    {sortBy === "updated_at" || sortBy === "created_at"
+                      ? sortDir === "desc"
+                        ? "↓ Newest first"
+                        : "↑ Oldest first"
+                      : sortDir === "desc"
+                        ? "↓ High to Low"
+                        : "↑ Low to High"}
+                  </button>
+                </div>
+                {(Object.keys(SORT_CONFIG) as SortKey[]).map((key) => (
+                  <button
+                    key={key}
+                    className={`sort-option ${sortBy === key ? "active" : ""}`}
+                    onClick={() => {
+                      setSortBy(key);
+                      setIsSortOpen(false);
+                    }}
+                  >
+                    <span className="sort-option-label">
+                      {SORT_CONFIG[key].label}
+                    </span>
+                    <span className="sort-option-desc">
+                      {SORT_CONFIG[key].description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="filter-wrapper">
             <button
               className={`btn-secondary ${hasActiveFilters ? "active" : ""}`}
@@ -444,7 +593,8 @@ export default function BoardPage() {
             <DroppableColumn
               key={status}
               status={status}
-              stories={filterStories((board?.[status] as Story[]) || [])}
+              stories={processStories((board?.[status] as Story[]) || [])}
+              sortBy={sortBy}
             />
           ))}
         </div>
@@ -456,11 +606,14 @@ export default function BoardPage() {
         onCreated={handleStoryCreated}
       />
 
-      {/* Click outside to close filter */}
-      {isFilterOpen && (
+      {/* Click outside to close dropdowns */}
+      {(isFilterOpen || isSortOpen) && (
         <div
           className="filter-backdrop"
-          onClick={() => setIsFilterOpen(false)}
+          onClick={() => {
+            setIsFilterOpen(false);
+            setIsSortOpen(false);
+          }}
         />
       )}
 
@@ -701,6 +854,86 @@ export default function BoardPage() {
         .header-actions :global(.nav-link):hover {
           color: var(--text-primary);
           background: var(--bg-hover);
+        }
+
+        .sort-wrapper {
+          position: relative;
+        }
+
+        .sort-dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
+          right: 0;
+          width: 260px;
+          background: var(--bg-surface);
+          border: none;
+          border-radius: var(--radius-md);
+          box-shadow: var(--shadow-lg);
+          z-index: 30;
+          overflow: hidden;
+        }
+
+        .sort-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 14px;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-tertiary);
+          border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .sort-direction {
+          background: var(--bg-elevated);
+          border: none;
+          color: var(--accent-blue);
+          font-size: 11px;
+          font-weight: 500;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+
+        .sort-direction:hover {
+          background: var(--bg-hover);
+        }
+
+        .sort-option {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          width: 100%;
+          padding: 10px 14px;
+          background: none;
+          border: none;
+          text-align: left;
+          cursor: pointer;
+          transition: background 0.1s ease;
+        }
+
+        .sort-option:hover {
+          background: var(--bg-hover);
+        }
+
+        .sort-option.active {
+          background: var(--bg-elevated);
+        }
+
+        .sort-option-label {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-primary);
+        }
+
+        .sort-option-desc {
+          font-size: 11px;
+          color: var(--text-tertiary);
+          margin-top: 2px;
+        }
+
+        .sort-option.active .sort-option-label {
+          color: var(--accent-blue);
         }
 
         .filter-wrapper {
