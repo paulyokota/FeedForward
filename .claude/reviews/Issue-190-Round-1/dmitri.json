@@ -1,0 +1,63 @@
+{
+  "reviewer": "dmitri",
+  "round": 1,
+  "verdict": "BLOCKING",
+  "issue_count": 5,
+  "issues": [
+    {
+      "id": "D1",
+      "severity": "HIGH",
+      "category": "yagni",
+      "file": "tests/conftest.py",
+      "line": 89,
+      "title": "Module-scoped mock factories are unused - tests have local fixtures",
+      "why": "_mock_db_factory and _mock_openai_factory (lines 89-122) are never used. Test files like test_sync_router.py, test_analytics_service.py define their own local mock_db fixtures that shadow the conftest versions. This adds 34 lines of dead code that creates false expectations about fixture sharing.",
+      "fix": "Delete lines 85-157 (both factory fixtures and their function-scoped wrappers). If consolidation is desired, that's a separate refactor PR that should migrate existing tests.",
+      "verify": "Run: grep -c 'def mock_db' tests/*.py - shows 11+ files with local fixtures shadowing conftest"
+    },
+    {
+      "id": "D2",
+      "severity": "HIGH",
+      "category": "unused-code",
+      "file": "tests/conftest.py",
+      "line": 160,
+      "title": "mock_env fixture is defined but never used",
+      "why": "The mock_env fixture (lines 160-171) wraps monkeypatch.setenv but is not used by any test. It's a trivial wrapper that adds indirection without value - tests can just use monkeypatch directly.",
+      "fix": "Delete lines 160-171. If tests need env vars, they already use monkeypatch directly.",
+      "verify": "Run: grep -r 'mock_env' tests/ --include='*.py' | grep -v conftest - returns no results"
+    },
+    {
+      "id": "D3",
+      "severity": "MEDIUM",
+      "category": "yagni",
+      "file": "tests/conftest.py",
+      "line": 178,
+      "title": "sample_conversation and sample_theme fixtures are shadowed everywhere",
+      "why": "7+ test files define their own sample_conversation fixture. The conftest version is never used - it's always shadowed by local fixtures with test-specific data. These 25 lines create false expectations.",
+      "fix": "Delete lines 174-203. Each test knows what data it needs.",
+      "verify": "Run: grep -c 'def sample_conversation' tests/*.py | grep -v ':0' - shows 7+ files with local fixtures"
+    },
+    {
+      "id": "D4",
+      "severity": "MEDIUM",
+      "category": "over-engineering",
+      "file": "tests/test_tier_system.py",
+      "line": 1,
+      "title": "130 lines testing pytest behavior, not FeedForward code",
+      "why": "Most tests just assert True - they don't test application code. TestTierMarkerConfiguration (lines 15-47) tests that pytest markers exist. TestTierSelection tests that pytest -m filtering works. We're testing pytest, not our app. If pytest breaks, we have bigger problems.",
+      "fix": "Delete entire file or reduce to a single smoke test verifying the hook runs. The tier system is configuration, not code requiring extensive testing.",
+      "verify": "Count meaningful assertions: only TestFixtureScoping (lines 89-129) tests actual fixtures, and those fixtures are unused per D1-D3"
+    },
+    {
+      "id": "D5",
+      "severity": "LOW",
+      "category": "abstraction",
+      "file": "pytest.ini",
+      "line": 8,
+      "title": "Deprecated 'unit' marker adds confusion",
+      "why": "Line 8 defines 'unit: [DEPRECATED] Use fast instead' - if it's deprecated, remove it. Leaving it teaches bad habits and clutters configuration.",
+      "fix": "Delete line 8. If old tests use @pytest.mark.unit, fix them now or fail --strict-markers will catch them.",
+      "verify": "Run: grep -r '@pytest.mark.unit' tests/ - see if any tests use it"
+    }
+  ]
+}

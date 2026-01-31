@@ -1,0 +1,63 @@
+{
+  "reviewer": "maya",
+  "round": 1,
+  "verdict": "WARNING",
+  "issue_count": 5,
+  "issues": [
+    {
+      "id": "M1",
+      "severity": "MEDIUM",
+      "category": "documentation",
+      "file": "pytest.ini",
+      "line": 13,
+      "title": "Section comment describes external usage, not file behavior",
+      "why": "Comments say 'Pre-merge: use pytest -m not slow' and 'Full suite: use pytest tests/ -v' but these describe commands to type, not what the file does. A new dev reading pytest.ini won't understand that addopts runs ONLY fast tests. The comment pattern suggests the file supports three modes when actually the file only configures one default.",
+      "fix": "Change comment to: '# Default: fast tier only (excludes medium and slow). See CLAUDE.md for all run modes.'",
+      "verify": "Ask a new dev to read pytest.ini and explain what 'pytest' (with no flags) will run."
+    },
+    {
+      "id": "M2",
+      "severity": "HIGH",
+      "category": "clarity",
+      "file": "tests/conftest.py",
+      "line": 59,
+      "title": "Section header 'pytest-xdist Support' is misleading",
+      "why": "The section banner says 'pytest-xdist Support for Serial Tests' but pytest_configure() only sets OPENAI_API_KEY. There is no xdist support code here. Future maintainers will look here expecting to find xdist configuration and be confused. The section header promises functionality that doesn't exist.",
+      "fix": "Rename section to '# Environment Setup' or add actual xdist support (pytest_xdist_make_scheduler hook for serial marker). If xdist support is planned but not implemented, add a TODO comment.",
+      "verify": "Search for actual xdist hooks in the file - none exist."
+    },
+    {
+      "id": "M3",
+      "severity": "LOW",
+      "category": "discoverability",
+      "file": "pytest.ini",
+      "line": 8,
+      "title": "Deprecated 'unit' marker lacks migration guidance",
+      "why": "The marker is listed as '[DEPRECATED] Use fast instead' but there's no indication of: (1) whether existing tests using 'unit' should be migrated, (2) whether 'unit' will be removed in a future version, (3) whether 'unit' and 'fast' are equivalent for filtering purposes. Future maintainers won't know if they should update old tests.",
+      "fix": "Add comment explaining deprecation timeline, e.g., 'unit: [DEPRECATED - will be removed in v2.0] Use fast instead. Existing @pytest.mark.unit tests are auto-mapped to fast tier.'",
+      "verify": "Search codebase for @pytest.mark.unit usage to see if any exist."
+    },
+    {
+      "id": "M4",
+      "severity": "LOW",
+      "category": "discoverability",
+      "file": "tests/conftest.py",
+      "line": 38,
+      "title": "No guidance for new developers adding tests",
+      "why": "The module docstring explains the three tiers and how to RUN them, but doesn't tell new devs HOW TO MARK new tests. Important info missing: (1) unmarked tests default to fast, (2) when to mark as medium vs slow, (3) examples of each tier's typical tests. A new dev might over-mark tests as medium/slow when they should be fast.",
+      "fix": "Add section to docstring: 'Adding new tests: Tests are fast by default (no marker needed). Mark as medium if using: TestClient, database fixtures, or filesystem. Mark as slow if using: external APIs, real LLM calls, or full pipeline.'",
+      "verify": "Ask a new dev how they would mark a unit test with mocked dependencies - if they say '@pytest.mark.fast', the guidance is unclear."
+    },
+    {
+      "id": "M5",
+      "severity": "LOW",
+      "category": "clarity",
+      "file": "tests/test_tier_system.py",
+      "line": 76,
+      "title": "Test docstrings describe run-dependent behavior without context",
+      "why": "test_medium_test_excluded_from_default says 'should NOT run when: pytest (default)' but this test file itself runs during CI. The docstring describes conditional behavior that depends on how pytest is invoked, which could confuse maintainers debugging test failures. If this test fails, the docstring implies it shouldn't be running at all.",
+      "fix": "Clarify docstring: 'When running with default addopts (fast tier), this test is excluded. This test verifies the medium marker is recognized - run with: pytest -m medium tests/test_tier_system.py'",
+      "verify": "Run pytest -v tests/test_tier_system.py and observe that medium tests run despite docstring saying they 'should NOT run'."
+    }
+  ]
+}

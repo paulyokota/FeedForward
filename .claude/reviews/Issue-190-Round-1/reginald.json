@@ -1,0 +1,63 @@
+{
+  "reviewer": "reginald",
+  "round": 1,
+  "verdict": "WARNING",
+  "issue_count": 5,
+  "issues": [
+    {
+      "id": "R1",
+      "severity": "HIGH",
+      "category": "logic",
+      "file": "tests/conftest.py",
+      "line": 136,
+      "title": "reset_mock() does NOT clear return_value, causing test pollution",
+      "why": "Python's reset_mock() by default only clears call history, NOT return_value or side_effect. When mock_db and mock_openai_client fixtures reset module-scoped mocks, any return_value or side_effect configured by a previous test persists. This violates test isolation and can cause flaky tests.",
+      "fix": "Change reset_mock() to reset_mock(return_value=True, side_effect=True) in both mock_db (line 136) and mock_openai_client (lines 154-155). Alternatively, recreate mocks in each fixture instead of sharing module-scoped objects.",
+      "verify": "Run: python -c \"from unittest.mock import MagicMock; m = MagicMock(); m.test.return_value = 'value1'; m.reset_mock(); print(m.test.return_value)\" - output is 'value1', proving return_value persists."
+    },
+    {
+      "id": "R2",
+      "severity": "MEDIUM",
+      "category": "logic",
+      "file": "tests/conftest.py",
+      "line": 135,
+      "title": "Mock connection object never reset between tests",
+      "why": "In mock_db fixture, only cursor.reset_mock() is called. The conn object is never reset. If a test modifies conn state (e.g., conn.autocommit = True, conn.closed = True), that state bleeds into subsequent tests in the same module.",
+      "fix": "Add conn.reset_mock() before cursor.reset_mock() on line 136, or recreate the mock objects fresh each time.",
+      "verify": "Review mock_db fixture - note cursor is reset but conn is not. Test by adding a test that sets conn.closed = True and verify subsequent test sees that value."
+    },
+    {
+      "id": "R3",
+      "severity": "MEDIUM",
+      "category": "integration",
+      "file": "tests/test_help_article_extraction.py",
+      "line": 297,
+      "title": "Deprecated 'unit' marker still in use",
+      "why": "pytest.ini declares 'unit' as deprecated (line 8), but test_help_article_extraction.py and test_shortcut_story_extraction.py still use it. These tests will not be included in any tier selection and may be accidentally excluded from CI runs.",
+      "fix": "Replace 'pytestmark = pytest.mark.unit' with 'pytestmark = pytest.mark.fast' in: test_help_article_extraction.py (line 297) and test_shortcut_story_extraction.py (line 324).",
+      "verify": "Run: grep -r 'pytest.mark.unit' tests/ - should find two files using deprecated marker."
+    },
+    {
+      "id": "R4",
+      "severity": "LOW",
+      "category": "integration",
+      "file": "pytest.ini",
+      "line": 8,
+      "title": "No runtime deprecation warning for 'unit' marker",
+      "why": "The [DEPRECATED] note in the marker description is documentation only. Users who use @pytest.mark.unit receive no warning. They may not realize their tests are excluded from tier-based selection.",
+      "fix": "Add a pytest hook in conftest.py to emit a pytest.PytestUnraisableExceptionWarning or print a warning when a test is collected with the 'unit' marker.",
+      "verify": "Run a test with @pytest.mark.unit and observe no deprecation warning is emitted."
+    },
+    {
+      "id": "R5",
+      "severity": "LOW",
+      "category": "logic",
+      "file": "tests/test_tier_system.py",
+      "line": 53,
+      "title": "Auto-assignment test doesn't verify marker was actually added",
+      "why": "test_unmarked_test_runs_in_fast_tier only asserts True. It proves the test runs but doesn't verify the 'fast' marker was programmatically added. A more robust test would introspect the item's markers.",
+      "fix": "Use pytest_collection_modifyitems hook or request.node.iter_markers() to verify the 'fast' marker exists on the test item. Example: assert any(request.node.iter_markers(name='fast')).",
+      "verify": "Review the test - it only has 'assert True' with no introspection of markers."
+    }
+  ]
+}
