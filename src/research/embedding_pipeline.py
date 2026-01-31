@@ -35,25 +35,28 @@ class EmbeddingPipeline:
 
     def __init__(
         self,
-        embedding_model: str = "text-embedding-3-small",
-        embedding_dimensions: int = 1536,
-        batch_size: int = 100,
+        embedding_model: Optional[str] = None,
+        embedding_dimensions: Optional[int] = None,
+        batch_size: Optional[int] = None,
         config_path: Optional[Path] = None,
     ):
         """
         Initialize the embedding pipeline.
 
         Args:
-            embedding_model: OpenAI embedding model name
-            embedding_dimensions: Vector dimensions
-            batch_size: Items per embedding API call
+            embedding_model: OpenAI embedding model name (defaults to config)
+            embedding_dimensions: Vector dimensions (defaults to config)
+            batch_size: Items per embedding API call (defaults to config)
             config_path: Path to configuration YAML
         """
         self._client = OpenAI()
-        self._embedding_model = embedding_model
-        self._embedding_dimensions = embedding_dimensions
-        self._batch_size = batch_size
         self._config = self._load_config(config_path or CONFIG_PATH)
+
+        # Apply config values, allowing explicit overrides
+        embedding_config = self._config["embedding"]
+        self._embedding_model = embedding_model or embedding_config["model"]
+        self._embedding_dimensions = embedding_dimensions or embedding_config["dimensions"]
+        self._batch_size = batch_size or embedding_config["batch_size"]
 
         # Initialize adapters
         self._adapters: List[SearchSourceAdapter] = []

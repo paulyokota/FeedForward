@@ -49,26 +49,33 @@ class UnifiedSearchService:
 
     def __init__(
         self,
-        embedding_model: str = "text-embedding-3-small",
-        embedding_dimensions: int = 1536,
+        embedding_model: Optional[str] = None,
+        embedding_dimensions: Optional[int] = None,
         config_path: Optional[Path] = None,
     ):
         """
         Initialize the search service.
 
         Args:
-            embedding_model: OpenAI embedding model name
-            embedding_dimensions: Vector dimensions
+            embedding_model: OpenAI embedding model name (defaults to config)
+            embedding_dimensions: Vector dimensions (defaults to config)
             config_path: Path to configuration YAML
         """
         self._client = OpenAI()
-        self._embedding_model = embedding_model
-        self._embedding_dimensions = embedding_dimensions
         self._config = self._load_config(config_path or CONFIG_PATH)
+
+        # Apply config values, allowing explicit overrides
+        embedding_config = self._config["embedding"]
+        self._embedding_model = embedding_model or embedding_config["model"]
+        self._embedding_dimensions = embedding_dimensions or embedding_config["dimensions"]
 
     def _load_config(self, path: Path) -> dict:
         """Load configuration from YAML file."""
         defaults = {
+            "embedding": {
+                "model": "text-embedding-3-small",
+                "dimensions": 1536,
+            },
             "search": {
                 "default_limit": 20,
                 "max_limit": 100,
