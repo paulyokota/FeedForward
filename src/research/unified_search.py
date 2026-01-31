@@ -178,6 +178,7 @@ class UnifiedSearchService:
             response = self._client.embeddings.create(
                 model=self._embedding_model,
                 input=text,
+                dimensions=self._embedding_dimensions,
             )
             return response.data[0].embedding
         except Exception as e:

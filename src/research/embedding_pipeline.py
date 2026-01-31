@@ -399,6 +399,7 @@ class EmbeddingPipeline:
             response = self._client.embeddings.create(
                 model=self._embedding_model,
                 input=truncated_texts,
+                dimensions=self._embedding_dimensions,
             )
 
             return [data.embedding for data in response.data]
