@@ -229,7 +229,7 @@ export function EvidenceBrowser({
               {isExpanded && (
                 <div className="excerpts-list">
                   {displayedExcerpts.map((excerpt, index) => {
-                    const excerptId = `${group.source}-${excerpt.conversation_id || index}`;
+                    const excerptId = `${group.source}-${excerpt.conversation_id || "unknown"}-${index}`;
                     const isExcerptExpanded = expandedExcerpts.has(excerptId);
                     const excerptUrl = getExcerptUrl(excerpt);
 

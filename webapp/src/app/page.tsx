@@ -463,7 +463,10 @@ export default function BoardPage() {
             </button>
 
             {isSortOpen && (
-              <div className="sort-dropdown">
+              <div
+                className="sort-dropdown"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="sort-header">
                   <span>Sort by</span>
                   <button
@@ -484,6 +487,7 @@ export default function BoardPage() {
                 </div>
                 {(Object.keys(SORT_CONFIG) as SortKey[]).map((key) => (
                   <button
+                    type="button"
                     key={key}
                     className={`sort-option ${sortBy === key ? "active" : ""}`}
                     onClick={() => {
@@ -858,6 +862,7 @@ export default function BoardPage() {
 
         .sort-wrapper {
           position: relative;
+          z-index: 100;
         }
 
         .sort-dropdown {
@@ -869,7 +874,7 @@ export default function BoardPage() {
           border: none;
           border-radius: var(--radius-md);
           box-shadow: var(--shadow-lg);
-          z-index: 30;
+          z-index: 50;
           overflow: hidden;
         }
 
@@ -938,6 +943,7 @@ export default function BoardPage() {
 
         .filter-wrapper {
           position: relative;
+          z-index: 100;
         }
 
         .btn-secondary,
@@ -1069,7 +1075,7 @@ export default function BoardPage() {
         .filter-backdrop {
           position: fixed;
           inset: 0;
-          z-index: 25;
+          z-index: 5;
         }
 
         .btn-primary {
