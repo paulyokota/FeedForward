@@ -67,3 +67,22 @@ sources:
   # (to avoid circular references)
   exclude_from_context:
     - intercom
+
+# Implementation Context: Hybrid retrieval + synthesis for stories (Issue #180)
+implementation_context:
+  # Enable/disable at story creation time
+  # Also controlled by IMPLEMENTATION_CONTEXT_ENABLED env var
+  enabled: true
+
+  # Number of similar candidates to retrieve via vector search
+  top_k: 10
+
+  # Minimum similarity threshold for candidates
+  # Applied as hard filter in vector search query
+  min_similarity: 0.5
+
+  # OpenAI model for synthesis
+  model: "gpt-4o-mini"
+
+  # Timeout for OpenAI synthesis call (seconds)
+  timeout: 15
