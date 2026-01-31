@@ -24,7 +24,7 @@ from uuid import UUID
 # Add src to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.db.connection import get_db_connection
+from src.db.connection import get_connection
 from src.multi_factor_scorer import (
     MultiFactorScorer,
     StoryScoreInput,
@@ -297,51 +297,50 @@ def run_backfill(
     logger.info(f"Mode: {'DRY-RUN' if dry_run else 'LIVE'}")
     logger.info(f"Batch size: {batch_size}")
 
-    # Initialize
-    conn = get_db_connection()
+    # Initialize scorer and stats outside context manager
     scorer = MultiFactorScorer()
     stats = BackfillStats()
 
-    # Get total count
-    total_unscored = get_total_unscored_count(conn)
-    logger.info(f"Stories needing scores: {total_unscored}")
+    # Use context manager for database connection
+    with get_connection() as conn:
+        # Get total count
+        total_unscored = get_total_unscored_count(conn)
+        logger.info(f"Stories needing scores: {total_unscored}")
 
-    if total_unscored == 0:
-        logger.info("No stories need backfill. Exiting.")
-        return
+        if total_unscored == 0:
+            logger.info("No stories need backfill. Exiting.")
+            return
 
-    # Process in batches
-    offset = 0
-    processed = 0
+        # Process in batches
+        offset = 0
+        processed = 0
 
-    while processed < total_unscored:
-        logger.info(f"Processing batch at offset {offset}...")
-        stories = get_stories_without_scores(conn, batch_size, offset)
+        while processed < total_unscored:
+            logger.info(f"Processing batch at offset {offset}...")
+            stories = get_stories_without_scores(conn, batch_size, offset)
 
-        if not stories:
-            break
+            if not stories:
+                break
 
-        for story in stories:
-            process_story(conn, story, scorer, stats, dry_run)
-            processed += 1
+            for story in stories:
+                process_story(conn, story, scorer, stats, dry_run)
+                processed += 1
 
-            if processed % 10 == 0:
-                logger.info(f"Processed {processed}/{total_unscored} stories...")
+                if processed % 10 == 0:
+                    logger.info(f"Processed {processed}/{total_unscored} stories...")
 
-        # Commit after each batch (unless dry run)
+            # Commit after each batch (unless dry run)
+            if not dry_run:
+                conn.commit()
+
+            offset += batch_size
+
+        # Final commit
         if not dry_run:
             conn.commit()
 
-        offset += batch_size
-
-    # Final commit
-    if not dry_run:
-        conn.commit()
-
-    # Log summary
+    # Log summary (after connection closed)
     stats.log_summary()
-
-    conn.close()
 
 
 def main():

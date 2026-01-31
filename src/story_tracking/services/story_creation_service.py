@@ -984,12 +984,16 @@ class StoryCreationService:
             result.pm_review_skipped += 1
 
         # Create story from hybrid cluster (after PM review approval or skip)
+        # Extract platform_uniformity and product_area_match from scored_group for severity bonus
+        scored_group = gate_result.scored_group
         self._create_story_from_hybrid_cluster(
             cluster=cluster,
             conversations=conversations,
             result=result,
             pipeline_run_id=pipeline_run_id,
             confidence_score=gate_result.confidence_score,
+            platform_uniformity=scored_group.platform_uniformity if scored_group else None,
+            product_area_match=scored_group.product_area_match if scored_group else None,
         )
 
     def _create_story_from_hybrid_cluster(
@@ -999,6 +1003,8 @@ class StoryCreationService:
         result: ProcessingResult,
         pipeline_run_id: Optional[int] = None,
         confidence_score: Optional[float] = None,
+        platform_uniformity: Optional[float] = None,
+        product_area_match: Optional[bool] = None,
     ) -> None:
         """
         Create a story from a hybrid cluster.
@@ -1012,6 +1018,8 @@ class StoryCreationService:
             result: ProcessingResult to update
             pipeline_run_id: Optional pipeline run ID
             confidence_score: Optional confidence score from quality gates
+            platform_uniformity: From confidence scoring (0-1) for severity focused_impact bonus
+            product_area_match: From confidence scoring (bool) for severity focused_impact bonus
         """
         # Build theme data from conversations
         theme_data = self._build_theme_data(conversations)
@@ -1052,6 +1060,8 @@ class StoryCreationService:
             implementation_context=implementation_context,
             code_context=code_context,
             evidence_count=len(conversations),
+            platform_uniformity=platform_uniformity,
+            product_area_match=product_area_match,
         )
 
         # Create story with hybrid cluster metadata
