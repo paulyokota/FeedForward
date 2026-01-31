@@ -7,6 +7,9 @@ Run with: pytest tests/test_research.py -v
 """
 
 import pytest
+
+# Mark entire module as medium - uses TestClient with mocked dependencies
+pytestmark = pytest.mark.medium
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch

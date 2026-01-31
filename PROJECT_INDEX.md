@@ -18,7 +18,7 @@ FeedForward is a Python/FastAPI backend + Next.js frontend system that extracts 
 | **Database**       | PostgreSQL (migrations in `migrations/`)                                                                         |
 | **Code Files**     | 220 Python modules, ~30K LOC                                                                                     |
 | **Test Framework** | pytest (18+ test files)                                                                                          |
-| **Key Commands**   | `pytest tests/ -v`, `uvicorn src.api.main:app --reload --port 8000`, `python -m src.two_stage_pipeline --days 7` |
+| **Key Commands**   | `pytest -m "not slow"`, `uvicorn src.api.main:app --reload --port 8000`, `python -m src.two_stage_pipeline --days 7` |
 
 ---
 
@@ -477,14 +477,20 @@ cd webapp && npm run dev
 ### Test Execution
 
 ```bash
-# Run all tests
-pytest tests/ -v
+# Fast tier only (quick feedback)
+pytest
+
+# Pre-merge (fast + medium tiers)
+pytest -m "not slow"
+
+# Full suite (all tiers)
+pytest --override-ini="addopts=" -v
 
 # Run specific test
 pytest tests/test_pipeline.py -v
 
 # Run with coverage
-pytest tests/ --cov=src
+pytest --override-ini="addopts=" --cov=src
 ```
 
 ### Test Files by Domain
@@ -508,7 +514,7 @@ pytest tests/ --cov=src
 
 **Critical Path Checklist** (Every PR):
 
-1. Tests exist and pass (`pytest tests/ -v`)
+1. Tests exist and pass (`pytest -m "not slow"` for pre-merge, full suite with `pytest --override-ini="addopts=" -v`)
 2. Build passes
 3. Pipeline PRs include functional test evidence
 4. Review converged (5-personality, 2+ rounds)

@@ -18,6 +18,9 @@ For integration testing with real data, use functional tests against a live DB.
 """
 
 import pytest
+
+# Mark entire module as medium - uses TestClient with mocked dependencies
+pytestmark = pytest.mark.medium
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch

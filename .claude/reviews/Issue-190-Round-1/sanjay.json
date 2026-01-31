@@ -1,0 +1,30 @@
+{
+  "reviewer": "sanjay",
+  "round": 1,
+  "verdict": "WARNING",
+  "issue_count": 2,
+  "issues": [
+    {
+      "id": "S1",
+      "severity": "MEDIUM",
+      "category": "secrets",
+      "file": "tests/conftest.py",
+      "line": 66,
+      "title": "setdefault allows real API key to be used if present in environment",
+      "why": "The pattern os.environ.setdefault('OPENAI_API_KEY', 'sk-test-fake-key-for-testing') only sets the fake key if OPENAI_API_KEY is NOT already set. If a developer has a real API key in their environment (from shell profile, .env auto-loading, etc.), it will be preserved. If a mock fails to intercept an API call, the real key could be used, resulting in unexpected charges or data leakage.",
+      "fix": "Consider using monkeypatch or a test-scoped fixture that forcefully sets the test key regardless of environment state. Alternatively, add a pytest plugin that validates no real API calls are made during test runs.",
+      "verify": "Run 'echo $OPENAI_API_KEY' to check if a real key is present, then run tests with a failing mock scenario to see if real API is contacted."
+    },
+    {
+      "id": "S2",
+      "severity": "LOW",
+      "category": "isolation",
+      "file": "tests/conftest.py",
+      "line": 89,
+      "title": "Module-scoped mock factories share object references across tests",
+      "why": "The _mock_db_factory and _mock_openai_factory fixtures are module-scoped, meaning the same Mock objects are reused across all tests in a module. While reset_mock() is called, certain Mock attributes (like side_effect configured in one test) persist if not explicitly reset. A test that sets mock_cursor.execute.side_effect = Exception() could affect subsequent tests if side_effect isn't cleared in reset.",
+      "fix": "Explicitly clear side_effect in the mock_db fixture: cursor.execute.side_effect = None, cursor.fetchone.side_effect = None, etc. Same for mock_openai_client.",
+      "verify": "Write a test that sets side_effect on cursor.execute, followed by a test that expects normal behavior. Run in sequence to confirm isolation."
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "reviewer": "quinn",
+  "round": 1,
+  "verdict": "BLOCKING",
+  "issue_count": 3,
+  "issues": [
+    {
+      "id": "Q1",
+      "severity": "HIGH",
+      "category": "documentation",
+      "file": "CLAUDE.md",
+      "line": 300,
+      "title": "Full suite command does NOT run all tiers",
+      "why": "Documentation claims `pytest tests/ -v` runs the full suite (~10 min, all tiers), but this is incorrect. The addopts in pytest.ini include `-m \"not slow and not medium\"` which is ALWAYS applied, even when specifying a test path. Testing confirms: `pytest tests/` collects 403 tests (12 deselected), same as default. Only `pytest -m \"\"` collects all 415 tests. Developers following the documented pre-PR command are unknowingly skipping 12 tests.",
+      "fix": "Change `pytest tests/ -v` to `pytest -m \"\" -v` or `pytest --override-ini=\"addopts=--showlocals --tb=short --strict-markers\" -v`. Also update pytest.ini comment on line 15 which has the same incorrect guidance.",
+      "verify": "Run: `pytest --collect-only -q | tail -3` vs `pytest -m \"\" --collect-only -q | tail -3` - you'll see 403 vs 415 tests collected"
+    },
+    {
+      "id": "Q2",
+      "severity": "HIGH",
+      "category": "documentation",
+      "file": "pytest.ini",
+      "line": 15,
+      "title": "Comment claims pytest tests/ runs all tiers - incorrect",
+      "why": "Comment says 'Full suite: use `pytest tests/ -v` for all tiers' but addopts `-m \"not slow and not medium\"` is always applied. This creates false confidence that the full suite is being run.",
+      "fix": "Update comment to: `# Full suite: use `pytest -m \"\" -v` for all tiers (overrides default marker filter)`",
+      "verify": "Compare test counts: `pytest tests/ --collect-only` vs `pytest -m \"\" --collect-only`"
+    },
+    {
+      "id": "Q3",
+      "severity": "MEDIUM",
+      "category": "coherence",
+      "file": "tests/conftest.py",
+      "line": 5,
+      "title": "Tier time descriptions inconsistent between files",
+      "why": "pytest.ini line 3 says fast tests are '<1s each' (per-test metric). conftest.py line 5 says '<2 min total' (aggregate metric). These aren't contradictory but the mixed metrics could confuse developers trying to classify their tests. Should be consistent.",
+      "fix": "Use consistent metrics. Suggest: pytest.ini for canonical definitions (per-test), conftest.py docstring for aggregate expectations. Add comment clarifying: 'Individual tests <1s, suite total <2 min'",
+      "verify": "Read pytest.ini line 3 and conftest.py line 5 side by side"
+    }
+  ]
+}
