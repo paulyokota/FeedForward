@@ -7,7 +7,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Story, StatusKey } from "@/lib/types";
+import type { Story, StatusKey, SortKey } from "@/lib/types";
 import { STATUS_CONFIG } from "@/lib/types";
 import {
   createDroppableId,
@@ -21,18 +21,21 @@ import { useDragContext } from "./DndBoardProvider";
 interface DroppableColumnProps {
   status: StatusKey;
   stories: Story[];
+  sortBy?: SortKey;
 }
 
 interface SortableStoryCardProps {
   story: Story;
   sourceColumn: StatusKey;
   index: number;
+  sortBy?: SortKey;
 }
 
 function SortableStoryCard({
   story,
   sourceColumn,
   index,
+  sortBy,
 }: SortableStoryCardProps) {
   const { draggedCardHeight, isDragging: isAnyDragging } = useDragContext();
   const { attributes, listeners, setNodeRef, isDragging, isOver } = useSortable(
@@ -103,7 +106,7 @@ function SortableStoryCard({
         {...attributes}
         {...listeners}
       >
-        <StoryCard story={story} />
+        <StoryCard story={story} sortBy={sortBy} />
       </div>
       <style jsx>{`
         .sortable-card-container {
@@ -153,7 +156,11 @@ function SortableStoryCard({
   );
 }
 
-export function DroppableColumn({ status, stories }: DroppableColumnProps) {
+export function DroppableColumn({
+  status,
+  stories,
+  sortBy,
+}: DroppableColumnProps) {
   const config = STATUS_CONFIG[status];
   const { draggedCardHeight, isDragging, overColumn, overStoryId } =
     useDragContext();
@@ -191,6 +198,7 @@ export function DroppableColumn({ status, stories }: DroppableColumnProps) {
               story={story}
               sourceColumn={status}
               index={index}
+              sortBy={sortBy}
             />
           ))}
           {/* Bottom drop zone - always render during drag for fade animation */}

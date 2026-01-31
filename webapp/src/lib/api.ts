@@ -68,6 +68,8 @@ export const api = {
       status?: string;
       product_area?: string;
       created_since?: string;
+      sort_by?: string; // Issue #188: Multi-factor sorting
+      sort_dir?: "asc" | "desc"; // Issue #188: Sort direction
       limit?: number;
       offset?: number;
     }): Promise<StoryListResponse> => {
@@ -77,6 +79,8 @@ export const api = {
         searchParams.set("product_area", params.product_area);
       if (params?.created_since)
         searchParams.set("created_since", params.created_since);
+      if (params?.sort_by) searchParams.set("sort_by", params.sort_by);
+      if (params?.sort_dir) searchParams.set("sort_dir", params.sort_dir);
       if (params?.limit) searchParams.set("limit", params.limit.toString());
       if (params?.offset) searchParams.set("offset", params.offset.toString());
 

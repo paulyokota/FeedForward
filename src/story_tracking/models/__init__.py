@@ -176,6 +176,12 @@ class StoryCreate(StoryBase):
     """Fields for creating a new story."""
 
     confidence_score: Optional[float] = None
+    # Multi-factor scores (Issue #188)
+    actionability_score: Optional[float] = None
+    fix_size_score: Optional[float] = None
+    severity_score: Optional[float] = None
+    churn_risk_score: Optional[float] = None
+    score_metadata: Optional[Dict[str, Any]] = None
     code_context: Optional[Dict[str, Any]] = None  # JSONB for code exploration results
     implementation_context: Optional[Dict[str, Any]] = None  # JSONB for hybrid context (#180)
     # Hybrid clustering fields (#109)
@@ -196,6 +202,12 @@ class StoryUpdate(BaseModel):
     technical_area: Optional[str] = None
     status: Optional[str] = None
     confidence_score: Optional[float] = None
+    # Multi-factor scores (Issue #188)
+    actionability_score: Optional[float] = None
+    fix_size_score: Optional[float] = None
+    severity_score: Optional[float] = None
+    churn_risk_score: Optional[float] = None
+    score_metadata: Optional[Dict[str, Any]] = None
     code_context: Optional[Dict[str, Any]] = None
     implementation_context: Optional[Dict[str, Any]] = None  # JSONB for hybrid context (#180)
     grouping_method: Optional[str] = None
@@ -219,6 +231,12 @@ class Story(StoryBase):
 
     id: UUID
     confidence_score: Optional[float] = None
+    # Multi-factor scores (Issue #188)
+    actionability_score: Optional[float] = None
+    fix_size_score: Optional[float] = None
+    severity_score: Optional[float] = None
+    churn_risk_score: Optional[float] = None
+    score_metadata: Optional[Dict[str, Any]] = None
     code_context: Optional[CodeContext] = None
     implementation_context: Optional[ImplementationContext] = None  # Issue #180
     evidence_count: int = 0

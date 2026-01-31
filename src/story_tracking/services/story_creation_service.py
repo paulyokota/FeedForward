@@ -108,6 +108,22 @@ except ImportError:
     ImplementationContextService = None
     IMPLEMENTATION_CONTEXT_SERVICE_AVAILABLE = False
 
+# MultiFactorScorer for story scoring (#188)
+try:
+    from src.multi_factor_scorer import (
+        MultiFactorScorer,
+        StoryScoreInput,
+        MultiFactorScores,
+        create_default_scores,
+    )
+    MULTI_FACTOR_SCORER_AVAILABLE = True
+except ImportError:
+    MultiFactorScorer = None
+    StoryScoreInput = None
+    MultiFactorScores = None
+    create_default_scores = None
+    MULTI_FACTOR_SCORER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Constants for data limits (used in theme data building and story generation)
@@ -451,6 +467,7 @@ class StoryCreationService:
         pm_review_service: Optional["PMReviewService"] = None,
         pm_review_enabled: bool = False,
         implementation_context_service: Optional["ImplementationContextService"] = None,
+        multi_factor_scorer: Optional["MultiFactorScorer"] = None,
     ):
         """
         Initialize the story creation service.
@@ -563,6 +580,27 @@ class StoryCreationService:
                     "Will be skipped during story creation."
                 )
                 self.implementation_context_enabled = False
+
+        # Initialize multi-factor scorer (#188)
+        # Feature flag controlled via environment variable
+        self.multi_factor_scoring_enabled = (
+            os.getenv("MULTI_FACTOR_SCORING_ENABLED", "true").lower() == "true"
+        )
+        self.multi_factor_scorer = multi_factor_scorer
+
+        if self.multi_factor_scoring_enabled:
+            if multi_factor_scorer:
+                logger.info("Multi-factor scoring enabled (scorer provided)")
+            elif MULTI_FACTOR_SCORER_AVAILABLE:
+                # Auto-create scorer if available
+                self.multi_factor_scorer = MultiFactorScorer()
+                logger.info("Multi-factor scoring enabled (auto-initialized)")
+            else:
+                logger.warning(
+                    "Multi-factor scoring enabled but scorer not available. "
+                    "Scoring will be skipped during story creation."
+                )
+                self.multi_factor_scoring_enabled = False
 
     def process_pm_review_results(
         self,
@@ -1008,12 +1046,26 @@ class StoryCreationService:
                 theme_data=theme_data,
             )
 
+        # Compute multi-factor scores (Issue #188)
+        multi_scores = self._compute_multi_factor_scores(
+            conversations=conversations,
+            implementation_context=implementation_context,
+            code_context=code_context,
+            evidence_count=len(conversations),
+        )
+
         # Create story with hybrid cluster metadata
         story = self.story_service.create(StoryCreate(
             title=title,
             description=description,
             labels=[],
             confidence_score=confidence_score,
+            # Multi-factor scores (#188)
+            actionability_score=multi_scores.actionability_score if multi_scores else None,
+            fix_size_score=multi_scores.fix_size_score if multi_scores else None,
+            severity_score=multi_scores.severity_score if multi_scores else None,
+            churn_risk_score=multi_scores.churn_risk_score if multi_scores else None,
+            score_metadata=multi_scores.metadata if multi_scores else None,
             product_area=theme_data.get("product_area"),
             technical_area=theme_data.get("component"),
             status="candidate",
@@ -1834,6 +1886,14 @@ class StoryCreationService:
         if self.dual_format_enabled:
             code_context = self._explore_codebase_with_classification(theme_data)
 
+        # Compute multi-factor scores (Issue #188)
+        multi_scores = self._compute_multi_factor_scores(
+            conversations=conversations,
+            implementation_context=None,  # This path doesn't generate implementation context
+            code_context=code_context,
+            evidence_count=len(conversations),
+        )
+
         # Create story with confidence_score from quality gates
         story = self.story_service.create(StoryCreate(
             title=self._generate_title(signature, theme_data, generated_content),
@@ -1847,6 +1907,12 @@ class StoryCreationService:
             ),
             labels=[],
             confidence_score=confidence_score,
+            # Multi-factor scores (#188)
+            actionability_score=multi_scores.actionability_score if multi_scores else None,
+            fix_size_score=multi_scores.fix_size_score if multi_scores else None,
+            severity_score=multi_scores.severity_score if multi_scores else None,
+            churn_risk_score=multi_scores.churn_risk_score if multi_scores else None,
+            score_metadata=multi_scores.metadata if multi_scores else None,
             product_area=theme_data.get("product_area"),
             technical_area=theme_data.get("component"),
             status="candidate",
@@ -2089,6 +2155,14 @@ class StoryCreationService:
         if self.dual_format_enabled:
             code_context = self._explore_codebase_with_classification(theme_data)
 
+        # Compute multi-factor scores (Issue #188)
+        multi_scores = self._compute_multi_factor_scores(
+            conversations=conversations,
+            implementation_context=None,  # This path doesn't generate implementation context
+            code_context=code_context,
+            evidence_count=len(conversations),
+        )
+
         # Create story
         story = self.story_service.create(StoryCreate(
             title=self._generate_title(pm_result.signature, theme_data, generated_content),
@@ -2100,6 +2174,12 @@ class StoryCreationService:
                 code_context=code_context,  # Pass pre-explored context
             ),
             labels=[],
+            # Multi-factor scores (#188)
+            actionability_score=multi_scores.actionability_score if multi_scores else None,
+            fix_size_score=multi_scores.fix_size_score if multi_scores else None,
+            severity_score=multi_scores.severity_score if multi_scores else None,
+            churn_risk_score=multi_scores.churn_risk_score if multi_scores else None,
+            score_metadata=multi_scores.metadata if multi_scores else None,
             product_area=theme_data.get("product_area"),
             technical_area=theme_data.get("component"),
             status="candidate",
@@ -2177,6 +2257,14 @@ class StoryCreationService:
         if self.dual_format_enabled:
             code_context = self._explore_codebase_with_classification(theme_data)
 
+        # Compute multi-factor scores (Issue #188)
+        multi_scores = self._compute_multi_factor_scores(
+            conversations=conversations,
+            implementation_context=None,  # Sub-groups don't get implementation context
+            code_context=code_context,
+            evidence_count=len(conversations),
+        )
+
         story = self.story_service.create(StoryCreate(
             title=self._generate_title(signature, theme_data, generated_content),
             description=self._generate_description(
@@ -2188,6 +2276,12 @@ class StoryCreationService:
                 code_context,  # Pass pre-explored context
             ),
             labels=[],
+            # Multi-factor scores (#188)
+            actionability_score=multi_scores.actionability_score if multi_scores else None,
+            fix_size_score=multi_scores.fix_size_score if multi_scores else None,
+            severity_score=multi_scores.severity_score if multi_scores else None,
+            churn_risk_score=multi_scores.churn_risk_score if multi_scores else None,
+            score_metadata=multi_scores.metadata if multi_scores else None,
             product_area=theme_data.get("product_area"),
             technical_area=theme_data.get("component"),
             status="candidate",
@@ -2955,6 +3049,82 @@ class StoryCreationService:
                 "error": error_details,
                 "schema_version": "1.0",
             }
+
+    def _compute_multi_factor_scores(
+        self,
+        conversations: List["ConversationData"],
+        implementation_context: Optional[Dict[str, Any]] = None,
+        code_context: Optional[Dict[str, Any]] = None,
+        evidence_count: int = 0,
+        platform_uniformity: Optional[float] = None,
+        product_area_match: Optional[bool] = None,
+    ) -> Optional["MultiFactorScores"]:
+        """
+        Compute multi-factor scores for a story using the MultiFactorScorer.
+
+        Aggregates conversation-level data (priority, churn_risk, org_id) and
+        computes actionability, fix_size, severity, and churn_risk scores.
+
+        Args:
+            conversations: List of ConversationData objects for the story
+            implementation_context: Dict from implementation context generation
+            code_context: Dict from codebase exploration
+            evidence_count: Number of evidence items for the story
+            platform_uniformity: From confidence scoring (0-1)
+            product_area_match: From confidence scoring (bool)
+
+        Returns:
+            MultiFactorScores with all scores and metadata,
+            or None if scorer not available.
+
+        Issue: #188
+        """
+        if not self.multi_factor_scoring_enabled or not self.multi_factor_scorer:
+            return None
+
+        try:
+            # Build input from conversations
+            conv_dicts = []
+            for conv in conversations:
+                conv_dicts.append({
+                    "id": conv.id,
+                    "priority": conv.priority,
+                    "churn_risk": conv.churn_risk,
+                    "org_id": conv.org_id,
+                    "diagnostic_summary": conv.diagnostic_summary,
+                    "key_excerpts": conv.key_excerpts or [],
+                    "symptoms": conv.symptoms or [],
+                    "resolution_action": conv.resolution_action,
+                    "resolution_category": conv.resolution_category,
+                })
+
+            score_input = StoryScoreInput.from_conversation_dicts(
+                conv_dicts=conv_dicts,
+                implementation_context=implementation_context,
+                code_context=code_context,
+                evidence_count=evidence_count,
+                platform_uniformity=platform_uniformity,
+                product_area_match=product_area_match,
+            )
+
+            scores = self.multi_factor_scorer.score(score_input)
+
+            logger.debug(
+                f"Multi-factor scores computed: "
+                f"actionability={scores.actionability_score:.1f}, "
+                f"fix_size={scores.fix_size_score:.1f}, "
+                f"severity={scores.severity_score:.1f}, "
+                f"churn_risk={scores.churn_risk_score:.1f}"
+            )
+
+            return scores
+
+        except Exception as e:
+            logger.warning(
+                f"Multi-factor scoring failed: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            return None
 
     def _build_issue_text_for_classification(
         self,

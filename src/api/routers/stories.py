@@ -71,14 +71,23 @@ def list_stories(
         default=None,
         description="Filter to stories created at or after this ISO timestamp (e.g., 2024-01-15T10:30:00Z)",
     ),
+    sort_by: str = Query(
+        default="updated_at",
+        description="Sort by column: updated_at, created_at, confidence_score, actionability_score, fix_size_score, severity_score, churn_risk_score",
+    ),
+    sort_dir: str = Query(
+        default="desc",
+        pattern="^(asc|desc)$",
+        description="Sort direction: asc or desc",
+    ),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     service: StoryService = Depends(get_story_service),
 ):
     """
-    List stories with optional filtering.
+    List stories with optional filtering and sorting.
 
-    Returns paginated list of stories ordered by update time.
+    Returns paginated list of stories. Sorting supports multi-factor scores (Issue #188).
     """
     # Validate and normalize timestamp format (S1 security fix)
     validated_timestamp = None
@@ -90,6 +99,8 @@ def list_stories(
         status=status,
         product_area=product_area,
         created_since=validated_timestamp,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
         limit=limit,
         offset=offset,
     )

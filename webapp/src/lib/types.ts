@@ -54,6 +54,12 @@ export interface Story {
   technical_area: string | null;
   status: string;
   confidence_score: number | null;
+  // Multi-factor scores (Issue #188)
+  actionability_score: number | null;
+  fix_size_score: number | null;
+  severity_score: number | null;
+  churn_risk_score: number | null;
+  score_metadata: Record<string, unknown> | null;
   code_context: CodeContext | null;
   evidence_count: number;
   conversation_count: number;
@@ -165,6 +171,50 @@ export const PRIORITY_CONFIG: Record<string, { label: string; color: string }> =
     medium: { label: "Medium", color: "var(--priority-medium)" },
     low: { label: "Low", color: "var(--priority-low)" },
   };
+
+// =============================================================================
+// Sort Types (Issue #188)
+// =============================================================================
+
+export type SortKey =
+  | "updated_at"
+  | "created_at"
+  | "confidence_score"
+  | "actionability_score"
+  | "fix_size_score"
+  | "severity_score"
+  | "churn_risk_score";
+
+export const SORT_CONFIG: Record<
+  SortKey,
+  { label: string; description: string }
+> = {
+  updated_at: {
+    label: "Recently Updated",
+    description: "Most recent activity",
+  },
+  created_at: {
+    label: "Recently Created",
+    description: "Newest stories first",
+  },
+  confidence_score: {
+    label: "Confidence",
+    description: "Clustering coherence",
+  },
+  actionability_score: {
+    label: "Actionability",
+    description: "Ready to implement",
+  },
+  fix_size_score: {
+    label: "Fix Size",
+    description: "Higher = more complex fix",
+  },
+  severity_score: { label: "Severity", description: "Business impact" },
+  churn_risk_score: {
+    label: "Churn Risk",
+    description: "Customer retention risk",
+  },
+};
 
 // =============================================================================
 // Sync Types
