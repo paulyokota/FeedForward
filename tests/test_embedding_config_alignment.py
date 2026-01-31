@@ -149,7 +149,12 @@ evidence_suggestion:
         assert stats.embedding_dimensions == 1536
 
     def test_production_config_uses_large_model(self):
-        """Test the actual production config specifies text-embedding-3-large."""
+        """Test production config specifies text-embedding-3-large.
+
+        NOTE: This is a config validation test. If you intentionally changed
+        the production model, update this test AND plan for re-indexing all
+        existing embeddings (they'll be incompatible with the new model).
+        """
         import yaml
 
         config_path = PROJECT_ROOT / "config" / "research_search.yaml"
@@ -160,6 +165,102 @@ evidence_suggestion:
             assert "embedding" in config
             assert config["embedding"]["model"] == "text-embedding-3-large"
             assert config["embedding"]["dimensions"] == 1536
+
+
+class TestConfigValidation:
+    """Tests for config validation and error handling.
+
+    These tests verify that both services handle malformed or invalid
+    configuration gracefully, falling back to defaults without crashing.
+    """
+
+    def test_malformed_yaml_uses_defaults(self, tmp_path):
+        """Test malformed YAML file falls back to defaults."""
+        from research.unified_search import UnifiedSearchService
+        from research.embedding_pipeline import EmbeddingPipeline
+
+        # Create malformed YAML
+        bad_config = tmp_path / "bad_config.yaml"
+        bad_config.write_text("embedding: [this is not valid yaml structure")
+
+        service = UnifiedSearchService(config_path=bad_config)
+        pipeline = EmbeddingPipeline(config_path=bad_config)
+
+        # Both should use defaults
+        assert service._embedding_model == "text-embedding-3-small"
+        assert pipeline._embedding_model == "text-embedding-3-small"
+
+    def test_non_dict_embedding_config_uses_defaults(self, tmp_path):
+        """Test non-dict embedding value is rejected gracefully.
+
+        FAILURE MODE: If embedding config is a string instead of dict,
+        code would crash on .update() without proper type checking.
+        """
+        from research.unified_search import UnifiedSearchService
+        from research.embedding_pipeline import EmbeddingPipeline
+
+        # Create config with wrong type
+        bad_config = tmp_path / "wrong_type.yaml"
+        bad_config.write_text('embedding: "text-embedding-3-large"')  # String, not dict
+
+        service = UnifiedSearchService(config_path=bad_config)
+        pipeline = EmbeddingPipeline(config_path=bad_config)
+
+        # Both should use defaults (not crash)
+        assert service._embedding_model == "text-embedding-3-small"
+        assert pipeline._embedding_model == "text-embedding-3-small"
+
+    def test_invalid_dimensions_raises_error(self, tmp_path):
+        """Test that invalid dimensions raise ValueError early."""
+        from research.unified_search import UnifiedSearchService
+
+        # Create config with invalid dimensions
+        bad_config = tmp_path / "bad_dims.yaml"
+        bad_config.write_text("""
+embedding:
+  model: "text-embedding-3-large"
+  dimensions: -1
+""")
+
+        with pytest.raises(ValueError, match="Invalid embedding dimensions"):
+            UnifiedSearchService(config_path=bad_config)
+
+    def test_invalid_batch_size_raises_error(self, tmp_path):
+        """Test that invalid batch_size raises ValueError early."""
+        from research.embedding_pipeline import EmbeddingPipeline
+
+        # Create config with invalid batch_size
+        bad_config = tmp_path / "bad_batch.yaml"
+        bad_config.write_text("""
+embedding:
+  model: "text-embedding-3-large"
+  dimensions: 1536
+  batch_size: 0
+""")
+
+        with pytest.raises(ValueError, match="Invalid batch_size"):
+            EmbeddingPipeline(config_path=bad_config)
+
+    def test_unknown_model_logs_warning(self, tmp_path, caplog):
+        """Test that unknown model names produce a warning but don't crash."""
+        from research.unified_search import UnifiedSearchService
+        import logging
+
+        # Create config with unknown model
+        unknown_config = tmp_path / "unknown_model.yaml"
+        unknown_config.write_text("""
+embedding:
+  model: "gpt-4-turbo"
+  dimensions: 1536
+""")
+
+        with caplog.at_level(logging.WARNING):
+            service = UnifiedSearchService(config_path=unknown_config)
+
+        # Service should still initialize
+        assert service._embedding_model == "gpt-4-turbo"
+        # Warning should be logged
+        assert "Unknown embedding model" in caplog.text
 
 
 if __name__ == "__main__":

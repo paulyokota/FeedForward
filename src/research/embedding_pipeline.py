@@ -3,6 +3,15 @@ Embedding Pipeline
 
 Batch embedding generation for research content.
 Handles extraction from all sources and upserting to PostgreSQL.
+
+IMPORTANT: This pipeline MUST use the same embedding model as UnifiedSearchService.
+Vector similarity only works when embeddings are generated with the same model.
+Both services read from config/research_search.yaml to ensure alignment.
+
+If you change the model in config:
+1. All existing embeddings become incompatible with search queries
+2. You MUST re-run this pipeline (with force=True) to re-index all content
+3. Use the /api/research/stats endpoint to verify the current model
 """
 
 import hashlib
@@ -21,8 +30,16 @@ from .models import SearchableContent, ReindexResponse
 
 logger = logging.getLogger(__name__)
 
-# Configuration path
+# Resolves to {project_root}/config/research_search.yaml
+# Path: this file → research/ → src/ → project_root/
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "research_search.yaml"
+
+# Valid OpenAI embedding models - validated to prevent config errors
+VALID_EMBEDDING_MODELS = {
+    "text-embedding-3-small",
+    "text-embedding-3-large",
+    "text-embedding-ada-002",
+}
 
 
 class EmbeddingPipeline:
@@ -43,11 +60,15 @@ class EmbeddingPipeline:
         """
         Initialize the embedding pipeline.
 
+        Configuration precedence: explicit params > config file > hardcoded defaults.
+        This ensures both EmbeddingPipeline and UnifiedSearchService use the same
+        model from config by default, while allowing overrides for testing.
+
         Args:
             embedding_model: OpenAI embedding model name (defaults to config)
             embedding_dimensions: Vector dimensions (defaults to config)
             batch_size: Items per embedding API call (defaults to config)
-            config_path: Path to configuration YAML
+            config_path: Path to configuration YAML (for testing)
         """
         self._client = OpenAI()
         self._config = self._load_config(config_path or CONFIG_PATH)
@@ -56,13 +77,37 @@ class EmbeddingPipeline:
         embedding_config = self._config["embedding"]
         self._embedding_model = embedding_model or embedding_config["model"]
         self._embedding_dimensions = embedding_dimensions or embedding_config["dimensions"]
+        # batch_size is pipeline-specific - search processes one query at a time
         self._batch_size = batch_size or embedding_config["batch_size"]
+
+        # Validate model name to catch config errors early
+        if self._embedding_model not in VALID_EMBEDDING_MODELS:
+            logger.warning(
+                f"Unknown embedding model: {self._embedding_model}. "
+                f"Valid models: {VALID_EMBEDDING_MODELS}"
+            )
+
+        # Validate dimensions and batch_size
+        if not (1 <= self._embedding_dimensions <= 4096):
+            raise ValueError(f"Invalid embedding dimensions: {self._embedding_dimensions}")
+        if not (1 <= self._batch_size <= 1000):
+            raise ValueError(f"Invalid batch_size: {self._batch_size}")
+
+        logger.info(f"Embedding pipeline initialized with model: {self._embedding_model}")
 
         # Initialize adapters
         self._adapters: List[SearchSourceAdapter] = []
 
     def _load_config(self, path: Path) -> dict:
-        """Load configuration from YAML file."""
+        """
+        Load configuration from YAML file.
+
+        Merges loaded config with defaults. If config file is missing or malformed,
+        falls back to hardcoded defaults (same as UnifiedSearchService).
+
+        IMPORTANT: Default values here MUST match those in UnifiedSearchService._load_config()
+        to ensure alignment when config file is unavailable.
+        """
         defaults = {
             "embedding": {
                 "model": "text-embedding-3-small",
@@ -76,9 +121,18 @@ class EmbeddingPipeline:
                 with open(path) as f:
                     loaded = yaml.safe_load(f)
                     if loaded and "embedding" in loaded:
-                        defaults["embedding"].update(loaded["embedding"])
+                        if isinstance(loaded["embedding"], dict):
+                            defaults["embedding"].update(loaded["embedding"])
+                        else:
+                            logger.warning(
+                                f"Config key 'embedding' should be a dict, "
+                                f"got {type(loaded['embedding']).__name__}"
+                            )
             except Exception as e:
-                logger.warning(f"Failed to load config from {path}: {e}")
+                logger.error(
+                    f"Failed to load config from {path}: {e}. "
+                    f"Using hardcoded defaults. Check config file format."
+                )
 
         return defaults
 
