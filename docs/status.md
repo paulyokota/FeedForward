@@ -20,19 +20,22 @@
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 **Test Suite Optimization (Issue #147): COMPLETE** ✅
 
-## Latest: Implementation Context & Pipeline Bug (2026-01-31)
+## Latest: Pipeline API Bug Fixed (2026-01-31)
+
+**Issue #189 FIXED** - Pipeline API Environment Variable Bug
+
+- PR #191 merged: Load env vars explicitly in pipeline background task
+- Root cause: `anyio.to_thread.run_sync` worker didn't have `INTERCOM_ACCESS_TOKEN`
+- Fix: Added `load_dotenv()` with resolved absolute path + fail-fast check
+- Created `_finalize_failed_run` helper for consistent error handling
+- 5-personality review: CONVERGED in 2 rounds
+- Functional test: Run 111 completed successfully (fetched=5)
 
 **Issue #180 COMPLETE** - Hybrid Implementation Context
 
 - PR #186 merged: Adds AI-synthesized implementation guidance to stories
 - Migration 019 applied: `implementation_context` JSONB column on stories table
 - Vector retrieval from Coda pages/themes + OpenAI synthesis
-
-**Issue #189 FILED** - Pipeline API Bug
-
-- API-triggered runs (`POST /api/pipeline/run`) stuck at `fetched=0`
-- Root cause: `anyio.to_thread.run_sync` doesn't inherit environment variables
-- Workaround: Use CLI (`python -m src.classification_pipeline --days N --async`)
 
 ---
 
