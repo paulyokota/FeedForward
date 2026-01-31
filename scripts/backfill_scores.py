@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from uuid import UUID
 
+from psycopg2.extras import RealDictCursor
+
 # Add src to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -80,7 +82,7 @@ class BackfillStats:
 
 def get_stories_without_scores(conn, limit: int, offset: int) -> List[Dict]:
     """Get stories that don't have multi-factor scores."""
-    with conn.cursor() as cur:
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute("""
             SELECT id, title, implementation_context, code_context
             FROM stories
@@ -96,7 +98,7 @@ def get_stories_without_scores(conn, limit: int, offset: int) -> List[Dict]:
 
 def get_total_unscored_count(conn) -> int:
     """Get total count of stories without scores."""
-    with conn.cursor() as cur:
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute("""
             SELECT COUNT(*) as count
             FROM stories
@@ -110,7 +112,7 @@ def get_total_unscored_count(conn) -> int:
 
 def get_conversation_data_for_story(conn, story_id: UUID) -> List[Dict]:
     """Get conversation data for scoring from story evidence."""
-    with conn.cursor() as cur:
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
         # Get conversation_ids from story_evidence
         cur.execute("""
             SELECT conversation_ids
@@ -158,7 +160,7 @@ def update_story_scores(
 
     try:
         import json
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
                 UPDATE stories
                 SET actionability_score = %s,
