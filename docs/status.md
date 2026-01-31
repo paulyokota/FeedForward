@@ -20,7 +20,39 @@
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 **Test Suite Optimization (Issue #147): COMPLETE** ✅
 
-## Latest: Issue #176 Fix - Duplicate Orphan Signature Cascade (2026-01-30)
+## Latest: Pre-existing Test Fixes & Embedding Migration (2026-01-30)
+
+**PR #183 merged** - Fixed 16 pre-existing test failures
+**PR #184 merged** - Embedding model alignment between search and pipeline
+
+### Test Fixes (PR #183)
+
+After Issue #178 changed `dual_format_enabled` default to `True`, 16 tests started failing:
+
+| File                                    | Fix Applied                                                |
+| --------------------------------------- | ---------------------------------------------------------- |
+| `test_domain_classifier_integration.py` | Skip when `REPO_BASE_PATH` unavailable                     |
+| `test_issue_148_event_loop.py`          | Use real `QualityCheckResult` dataclass (3 occurrences)    |
+| `test_phase5_integration.py`            | Add `dual_format_enabled=False` + `create_or_get` mock     |
+| `test_pipeline_canonical_flow.py`       | Add `dual_format_enabled=False` to 7 tests + fixture mocks |
+| `test_story_creation_service.py`        | Update default behavior test to expect `True`              |
+
+**5-personality review**: All 5 approved in Round 1
+
+### Embedding Migration (PR #184)
+
+Fixed Issue #181 where `UnifiedSearchService` and `EmbeddingPipeline` could use different embedding models. After merge, ran reindex with `force=true`:
+
+| Metric           | Before                    | After                                |
+| ---------------- | ------------------------- | ------------------------------------ |
+| Total embeddings | 10                        | **1,786**                            |
+| Coda pages       | 0                         | 1,234                                |
+| Intercom         | 5                         | 547                                  |
+| Model alignment  | ❌ Potentially mismatched | ✅ Both use `text-embedding-3-small` |
+
+---
+
+## Previous: Issue #176 Fix - Duplicate Orphan Signature Cascade (2026-01-30)
 
 **Issue #176 CLOSED** - PR #177 merged
 

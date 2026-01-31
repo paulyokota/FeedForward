@@ -8,6 +8,25 @@ Format: [ISO Date] - Summary of changes
 
 ## [Unreleased]
 
+### Fixed
+
+**Pre-existing Test Failures (2026-01-30)** - PR #183:
+
+- Fixed 16 tests failing after Issue #178 changed `dual_format_enabled` default to `True`
+- `test_issue_148_event_loop.py`: Use real `QualityCheckResult` dataclass instead of Mock (required for `asdict()`)
+- `test_pipeline_canonical_flow.py`: Add `create_or_get` mock returning tuple, `dual_format_enabled=False` for 7 tests
+- `test_phase5_integration.py`: Add `dual_format_enabled=False` + `create_or_get` tuple mock
+- `test_domain_classifier_integration.py`: Skip latency test when `REPO_BASE_PATH` unavailable
+- `test_story_creation_service.py`: Update default behavior test to expect `dual_format_enabled=True`
+- 5-personality review: All 5 approved in Round 1
+
+**Embedding Model Alignment (2026-01-30)** - Issue #181, PR #184:
+
+- Fixed `UnifiedSearchService` and `EmbeddingPipeline` potentially using different embedding models
+- Both services now read from shared `config/research_search.yaml`
+- Added model validation and configuration precedence (explicit > config > defaults)
+- Ran embedding migration: 10 → 1,786 embeddings re-indexed with aligned model
+
 ### Added
 
 **Evidence Bundle Improvements (2026-01-30)** - Issues #156, #157, #158, PR #174:
