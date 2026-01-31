@@ -20,7 +20,21 @@
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 **Test Suite Optimization (Issue #147): COMPLETE** ✅
 
-## Latest: Pre-existing Test Fixes & Embedding Migration (2026-01-30)
+## Latest: BrokenPipe Pipeline Fix (2026-01-30)
+
+**Issue #185 fixed** - Pipeline no longer crashes when uvicorn reloads during execution
+
+Root cause: `print()` statements fail with `BrokenPipeError` when background task loses stdout. Solution: Replace with logging using `SafeStreamHandler` that gracefully ignores broken pipes.
+
+| Metric                  | Value        |
+| ----------------------- | ------------ |
+| print() calls converted | 93 (83 + 10) |
+| New tests added         | 9            |
+| Files modified          | 5            |
+
+---
+
+## Previous: Pre-existing Test Fixes & Embedding Migration (2026-01-30)
 
 **PR #183 merged** - Fixed 16 pre-existing test failures
 **PR #184 merged** - Embedding model alignment between search and pipeline

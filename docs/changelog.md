@@ -10,6 +10,14 @@ Format: [ISO Date] - Summary of changes
 
 ### Fixed
 
+**BrokenPipe Pipeline Crashes (2026-01-30)** - Issue #185:
+
+- Pipeline runs no longer crash when uvicorn reloads during execution
+- Replaced 93 `print()` calls with `logging` in classification and embedding pipelines
+- Added `SafeStreamHandler` that gracefully ignores broken pipe errors
+- Added `configure_safe_logging()` for CLI scripts
+- Tests: 9 new test cases for logging utilities
+
 **Pre-existing Test Failures (2026-01-30)** - PR #183:
 
 - Fixed 16 tests failing after Issue #178 changed `dual_format_enabled` default to `True`
