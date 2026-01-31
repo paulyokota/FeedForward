@@ -20,7 +20,23 @@
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 **Test Suite Optimization (Issue #147): COMPLETE** ✅
 
-## Latest: BrokenPipe Pipeline Fix (2026-01-30)
+## Latest: Implementation Context & Pipeline Bug (2026-01-31)
+
+**Issue #180 COMPLETE** - Hybrid Implementation Context
+
+- PR #186 merged: Adds AI-synthesized implementation guidance to stories
+- Migration 019 applied: `implementation_context` JSONB column on stories table
+- Vector retrieval from Coda pages/themes + OpenAI synthesis
+
+**Issue #189 FILED** - Pipeline API Bug
+
+- API-triggered runs (`POST /api/pipeline/run`) stuck at `fetched=0`
+- Root cause: `anyio.to_thread.run_sync` doesn't inherit environment variables
+- Workaround: Use CLI (`python -m src.classification_pipeline --days N --async`)
+
+---
+
+## Previous: BrokenPipe Pipeline Fix (2026-01-30)
 
 **Issue #185 fixed** - Pipeline no longer crashes when uvicorn reloads during execution
 

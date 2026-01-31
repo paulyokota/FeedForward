@@ -1,47 +1,43 @@
-# Session: 2026-01-30 - Issue #185 BrokenPipe Fix
+# Last Session Summary
 
-## Summary
+**Date**: 2026-01-31
+**Branch**: main (after PR #186 merge)
 
-Fixed pipeline crashes caused by `BrokenPipeError` when uvicorn reloads during execution.
+## Completed
 
-## What Was Done
+### Issue #180 - Hybrid Implementation Context ✅
 
-1. **Root Cause Analysis**: Pipeline run 98 crashed because `print()` statements fail when stdout closes during uvicorn reload
+- **PR #186 merged** with 1,334 insertions across 11 files
+- Migration 019 applied: `implementation_context` JSONB column
+- New service: `ImplementationContextService` (retrieval + synthesis)
+- 5-personality review: 2 rounds, CONVERGED
+- Codex review feedback addressed in commit 25c6586
 
-2. **Solution Implemented**:
-   - Created `src/logging_utils.py` with `SafeStreamHandler` and `configure_safe_logging()`
-   - Converted 83 `print()` calls in `classification_pipeline.py` to logging
-   - Converted 10 `print()` calls in `embedding_pipeline.py` to logging
-   - Updated `api/main.py` to use `SafeStreamHandler`
+### Issue #187 Filed
 
-3. **Testing**:
-   - Created `tests/test_logging_utils.py` with 9 test cases
-   - Verified BrokenPipe simulation: `python -m src.classification_pipeline ... | head -n 1` no longer crashes
-   - All pipeline tests pass
+- Follow-up: Centralize YAML config loading (optional cleanup from Codex review)
 
-4. **Code Review**:
-   - 5-personality review completed (2 rounds)
-   - Fixed: Missing tests, redundant OSError handler, unused imports
+## Discovered
+
+### Issue #189 Filed - Pipeline API Bug 🐛
+
+- API-triggered runs stuck at `fetched=0` indefinitely
+- Root cause: `anyio.to_thread.run_sync` doesn't inherit env vars
+- CLI pipeline works fine as workaround
+- Blocked validation of #180 implementation context feature
 
 ## Key Decisions
 
-| Decision                                               | Rationale                                         |
-| ------------------------------------------------------ | ------------------------------------------------- |
-| SafeStreamHandler catches BrokenPipeError + ValueError | Both can occur when stdout closes                 |
-| Log level defaults to INFO for CLI                     | Some libraries (OpenAI) set WARNING during import |
-| Per-conversation logs stay at INFO                     | Intentional for CLI progress visibility           |
-| Decorative separators kept                             | Intentional for CLI readability                   |
+1. **Retrieval scope**: Evidence-only (Coda pages/themes) initially; stories/orphans deferred until embedded
+2. **Config approach**: YAML config passed to service at init, not read internally
+3. **Schema versioning**: Added `schema_version: "1.0"` for forward compatibility
 
-## Commit
+## Next Steps
 
-```
-72c5b4b fix: Replace print() with logging to prevent BrokenPipe crashes (#185)
-```
+1. Fix Issue #189 (pipeline API env var bug)
+2. Validate #180: Run pipeline, check ≥95% stories have implementation_context
+3. Consider Issue #187 (config centralization) for future cleanup
 
-## Files Changed
+---
 
-- `src/logging_utils.py` (new)
-- `tests/test_logging_utils.py` (new)
-- `src/api/main.py`
-- `src/classification_pipeline.py`
-- `src/research/embedding_pipeline.py`
+_Session ended 2026-01-31_
