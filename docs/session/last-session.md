@@ -1,48 +1,46 @@
-# Session Notes: 2026-02-01
+# Session Notes - 2026-02-01
 
-## Issue #200: 30-Day Recency Gate for Story Creation
+## Issue #202: Pipeline Checkpoint/Resumability
 
-### Summary
+### Accomplished
 
-Implemented a hard-coded 30-day recency requirement for story creation. Groups must include at least one conversation created within the last 30 days. All-old groups route to orphan accumulation with reason "No recent conversations (last 30 days)".
+- **PR #204 merged**: Full checkpoint/resume implementation for classification phase
+- **5 rounds of Codex review** addressing:
+  - Round 1: Initial implementation review
+  - Round 2: Date matching fix (day-only comparison), cursor behavior clarification
+  - Round 3: True resumability (skip classification for stored IDs), safety check for multiple runs
+  - Round 4: Monotonic counters (stats include totals), documented resume behavior
+  - Round 5: Clarified stage2_run/classification_changed are per-run counters
 
-### Key Decisions
+### Key Implementation Decisions
 
-| Decision                  | Choice                                       | Rationale                                      |
-| ------------------------- | -------------------------------------------- | ---------------------------------------------- |
-| Orphan graduation recency | Query conversations table at graduation time | Single source of truth                         |
-| High-severity bypass      | NO bypass                                    | Recency is about staleness, not urgency        |
-| Gate ordering             | Recency right after MIN_GROUP_SIZE           | Clearer failure reasons                        |
-| Boundary condition        | `>=` (inclusive)                             | 30 days ago = recent                           |
-| Missing created_at        | Treat as NOT recent                          | Conservative approach                          |
-| Constant location         | `models/orphan.py`                           | Single source of truth, next to MIN_GROUP_SIZE |
+1. **Re-fetch + skip classification** (not cursor-based resume)
+   - Trade-off: ~5-10 min fetch overhead vs implementation complexity
+   - Benefit: Preserves 30-60 min of classification work
 
-### Implementation
+2. **Safety for multiple resumable runs**
+   - Auto-select if only 1 resumable run
+   - Require explicit `resume_run_id` if multiple
 
-**Files Changed (8 files, +1012/-89 lines):**
+3. **Monotonic counters**
+   - `classified` and `stored` include `skipped_count` (previously processed)
+   - `stage2_run` and `classification_changed` are per-run (not cumulative)
 
-- `src/api/routers/pipeline.py` - Add `created_at` to SQL query
-- `src/story_tracking/models/orphan.py` - Add `RECENCY_WINDOW_DAYS` constant
-- `src/story_tracking/models/__init__.py` - Export `RECENCY_WINDOW_DAYS`
-- `src/story_tracking/services/story_creation_service.py` - Add `_has_recent_conversation` helper, recency gates
-- `src/story_tracking/services/orphan_service.py` - Add recency methods, `skip_recency_check` parameter
-- `tests/test_recency_gate.py` - New test file (29 tests)
-- `tests/test_story_creation_service.py` - Add `created_at` to test fixtures
-- `tests/test_story_creation_service_pm_review.py` - Add `created_at` to test fixtures
+### Files Added/Modified
 
-### Review Feedback (Codex)
+- `docs/backfill-runbook.md` - New operations guide
+- `src/db/migrations/022_checkpoint_column.sql` - Schema migration
+- `tests/test_pipeline_checkpoint.py` - 22 new tests
+- `src/api/routers/pipeline.py` - Resume logic, checkpoint persistence
+- `src/classification_pipeline.py` - Skip classification for stored IDs
+- `src/intercom_client.py` - Cursor callback support
 
-1. **BLOCKER - RealDictCursor compatibility**: Changed index-based access (`result[0]`) to dict-style access (`result["has_recent"]`) to match psycopg2 RealDictCursor behavior
-2. **MAJOR - N+1 query elimination**: Added `skip_recency_check` parameter to `graduate()` so bulk graduation doesn't repeat per-orphan recency checks
+### Blockers/Issues Encountered
 
-### Tests
+- Context compaction during review required session recovery
+- Multiple rounds needed to address counter regression on resume
 
-- 29 new recency gate tests
-- 130 story creation service tests (22 required `created_at` fixture updates)
-- All tests pass
+### Next Steps
 
-### PR
-
-- PR #203: https://github.com/paulyokota/FeedForward/pull/203
-- Merged to main
-- Issue #200: CLOSED
+- Apply migration 022 to production database
+- Monitor first real backfill with checkpoint enabled

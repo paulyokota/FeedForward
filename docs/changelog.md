@@ -10,6 +10,23 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Pipeline Checkpoint/Resumability (2026-02-01)** - Issue #202, PR #204:
+
+- **Checkpoint persistence**: JSONB `checkpoint` column in `pipeline_runs` table
+  - Tracks phase, cursor (observability), counts (fetched/classified/stored)
+  - Saved after each storage batch to prevent data loss
+- **Resume capability**: `resume=true` parameter with optional `resume_run_id`
+  - Auto-selects most recent resumable run if only one exists
+  - Requires explicit `resume_run_id` if multiple resumable runs
+  - Uses original run's date range, preserves `started_at` timestamp
+- **Classification skip**: Queries DB for already-stored conversation IDs
+  - Skips classification for previously processed conversations
+  - Preserves 30-60 min of expensive LLM work on resume
+- **Monotonic counters**: Stats include totals (new + previously processed)
+- **Safety checks**: Clears `completed_at`/`error_message` on resume
+- **Documentation**: `docs/backfill-runbook.md` with operations guide
+- **Tests**: 22 new tests for checkpoint functionality
+
 **Implementation Head-Start Relevance (2026-01-31)** - Issue #198, PR #201:
 
 - **High-signal term detection**: Terms from `product_area`, `component`, `error` fields prioritized

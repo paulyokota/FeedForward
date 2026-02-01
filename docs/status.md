@@ -22,8 +22,26 @@
 **Story Evidence Quality (Issue #197): COMPLETE** ✅
 **Implementation Head-Start Relevance (Issue #198): COMPLETE** ✅
 **30-Day Recency Gate (Issue #200): COMPLETE** ✅
+**Pipeline Checkpoint/Resumability (Issue #202): COMPLETE** ✅
 
-## Latest: 30-Day Recency Gate (2026-02-01)
+## Latest: Pipeline Checkpoint/Resumability (2026-02-01)
+
+**Issue #202 COMPLETE** - Pipeline Checkpoint/Resumability for Long Backfills
+
+- PR #204 merged: Checkpoint persistence + resume capability for classification phase
+- Key features:
+  - JSONB `checkpoint` column in `pipeline_runs` for progress tracking
+  - `resume=true` + optional `resume_run_id` for explicit cross-day resume
+  - Skip classification for already-stored conversations (preserves 30-60 min work)
+  - Safety: requires `resume_run_id` if multiple resumable runs exist
+  - Monotonic counters: stats include totals (new + previously processed)
+- Resume behavior documented: re-fetch all + skip classification for stored IDs
+- New files: `docs/backfill-runbook.md`, migration 022, 22 new tests
+- 5-personality review: CONVERGED after 5 rounds with Codex
+
+---
+
+## Previous: 30-Day Recency Gate (2026-02-01)
 
 **Issue #200 COMPLETE** - 30-Day Recency Gate for Story Creation
 
