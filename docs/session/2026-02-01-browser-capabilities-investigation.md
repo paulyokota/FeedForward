@@ -142,10 +142,21 @@ Example: Drag-and-drop testing, screenshot capture
 
 | Tool | Available | Notes |
 |------|-----------|-------|
-| `gh` CLI | **No** | Not installed in this environment |
-| `git` commands | **Yes** | Full git access (push, pull, branch, etc.) |
+| `gh` CLI | **Can be installed** | `apt-get install gh` works, but requires auth |
+| `git` commands | **Yes** | Full access via local proxy (handles auth) |
 | `curl` | **Yes** | Can call GitHub API directly |
 | GitHub API via WebFetch | **Yes** | Read-only for public repos |
+
+### gh CLI Installation (Tested 2026-02-01)
+
+**Installation:** Works via `apt-get install -y gh`
+
+**Authentication:** Required even for public repos. Options:
+1. `gh auth login --web` - Device code flow (requires browser interaction)
+2. `GH_TOKEN` environment variable - Not available in this environment
+3. `--with-token` flag - Requires manual token input
+
+**Key insight:** Git operations (push/pull/branch) work because they go through a local proxy (`127.0.0.1:36229`) that handles authentication. The `gh` CLI uses the GitHub API directly and needs separate authentication.
 
 ### Capability Matrix
 
@@ -196,7 +207,7 @@ curl -X POST \
 
 **Missing:** No `GITHUB_TOKEN` or `GH_TOKEN` available in this environment.
 
-### CLAUDE.md Discrepancy
+### CLAUDE.md vs Reality
 
 The project's `CLAUDE.md` references `gh` commands:
 ```markdown
@@ -204,10 +215,13 @@ The project's `CLAUDE.md` references `gh` commands:
 - Use `gh issue create` to create new issues
 ```
 
-However, **`gh` CLI is not available** in the current environment. This should be addressed by either:
-1. Installing `gh` CLI in the environment
-2. Updating CLAUDE.md to reflect actual capabilities
-3. Providing a GitHub token for API access
+**Reality in browser-based Claude Code:**
+- `gh` CLI can be installed (`apt-get install gh`)
+- However, `gh` requires authentication even for reading public repos
+- Git operations work (proxy-authenticated) but `gh` API calls don't
+- No `GITHUB_TOKEN` is provided in the environment
+
+**Workaround for reading:** Use WebFetch + GitHub API for public repo data
 
 ## Gaps and Recommendations
 
@@ -216,8 +230,9 @@ However, **`gh` CLI is not available** in the current environment. This should b
 1. **No MCP configuration** - `.mcp.json` not present, limiting MCP tool access
 2. **Authentication complexity** - Playwright scripts require interactive login
 3. **No headless CI integration** - Current setup assumes interactive mode
-4. **No `gh` CLI** - Referenced in CLAUDE.md but not available
+4. **`gh` CLI needs auth** - Can be installed but requires token or device-code login
 5. **No GitHub token** - Cannot create/modify issues, PRs, or comments via API
+6. **Split auth model** - Git operations work (proxy auth), but GitHub API needs separate token
 
 ### Recommendations
 
