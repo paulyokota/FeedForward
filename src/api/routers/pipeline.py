@@ -1776,15 +1776,17 @@ def _finalize_failed_run(run_id: int, error_message: str) -> None:
     _active_runs[run_id] = "failed"
 
 
-def _find_resumable_run(date_from: datetime, date_to: datetime) -> Optional[dict]:
-    """Find a run eligible for resume.
+def _find_most_recent_resumable_run() -> Optional[dict]:
+    """Find the most recent run eligible for resume.
 
     Issue #202: Resumable run eligibility rules:
     1. Status in ('stopped', 'failed', 'stopping')
     2. Has non-empty checkpoint: checkpoint != '{}'::jsonb
-    3. date_from/date_to match EXACTLY (guards against days drift)
-    4. Checkpoint phase is 'classification' (only phase resumable in MVP)
-    5. If multiple matches: pick newest by started_at
+    3. Checkpoint phase is 'classification' (only phase resumable in MVP)
+    4. Pick newest by started_at
+
+    Note: No date matching - finds most recent resumable run regardless of when it started.
+    This supports cross-day resume (start Monday, resume Tuesday).
 
     Returns:
         Dict with run id, checkpoint, date_from, date_to if found, else None
@@ -1794,19 +1796,15 @@ def _find_resumable_run(date_from: datetime, date_to: datetime) -> Optional[dict
 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Issue #202: Use date-only comparison (truncate timestamps to day)
-            # since exact timestamp match would fail (recomputed dates differ by seconds)
             cur.execute("""
                 SELECT id, checkpoint, date_from, date_to, auto_create_stories
                 FROM pipeline_runs
                 WHERE status IN ('stopped', 'failed', 'stopping')
                   AND checkpoint IS NOT NULL
                   AND checkpoint != '{}'::jsonb
-                  AND date_from::date = %s::date
-                  AND date_to::date = %s::date
                 ORDER BY started_at DESC
                 LIMIT 1
-            """, (date_from, date_to))
+            """)
             row = cur.fetchone()
 
     if not row:
@@ -1909,16 +1907,13 @@ def start_pipeline_run(
                            "with a non-empty checkpoint in classification phase."
                 )
         else:
-            # No explicit run_id - use date matching for safety
-            date_to = datetime.now(timezone.utc)
-            date_from = date_to - timedelta(days=request.days)
-
-            # Find resumable run with matching date range
-            existing = _find_resumable_run(date_from, date_to)
+            # No explicit run_id - find most recent resumable run
+            # This supports cross-day resume (start Monday, resume Tuesday)
+            existing = _find_most_recent_resumable_run()
             if not existing:
                 raise HTTPException(
                     status_code=400,
-                    detail="No resumable run found for this date range. "
+                    detail="No resumable run found. "
                            "Resumable runs must be in stopped/failed/stopping status "
                            "with a non-empty checkpoint in classification phase. "
                            "Tip: Use resume_run_id to target a specific run."

@@ -155,15 +155,15 @@ class TestSaveCheckpointBestEffort:
 
 
 # -----------------------------------------------------------------------------
-# _find_resumable_run Unit Tests
+# _find_most_recent_resumable_run Unit Tests
 # -----------------------------------------------------------------------------
 
 
 class TestFindResumableRun:
-    """Tests for _find_resumable_run helper function."""
+    """Tests for _find_most_recent_resumable_run helper function."""
 
     def test_finds_matching_run(self):
-        """Test finding a valid resumable run."""
+        """Test finding the most recent resumable run."""
         date_from = datetime(2026, 1, 1, tzinfo=timezone.utc)
         date_to = datetime(2026, 1, 8, tzinfo=timezone.utc)
         checkpoint = {"phase": "classification", "intercom_cursor": "abc"}
@@ -183,17 +183,15 @@ class TestFindResumableRun:
             mock_get_conn.return_value.__enter__ = Mock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = Mock(return_value=False)
 
-            result = pipeline_module._find_resumable_run(date_from, date_to)
+            # No date parameters - finds most recent resumable run
+            result = pipeline_module._find_most_recent_resumable_run()
 
             assert result is not None
             assert result["id"] == 42
             assert result["checkpoint"] == checkpoint
 
     def test_returns_none_if_no_match(self):
-        """Test returns None when no matching run exists."""
-        date_from = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        date_to = datetime(2026, 1, 8, tzinfo=timezone.utc)
-
+        """Test returns None when no resumable run exists."""
         with patch("src.db.connection.get_connection") as mock_get_conn:
             mock_conn = Mock()
             mock_cursor = Mock()
@@ -203,7 +201,7 @@ class TestFindResumableRun:
             mock_get_conn.return_value.__enter__ = Mock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = Mock(return_value=False)
 
-            result = pipeline_module._find_resumable_run(date_from, date_to)
+            result = pipeline_module._find_most_recent_resumable_run()
 
             assert result is None
 
@@ -229,7 +227,7 @@ class TestFindResumableRun:
             mock_get_conn.return_value.__enter__ = Mock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = Mock(return_value=False)
 
-            result = pipeline_module._find_resumable_run(date_from, date_to)
+            result = pipeline_module._find_most_recent_resumable_run()
 
             assert result is None
 
@@ -315,7 +313,7 @@ class TestResumeEndpoint:
 
     def test_resume_no_eligible_run_returns_400(self, client, mock_db):
         """Test resume with no eligible run returns 400."""
-        with patch.object(pipeline_module, "_find_resumable_run", return_value=None):
+        with patch.object(pipeline_module, "_find_most_recent_resumable_run", return_value=None):
             response = client.post(
                 "/api/pipeline/run",
                 json={"days": 7, "resume": True}
@@ -344,7 +342,7 @@ class TestResumeEndpoint:
         mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
         mock_db.cursor.return_value.__exit__ = Mock(return_value=False)
 
-        with patch.object(pipeline_module, "_find_resumable_run", return_value=existing_run):
+        with patch.object(pipeline_module, "_find_most_recent_resumable_run", return_value=existing_run):
             with patch.object(pipeline_module, "_cleanup_terminal_runs"):
                 with patch.object(pipeline_module, "_run_pipeline_async"):
                     response = client.post(
@@ -389,7 +387,7 @@ class TestResumeEndpoint:
         mock_db.cursor.return_value.__exit__ = Mock(return_value=False)
 
         with patch.object(pipeline_module, "_find_resumable_run_by_id", return_value=existing_run) as mock_by_id:
-            with patch.object(pipeline_module, "_find_resumable_run") as mock_by_date:
+            with patch.object(pipeline_module, "_find_most_recent_resumable_run") as mock_most_recent:
                 with patch.object(pipeline_module, "_cleanup_terminal_runs"):
                     with patch.object(pipeline_module, "_run_pipeline_async"):
                         response = client.post(
@@ -400,9 +398,9 @@ class TestResumeEndpoint:
                         assert response.status_code == 200
                         data = response.json()
                         assert data["run_id"] == 100
-                        # Should use by-ID lookup, not date matching
+                        # Should use by-ID lookup, not most-recent lookup
                         mock_by_id.assert_called_once_with(100)
-                        mock_by_date.assert_not_called()
+                        mock_most_recent.assert_not_called()
 
     def test_resume_run_id_not_found_returns_400(self, client, mock_db):
         """Test resume with invalid resume_run_id returns 400."""

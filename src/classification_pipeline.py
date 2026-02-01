@@ -497,6 +497,9 @@ async def run_pipeline_async(
         since = datetime.utcnow() - timedelta(days=days)
         until = datetime.utcnow()
 
+    # Issue #202: Track warnings for observability
+    classification_warnings = []
+
     # Issue #202: On resume, we deliberately re-fetch from the beginning (no cursor).
     # The checkpoint cursor points to end-of-fetch (since checkpoint is saved after storage),
     # so using it would skip all conversations. Instead, we rely on upsert to handle duplicates.
@@ -504,11 +507,15 @@ async def run_pipeline_async(
     if checkpoint and checkpoint.get("phase") == "classification":
         stored_count = checkpoint.get("conversations_processed", 0)
         logger.info("Resuming from checkpoint: %d conversations already stored, re-fetching from beginning", stored_count)
+        # Emit warning so operators see the re-fetch tradeoff
+        classification_warnings.append(
+            f"Resuming: {stored_count} conversations already stored. "
+            "Re-fetching all conversations from beginning - upsert will skip duplicates. "
+            "This adds fetch overhead but preserves classification progress."
+        )
 
     # Issue #202: Track current cursor for checkpoint persistence (observability only)
     current_cursor = [None]  # Use list to allow mutation in callback
-    # Issue #202: Track warnings for observability
-    classification_warnings = []
 
     def cursor_callback(new_cursor: str) -> None:
         """Called after each page to track cursor for checkpointing (observability)."""
