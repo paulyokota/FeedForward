@@ -10,6 +10,23 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Backfill Reliability - Rate Limiting (2026-02-01)** - Issue #205, PR #208:
+
+- **429 rate limit handling**: Added to RETRYABLE_STATUS_CODES with Retry-After parsing
+  - Supports both seconds ("30") and HTTP-date formats
+  - Adds 0-50% jitter to prevent thundering herd
+- **Runtime configuration knobs** (now enforced, not just declared):
+  - `INTERCOM_FETCH_CONCURRENCY`: Semaphore for batch fetches (1-100, default 10)
+  - `INTERCOM_PER_PAGE`: Default pagination size (1-150, default 50)
+  - `INTERCOM_MAX_RPS`: Rate limiting delay between requests (0 = no limit)
+- **Rate limit observability**: Logs X-RateLimit-Remaining, warns when < 100
+- **Tests**: 28 tests for rate limit and retry logic
+
+**Backfill Observability (2026-02-01)** - Issue #205, PR #207:
+
+- **`/history` endpoint parity**: Added `embeddings_failed` and `facets_failed` fields
+- **Schema sync**: Regenerated `schema.sql` from live database (22 migrations synced)
+
 **Pipeline Checkpoint/Resumability (2026-02-01)** - Issue #202, PR #204:
 
 - **Checkpoint persistence**: JSONB `checkpoint` column in `pipeline_runs` table

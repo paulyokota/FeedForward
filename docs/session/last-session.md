@@ -1,46 +1,57 @@
-# Session Notes - 2026-02-01
+# Last Session Summary
 
-## Issue #202: Pipeline Checkpoint/Resumability
+**Date**: 2026-02-01
+**Issue**: #205 - Full Historical Backfill Blockers
 
-### Accomplished
+## Accomplishments
 
-- **PR #204 merged**: Full checkpoint/resume implementation for classification phase
-- **5 rounds of Codex review** addressing:
-  - Round 1: Initial implementation review
-  - Round 2: Date matching fix (day-only comparison), cursor behavior clarification
-  - Round 3: True resumability (skip classification for stored IDs), safety check for multiple runs
-  - Round 4: Monotonic counters (stats include totals), documented resume behavior
-  - Round 5: Clarified stage2_run/classification_changed are per-run counters
+### Merged PRs
 
-### Key Implementation Decisions
+| PR   | Blockers | Summary                                            |
+| ---- | -------- | -------------------------------------------------- |
+| #207 | 5+6      | `/history` endpoint parity + schema sync           |
+| #208 | 2        | 429 rate limiting with Retry-After + runtime knobs |
 
-1. **Re-fetch + skip classification** (not cursor-based resume)
-   - Trade-off: ~5-10 min fetch overhead vs implementation complexity
-   - Benefit: Preserves 30-60 min of classification work
+### Key Changes
 
-2. **Safety for multiple resumable runs**
-   - Auto-select if only 1 resumable run
-   - Require explicit `resume_run_id` if multiple
+**Rate Limit Handling (Blocker 2):**
 
-3. **Monotonic counters**
-   - `classified` and `stored` include `skipped_count` (previously processed)
-   - `stage2_run` and `classification_changed` are per-run (not cumulative)
+- Added 429 to `RETRYABLE_STATUS_CODES`
+- Retry-After parsing (seconds and HTTP-date formats)
+- Jitter (0-50%) to prevent thundering herd
+- Runtime knobs now enforced (not just declared)
 
-### Files Added/Modified
+**Observability (Blockers 5+6):**
 
-- `docs/backfill-runbook.md` - New operations guide
-- `src/db/migrations/022_checkpoint_column.sql` - Schema migration
-- `tests/test_pipeline_checkpoint.py` - 22 new tests
-- `src/api/routers/pipeline.py` - Resume logic, checkpoint persistence
-- `src/classification_pipeline.py` - Skip classification for stored IDs
-- `src/intercom_client.py` - Cursor callback support
+- Added `embeddings_failed`, `facets_failed` to `/history`
+- Regenerated `schema.sql` from live database
 
-### Blockers/Issues Encountered
+## Key Decisions
 
-- Context compaction during review required session recovery
-- Multiple rounds needed to address counter regression on resume
+1. **PR Split**: Original PR #206 split into focused PRs per Codex review
+2. **Blocker 1 Deferred**: Cursor-based resume needs streaming batch architecture
+3. **Knobs Enforced**: FETCH_CONCURRENCY, PER_PAGE, MAX_RPS now actually used
 
-### Next Steps
+## Lessons Learned
 
-- Apply migration 022 to production database
-- Monitor first real backfill with checkpoint enabled
+- **Codex review adds value**: Caught that runtime knobs were declared but not enforced
+- **Split PRs when advised**: Separating concerns makes review and merge easier
+- **Don't implement half-measures**: Blocker 1's cursor logic was unsafe with fetch-all architecture
+
+## Deferred Work
+
+**Blocker 1 (True Batch-Level Resume):**
+
+- Current architecture fetches ALL conversations before classification
+- Cursor saved at end-of-fetch is unsafe for resume
+- Needs full streaming batch loop: fetch batch → classify → store → checkpoint → repeat
+- Filed as follow-on work for Issue #205
+
+## Next Steps
+
+1. Blocker 1 implementation (streaming batch architecture)
+2. Or move to other priorities - pipeline is now rate-limit safe for backfills
+
+---
+
+_Session completed: 2026-02-01_
