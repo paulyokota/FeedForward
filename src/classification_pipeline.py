@@ -53,6 +53,72 @@ from src.context_provider import get_context_provider
 # Async OpenAI client for parallel processing
 async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# Issue #202: Checkpoint update frequency (overrideable via env var for tests)
+CHECKPOINT_UPDATE_FREQUENCY = int(os.getenv("CHECKPOINT_UPDATE_FREQUENCY", "50"))
+
+
+def _save_classification_checkpoint(
+    run_id: int,
+    cursor: Optional[str],
+    fetched: int,
+    classified: int = 0,
+    stored: int = 0,
+) -> None:
+    """Save classification phase checkpoint for resumability.
+
+    Issue #202: Called periodically during storage loop.
+
+    Args:
+        run_id: Pipeline run ID
+        cursor: Current Intercom pagination cursor (for observability)
+        fetched: Total conversations fetched from Intercom
+        classified: Number classified so far
+        stored: Number stored so far (represents actual progress)
+    """
+    from datetime import timezone as tz
+    from src.api.routers.pipeline import _save_checkpoint, _active_checkpoints
+
+    checkpoint = {
+        "phase": "classification",
+        "intercom_cursor": cursor,
+        "conversations_processed": stored,  # Progress = durably stored count
+        "updated_at": datetime.now(tz.utc).isoformat(),
+        "counts": {
+            "fetched": fetched,
+            "classified": classified,
+            "stored": stored,
+        }
+    }
+
+    # Update in-memory checkpoint for finalize functions
+    _active_checkpoints[run_id] = checkpoint
+
+    # Persist to database
+    try:
+        _save_checkpoint(run_id, checkpoint)
+        logger.debug(f"Run {run_id}: Checkpoint saved at {stored} stored conversations")
+    except Exception as e:
+        logger.warning(f"Run {run_id}: Checkpoint save failed: {e}")
+
+
+def _clear_checkpoint(run_id: int) -> None:
+    """Clear checkpoint after classification completes successfully.
+
+    Issue #202: Signals that classification is complete and not resumable.
+    Later phases (embeddings, facets, themes) are not resumable in MVP.
+    """
+    from src.api.routers.pipeline import _save_checkpoint, _active_checkpoints
+
+    # Clear from in-memory tracking
+    _active_checkpoints.pop(run_id, None)
+
+    # Clear in database
+    try:
+        _save_checkpoint(run_id, {})
+        logger.info(f"Run {run_id}: Checkpoint cleared after classification complete")
+    except Exception as e:
+        logger.warning(f"Run {run_id}: Checkpoint clear failed: {e}")
+
 
 def extract_support_messages(raw_conversation: dict) -> List[str]:
     """
@@ -363,6 +429,9 @@ async def run_pipeline_async(
     data_source: str = "intercom",
     stop_checker: Optional[callable] = None,
     pipeline_run_id: Optional[int] = None,
+    checkpoint: Optional[Dict[str, Any]] = None,
+    date_from_override: Optional[datetime] = None,
+    date_to_override: Optional[datetime] = None,
 ) -> Dict[str, int]:
     """
     Run the two-stage classification pipeline with async parallelization.
@@ -378,6 +447,9 @@ async def run_pipeline_async(
         data_source: Source to process ("intercom" or "coda")
         stop_checker: Optional callable returning True if pipeline should stop
         pipeline_run_id: Pipeline run ID for accurate run scoping (links conversations to run)
+        checkpoint: Issue #202 - Optional checkpoint dict to resume from
+        date_from_override: Issue #202 - Override date range start (for resume)
+        date_to_override: Issue #202 - Override date range end (for resume)
 
     Returns:
         Statistics dictionary
@@ -415,7 +487,37 @@ async def run_pipeline_async(
 
     # Default: Intercom pipeline
     client = IntercomClient()
-    since = datetime.utcnow() - timedelta(days=days)
+
+    # Issue #202: Use date overrides if provided (resume case), else compute from days
+    if date_from_override and date_to_override:
+        since = date_from_override
+        until = date_to_override
+        logger.info("Resuming with original date range: %s to %s", since, until)
+    else:
+        since = datetime.utcnow() - timedelta(days=days)
+        until = datetime.utcnow()
+
+    # Issue #202: Initialize from checkpoint if resuming classification phase
+    initial_cursor = None
+    if checkpoint and checkpoint.get("phase") == "classification":
+        initial_cursor = checkpoint.get("intercom_cursor")
+        logger.info("Resuming from checkpoint cursor: %s...", initial_cursor[:20] if initial_cursor else "None")
+
+    # Issue #202: Track current cursor for checkpoint persistence
+    current_cursor = [initial_cursor]  # Use list to allow mutation in callback
+    # Issue #202: Track warnings for observability (e.g., cursor fallback)
+    classification_warnings = []
+
+    def cursor_callback(new_cursor: str) -> None:
+        """Called after each page to track cursor for checkpointing."""
+        current_cursor[0] = new_cursor
+
+    def on_cursor_fallback() -> None:
+        """Called when resume cursor was invalid and we restarted from beginning."""
+        classification_warnings.append(
+            "Resume cursor was invalid - restarted fetch from beginning. "
+            "Some conversations may be re-processed."
+        )
 
     # Phase 1: Fetch all conversations (fully async with aiohttp)
     # Issue #164: Track recovery candidates (filtered but potentially recoverable)
@@ -425,7 +527,11 @@ async def run_pipeline_async(
 
     async for parsed, raw_conv in client.fetch_quality_conversations_async(
         since=since,
+        until=until,
         recovery_candidates=recovery_candidates,
+        initial_cursor=initial_cursor,
+        cursor_callback=cursor_callback,
+        on_cursor_fallback=on_cursor_fallback,
     ):
         # Check for stop signal during fetch
         if should_stop():
@@ -438,6 +544,9 @@ async def run_pipeline_async(
 
         if len(conversations) % 50 == 0:
             logger.info("  Fetched %d conversations...", len(conversations))
+            # Issue #202: Track cursor but DON'T persist checkpoint here.
+            # Checkpoint is persisted AFTER storage to prevent data loss on crash.
+            # See C2 fix: checkpoint saved after storage, not after fetch.
 
         if max_conversations and len(conversations) >= max_conversations:
             break
@@ -551,6 +660,7 @@ async def run_pipeline_async(
         "stored": 0,
         "stage2_run": sum(1 for r in results if r["stage2_result"]),
         "classification_changed": sum(1 for r in results if (r.get("stage2_result") or {}).get("changed_from_stage_1")),
+        "warnings": classification_warnings,  # Issue #202: Observability for cursor fallback
     }
 
     if not dry_run:
@@ -562,6 +672,25 @@ async def run_pipeline_async(
             stored = store_classification_results_batch(batch, pipeline_run_id=pipeline_run_id)
             stats["stored"] += stored
             logger.info("  Stored batch %d: %d rows", i // batch_size + 1, stored)
+
+            # Issue #202 C2 fix: Save checkpoint AFTER storage, not during fetch.
+            # This prevents data loss: checkpoint only advances after data is durably stored.
+            # Note: cursor is for observability; on resume, we re-fetch from beginning
+            # and upsert handles duplicates. True cursor-based resume requires batch processing.
+            if pipeline_run_id:
+                _save_classification_checkpoint(
+                    pipeline_run_id,
+                    current_cursor[0],  # For observability
+                    fetched=stats["fetched"],  # Total fetched (constant after fetch phase)
+                    classified=stats["classified"],
+                    stored=stats["stored"],  # Actual progress
+                )
+
+        # Issue #202: Clear checkpoint after classification completes successfully
+        # This signals that classification is done and later phases can proceed.
+        # If interrupted between classification and embeddings, classification won't re-run.
+        if pipeline_run_id:
+            _clear_checkpoint(pipeline_run_id)
 
     # Log summary
     logger.info("")

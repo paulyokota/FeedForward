@@ -46,6 +46,17 @@ class PipelineRunRequest(BaseModel):
         default=False,
         description="If True, automatically run PM review and create stories after theme extraction"
     )
+    resume: bool = Field(
+        default=False,
+        description="If True, resume from last checkpoint instead of starting fresh. "
+                    "Only works for stopped/failed runs with non-empty checkpoint in classification phase."
+    )
+    resume_run_id: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Explicit run ID to resume. If provided with resume=True, bypasses date matching "
+                    "and resumes this specific run. Run must be in stopped/failed status with valid checkpoint."
+    )
 
 
 class PipelineRunResponse(BaseModel):
@@ -106,6 +117,9 @@ class PipelineStatus(BaseModel):
 
     # Computed
     duration_seconds: Optional[float] = None
+
+    # Checkpoint for observability (#202)
+    checkpoint: Optional[dict] = None
 
     class Config:
         from_attributes = True
