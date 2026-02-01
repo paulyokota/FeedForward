@@ -2164,7 +2164,7 @@ def get_pipeline_history(
         cur.execute("""
             SELECT id, started_at, completed_at,
                    conversations_fetched, conversations_classified, conversations_stored,
-                   embeddings_generated, facets_extracted,
+                   embeddings_generated, embeddings_failed, facets_extracted, facets_failed,
                    current_phase, themes_extracted, stories_created, stories_ready,
                    status, COALESCE(jsonb_array_length(errors), 0) as error_count
             FROM pipeline_runs
@@ -2189,7 +2189,9 @@ def get_pipeline_history(
             conversations_classified=row["conversations_classified"] or 0,
             conversations_stored=row["conversations_stored"] or 0,
             embeddings_generated=row.get("embeddings_generated") or 0,  # #106
+            embeddings_failed=row.get("embeddings_failed") or 0,  # #106
             facets_extracted=row.get("facets_extracted") or 0,  # #107
+            facets_failed=row.get("facets_failed") or 0,  # #107
             themes_extracted=row["themes_extracted"] or 0,
             stories_created=row["stories_created"] or 0,
             stories_ready=row["stories_ready"] or False,

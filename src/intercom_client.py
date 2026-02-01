@@ -12,9 +12,11 @@ Supports both sync and async modes:
 import asyncio
 import logging
 import os
+import random
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from typing import AsyncGenerator, Generator, Optional
 
 import aiohttp
@@ -57,11 +59,17 @@ class IntercomClient:
     # - read: time to receive response (30s allows for slow API responses)
     DEFAULT_TIMEOUT = (10, 30)
 
-    # Retry configuration for transient errors (5xx)
+    # Retry configuration for transient errors (429 rate limit, 5xx server errors)
     # 3 retries with 2s base delay = max 14s total wait (2+4+8), reasonable for API ops
     MAX_RETRIES = 3
     RETRY_DELAY_BASE = 2  # seconds, exponential backoff: 2s, 4s, 8s
-    RETRYABLE_STATUS_CODES = {500, 502, 503, 504}
+    RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}  # Issue #205: Added 429 for rate limit handling
+
+    # Runtime configuration knobs (Issue #205: Backfill tuning)
+    # Validated to prevent misconfiguration causing resource exhaustion
+    FETCH_CONCURRENCY = max(1, min(100, int(os.getenv("INTERCOM_FETCH_CONCURRENCY", "10"))))
+    PER_PAGE = max(1, min(150, int(os.getenv("INTERCOM_PER_PAGE", "50"))))  # Intercom max is 150
+    MAX_RPS = max(0.0, min(100.0, float(os.getenv("INTERCOM_MAX_RPS", "0"))))  # 0 = no limit
 
     # Template messages to skip
     TEMPLATE_MESSAGES = [
@@ -94,6 +102,57 @@ class IntercomClient:
             "Intercom-Version": self.API_VERSION,
         })
 
+    @staticmethod
+    def _parse_retry_after(header_value: str) -> int:
+        """
+        Parse Retry-After header value.
+
+        The header can be either:
+        - An integer (seconds to wait)
+        - An HTTP-date (absolute time to retry after)
+
+        Args:
+            header_value: The Retry-After header value
+
+        Returns:
+            Number of seconds to wait (minimum 1)
+        """
+        try:
+            # Try parsing as integer (seconds)
+            return max(1, int(header_value))
+        except ValueError:
+            # Try parsing as HTTP-date format
+            try:
+                retry_at = parsedate_to_datetime(header_value)
+                # Ensure timezone-aware comparison (RFC 7231 requires GMT but handle edge cases)
+                if retry_at.tzinfo is None:
+                    retry_at = retry_at.replace(tzinfo=timezone.utc)
+                delta = (retry_at - datetime.now(timezone.utc)).total_seconds()
+                return max(1, int(delta))
+            except (ValueError, TypeError):
+                # If parsing fails, return a safe default (10s is typical rate limit window)
+                return 10
+
+    @staticmethod
+    def _add_jitter(base_delay: float) -> float:
+        """
+        Add jitter to a delay to prevent thundering herd.
+
+        When multiple concurrent requests hit rate limits simultaneously,
+        synchronized retries can repeatedly collide. Jitter randomizes
+        retry timing to spread load and increase success rate.
+
+        Adds 0-50% of base delay, so total delay is 100-150% of base.
+
+        Args:
+            base_delay: The base delay in seconds
+
+        Returns:
+            Delay with jitter added
+        """
+        jitter = random.uniform(0, 0.5 * base_delay)
+        return base_delay + jitter
+
     def _request_with_retry(
         self,
         method: str,
@@ -105,11 +164,12 @@ class IntercomClient:
         Make an HTTP request with retry on transient errors.
 
         Retries on:
+        - 429 rate limit (with Retry-After header support)
         - 5xx server errors (500, 502, 503, 504)
         - Connection errors (network issues, timeouts)
 
         Does NOT retry on:
-        - 4xx client errors (these indicate a problem with the request)
+        - 4xx client errors (except 429, these indicate a problem with the request)
         """
         url = f"{self.BASE_URL}{endpoint}"
         last_exception = None
@@ -121,21 +181,50 @@ class IntercomClient:
                 else:
                     response = self.session.post(url, json=json, timeout=self.timeout)
 
-                # Check if we should retry on 5xx
+                # Issue #205: Log rate limit headers for observability
+                remaining = response.headers.get("X-RateLimit-Remaining")
+                if remaining is not None:
+                    try:
+                        remaining_int = int(remaining)
+                        if remaining_int < 100:
+                            logger.warning(
+                                f"Rate limit low: {remaining_int} requests remaining on {endpoint}"
+                            )
+                        else:
+                            logger.debug(f"Rate limit remaining: {remaining_int} on {endpoint}")
+                    except (ValueError, TypeError):
+                        pass  # Ignore invalid header values
+
+                # Check if we should retry on retryable status codes
                 if response.status_code in self.RETRYABLE_STATUS_CODES:
                     if attempt < self.max_retries:
-                        delay = self.RETRY_DELAY_BASE * (2 ** attempt)
-                        logger.warning(
-                            f"Intercom API error {response.status_code} on {endpoint}, "
-                            f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
-                        )
+                        # Issue #205: Handle 429 with Retry-After header
+                        if response.status_code == 429:
+                            retry_after = response.headers.get("Retry-After")
+                            if retry_after:
+                                base_delay = self._parse_retry_after(retry_after)
+                            else:
+                                base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                            delay = self._add_jitter(base_delay)
+                            logger.warning(
+                                f"Rate limited (429) on {endpoint}, waiting {delay:.1f}s "
+                                f"(retry-after={retry_after}, attempt {attempt + 1}/{self.max_retries + 1})"
+                            )
+                        else:
+                            # 5xx errors: exponential backoff with jitter
+                            base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                            delay = self._add_jitter(base_delay)
+                            logger.warning(
+                                f"Intercom API error {response.status_code} on {endpoint}, "
+                                f"retrying in {delay:.1f}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                            )
                         time.sleep(delay)
                         continue
                     else:
                         # Last attempt failed, raise the error
                         response.raise_for_status()
 
-                # For non-5xx errors (including 4xx), raise immediately without retry
+                # For non-retryable errors (4xx except 429), raise immediately without retry
                 response.raise_for_status()
                 return response.json()
 
@@ -143,10 +232,11 @@ class IntercomClient:
                 # Retry on connection-level errors
                 last_exception = e
                 if attempt < self.max_retries:
-                    delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                    base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                    delay = self._add_jitter(base_delay)
                     logger.warning(
                         f"Intercom API connection error: {e}, "
-                        f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                        f"retrying in {delay:.1f}s (attempt {attempt + 1}/{self.max_retries + 1})"
                     )
                     time.sleep(delay)
                 else:
@@ -202,13 +292,42 @@ class IntercomClient:
             try:
                 if method == "GET":
                     async with session.get(url, params=params) as response:
+                        # Issue #205: Log rate limit headers for observability
+                        remaining = response.headers.get("X-RateLimit-Remaining")
+                        if remaining is not None:
+                            try:
+                                remaining_int = int(remaining)
+                                if remaining_int < 100:
+                                    logger.warning(
+                                        f"Rate limit low: {remaining_int} requests remaining on {endpoint}"
+                                    )
+                                else:
+                                    logger.debug(f"Rate limit remaining: {remaining_int} on {endpoint}")
+                            except (ValueError, TypeError):
+                                pass  # Ignore invalid header values
+
                         if response.status in self.RETRYABLE_STATUS_CODES:
                             if attempt < self.max_retries:
-                                delay = self.RETRY_DELAY_BASE * (2 ** attempt)
-                                logger.warning(
-                                    f"Intercom API error {response.status} on {endpoint}, "
-                                    f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
-                                )
+                                # Issue #205: Handle 429 with Retry-After header
+                                if response.status == 429:
+                                    retry_after = response.headers.get("Retry-After")
+                                    if retry_after:
+                                        base_delay = self._parse_retry_after(retry_after)
+                                    else:
+                                        base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                                    delay = self._add_jitter(base_delay)
+                                    logger.warning(
+                                        f"Rate limited (429) on {endpoint}, waiting {delay:.1f}s "
+                                        f"(retry-after={retry_after}, attempt {attempt + 1}/{self.max_retries + 1})"
+                                    )
+                                else:
+                                    # 5xx errors: exponential backoff with jitter
+                                    base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                                    delay = self._add_jitter(base_delay)
+                                    logger.warning(
+                                        f"Intercom API error {response.status} on {endpoint}, "
+                                        f"retrying in {delay:.1f}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                                    )
                                 await asyncio.sleep(delay)
                                 continue
                             else:
@@ -217,13 +336,42 @@ class IntercomClient:
                         return await response.json()
                 else:
                     async with session.post(url, json=json_data) as response:
+                        # Issue #205: Log rate limit headers for observability
+                        remaining = response.headers.get("X-RateLimit-Remaining")
+                        if remaining is not None:
+                            try:
+                                remaining_int = int(remaining)
+                                if remaining_int < 100:
+                                    logger.warning(
+                                        f"Rate limit low: {remaining_int} requests remaining on {endpoint}"
+                                    )
+                                else:
+                                    logger.debug(f"Rate limit remaining: {remaining_int} on {endpoint}")
+                            except (ValueError, TypeError):
+                                pass  # Ignore invalid header values
+
                         if response.status in self.RETRYABLE_STATUS_CODES:
                             if attempt < self.max_retries:
-                                delay = self.RETRY_DELAY_BASE * (2 ** attempt)
-                                logger.warning(
-                                    f"Intercom API error {response.status} on {endpoint}, "
-                                    f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
-                                )
+                                # Issue #205: Handle 429 with Retry-After header
+                                if response.status == 429:
+                                    retry_after = response.headers.get("Retry-After")
+                                    if retry_after:
+                                        base_delay = self._parse_retry_after(retry_after)
+                                    else:
+                                        base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                                    delay = self._add_jitter(base_delay)
+                                    logger.warning(
+                                        f"Rate limited (429) on {endpoint}, waiting {delay:.1f}s "
+                                        f"(retry-after={retry_after}, attempt {attempt + 1}/{self.max_retries + 1})"
+                                    )
+                                else:
+                                    # 5xx errors: exponential backoff with jitter
+                                    base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                                    delay = self._add_jitter(base_delay)
+                                    logger.warning(
+                                        f"Intercom API error {response.status} on {endpoint}, "
+                                        f"retrying in {delay:.1f}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                                    )
                                 await asyncio.sleep(delay)
                                 continue
                             else:
@@ -233,10 +381,11 @@ class IntercomClient:
 
             except aiohttp.ClientError as e:
                 if attempt < self.max_retries:
-                    delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                    base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                    delay = self._add_jitter(base_delay)
                     logger.warning(
                         f"Intercom API connection error: {e}, "
-                        f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                        f"retrying in {delay:.1f}s (attempt {attempt + 1}/{self.max_retries + 1})"
                     )
                     await asyncio.sleep(delay)
                 else:
@@ -458,13 +607,20 @@ class IntercomClient:
                         session, "POST", "/conversations/search", json_data=search_query
                     )
                 except aiohttp.ClientResponseError as e:
-                    # Issue #202: Handle invalid cursor gracefully (HTTP 4xx errors only)
-                    # Only attempt fallback for client errors (invalid cursor returns 400/422),
-                    # not for rate limits (429) or server errors (5xx) which should propagate.
+                    # Issue #205: Handle invalid cursor gracefully
+                    # Cursor can become invalid if it expires or API state changes.
+                    #
+                    # Retry WITHOUT cursor for: 4xx client errors (except 429)
+                    #   - 400/422: Invalid/expired cursor → restart from beginning
+                    #   - Other 4xx: Request malformed → likely cursor issue
+                    #
+                    # DO NOT retry for:
+                    #   - 429 (rate limit): Not a cursor issue, normal retry with same cursor
+                    #   - 5xx (server error): Not a cursor issue, normal retry with same cursor
                     if initial_cursor and not cursor_fallback_attempted and e.status < 500 and e.status != 429:
                         logger.warning(
-                            f"Search failed with cursor {initial_cursor[:20] if initial_cursor else 'None'}..., "
-                            f"HTTP {e.status}, restarting from beginning: {e}"
+                            "Search failed with cursor <present>, HTTP %d, restarting from beginning: %s",
+                            e.status, e
                         )
                         cursor_fallback_attempted = True
                         starting_after = None

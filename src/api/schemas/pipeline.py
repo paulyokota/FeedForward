@@ -137,7 +137,9 @@ class PipelineRunListItem(BaseModel):
     conversations_classified: int = 0
     conversations_stored: int = 0
     embeddings_generated: int = 0  # #106
+    embeddings_failed: int = 0  # #106
     facets_extracted: int = 0  # #107
+    facets_failed: int = 0  # #107
     themes_extracted: int = 0
     stories_created: int = 0
     stories_ready: bool = False

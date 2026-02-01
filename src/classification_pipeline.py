@@ -525,11 +525,32 @@ async def run_pipeline_async(
     # Issue #202: Track warnings for observability
     classification_warnings = []
 
-    # Issue #202: On resume, query already-stored conversation IDs to skip classification
+    # Issue #202/205: Resume uses two-layer deduplication for safety
+    #
+    # Layer 1 (API): Resume from cursor to skip already-fetched pages
+    #   - Saves API calls and time
+    #   - Falls back to beginning if cursor invalid (Intercom cursors can expire)
+    #
+    # Layer 2 (DB): Skip classification for already-stored conversation IDs
+    #   - Safety net: prevents duplicate classification even if cursor fails
+    #   - Preserves expensive LLM work from before interruption
+    #
+    # Both layers needed because cursor expiration could force restart from beginning
     already_stored_ids: set = set()
+    initial_cursor: Optional[str] = None  # Issue #205: Cursor for true resume
+    cursor_was_invalid = [False]  # Track if cursor fallback occurred
+
     if checkpoint and checkpoint.get("phase") == "classification" and pipeline_run_id:
         stored_count = checkpoint.get("conversations_processed", 0)
         logger.info("Resuming from checkpoint: %d conversations already stored", stored_count)
+
+        # Issue #205: Extract cursor for true resume (skip already-fetched pages)
+        initial_cursor = checkpoint.get("intercom_cursor")
+        if initial_cursor:
+            logger.info("  Will resume from cursor: <cursor-present, %d chars>", len(initial_cursor))
+        else:
+            logger.info("  No cursor in checkpoint, will fetch from beginning")
+
         # Query DB for already-stored conversation IDs to skip classification
         already_stored_ids = _get_stored_conversation_ids(pipeline_run_id)
         logger.info("  Found %d conversation IDs in database, will skip classification for these", len(already_stored_ids))
@@ -537,12 +558,23 @@ async def run_pipeline_async(
             f"Resuming: {len(already_stored_ids)} conversations already stored, will skip classification for these."
         )
 
-    # Issue #202: Track current cursor for checkpoint persistence (observability only)
+    # Issue #202/205: Track current cursor for checkpoint persistence
+    # - Cursor enables true resume: skip already-fetched API pages on restart
+    # - Stored in checkpoint for resume on next run
+    # - Also provides observability during execution
     current_cursor = [None]  # Use list to allow mutation in callback
 
     def cursor_callback(new_cursor: str) -> None:
-        """Called after each page to track cursor for checkpointing (observability)."""
+        """Called after each page to track cursor for checkpointing."""
         current_cursor[0] = new_cursor
+
+    def on_cursor_fallback() -> None:
+        """Called when initial_cursor was invalid and we restarted from beginning."""
+        cursor_was_invalid[0] = True
+        classification_warnings.append(
+            "Resume cursor was invalid/expired, restarted fetch from beginning."
+        )
+        logger.warning("Cursor fallback: initial cursor was invalid, restarting from beginning")
 
     # Phase 1: Fetch all conversations (fully async with aiohttp)
     # Issue #164: Track recovery candidates (filtered but potentially recoverable)
@@ -554,7 +586,9 @@ async def run_pipeline_async(
         since=since,
         until=until,
         recovery_candidates=recovery_candidates,
+        initial_cursor=initial_cursor,  # Issue #205: True cursor-based resume
         cursor_callback=cursor_callback,  # For observability in checkpoint
+        on_cursor_fallback=on_cursor_fallback,  # Issue #205: Notify on fallback
     ):
         # Check for stop signal during fetch
         if should_stop():
