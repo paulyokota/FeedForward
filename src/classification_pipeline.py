@@ -497,27 +497,22 @@ async def run_pipeline_async(
         since = datetime.utcnow() - timedelta(days=days)
         until = datetime.utcnow()
 
-    # Issue #202: Initialize from checkpoint if resuming classification phase
-    initial_cursor = None
+    # Issue #202: On resume, we deliberately re-fetch from the beginning (no cursor).
+    # The checkpoint cursor points to end-of-fetch (since checkpoint is saved after storage),
+    # so using it would skip all conversations. Instead, we rely on upsert to handle duplicates.
+    # The cursor is saved in checkpoint for observability/debugging only.
     if checkpoint and checkpoint.get("phase") == "classification":
-        initial_cursor = checkpoint.get("intercom_cursor")
-        logger.info("Resuming from checkpoint cursor: %s...", initial_cursor[:20] if initial_cursor else "None")
+        stored_count = checkpoint.get("conversations_processed", 0)
+        logger.info("Resuming from checkpoint: %d conversations already stored, re-fetching from beginning", stored_count)
 
-    # Issue #202: Track current cursor for checkpoint persistence
-    current_cursor = [initial_cursor]  # Use list to allow mutation in callback
-    # Issue #202: Track warnings for observability (e.g., cursor fallback)
+    # Issue #202: Track current cursor for checkpoint persistence (observability only)
+    current_cursor = [None]  # Use list to allow mutation in callback
+    # Issue #202: Track warnings for observability
     classification_warnings = []
 
     def cursor_callback(new_cursor: str) -> None:
-        """Called after each page to track cursor for checkpointing."""
+        """Called after each page to track cursor for checkpointing (observability)."""
         current_cursor[0] = new_cursor
-
-    def on_cursor_fallback() -> None:
-        """Called when resume cursor was invalid and we restarted from beginning."""
-        classification_warnings.append(
-            "Resume cursor was invalid - restarted fetch from beginning. "
-            "Some conversations may be re-processed."
-        )
 
     # Phase 1: Fetch all conversations (fully async with aiohttp)
     # Issue #164: Track recovery candidates (filtered but potentially recoverable)
@@ -529,9 +524,7 @@ async def run_pipeline_async(
         since=since,
         until=until,
         recovery_candidates=recovery_candidates,
-        initial_cursor=initial_cursor,
-        cursor_callback=cursor_callback,
-        on_cursor_fallback=on_cursor_fallback,
+        cursor_callback=cursor_callback,  # For observability in checkpoint
     ):
         # Check for stop signal during fetch
         if should_stop():

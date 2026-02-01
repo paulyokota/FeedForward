@@ -1794,14 +1794,16 @@ def _find_resumable_run(date_from: datetime, date_to: datetime) -> Optional[dict
 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Issue #202: Use date-only comparison (truncate timestamps to day)
+            # since exact timestamp match would fail (recomputed dates differ by seconds)
             cur.execute("""
                 SELECT id, checkpoint, date_from, date_to, auto_create_stories
                 FROM pipeline_runs
                 WHERE status IN ('stopped', 'failed', 'stopping')
                   AND checkpoint IS NOT NULL
                   AND checkpoint != '{}'::jsonb
-                  AND date_from = %s
-                  AND date_to = %s
+                  AND date_from::date = %s::date
+                  AND date_to::date = %s::date
                 ORDER BY started_at DESC
                 LIMIT 1
             """, (date_from, date_to))
@@ -1931,10 +1933,13 @@ def start_pipeline_run(
 
         # Update status back to 'running' for the resumed run
         # Note: Don't update started_at - preserve original timestamp for audit trail
+        # Clear completed_at and error_message to avoid stale data while running
         with db.cursor() as cur:
             cur.execute("""
                 UPDATE pipeline_runs
-                SET status = 'running'
+                SET status = 'running',
+                    completed_at = NULL,
+                    error_message = NULL
                 WHERE id = %s
             """, (run_id,))
         db.commit()

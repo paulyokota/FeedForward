@@ -457,13 +457,14 @@ class IntercomClient:
                     data = await self._request_with_retry_async(
                         session, "POST", "/conversations/search", json_data=search_query
                     )
-                except Exception as e:
-                    # Issue #202: Handle invalid cursor gracefully
-                    # If API returns error and we had an initial_cursor, try restarting from beginning
-                    if initial_cursor and not cursor_fallback_attempted:
+                except aiohttp.ClientResponseError as e:
+                    # Issue #202: Handle invalid cursor gracefully (HTTP 4xx errors only)
+                    # Only attempt fallback for client errors (invalid cursor returns 400/422),
+                    # not for rate limits (429) or server errors (5xx) which should propagate.
+                    if initial_cursor and not cursor_fallback_attempted and e.status < 500 and e.status != 429:
                         logger.warning(
                             f"Search failed with cursor {initial_cursor[:20] if initial_cursor else 'None'}..., "
-                            f"restarting from beginning: {e}"
+                            f"HTTP {e.status}, restarting from beginning: {e}"
                         )
                         cursor_fallback_attempted = True
                         starting_after = None
@@ -472,7 +473,7 @@ class IntercomClient:
                         if on_cursor_fallback:
                             on_cursor_fallback()
                         continue  # Retry without cursor
-                    raise  # Re-raise if fallback already attempted or no cursor
+                    raise  # Re-raise if fallback already attempted, no cursor, or non-cursor error
 
                 conversations = data.get("conversations", [])
 
