@@ -408,6 +408,70 @@ def _update_phase(run_id: int, phase: str, **extra_fields) -> None:
     logger.info(f"Run {run_id}: Phase updated to '{phase}'")
 
 
+# =============================================================================
+# Checkpoint Persistence (Issue #202)
+# =============================================================================
+# Module-level dict to track in-memory checkpoint state for active runs.
+# This allows finalize functions to save the latest checkpoint on stop/fail.
+# Limitation: Single-process only. See plan for multi-worker considerations.
+_active_checkpoints: dict[int, dict] = {}
+
+
+def _save_checkpoint(run_id: int, checkpoint: dict) -> None:
+    """Persist checkpoint for resumability. Also updates phase counts.
+
+    Uses GREATEST to ensure counts are monotonic (never regress on resume).
+
+    Issue #202: Checkpoint enables resuming long-running backfills.
+
+    Args:
+        run_id: Pipeline run ID
+        checkpoint: Checkpoint dict with phase, cursor, counts, updated_at
+    """
+    from src.db.connection import get_connection
+    from psycopg2.extras import Json
+
+    counts = checkpoint.get("counts", {})
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE pipeline_runs SET
+                    checkpoint = %s,
+                    conversations_fetched = GREATEST(conversations_fetched, COALESCE(%s, 0)),
+                    conversations_classified = GREATEST(conversations_classified, COALESCE(%s, 0)),
+                    conversations_stored = GREATEST(conversations_stored, COALESCE(%s, 0))
+                WHERE id = %s
+            """, (
+                Json(checkpoint),
+                counts.get("fetched"),
+                counts.get("classified"),
+                counts.get("stored"),
+                run_id
+            ))
+
+    # Note: conversations_filtered is computed during classification (filtering out
+    # already-processed conversations). It's updated separately by the existing
+    # classification logic, not by checkpoint saves.
+
+
+def _save_checkpoint_best_effort(run_id: int) -> None:
+    """Best-effort checkpoint save for finalize functions.
+
+    Saves the current in-memory checkpoint state (if any) before finalizing.
+    Does not raise exceptions - checkpoint save is best-effort.
+
+    Issue #202: Called from _finalize_stopped_run and _finalize_failed_run.
+    """
+    if run_id in _active_checkpoints:
+        try:
+            _save_checkpoint(run_id, _active_checkpoints[run_id])
+            logger.info(f"Run {run_id}: Checkpoint saved before finalize")
+        except Exception as e:
+            logger.warning(f"Run {run_id}: Best-effort checkpoint save failed: {e}")
+        finally:
+            _active_checkpoints.pop(run_id, None)
+
+
 async def _run_embedding_generation_async(
     run_id: int, stop_checker: Callable[[], bool]
 ) -> dict:
@@ -1283,6 +1347,9 @@ async def _run_pipeline_async(
     dry_run: bool,
     concurrency: int,
     auto_create_stories: bool = False,
+    checkpoint: Optional[dict] = None,
+    date_from_override: Optional[datetime] = None,
+    date_to_override: Optional[datetime] = None,
 ):
     """
     Async wrapper that runs the pipeline task in a thread pool.
@@ -1296,6 +1363,8 @@ async def _run_pipeline_async(
 
     By using anyio.to_thread.run_sync(), the blocking work runs in a separate
     thread, allowing the event loop to continue serving HTTP requests.
+
+    Issue #202: Added checkpoint and date override params for resume support.
     """
     await anyio.to_thread.run_sync(
         lambda: _run_pipeline_task(
@@ -1305,6 +1374,9 @@ async def _run_pipeline_async(
             dry_run=dry_run,
             concurrency=concurrency,
             auto_create_stories=auto_create_stories,
+            checkpoint=checkpoint,
+            date_from_override=date_from_override,
+            date_to_override=date_to_override,
         ),
         # abandon_on_cancel=True allows graceful shutdown when stop signal received
         # (Note: 'cancellable' was deprecated in anyio 4.1.0+)
@@ -1319,6 +1391,9 @@ def _run_pipeline_task(
     dry_run: bool,
     concurrency: int,
     auto_create_stories: bool = False,
+    checkpoint: Optional[dict] = None,
+    date_from_override: Optional[datetime] = None,
+    date_to_override: Optional[datetime] = None,
 ):
     """
     Background task to execute the hybrid pipeline.
@@ -1331,6 +1406,10 @@ def _run_pipeline_task(
 
     Updates the pipeline_runs table with progress and results.
     Checks for stop signal between phases and exits gracefully if stopping.
+
+    Issue #202: Added checkpoint and date override params for resume support.
+    When resuming, checkpoint contains the cursor to continue from, and
+    date overrides ensure we use the original run's date range.
     """
     import asyncio
     import os
@@ -1375,6 +1454,7 @@ def _run_pipeline_task(
         _update_phase(run_id, "classification")
 
         # Run the async classification pipeline
+        # Issue #202: Pass checkpoint and date overrides for resume support
         result = asyncio.run(run_pipeline_async(
             days=days,
             max_conversations=max_conversations,
@@ -1382,6 +1462,9 @@ def _run_pipeline_task(
             concurrency=concurrency,
             stop_checker=stop_checker,
             pipeline_run_id=run_id,
+            checkpoint=checkpoint,
+            date_from_override=date_from_override,
+            date_to_override=date_to_override,
         ))
 
         if stop_checker():
@@ -1389,6 +1472,9 @@ def _run_pipeline_task(
             return
 
         # Update classification results
+        # Issue #202: Stats now include proper totals (new + skipped from previous run),
+        # so direct SET is correct and counters won't regress on resume.
+        classification_warnings = result.get("warnings", [])
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -1396,13 +1482,15 @@ def _run_pipeline_task(
                         conversations_fetched = %s,
                         conversations_filtered = %s,
                         conversations_classified = %s,
-                        conversations_stored = %s
+                        conversations_stored = %s,
+                        warnings = COALESCE(warnings, '[]'::jsonb) || %s::jsonb
                     WHERE id = %s
                 """, (
                     result.get("fetched", 0),
                     result.get("filtered", 0),
                     result.get("classified", 0),
                     result.get("stored", 0),
+                    Json(classification_warnings) if classification_warnings else Json([]),
                     run_id,
                 ))
 
@@ -1617,6 +1705,9 @@ def _finalize_stopped_run(
     """Finalize a run that was stopped gracefully."""
     from src.db.connection import get_connection
 
+    # Issue #202: Save checkpoint before finalizing for resume capability
+    _save_checkpoint_best_effort(run_id)
+
     theme_result = theme_result or {"themes_extracted": 0, "themes_new": 0}
     story_result = story_result or {"stories_created": 0, "orphans_created": 0}
     embedding_result = embedding_result or {"embeddings_generated": 0, "embeddings_failed": 0}
@@ -1669,6 +1760,9 @@ def _finalize_failed_run(run_id: int, error_message: str) -> None:
     """
     from src.db.connection import get_connection
 
+    # Issue #202: Save checkpoint before finalizing for resume capability
+    _save_checkpoint_best_effort(run_id)
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -1681,6 +1775,98 @@ def _finalize_failed_run(run_id: int, error_message: str) -> None:
 
     logger.info(f"Run {run_id}: Pipeline failed - {error_message}")
     _active_runs[run_id] = "failed"
+
+
+def _find_most_recent_resumable_run() -> tuple[Optional[dict], int]:
+    """Find the most recent run eligible for resume.
+
+    Issue #202: Resumable run eligibility rules:
+    1. Status in ('stopped', 'failed', 'stopping')
+    2. Has non-empty checkpoint: checkpoint != '{}'::jsonb
+    3. Checkpoint phase is 'classification' (only phase resumable in MVP)
+    4. Pick newest by started_at
+
+    Note: No date matching - finds most recent resumable run regardless of when it started.
+    This supports cross-day resume (start Monday, resume Tuesday).
+
+    Returns:
+        Tuple of (run_dict, total_resumable_count):
+        - run_dict: Dict with run id, checkpoint, date_from, date_to if found, else None
+        - total_resumable_count: Total number of resumable runs (for safety check)
+    """
+    from src.db.connection import get_connection
+    from psycopg2.extras import RealDictCursor
+
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # First, count all resumable runs (for safety check)
+            cur.execute("""
+                SELECT COUNT(*) as count
+                FROM pipeline_runs
+                WHERE status IN ('stopped', 'failed', 'stopping')
+                  AND checkpoint IS NOT NULL
+                  AND checkpoint != '{}'::jsonb
+                  AND checkpoint->>'phase' = 'classification'
+            """)
+            count_row = cur.fetchone()
+            total_count = count_row["count"] if count_row else 0
+
+            # Then get the most recent one
+            cur.execute("""
+                SELECT id, checkpoint, date_from, date_to, auto_create_stories
+                FROM pipeline_runs
+                WHERE status IN ('stopped', 'failed', 'stopping')
+                  AND checkpoint IS NOT NULL
+                  AND checkpoint != '{}'::jsonb
+                ORDER BY started_at DESC
+                LIMIT 1
+            """)
+            row = cur.fetchone()
+
+    if not row:
+        return None, 0
+
+    # Check checkpoint phase is 'classification' (MVP only supports classification resume)
+    checkpoint = row.get("checkpoint", {})
+    if checkpoint.get("phase") != "classification":
+        return None, total_count
+
+    return dict(row), total_count
+
+
+def _find_resumable_run_by_id(run_id: int) -> Optional[dict]:
+    """Find a specific run by ID for resume.
+
+    Issue #202: Explicit run_id targeting for cross-day resume.
+    Same eligibility rules as _find_resumable_run but without date matching.
+
+    Returns:
+        Dict with run id, checkpoint, date_from, date_to if eligible, else None
+    """
+    from src.db.connection import get_connection
+    from psycopg2.extras import RealDictCursor
+
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT id, checkpoint, date_from, date_to, auto_create_stories
+                FROM pipeline_runs
+                WHERE id = %s
+                  AND status IN ('stopped', 'failed', 'stopping')
+                  AND checkpoint IS NOT NULL
+                  AND checkpoint != '{}'::jsonb
+            """, (run_id,))
+            row = cur.fetchone()
+
+    if not row:
+        return None
+
+    # Check checkpoint phase is 'classification' (MVP only supports classification resume)
+    checkpoint = row.get("checkpoint", {})
+    if checkpoint.get("phase") != "classification":
+        return None
+
+    return dict(row)
 
 
 @router.post("/run", response_model=PipelineRunResponse)
@@ -1705,6 +1891,8 @@ def start_pipeline_run(
     - **dry_run**: If True, classify but don't store to database
     - **concurrency**: Parallel API calls (default 20)
     - **auto_create_stories**: If True, automatically create stories after theme extraction
+    - **resume**: If True, resume from last checkpoint instead of starting fresh
+    - **resume_run_id**: Explicit run ID to resume (bypasses date matching for cross-day resume)
     """
     # Clean up terminal runs to prevent memory leak (R2 fix)
     _cleanup_terminal_runs()
@@ -1717,31 +1905,93 @@ def start_pipeline_run(
             detail=f"Pipeline run {active[0]} is already in progress. Wait for it to complete."
         )
 
-    # Calculate date range
-    date_to = datetime.now(timezone.utc)
-    date_from = date_to - timedelta(days=request.days)
+    # Issue #202: Handle resume vs fresh run
+    checkpoint = None
+    date_from_override = None
+    date_to_override = None
 
-    # Create pipeline run record with auto_create_stories flag
-    with db.cursor() as cur:
-        cur.execute("""
-            INSERT INTO pipeline_runs (
-                started_at, date_from, date_to, status,
-                auto_create_stories, current_phase
-            )
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """, (
-            datetime.now(timezone.utc),
-            date_from,
-            date_to,
-            "running",
-            request.auto_create_stories,
-            "classification",
-        ))
-        run_id = cur.fetchone()["id"]
+    if request.resume:
+        # Issue #202: Support explicit run_id targeting for cross-day resume
+        if request.resume_run_id:
+            # Explicit run_id provided - bypass date matching
+            existing = _find_resumable_run_by_id(request.resume_run_id)
+            if not existing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Run {request.resume_run_id} is not resumable. "
+                           "Run must be in stopped/failed/stopping status "
+                           "with a non-empty checkpoint in classification phase."
+                )
+        else:
+            # No explicit run_id - find most recent resumable run
+            # This supports cross-day resume (start Monday, resume Tuesday)
+            existing, total_resumable = _find_most_recent_resumable_run()
+            if not existing:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No resumable run found. "
+                           "Resumable runs must be in stopped/failed/stopping status "
+                           "with a non-empty checkpoint in classification phase. "
+                           "Tip: Use resume_run_id to target a specific run."
+                )
+            # Safety check: require explicit targeting if multiple resumable runs exist
+            if total_resumable > 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Multiple resumable runs found ({total_resumable}). "
+                           f"Please specify resume_run_id to target a specific run. "
+                           f"Most recent resumable run is {existing['id']}."
+                )
 
-    # Commit immediately so the record is visible to status queries
-    db.commit()
+        run_id = existing["id"]
+        checkpoint = existing["checkpoint"]
+        # Use the ORIGINAL run's stored dates (critical for correctness)
+        date_from_override = existing["date_from"]
+        date_to_override = existing["date_to"]
+        auto_create_stories = existing["auto_create_stories"]
+
+        # Update status back to 'running' for the resumed run
+        # Note: Don't update started_at - preserve original timestamp for audit trail
+        # Clear completed_at and error_message to avoid stale data while running
+        with db.cursor() as cur:
+            cur.execute("""
+                UPDATE pipeline_runs
+                SET status = 'running',
+                    completed_at = NULL,
+                    error_message = NULL
+                WHERE id = %s
+            """, (run_id,))
+        db.commit()
+
+        logger.info(f"Resuming run {run_id} from checkpoint: {checkpoint.get('conversations_processed', 0)} conversations")
+
+    else:
+        # Fresh run: calculate date range and create new record
+        date_to = datetime.now(timezone.utc)
+        date_from = date_to - timedelta(days=request.days)
+        auto_create_stories = request.auto_create_stories
+
+        # Create pipeline run record with auto_create_stories flag
+        with db.cursor() as cur:
+            cur.execute("""
+                INSERT INTO pipeline_runs (
+                    started_at, date_from, date_to, status,
+                    auto_create_stories, current_phase
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                datetime.now(timezone.utc),
+                date_from,
+                date_to,
+                "running",
+                auto_create_stories,
+                "classification",
+            ))
+            run_id = cur.fetchone()["id"]
+
+        # Commit immediately so the record is visible to status queries
+        db.commit()
 
     # Start background task
     # Issue #148: Use async wrapper to run pipeline in thread pool,
@@ -1753,11 +2003,17 @@ def start_pipeline_run(
         max_conversations=request.max_conversations,
         dry_run=request.dry_run,
         concurrency=request.concurrency,
-        auto_create_stories=request.auto_create_stories,
+        auto_create_stories=auto_create_stories,
+        checkpoint=checkpoint,
+        date_from_override=date_from_override,
+        date_to_override=date_to_override,
     )
 
-    message = f"Pipeline run started. Processing last {request.days} days."
-    if request.auto_create_stories:
+    if request.resume:
+        message = f"Pipeline run {run_id} resumed from checkpoint."
+    else:
+        message = f"Pipeline run started. Processing last {request.days} days."
+    if auto_create_stories:
         message += " Stories will be created automatically after theme extraction."
 
     return PipelineRunResponse(
@@ -1783,10 +2039,12 @@ def get_pipeline_status(run_id: int, db=Depends(get_db)):
                    conversations_fetched, conversations_filtered,
                    conversations_classified, conversations_stored,
                    embeddings_generated, embeddings_failed,
+                   facets_extracted, facets_failed,
                    current_phase, auto_create_stories,
                    themes_extracted, themes_new, themes_filtered,
                    stories_created, orphans_created, stories_ready,
-                   status, error_message, errors, warnings
+                   status, error_message, errors, warnings,
+                   checkpoint
             FROM pipeline_runs
             WHERE id = %s
         """, (run_id,))
@@ -1820,6 +2078,8 @@ def get_pipeline_status(run_id: int, db=Depends(get_db)):
         conversations_stored=row["conversations_stored"] or 0,
         embeddings_generated=row.get("embeddings_generated") or 0,  # #106
         embeddings_failed=row.get("embeddings_failed") or 0,  # #106
+        facets_extracted=row.get("facets_extracted") or 0,  # #107
+        facets_failed=row.get("facets_failed") or 0,  # #107
         themes_extracted=row["themes_extracted"] or 0,
         themes_new=row["themes_new"] or 0,
         themes_filtered=row.get("themes_filtered") or 0,  # #104
@@ -1831,6 +2091,7 @@ def get_pipeline_status(run_id: int, db=Depends(get_db)):
         errors=errors,  # #104
         warnings=warnings,  # #104
         duration_seconds=round(duration, 1) if duration else None,
+        checkpoint=row.get("checkpoint"),  # #202 - Expose for observability
     )
 
 
@@ -1903,7 +2164,7 @@ def get_pipeline_history(
         cur.execute("""
             SELECT id, started_at, completed_at,
                    conversations_fetched, conversations_classified, conversations_stored,
-                   embeddings_generated,
+                   embeddings_generated, facets_extracted,
                    current_phase, themes_extracted, stories_created, stories_ready,
                    status, COALESCE(jsonb_array_length(errors), 0) as error_count
             FROM pipeline_runs
@@ -1928,6 +2189,7 @@ def get_pipeline_history(
             conversations_classified=row["conversations_classified"] or 0,
             conversations_stored=row["conversations_stored"] or 0,
             embeddings_generated=row.get("embeddings_generated") or 0,  # #106
+            facets_extracted=row.get("facets_extracted") or 0,  # #107
             themes_extracted=row["themes_extracted"] or 0,
             stories_created=row["stories_created"] or 0,
             stories_ready=row["stories_ready"] or False,

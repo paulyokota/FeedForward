@@ -328,6 +328,9 @@ class IntercomClient:
         per_page: int = 50,
         max_results: Optional[int] = None,
         recovery_candidates: Optional[list] = None,
+        initial_cursor: Optional[str] = None,
+        cursor_callback: Optional[callable] = None,
+        on_cursor_fallback: Optional[callable] = None,
     ) -> AsyncGenerator[tuple["IntercomConversation", dict], None]:
         """
         Fetch and filter conversations, returning only quality ones (async version).
@@ -343,6 +346,12 @@ class IntercomClient:
             recovery_candidates: Issue #164 - If provided, filtered conversations
                 that are potentially recoverable (short body, not template) are
                 appended to this list for later recovery evaluation.
+            initial_cursor: Issue #202 - Optional cursor to resume from. If provided,
+                starts fetching from this cursor position instead of the beginning.
+            cursor_callback: Issue #202 - Optional callback(cursor: str) called after
+                each page with the cursor for the NEXT page. Used for checkpoint persistence.
+            on_cursor_fallback: Issue #202 - Optional callback() called if initial_cursor
+                was invalid and we restarted from beginning. For observability.
 
         Yields:
             (parsed_conversation, raw_conversation) tuples for quality conversations
@@ -353,7 +362,11 @@ class IntercomClient:
         start_ts = int(since.timestamp()) if since else 0
         end_ts = int(until.timestamp()) if until else int(datetime.now(timezone.utc).timestamp())
 
-        async for raw_conv in self.search_by_date_range_async(start_ts, end_ts, per_page, max_results):
+        async for raw_conv in self.search_by_date_range_async(
+            start_ts, end_ts, per_page, max_results,
+            initial_cursor=initial_cursor, cursor_callback=cursor_callback,
+            on_cursor_fallback=on_cursor_fallback
+        ):
             filter_result = self.quality_filter(raw_conv)
             if filter_result.passed:
                 parsed = self.parse_conversation(raw_conv)
@@ -383,6 +396,9 @@ class IntercomClient:
         end_timestamp: int,
         per_page: int = 50,
         max_results: Optional[int] = None,
+        initial_cursor: Optional[str] = None,
+        cursor_callback: Optional[callable] = None,
+        on_cursor_fallback: Optional[callable] = None,
     ) -> AsyncGenerator[dict, None]:
         """
         Search conversations within a date range using Intercom Search API (async).
@@ -395,6 +411,12 @@ class IntercomClient:
             end_timestamp: Unix timestamp for end of range (exclusive: <)
             per_page: Results per page
             max_results: Maximum conversations to return
+            initial_cursor: Optional cursor to resume pagination from (Issue #202).
+                           If provided, starts pagination from this cursor instead of the beginning.
+            cursor_callback: Optional callback(cursor: str) called after each page with
+                           the cursor for the NEXT page. Used for checkpoint persistence.
+            on_cursor_fallback: Optional callback() called when cursor is invalid and we restart
+                           from beginning. Use for observability (Issue #202).
 
         Yields:
             Raw conversation dicts from Intercom API
@@ -419,16 +441,40 @@ class IntercomClient:
         }
 
         count = 0
-        starting_after = None
+        # Issue #202: Support resuming from a cursor
+        starting_after = initial_cursor
+        cursor_fallback_attempted = False  # Retry guard for invalid cursor
 
         async with self._get_aiohttp_session() as session:
             while True:
                 if starting_after:
                     search_query["pagination"]["starting_after"] = starting_after
+                elif "starting_after" in search_query.get("pagination", {}):
+                    # Clear cursor if we're restarting from beginning
+                    del search_query["pagination"]["starting_after"]
 
-                data = await self._request_with_retry_async(
-                    session, "POST", "/conversations/search", json_data=search_query
-                )
+                try:
+                    data = await self._request_with_retry_async(
+                        session, "POST", "/conversations/search", json_data=search_query
+                    )
+                except aiohttp.ClientResponseError as e:
+                    # Issue #202: Handle invalid cursor gracefully (HTTP 4xx errors only)
+                    # Only attempt fallback for client errors (invalid cursor returns 400/422),
+                    # not for rate limits (429) or server errors (5xx) which should propagate.
+                    if initial_cursor and not cursor_fallback_attempted and e.status < 500 and e.status != 429:
+                        logger.warning(
+                            f"Search failed with cursor {initial_cursor[:20] if initial_cursor else 'None'}..., "
+                            f"HTTP {e.status}, restarting from beginning: {e}"
+                        )
+                        cursor_fallback_attempted = True
+                        starting_after = None
+                        initial_cursor = None  # Clear so we don't loop
+                        # Issue #202: Notify caller about fallback for observability
+                        if on_cursor_fallback:
+                            on_cursor_fallback()
+                        continue  # Retry without cursor
+                    raise  # Re-raise if fallback already attempted, no cursor, or non-cursor error
+
                 conversations = data.get("conversations", [])
 
                 if not conversations:
@@ -444,6 +490,10 @@ class IntercomClient:
                 pages = data.get("pages", {})
                 next_page = pages.get("next", {})
                 starting_after = next_page.get("starting_after")
+
+                # Issue #202: Notify caller of cursor position for checkpointing
+                if cursor_callback and starting_after:
+                    cursor_callback(starting_after)
 
                 if not starting_after:
                     break

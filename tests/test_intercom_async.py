@@ -287,7 +287,7 @@ class TestFetchQualityConversationsAsync:
 
         captured_timestamps = None
 
-        async def mock_search(start_ts, end_ts, per_page, max_results):
+        async def mock_search(start_ts, end_ts, per_page, max_results, **kwargs):
             nonlocal captured_timestamps
             captured_timestamps = (start_ts, end_ts)
             yield quality_conversation
@@ -305,7 +305,7 @@ class TestFetchQualityConversationsAsync:
     @pytest.mark.asyncio
     async def test_filters_non_quality_conversations(self, client, quality_conversation, filtered_conversation):
         """Test that non-quality conversations are filtered out."""
-        async def mock_search(start_ts, end_ts, per_page, max_results):
+        async def mock_search(start_ts, end_ts, per_page, max_results, **kwargs):
             yield quality_conversation
             yield filtered_conversation
 
@@ -323,7 +323,7 @@ class TestFetchQualityConversationsAsync:
     @pytest.mark.asyncio
     async def test_returns_parsed_and_raw_conversation(self, client, quality_conversation):
         """Test that both parsed and raw conversation are returned."""
-        async def mock_search(start_ts, end_ts, per_page, max_results):
+        async def mock_search(start_ts, end_ts, per_page, max_results, **kwargs):
             yield quality_conversation
 
         with patch.object(client, "search_by_date_range_async", mock_search):
@@ -351,7 +351,7 @@ class TestFetchQualityConversationsAsync:
 
         captured_timestamps = None
 
-        async def mock_search(start_ts, end_ts, per_page, max_results):
+        async def mock_search(start_ts, end_ts, per_page, max_results, **kwargs):
             nonlocal captured_timestamps
             captured_timestamps = (start_ts, end_ts)
             yield quality_conversation
