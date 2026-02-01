@@ -1054,12 +1054,7 @@ class StoryCreationService:
                 theme_data=theme_data,
             )
 
-        # Issue #198: Extract relevance_metadata from code_context for score_metadata
-        relevance_metadata = None
-        if code_context is not None:
-            relevance_metadata = code_context.get("relevance_metadata")
-
-        # Compute multi-factor scores (Issue #188, #198)
+        # Compute multi-factor scores (Issue #188)
         multi_scores = self._compute_multi_factor_scores(
             conversations=conversations,
             implementation_context=implementation_context,
@@ -1067,7 +1062,6 @@ class StoryCreationService:
             evidence_count=len(conversations),
             platform_uniformity=platform_uniformity,
             product_area_match=product_area_match,
-            relevance_metadata=relevance_metadata,
         )
 
         # Create story with hybrid cluster metadata
@@ -1902,26 +1896,12 @@ class StoryCreationService:
         if self.dual_format_enabled:
             code_context = self._explore_codebase_with_classification(theme_data)
 
-        # Generate implementation context (Issue #198)
-        implementation_context = None
-        if self.implementation_context_enabled and self.implementation_context_service:
-            implementation_context = self._generate_implementation_context(
-                title=self._generate_title(signature, theme_data, generated_content),
-                theme_data=theme_data,
-            )
-
-        # Issue #198: Extract relevance_metadata from code_context for score_metadata
-        relevance_metadata = None
-        if code_context is not None:
-            relevance_metadata = code_context.get("relevance_metadata")
-
-        # Compute multi-factor scores (Issue #188, #198)
+        # Compute multi-factor scores (Issue #188)
         multi_scores = self._compute_multi_factor_scores(
             conversations=conversations,
-            implementation_context=implementation_context,
+            implementation_context=None,  # This path doesn't generate implementation context
             code_context=code_context,
             evidence_count=len(conversations),
-            relevance_metadata=relevance_metadata,
         )
 
         # Create story with confidence_score from quality gates
@@ -1947,7 +1927,6 @@ class StoryCreationService:
             technical_area=theme_data.get("component"),
             status="candidate",
             code_context=code_context,
-            implementation_context=implementation_context,  # Issue #198
         ))
 
         result.stories_created += 1
@@ -2186,26 +2165,12 @@ class StoryCreationService:
         if self.dual_format_enabled:
             code_context = self._explore_codebase_with_classification(theme_data)
 
-        # Generate implementation context (Issue #198)
-        implementation_context = None
-        if self.implementation_context_enabled and self.implementation_context_service:
-            implementation_context = self._generate_implementation_context(
-                title=self._generate_title(pm_result.signature, theme_data, generated_content),
-                theme_data=theme_data,
-            )
-
-        # Issue #198: Extract relevance_metadata from code_context for score_metadata
-        relevance_metadata = None
-        if code_context is not None:
-            relevance_metadata = code_context.get("relevance_metadata")
-
-        # Compute multi-factor scores (Issue #188, #198)
+        # Compute multi-factor scores (Issue #188)
         multi_scores = self._compute_multi_factor_scores(
             conversations=conversations,
-            implementation_context=implementation_context,
+            implementation_context=None,  # This path doesn't generate implementation context
             code_context=code_context,
             evidence_count=len(conversations),
-            relevance_metadata=relevance_metadata,
         )
 
         # Create story
@@ -2229,7 +2194,6 @@ class StoryCreationService:
             technical_area=theme_data.get("component"),
             status="candidate",
             code_context=code_context,
-            implementation_context=implementation_context,  # Issue #198
         ))
 
         result.stories_created += 1
@@ -2303,26 +2267,12 @@ class StoryCreationService:
         if self.dual_format_enabled:
             code_context = self._explore_codebase_with_classification(theme_data)
 
-        # Generate implementation context (Issue #198)
-        implementation_context = None
-        if self.implementation_context_enabled and self.implementation_context_service:
-            implementation_context = self._generate_implementation_context(
-                title=self._generate_title(signature, theme_data, generated_content),
-                theme_data=theme_data,
-            )
-
-        # Issue #198: Extract relevance_metadata from code_context for score_metadata
-        relevance_metadata = None
-        if code_context is not None:
-            relevance_metadata = code_context.get("relevance_metadata")
-
-        # Compute multi-factor scores (Issue #188, #198)
+        # Compute multi-factor scores (Issue #188)
         multi_scores = self._compute_multi_factor_scores(
             conversations=conversations,
-            implementation_context=implementation_context,
+            implementation_context=None,  # Sub-groups don't get implementation context
             code_context=code_context,
             evidence_count=len(conversations),
-            relevance_metadata=relevance_metadata,
         )
 
         story = self.story_service.create(StoryCreate(
@@ -2346,7 +2296,6 @@ class StoryCreationService:
             technical_area=theme_data.get("component"),
             status="candidate",
             code_context=code_context,
-            implementation_context=implementation_context,  # Issue #198
         ))
 
         result.stories_created += 1
@@ -3119,7 +3068,6 @@ class StoryCreationService:
         evidence_count: int = 0,
         platform_uniformity: Optional[float] = None,
         product_area_match: Optional[bool] = None,
-        relevance_metadata: Optional[Dict[str, Any]] = None,  # Issue #198
     ) -> Optional["MultiFactorScores"]:
         """
         Compute multi-factor scores for a story using the MultiFactorScorer.
@@ -3134,13 +3082,12 @@ class StoryCreationService:
             evidence_count: Number of evidence items for the story
             platform_uniformity: From confidence scoring (0-1)
             product_area_match: From confidence scoring (bool)
-            relevance_metadata: Dict from codebase exploration relevance gating (Issue #198)
 
         Returns:
             MultiFactorScores with all scores and metadata,
             or None if scorer not available.
 
-        Issue: #188, #198
+        Issue: #188
         """
         if not self.multi_factor_scoring_enabled or not self.multi_factor_scorer:
             return None
@@ -3171,19 +3118,6 @@ class StoryCreationService:
             )
 
             scores = self.multi_factor_scorer.score(score_input)
-
-            # Issue #198: Add relevance metrics for audit
-            # Note: Check for existing key to avoid collision with other metadata consumers
-            if scores and scores.metadata is not None and relevance_metadata:
-                if "relevance_metrics" not in scores.metadata:
-                    scores.metadata["relevance_metrics"] = {
-                        "match_score": relevance_metadata.get("match_score", 0),
-                        "matched_terms": relevance_metadata.get("matched_terms", []),
-                        "high_signal_matched": relevance_metadata.get("high_signal_matched", []),
-                        "term_diversity": relevance_metadata.get("term_diversity", 0),
-                        "threshold_passed": relevance_metadata.get("threshold_passed", False),
-                        "gated": relevance_metadata.get("gated", False),
-                    }
 
             logger.debug(
                 f"Multi-factor scores computed: "
@@ -3397,8 +3331,6 @@ class StoryCreationService:
             "error": exploration_result.error,
             # Issue #178: Mismatch annotation
             "mismatch": mismatch,
-            # Issue #198: Relevance metadata for audit trail
-            "relevance_metadata": exploration_result.relevance_metadata,
         }
 
         # Only include mismatch_details when mismatch=True
