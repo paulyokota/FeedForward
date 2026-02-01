@@ -491,11 +491,13 @@ class TestOrphanMatcherGraduatedFlow:
         assert result.matched is True
         assert result.action == "added_to_story"
         assert result.story_id == str(graduated_orphan.story_id)
+        # Issue #197: add_conversation now includes theme_signature
         mock_evidence_service.add_conversation.assert_called_once_with(
             story_id=graduated_orphan.story_id,
             conversation_id="conv_new",
             source="intercom",
             excerpt="I want to cancel my subscription"[:500],
+            theme_signature=graduated_orphan.signature,
         )
 
     def test_match_returns_no_evidence_service_when_missing(

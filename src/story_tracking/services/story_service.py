@@ -104,7 +104,7 @@ class StoryService:
                           actionability_score, fix_size_score, severity_score, churn_risk_score,
                           score_metadata,
                           code_context, implementation_context,
-                          evidence_count, conversation_count,
+                          evidence_count, conversation_count, excerpt_count,
                           grouping_method, cluster_id, cluster_metadata,
                           created_at, updated_at
             """, (
@@ -141,7 +141,7 @@ class StoryService:
                        actionability_score, fix_size_score, severity_score, churn_risk_score,
                        score_metadata,
                        code_context, implementation_context,
-                       evidence_count, conversation_count,
+                       evidence_count, conversation_count, excerpt_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -293,7 +293,7 @@ class StoryService:
                           actionability_score, fix_size_score, severity_score, churn_risk_score,
                           score_metadata,
                           code_context, implementation_context,
-                          evidence_count, conversation_count,
+                          evidence_count, conversation_count, excerpt_count,
                           grouping_method, cluster_id, cluster_metadata,
                           created_at, updated_at
             """, values)
@@ -375,7 +375,7 @@ class StoryService:
                        actionability_score, fix_size_score, severity_score, churn_risk_score,
                        score_metadata,
                        code_context, implementation_context,
-                       evidence_count, conversation_count,
+                       evidence_count, conversation_count, excerpt_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -403,7 +403,7 @@ class StoryService:
                        actionability_score, fix_size_score, severity_score, churn_risk_score,
                        score_metadata,
                        code_context, implementation_context,
-                       evidence_count, conversation_count,
+                       evidence_count, conversation_count, excerpt_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -422,7 +422,7 @@ class StoryService:
                        actionability_score, fix_size_score, severity_score, churn_risk_score,
                        score_metadata,
                        code_context, implementation_context,
-                       evidence_count, conversation_count,
+                       evidence_count, conversation_count, excerpt_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -451,7 +451,7 @@ class StoryService:
                        actionability_score, fix_size_score, severity_score, churn_risk_score,
                        score_metadata,
                        code_context, implementation_context,
-                       evidence_count, conversation_count,
+                       evidence_count, conversation_count, excerpt_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -468,8 +468,9 @@ class StoryService:
         return result.stories
 
     def update_counts(self, story_id: UUID) -> None:
-        """Recalculate evidence_count and conversation_count from evidence table."""
+        """Recalculate evidence_count, conversation_count, and excerpt_count from evidence table."""
         with self.db.cursor() as cur:
+            # Issue #197: Added excerpt_count with COALESCE safety for NULL/empty excerpts
             cur.execute("""
                 UPDATE stories s
                 SET
@@ -480,6 +481,11 @@ class StoryService:
                     ), 0),
                     conversation_count = COALESCE((
                         SELECT array_length(conversation_ids, 1)
+                        FROM story_evidence se
+                        WHERE se.story_id = s.id
+                    ), 0),
+                    excerpt_count = COALESCE((
+                        SELECT jsonb_array_length(COALESCE(excerpts, '[]'::jsonb))
                         FROM story_evidence se
                         WHERE se.story_id = s.id
                     ), 0)
@@ -506,7 +512,7 @@ class StoryService:
                        actionability_score, fix_size_score, severity_score, churn_risk_score,
                        score_metadata,
                        code_context, implementation_context,
-                       evidence_count, conversation_count,
+                       evidence_count, conversation_count, excerpt_count,
                        grouping_method, cluster_id, cluster_metadata,
                        created_at, updated_at
                 FROM stories
@@ -552,6 +558,7 @@ class StoryService:
             implementation_context=implementation_context,
             evidence_count=row["evidence_count"],
             conversation_count=row["conversation_count"],
+            excerpt_count=row.get("excerpt_count", 0),  # Issue #197
             grouping_method=row.get("grouping_method", "signature"),
             cluster_id=row.get("cluster_id"),
             cluster_metadata=cluster_metadata,
@@ -802,14 +809,27 @@ class StoryService:
         if isinstance(excerpts_data, str):
             excerpts_data = json.loads(excerpts_data)
 
-        excerpts = [
-            EvidenceExcerpt(
-                text=e.get("text", ""),
-                source=e.get("source", "unknown"),
-                conversation_id=e.get("conversation_id"),
-            )
-            for e in excerpts_data
-        ]
+        # Issue #197: Include all metadata fields from EvidenceExcerpt model
+        # Handle both dict format and legacy string format for backwards compatibility
+        excerpts = []
+        for e in excerpts_data:
+            if isinstance(e, dict):
+                excerpts.append(EvidenceExcerpt(
+                    text=e.get("text", ""),
+                    source=e.get("source", "unknown"),
+                    conversation_id=e.get("conversation_id"),
+                    email=e.get("email"),
+                    intercom_url=e.get("intercom_url"),
+                    org_id=e.get("org_id"),
+                    user_id=e.get("user_id"),
+                    contact_id=e.get("contact_id"),
+                ))
+            elif isinstance(e, str) and e.strip():
+                # Legacy string format - convert to EvidenceExcerpt with minimal metadata
+                excerpts.append(EvidenceExcerpt(
+                    text=e,
+                    source="unknown",
+                ))
 
         source_stats = row["source_stats"] or {}
         if isinstance(source_stats, str):

@@ -3,13 +3,19 @@ Orphan Integration Service
 
 Pipeline integration hook for Phase 5 Story Grouping.
 Processes theme extraction output through the orphan matching system.
+
+Issue #197: Added evidence creation for graduated stories.
 """
 
 import logging
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from uuid import UUID
+
+from psycopg2.extras import RealDictCursor
 
 # Add src to path for imports (lazy loading to avoid circular imports)
 _src_path = Path(__file__).parent.parent.parent
@@ -24,6 +30,11 @@ from .orphan_service import OrphanService
 from .story_service import StoryService
 
 logger = logging.getLogger(__name__)
+
+# Issue #197: Intercom URL generation for evidence excerpts
+# Default "2t3d8az2" is Tailwind's production Intercom app ID (from story_formatter.py)
+INTERCOM_APP_ID = os.getenv("INTERCOM_APP_ID", "2t3d8az2")
+INTERCOM_URL_TEMPLATE = "https://app.intercom.com/a/apps/{app_id}/inbox/inbox/conversation/{conversation_id}"
 
 
 @dataclass
@@ -100,6 +111,135 @@ class OrphanIntegrationService:
             evidence_service=self.evidence_service,
         )
 
+    def _build_intercom_url(self, conversation_id: str) -> str:
+        """Build Intercom conversation URL from conversation ID."""
+        return INTERCOM_URL_TEMPLATE.format(
+            app_id=INTERCOM_APP_ID,
+            conversation_id=conversation_id,
+        )
+
+    def _create_evidence_for_graduated_story(
+        self,
+        story_id: UUID,
+        orphan_signature: str,
+        conversation_ids: List[str],
+    ) -> bool:
+        """
+        Create evidence bundle for a newly graduated story.
+
+        Issue #197: Queries themes + conversations tables to get diagnostic_summary,
+        key_excerpts, and metadata for evidence excerpts.
+
+        Args:
+            story_id: The story UUID that was created during graduation
+            orphan_signature: The canonical signature of the orphan
+            conversation_ids: List of conversation IDs in the orphan
+
+        Returns:
+            True if successful, False if failed
+        """
+        from ..models import EvidenceExcerpt
+
+        if not conversation_ids:
+            logger.warning(f"No conversation_ids for story {story_id}, skipping evidence creation")
+            return False
+
+        try:
+            with self.db.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT t.issue_signature, t.conversation_id,
+                           t.diagnostic_summary, t.key_excerpts,
+                           c.source_body, c.contact_email, c.contact_id, c.user_id, c.org_id
+                    FROM themes t
+                    JOIN conversations c ON t.conversation_id = c.id
+                    WHERE t.conversation_id = ANY(%s)
+                """, (conversation_ids,))
+                rows = cur.fetchall()
+
+            if not rows:
+                logger.warning(
+                    f"No theme data found for story {story_id} conversations {conversation_ids}"
+                )
+                return False
+
+            # Collect all unique theme signatures (for multi-signature stories)
+            # Guard against None to prevent [None] in DB
+            theme_signatures = set()
+            if orphan_signature:
+                theme_signatures.add(orphan_signature)
+            for row in rows:
+                sig = row.get("issue_signature")
+                if sig:
+                    theme_signatures.add(sig)
+
+            # Build excerpts from conversation data
+            # Note: Uses RealDictCursor so rows are always dicts
+            MAX_EXCERPT_LENGTH = 2000  # Limit to prevent JSONB bloat
+            excerpts = []
+            for row in rows:
+                conv_id = row.get("conversation_id")
+                diagnostic_summary = row.get("diagnostic_summary")
+                key_excerpts_data = row.get("key_excerpts") or []
+                contact_email = row.get("contact_email")
+                org_id = row.get("org_id")
+                user_id = row.get("user_id")
+                contact_id = row.get("contact_id")
+
+                intercom_url = self._build_intercom_url(conv_id) if conv_id else None
+
+                # Primary: diagnostic_summary
+                if diagnostic_summary:
+                    excerpts.append(EvidenceExcerpt(
+                        text=str(diagnostic_summary)[:MAX_EXCERPT_LENGTH],
+                        source="intercom",
+                        conversation_id=conv_id,
+                        email=contact_email,
+                        intercom_url=intercom_url,
+                        org_id=org_id,
+                        user_id=user_id,
+                        contact_id=contact_id,
+                    ))
+
+                # Secondary: key_excerpts (with consistent metadata)
+                # Handle both dict format {"text": "..."} and legacy string format
+                for ke in key_excerpts_data:
+                    excerpt_text = None
+                    if isinstance(ke, dict) and ke.get("text"):
+                        excerpt_text = str(ke["text"])
+                    elif isinstance(ke, str) and ke.strip():
+                        excerpt_text = ke
+
+                    if excerpt_text:
+                        excerpts.append(EvidenceExcerpt(
+                            text=excerpt_text[:MAX_EXCERPT_LENGTH],
+                            source="intercom",
+                            conversation_id=conv_id,
+                            email=contact_email,
+                            intercom_url=intercom_url,
+                            org_id=org_id,
+                            user_id=user_id,
+                            contact_id=contact_id,
+                        ))
+
+            # Create evidence bundle with all theme signatures
+            self.evidence_service.create_or_update(
+                story_id=story_id,
+                conversation_ids=conversation_ids,
+                theme_signatures=list(theme_signatures),
+                source_stats={"intercom": len(conversation_ids)},
+                excerpts=excerpts,
+            )
+
+            logger.info(
+                f"Created evidence bundle for story {story_id}: "
+                f"{len(excerpts)} excerpts, {len(theme_signatures)} signatures"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to create evidence for story {story_id}: {e}")
+            return False
+
     def process_theme(
         self,
         conversation_id: str,
@@ -131,7 +271,24 @@ class OrphanIntegrationService:
             excerpt=theme_data.get("excerpt"),
         )
 
-        return self.matcher.match_and_accumulate(conversation_id, extracted_theme)
+        match_result = self.matcher.match_and_accumulate(conversation_id, extracted_theme)
+
+        # Issue #197: If graduated, create evidence bundle for the new story
+        # Use match_result data directly (more reliable than re-fetching orphan)
+        if match_result.action == "graduated" and match_result.story_id:
+            if match_result.orphan_signature and match_result.conversation_ids:
+                self._create_evidence_for_graduated_story(
+                    story_id=UUID(match_result.story_id),
+                    orphan_signature=match_result.orphan_signature,
+                    conversation_ids=match_result.conversation_ids,
+                )
+            else:
+                logger.warning(
+                    f"Graduated story {match_result.story_id} but missing data for evidence creation: "
+                    f"signature={match_result.orphan_signature}, conv_ids={match_result.conversation_ids}"
+                )
+
+        return match_result
 
     def process_theme_object(self, theme):
         """
@@ -155,7 +312,18 @@ class OrphanIntegrationService:
             root_cause_hypothesis=theme.root_cause_hypothesis,
         )
 
-        return self.matcher.match_and_accumulate(theme.conversation_id, extracted)
+        match_result = self.matcher.match_and_accumulate(theme.conversation_id, extracted)
+
+        # Issue #197: If graduated, create evidence bundle for the new story
+        if match_result.action == "graduated" and match_result.story_id:
+            if match_result.orphan_signature and match_result.conversation_ids:
+                self._create_evidence_for_graduated_story(
+                    story_id=UUID(match_result.story_id),
+                    orphan_signature=match_result.orphan_signature,
+                    conversation_ids=match_result.conversation_ids,
+                )
+
+        return match_result
 
     def process_themes(
         self,

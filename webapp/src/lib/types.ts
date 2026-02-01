@@ -63,9 +63,15 @@ export interface Story {
   code_context: CodeContext | null;
   evidence_count: number;
   conversation_count: number;
+  excerpt_count: number; // Issue #197: Number of evidence excerpts
   created_at: string;
   updated_at: string;
 }
+
+// Issue #197: Evidence quality thresholds
+export const EVIDENCE_QUALITY = {
+  LOW_THRESHOLD: 3, // Stories with < 3 excerpts show warning
+};
 
 export interface EvidenceExcerpt {
   text: string;

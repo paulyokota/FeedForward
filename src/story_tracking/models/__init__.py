@@ -241,6 +241,7 @@ class Story(StoryBase):
     implementation_context: Optional[ImplementationContext] = None  # Issue #180
     evidence_count: int = 0
     conversation_count: int = 0
+    excerpt_count: int = 0  # Issue #197: Number of evidence excerpts
     # Hybrid clustering fields (#109)
     grouping_method: str = "signature"
     cluster_id: Optional[str] = None
