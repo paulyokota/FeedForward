@@ -9,13 +9,14 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from ..models import (
     MIN_GROUP_SIZE,
+    RECENCY_WINDOW_DAYS,
     OrphanCreate,
     StoryCreate,
     EvidenceExcerpt,
@@ -301,6 +302,36 @@ def _is_high_severity(conversations: List[Any]) -> bool:
     return False
 
 
+def _has_recent_conversation(
+    conversations: List["ConversationData"],
+    days: int = RECENCY_WINDOW_DAYS,
+) -> bool:
+    """
+    Check if at least one conversation is within the recency window.
+
+    Issue #200: Groups must have at least one recent conversation to become stories.
+    Groups with all old conversations route to orphan accumulation.
+
+    Args:
+        conversations: List of ConversationData objects with optional created_at field
+        days: Number of days for recency window (default: RECENCY_WINDOW_DAYS)
+
+    Returns:
+        True if ANY conversation is within the recency window
+    """
+    if not conversations:
+        return False
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    for conv in conversations:
+        if conv.created_at is not None:
+            created_at = conv.created_at
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            if created_at >= cutoff:
+                return True
+    return False
+
+
 def _truncate_at_word_boundary(text: str, max_length: int) -> str:
     """
     Truncate text at word boundary to avoid cutting words mid-way.
@@ -377,6 +408,9 @@ class ConversationData:
     # Issue #166: Severity fields for MIN_GROUP_SIZE bypass
     priority: Optional[str] = None
     churn_risk: Optional[bool] = None
+
+    # Issue #200: Recency gate
+    created_at: Optional[datetime] = None
 
 
 @dataclass
@@ -1393,6 +1427,14 @@ class StoryCreationService:
                 logger.debug(f"Quality gate FAIL for '{signature}': {result.failure_reason}")
                 return result
 
+        # Issue #200: Recency gate - no high-severity bypass
+        # Groups must have at least one conversation from the last 30 days
+        if not _has_recent_conversation(conversations):
+            result.passed = False
+            result.failure_reason = "No recent conversations (last 30 days)"
+            logger.info(f"Quality gate FAIL (recency) for '{signature}'")
+            return result
+
         # GATE 1: Evidence Validation (if enabled)
         if self.validation_enabled and EVIDENCE_VALIDATOR_AVAILABLE and validate_samples:
             try:
@@ -1688,20 +1730,33 @@ class StoryCreationService:
                     )
 
             if len(sub_convs) >= MIN_GROUP_SIZE:
-                # Create story for this sub-group
-                self._create_story_with_evidence(
-                    signature=sub_group.suggested_signature,
-                    conversations=sub_convs,
-                    reasoning=sub_group.rationale,
-                    result=result,
-                    pipeline_run_id=pipeline_run_id,
-                    original_signature=pm_review_result.original_signature,
-                    confidence_score=confidence_score,
-                )
-                logger.info(
-                    f"Created story from PM split sub-group: '{sub_group.suggested_signature}' "
-                    f"({len(sub_convs)} conversations)"
-                )
+                # Issue #200: Recency gate for PM split sub-groups
+                if not _has_recent_conversation(sub_convs):
+                    self._route_to_orphan_integration(
+                        signature=sub_group.suggested_signature,
+                        conversations=sub_convs,
+                        failure_reason="No recent conversations (last 30 days)",
+                        result=result,
+                    )
+                    logger.info(
+                        f"Routed PM split sub-group to orphans (recency): "
+                        f"'{sub_group.suggested_signature}' ({len(sub_convs)} conversations)"
+                    )
+                else:
+                    # Create story for this sub-group
+                    self._create_story_with_evidence(
+                        signature=sub_group.suggested_signature,
+                        conversations=sub_convs,
+                        reasoning=sub_group.rationale,
+                        result=result,
+                        pipeline_run_id=pipeline_run_id,
+                        original_signature=pm_review_result.original_signature,
+                        confidence_score=confidence_score,
+                    )
+                    logger.info(
+                        f"Created story from PM split sub-group: '{sub_group.suggested_signature}' "
+                        f"({len(sub_convs)} conversations)"
+                    )
             else:
                 # Route to orphan integration (sub-group too small)
                 self._route_to_orphan_integration(
@@ -1758,6 +1813,19 @@ class StoryCreationService:
         if not conv_id:
             raise ValueError(f"Empty conversation ID in theme group '{signature}'")
 
+        # Issue #200: Recency gate - normalize created_at to aware datetime
+        created_at_raw = conv_dict.get("created_at")
+        created_at = None
+        if created_at_raw is not None:
+            if isinstance(created_at_raw, datetime):
+                created_at = created_at_raw
+                if created_at.tzinfo is None:
+                    created_at = created_at.replace(tzinfo=timezone.utc)
+            # Note: psycopg2 returns datetime objects, not strings. If we get a string,
+            # log a warning and skip (don't add dateutil dependency for edge case)
+            elif isinstance(created_at_raw, str):
+                logger.warning(f"Unexpected string created_at: {created_at_raw}, treating as not recent")
+
         return ConversationData(
             id=conv_id,
             issue_signature=signature,
@@ -1784,6 +1852,8 @@ class StoryCreationService:
             # Issue #166: Severity fields for MIN_GROUP_SIZE bypass
             priority=conv_dict.get("priority"),
             churn_risk=conv_dict.get("churn_risk"),
+            # Issue #200: Recency gate
+            created_at=created_at,
         )
 
     def _generate_pm_result(

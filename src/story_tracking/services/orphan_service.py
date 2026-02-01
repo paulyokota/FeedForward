@@ -7,12 +7,13 @@ over time until they reach the threshold for graduation to stories.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from ..models import (
     MIN_GROUP_SIZE,
+    RECENCY_WINDOW_DAYS,
     Orphan,
     OrphanCreate,
     OrphanGraduationResult,
@@ -282,7 +283,12 @@ class OrphanService:
             ),
         )
 
-    def graduate(self, orphan_id: UUID, story_service) -> Optional[OrphanGraduationResult]:
+    def graduate(
+        self,
+        orphan_id: UUID,
+        story_service,
+        skip_recency_check: bool = False,
+    ) -> Optional[OrphanGraduationResult]:
         """
         Graduate an orphan to a full story.
 
@@ -292,6 +298,8 @@ class OrphanService:
         Args:
             orphan_id: The orphan to graduate
             story_service: StoryService instance for creating the story
+            skip_recency_check: If True, skip recency validation (used by bulk
+                graduation which already did a bulk recency check)
 
         Returns:
             OrphanGraduationResult if successful, None if orphan not found
@@ -311,6 +319,11 @@ class OrphanService:
 
         if not orphan.is_active:
             logger.warning(f"Cannot graduate orphan {orphan_id}: already graduated")
+            return None
+
+        # Issue #200: Recency gate (skip if already checked via bulk path)
+        if not skip_recency_check and not self._check_conversation_recency(orphan.conversation_ids):
+            logger.warning(f"Cannot graduate orphan {orphan_id}: No recent conversations (last 30 days)")
             return None
 
         # Extract story data from orphan
@@ -363,18 +376,109 @@ class OrphanService:
         """
         Find all orphans ready for graduation and graduate them.
 
+        Issue #200: Uses bulk recency check to avoid N+1 queries.
+
         Returns list of graduation results.
         """
         results = []
         response = self.list_active(limit=1000)  # Get all active orphans
 
+        # Issue #200: Bulk recency check to avoid N+1 queries
+        eligible_orphan_ids = [o.id for o in response.orphans if o.can_graduate]
+        recency_map = self._get_conversation_recency_bulk(eligible_orphan_ids)
+
         for orphan in response.orphans:
-            if orphan.can_graduate:
-                result = self.graduate(orphan.id, story_service)
+            if orphan.can_graduate and recency_map.get(orphan.id, False):
+                # Pass skip_recency_check=True since we already did bulk recency check above
+                result = self.graduate(orphan.id, story_service, skip_recency_check=True)
                 if result:
                     results.append(result)
 
         return results
+
+    def _check_conversation_recency(
+        self,
+        conversation_ids: List[str],
+        days: int = RECENCY_WINDOW_DAYS
+    ) -> bool:
+        """
+        Check if any conversation is within recency window.
+
+        Issue #200: Orphans must have at least one recent conversation to graduate.
+
+        Args:
+            conversation_ids: List of conversation IDs to check
+            days: Number of days for recency window
+
+        Returns:
+            True if at least one conversation is within the recency window
+        """
+        if not conversation_ids:
+            return False
+
+        # Defensive: warn if array is unexpectedly large
+        if len(conversation_ids) > 100:
+            logger.warning(
+                f"Large conversation_ids array ({len(conversation_ids)} items) "
+                "passed to _check_conversation_recency"
+            )
+
+        # Calculate cutoff in Python (safer than SQL INTERVAL interpolation)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+        with self.db.cursor() as cur:
+            cur.execute("""
+                SELECT EXISTS(
+                    SELECT 1 FROM conversations
+                    WHERE id = ANY(%s)
+                      AND created_at >= %s
+                ) AS has_recent
+            """, (conversation_ids, cutoff))
+            result = cur.fetchone()
+            return result["has_recent"] if result else False
+
+    def _get_conversation_recency_bulk(
+        self,
+        orphan_ids: List[UUID],
+        days: int = RECENCY_WINDOW_DAYS
+    ) -> Dict[UUID, bool]:
+        """
+        Bulk check recency for multiple orphans - avoids N+1 queries.
+
+        Issue #200: Used by check_and_graduate_ready for efficient batch processing.
+
+        Args:
+            orphan_ids: List of orphan UUIDs to check
+            days: Number of days for recency window
+
+        Returns:
+            Dict mapping orphan_id -> has_recent_conversation
+        """
+        if not orphan_ids:
+            return {}
+
+        # Defensive: warn if array is unexpectedly large
+        if len(orphan_ids) > 100:
+            logger.warning(
+                f"Large orphan_ids array ({len(orphan_ids)} items) "
+                "passed to _get_conversation_recency_bulk"
+            )
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+        with self.db.cursor() as cur:
+            # Pass UUIDs directly (psycopg2 handles UUID type)
+            cur.execute("""
+                SELECT o.id AS orphan_id,
+                       EXISTS(
+                           SELECT 1 FROM conversations c
+                           WHERE c.id = ANY(o.conversation_ids)
+                             AND c.created_at >= %s
+                       ) AS has_recent
+                FROM story_orphans o
+                WHERE o.id = ANY(%s)
+            """, (cutoff, orphan_ids))
+            return {row["orphan_id"]: row["has_recent"] for row in cur.fetchall()}
 
     def _generate_story_title(self, orphan: Orphan) -> str:
         """Generate a story title from orphan data."""

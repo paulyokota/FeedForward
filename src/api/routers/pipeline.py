@@ -990,7 +990,8 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
                        t.resolution_action, t.root_cause,
                        t.solution_provided, t.resolution_category,
                        c.contact_email, c.contact_id, c.user_id, c.org_id,
-                       c.priority, c.churn_risk
+                       c.priority, c.churn_risk,
+                       c.created_at  -- Issue #200: Recency gate
                 FROM themes t
                 JOIN conversations c ON t.conversation_id = c.id
                 WHERE t.pipeline_run_id = %s
@@ -1040,6 +1041,8 @@ def _run_pm_review_and_story_creation(run_id: int, stop_checker: Callable[[], bo
             # Issue #166: Severity fields for MIN_GROUP_SIZE exception
             "priority": row.get("priority"),
             "churn_risk": row.get("churn_risk"),
+            # Issue #200: Recency gate
+            "created_at": row.get("created_at"),
         }
         conversation_data[row["conversation_id"]] = conv_dict
         groups[row["issue_signature"]].append(conv_dict)

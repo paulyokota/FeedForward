@@ -7,7 +7,7 @@ Run with: pytest tests/test_story_creation_service_pm_review.py -v
 
 import pytest
 from unittest.mock import Mock, MagicMock, patch
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 
 import sys
@@ -99,6 +99,8 @@ def mock_pm_review_service():
 @pytest.fixture
 def sample_theme_groups():
     """Create sample theme groups for testing."""
+    # Issue #200: Add created_at for recency gate
+    recent_time = datetime.now(timezone.utc) - timedelta(days=5)
     return {
         "pinterest_duplicate_pins": [
             {
@@ -109,6 +111,7 @@ def sample_theme_groups():
                 "symptoms": ["duplicate pins"],
                 "affected_flow": "publishing",
                 "excerpt": "My pins show up twice",
+                "created_at": recent_time,
             },
             {
                 "id": "conv_2",
@@ -118,6 +121,7 @@ def sample_theme_groups():
                 "symptoms": ["duplicate pins"],
                 "affected_flow": "publishing",
                 "excerpt": "Pins appear twice",
+                "created_at": recent_time,
             },
             {
                 "id": "conv_3",
@@ -127,6 +131,7 @@ def sample_theme_groups():
                 "symptoms": ["duplicate pins"],
                 "affected_flow": "publishing",
                 "excerpt": "Duplicate pins issue",
+                "created_at": recent_time,
             },
         ],
     }
@@ -135,6 +140,8 @@ def sample_theme_groups():
 @pytest.fixture
 def mixed_theme_groups():
     """Create theme groups with mixed symptoms (should trigger split)."""
+    # Issue #200: Add created_at for recency gate
+    recent_time = datetime.now(timezone.utc) - timedelta(days=5)
     return {
         "pinterest_publishing_failure": [
             {
@@ -145,6 +152,7 @@ def mixed_theme_groups():
                 "symptoms": ["duplicate pins"],
                 "affected_flow": "publishing",
                 "excerpt": "My pins show up twice",
+                "created_at": recent_time,
             },
             {
                 "id": "conv_2",
@@ -154,6 +162,7 @@ def mixed_theme_groups():
                 "symptoms": ["duplicate pins"],
                 "affected_flow": "publishing",
                 "excerpt": "Pins appear twice",
+                "created_at": recent_time,
             },
             {
                 "id": "conv_3",
@@ -163,6 +172,7 @@ def mixed_theme_groups():
                 "symptoms": ["duplicate pins"],
                 "affected_flow": "publishing",
                 "excerpt": "Duplicate pins issue",
+                "created_at": recent_time,
             },
             {
                 "id": "conv_4",
@@ -172,6 +182,7 @@ def mixed_theme_groups():
                 "symptoms": ["missing pins"],
                 "affected_flow": "publishing",
                 "excerpt": "My pins disappeared",
+                "created_at": recent_time,
             },
             {
                 "id": "conv_5",
@@ -181,6 +192,7 @@ def mixed_theme_groups():
                 "symptoms": ["missing pins"],
                 "affected_flow": "publishing",
                 "excerpt": "Pins are gone",
+                "created_at": recent_time,
             },
             {
                 "id": "conv_6",
@@ -190,6 +202,7 @@ def mixed_theme_groups():
                 "symptoms": ["missing pins"],
                 "affected_flow": "publishing",
                 "excerpt": "Cannot find my pins",
+                "created_at": recent_time,
             },
             {
                 "id": "conv_7",
@@ -199,6 +212,7 @@ def mixed_theme_groups():
                 "symptoms": ["other issue"],
                 "affected_flow": "publishing",
                 "excerpt": "Different issue entirely",
+                "created_at": recent_time,
             },
         ],
     }
@@ -601,17 +615,19 @@ class TestProcessingResultPMMetrics:
         self, mock_story_service, mock_orphan_service, mock_pm_review_service
     ):
         """Test that PM review metrics accumulate across groups."""
+        # Issue #200: Add created_at for recency gate
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         # Create multiple theme groups
         theme_groups = {
             "sig_1": [
-                {"id": "conv_1", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e"},
-                {"id": "conv_2", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e"},
-                {"id": "conv_3", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e"},
+                {"id": "conv_1", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e", "created_at": recent_time},
+                {"id": "conv_2", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e", "created_at": recent_time},
+                {"id": "conv_3", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e", "created_at": recent_time},
             ],
             "sig_2": [
-                {"id": "conv_4", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e"},
-                {"id": "conv_5", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e"},
-                {"id": "conv_6", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e"},
+                {"id": "conv_4", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e", "created_at": recent_time},
+                {"id": "conv_5", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e", "created_at": recent_time},
+                {"id": "conv_6", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e", "created_at": recent_time},
             ],
         }
 
@@ -678,10 +694,12 @@ class TestPMReviewWithQualityGates:
         mock_pm_review_service,
     ):
         """Test that PM review is not called for groups below MIN_GROUP_SIZE."""
+        # Issue #200: Add created_at for recency gate (should still fail for size)
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         small_group = {
             "small_sig": [
-                {"id": "conv_1", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e"},
-                {"id": "conv_2", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e"},
+                {"id": "conv_1", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e", "created_at": recent_time},
+                {"id": "conv_2", "product_area": "a", "component": "b", "user_intent": "u", "symptoms": [], "affected_flow": "f", "excerpt": "e", "created_at": recent_time},
             ],
         }
 
