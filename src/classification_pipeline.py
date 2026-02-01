@@ -689,12 +689,14 @@ async def run_pipeline_async(
     logger.info("  Classification complete in %.1fs (%.1f conv/sec)", elapsed, throughput)
 
     # Phase 3: Batch store to database
+    # Issue #202: For totals, include skipped_count (already classified/stored in previous run)
+    # This ensures counters don't regress on resume
     stats = {
         "fetched": len(conversations) + skipped_count,  # Total fetched before filtering
         "recovered": recovered_count,  # Issue #164
         "skipped": skipped_count,  # Issue #202: Already-stored conversations skipped on resume
-        "classified": len(results),
-        "stored": 0,
+        "classified": len(results) + skipped_count,  # TOTAL: new + previously classified
+        "stored": skipped_count,  # Start with previously stored, add new below
         "stage2_run": sum(1 for r in results if r["stage2_result"]),
         "classification_changed": sum(1 for r in results if (r.get("stage2_result") or {}).get("changed_from_stage_1")),
         "warnings": classification_warnings,  # Issue #202: Observability

@@ -84,14 +84,28 @@ curl -X POST "http://localhost:8000/api/pipeline/run" \
 
 ## Expected Behavior After Interruption
 
-| Interrupted During                    | On Resume/Restart                                    |
-| ------------------------------------- | ---------------------------------------------------- |
-| Fetch (before any storage)            | No checkpoint saved → restart from beginning         |
-| Storage (has checkpoint)              | Re-fetches from beginning, upsert handles duplicates |
-| Between classification and embeddings | Embeddings restart from scratch (expected per MVP)   |
-| Embeddings/facets/themes              | Phase restarts from scratch (fast, idempotent)       |
+| Interrupted During                      | On Resume                                           |
+| --------------------------------------- | --------------------------------------------------- |
+| Fetch (before any storage)              | No checkpoint saved → restart from beginning        |
+| Classification/Storage (has checkpoint) | **Re-fetches all, skips classification for stored** |
+| Between classification and embeddings   | Embeddings restart from scratch (expected per MVP)  |
+| Embeddings/facets/themes                | Phase restarts from scratch (fast, idempotent)      |
 
-**Important:** Checkpoint is saved AFTER storage batches complete, not during fetch. This prevents data loss: if the process crashes during fetch, no checkpoint exists, so you restart from the beginning (correct). If it crashes during storage, some data is stored and you can resume - the re-fetch will upsert and skip already-stored conversations.
+### Resume Behavior (Important)
+
+Resume does NOT use cursor-based pagination. Instead:
+
+1. **Re-fetches all conversations** from Intercom (adds ~5-10 min overhead)
+2. **Queries DB for already-stored conversation IDs**
+3. **Skips classification** for already-stored conversations (preserves 30-60 min of work)
+4. **Classifies only new/unprocessed** conversations
+5. **Upserts results** (handles any duplicates)
+
+This design trades fetch overhead for implementation simplicity. For a 90-day backfill interrupted at 80%:
+
+- Fetch: ~5-10 min (re-fetches all ~10k conversations)
+- Classification: ~5-10 min (only 2k new conversations, not 10k)
+- **Total time saved: 30-60 min** of classification work preserved
 
 **Note:** Only classification phase is resumable. All later phases are designed to be fast and idempotent.
 

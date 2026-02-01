@@ -1472,7 +1472,8 @@ def _run_pipeline_task(
             return
 
         # Update classification results
-        # Issue #202: Also merge any warnings from classification (e.g., cursor fallback)
+        # Issue #202: Stats now include proper totals (new + skipped from previous run),
+        # so direct SET is correct and counters won't regress on resume.
         classification_warnings = result.get("warnings", [])
         with get_connection() as conn:
             with conn.cursor() as cur:
