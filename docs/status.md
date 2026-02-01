@@ -19,8 +19,23 @@
 **LLM Resolution Extraction (Issue #146): COMPLETE** ✅
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 **Test Suite Optimization (Issue #147): COMPLETE** ✅
+**Story Evidence Quality (Issue #197): COMPLETE** ✅
 
-## Latest: Pipeline API Bug Fixed (2026-01-31)
+## Latest: Story Evidence Quality Fixed (2026-01-31)
+
+**Issue #197 FIXED** - Raise Story Evidence Quality
+
+- PR #199 merged: Evidence creation during orphan graduation + excerpt_count field
+- Root cause: 78.8% of stories had `evidence_count=0` despite 100% theme extraction
+- Three fixes: evidence bundle creation, theme_signature population, new `excerpt_count` field
+- Frontend: `EvidenceBadge` component for low-evidence warnings
+- Migration 021 applied: `excerpt_count` column with backfill
+- Post-merge verification: **100%** of stories now have `excerpt_count > 0`
+- 5-personality review: CONVERGED in 3 rounds
+
+---
+
+## Previous: Pipeline API Bug Fixed (2026-01-31)
 
 **Issue #189 FIXED** - Pipeline API Environment Variable Bug
 
