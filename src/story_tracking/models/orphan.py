@@ -15,6 +15,9 @@ from pydantic import BaseModel, ConfigDict, Field
 # Minimum conversations required for a group to become a story
 MIN_GROUP_SIZE = 3
 
+# Issue #200: Days within which a conversation is considered "recent" for story creation
+RECENCY_WINDOW_DAYS = 30
+
 
 class OrphanThemeData(BaseModel):
     """Theme data accumulated from conversations."""

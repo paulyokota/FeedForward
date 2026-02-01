@@ -8,7 +8,7 @@ Run with: pytest tests/test_story_creation_service.py -v
 import json
 import pytest
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 from uuid import uuid4
@@ -1316,6 +1316,7 @@ class TestProcessThemeGroups:
     @pytest.fixture
     def sample_theme_groups(self):
         """Sample theme groups as produced by pipeline."""
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         return {
             "billing_invoice_download_error": [
                 {
@@ -1326,6 +1327,7 @@ class TestProcessThemeGroups:
                     "symptoms": ["error message", "blank page"],
                     "affected_flow": "invoice_download",
                     "excerpt": "I tried to download my invoice but got an error",
+                    "created_at": recent_time,
                 },
                 {
                     "id": "conv2",
@@ -1335,6 +1337,7 @@ class TestProcessThemeGroups:
                     "symptoms": ["404 error"],
                     "affected_flow": "invoice_download",
                     "excerpt": "Getting 404 when trying to access invoice",
+                    "created_at": recent_time,
                 },
                 {
                     "id": "conv3",
@@ -1344,6 +1347,7 @@ class TestProcessThemeGroups:
                     "symptoms": ["timeout"],
                     "affected_flow": "invoice_download",
                     "excerpt": "Download times out after a few seconds",
+                    "created_at": recent_time,
                 },
             ],
             "scheduler_pin_deletion": [
@@ -1355,6 +1359,7 @@ class TestProcessThemeGroups:
                     "symptoms": ["button not working"],
                     "affected_flow": "pin_management",
                     "excerpt": "Delete button does nothing",
+                    "created_at": recent_time,
                 },
                 # Only 1 conversation - should become orphan
             ],
@@ -1603,6 +1608,7 @@ class TestQualityGates:
     @pytest.fixture
     def sample_valid_group(self):
         """Sample theme group with valid data for quality gates."""
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         return {
             "billing_invoice_error": [
                 {
@@ -1613,6 +1619,7 @@ class TestQualityGates:
                     "symptoms": ["error message", "blank page"],
                     "affected_flow": "invoice_download",
                     "excerpt": "I tried to download my invoice but got an error",
+                    "created_at": recent_time,
                 },
                 {
                     "id": "conv2",
@@ -1622,6 +1629,7 @@ class TestQualityGates:
                     "symptoms": ["404 error"],
                     "affected_flow": "invoice_download",
                     "excerpt": "Getting 404 when trying to access invoice",
+                    "created_at": recent_time,
                 },
                 {
                     "id": "conv3",
@@ -1631,6 +1639,7 @@ class TestQualityGates:
                     "symptoms": ["timeout"],
                     "affected_flow": "invoice_download",
                     "excerpt": "Download times out after a few seconds",
+                    "created_at": recent_time,
                 },
             ],
         }
@@ -1683,12 +1692,13 @@ class TestQualityGates:
         mock_orphan_service,
     ):
         """Groups failing evidence validation should become orphans."""
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         # Create group with missing required fields (no excerpts)
         invalid_group = {
             "test_signature": [
-                {"id": "conv1"},  # Missing excerpt
-                {"id": "conv2"},
-                {"id": "conv3"},
+                {"id": "conv1", "created_at": recent_time},  # Missing excerpt
+                {"id": "conv2", "created_at": recent_time},
+                {"id": "conv3", "created_at": recent_time},
             ],
         }
 
@@ -1748,12 +1758,13 @@ class TestQualityGates:
         mock_orphan_service,
     ):
         """validation_enabled=False should skip validation."""
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         # Create group with missing excerpts (would fail validation)
         group_without_excerpts = {
             "test_signature": [
-                {"id": "conv1"},
-                {"id": "conv2"},
-                {"id": "conv3"},
+                {"id": "conv1", "created_at": recent_time},
+                {"id": "conv2", "created_at": recent_time},
+                {"id": "conv3", "created_at": recent_time},
             ],
         }
 
@@ -1898,11 +1909,12 @@ class TestQualityGates:
         mock_orphan_service,
     ):
         """Groups with < MIN_GROUP_SIZE conversations should fail quality gates."""
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         # Only 2 conversations (MIN_GROUP_SIZE is 3)
         undersized_group = {
             "test_signature": [
-                {"id": "conv1", "excerpt": "test 1"},
-                {"id": "conv2", "excerpt": "test 2"},
+                {"id": "conv1", "excerpt": "test 1", "created_at": recent_time},
+                {"id": "conv2", "excerpt": "test 2", "created_at": recent_time},
             ],
         }
 
@@ -1929,15 +1941,16 @@ class TestQualityGates:
         mock_orphan_service,
     ):
         """ProcessingResult should track quality_gate_rejections count."""
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         # Create multiple groups with different outcomes
         mixed_groups = {
             "valid_group": [
-                {"id": "conv1", "excerpt": "test 1"},
-                {"id": "conv2", "excerpt": "test 2"},
-                {"id": "conv3", "excerpt": "test 3"},
+                {"id": "conv1", "excerpt": "test 1", "created_at": recent_time},
+                {"id": "conv2", "excerpt": "test 2", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "test 3", "created_at": recent_time},
             ],
             "undersized_group": [
-                {"id": "conv4", "excerpt": "test 4"},
+                {"id": "conv4", "excerpt": "test 4", "created_at": recent_time},
             ],
         }
 
@@ -2292,11 +2305,12 @@ class TestSourceStatsCalculation:
             evidence_service=mock_evidence_service,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
-                {"id": "conv1", "excerpt": "test 1"},
-                {"id": "conv2", "excerpt": "test 2"},
-                {"id": "conv3", "excerpt": "test 3"},
+                {"id": "conv1", "excerpt": "test 1", "created_at": recent_time},
+                {"id": "conv2", "excerpt": "test 2", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "test 3", "created_at": recent_time},
             ],
         }
 
@@ -2330,11 +2344,12 @@ class TestExcerptPreparation:
             evidence_service=mock_evidence_service,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
-                {"id": "conv1", "excerpt": "I can't download my invoice"},
-                {"id": "conv2", "excerpt": "Getting 404 error"},
-                {"id": "conv3", "excerpt": "Download times out"},
+                {"id": "conv1", "excerpt": "I can't download my invoice", "created_at": recent_time},
+                {"id": "conv2", "excerpt": "Getting 404 error", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "Download times out", "created_at": recent_time},
             ],
         }
 
@@ -2373,11 +2388,12 @@ class TestExcerptPreparation:
             validation_enabled=False,  # Disable validation to focus on excerpt handling
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
-                {"id": "conv1", "excerpt": "Test 1"},
-                {"id": "conv2", "excerpt": "Test 2"},
-                {"id": "conv3"},  # Missing excerpt - should be skipped in excerpts
+                {"id": "conv1", "excerpt": "Test 1", "created_at": recent_time},
+                {"id": "conv2", "excerpt": "Test 2", "created_at": recent_time},
+                {"id": "conv3", "created_at": recent_time},  # Missing excerpt - should be skipped in excerpts
             ],
         }
 
@@ -2411,12 +2427,13 @@ class TestApplyQualityGatesMethod:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         conversations = [
-            ConversationData(id="1", issue_signature="test", excerpt="test 1"),
-            ConversationData(id="2", issue_signature="test", excerpt="test 2"),
-            ConversationData(id="3", issue_signature="test", excerpt="test 3"),
+            ConversationData(id="1", issue_signature="test", excerpt="test 1", created_at=recent_time),
+            ConversationData(id="2", issue_signature="test", excerpt="test 2", created_at=recent_time),
+            ConversationData(id="3", issue_signature="test", excerpt="test 3", created_at=recent_time),
         ]
-        conv_dicts = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+        conv_dicts = [{"id": "1", "created_at": recent_time}, {"id": "2", "created_at": recent_time}, {"id": "3", "created_at": recent_time}]
 
         result = service._apply_quality_gates("test_sig", conversations, conv_dicts)
 
@@ -2435,12 +2452,13 @@ class TestApplyQualityGatesMethod:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         # Only 2 conversations (MIN_GROUP_SIZE is 3)
         conversations = [
-            ConversationData(id="1", issue_signature="test"),
-            ConversationData(id="2", issue_signature="test"),
+            ConversationData(id="1", issue_signature="test", created_at=recent_time),
+            ConversationData(id="2", issue_signature="test", created_at=recent_time),
         ]
-        conv_dicts = [{"id": "1"}, {"id": "2"}]
+        conv_dicts = [{"id": "1", "created_at": recent_time}, {"id": "2", "created_at": recent_time}]
 
         result = service._apply_quality_gates("test_sig", conversations, conv_dicts)
 
@@ -2463,12 +2481,13 @@ class TestApplyQualityGatesMethod:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         conversations = [
-            ConversationData(id="1", issue_signature="test", excerpt="test 1"),
-            ConversationData(id="2", issue_signature="test", excerpt="test 2"),
-            ConversationData(id="3", issue_signature="test", excerpt="test 3"),
+            ConversationData(id="1", issue_signature="test", excerpt="test 1", created_at=recent_time),
+            ConversationData(id="2", issue_signature="test", excerpt="test 2", created_at=recent_time),
+            ConversationData(id="3", issue_signature="test", excerpt="test 3", created_at=recent_time),
         ]
-        conv_dicts = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+        conv_dicts = [{"id": "1", "created_at": recent_time}, {"id": "2", "created_at": recent_time}, {"id": "3", "created_at": recent_time}]
 
         result = service._apply_quality_gates("test_sig", conversations, conv_dicts)
 
@@ -2535,15 +2554,17 @@ class TestEvidenceDiagnosticSummary:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
                     "id": "conv1",
                     "excerpt": "raw excerpt text",
                     "diagnostic_summary": "LLM-generated diagnostic summary",
+                    "created_at": recent_time,
                 },
-                {"id": "conv2", "excerpt": "another raw excerpt"},
-                {"id": "conv3", "excerpt": "third excerpt"},
+                {"id": "conv2", "excerpt": "another raw excerpt", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "third excerpt", "created_at": recent_time},
             ],
         }
 
@@ -2569,19 +2590,22 @@ class TestEvidenceDiagnosticSummary:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
                     "id": "conv1",
                     "excerpt": "fallback excerpt",
                     "diagnostic_summary": "",  # Empty string
+                    "created_at": recent_time,
                 },
                 {
                     "id": "conv2",
                     "excerpt": "another fallback",
                     "diagnostic_summary": "   ",  # Whitespace only
+                    "created_at": recent_time,
                 },
-                {"id": "conv3", "excerpt": "third"},
+                {"id": "conv3", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -2607,15 +2631,17 @@ class TestEvidenceDiagnosticSummary:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
                     "id": "conv1",
                     "excerpt": "fallback excerpt",
                     "diagnostic_summary": None,
+                    "created_at": recent_time,
                 },
-                {"id": "conv2", "excerpt": "no diagnostic field"},  # Missing field
-                {"id": "conv3", "excerpt": "third"},
+                {"id": "conv2", "excerpt": "no diagnostic field", "created_at": recent_time},  # Missing field
+                {"id": "conv3", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -2641,6 +2667,7 @@ class TestEvidenceDiagnosticSummary:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
@@ -2651,9 +2678,10 @@ class TestEvidenceDiagnosticSummary:
                         {"text": "key excerpt 1"},
                         {"text": "key excerpt 2"},
                     ],
+                    "created_at": recent_time,
                 },
-                {"id": "conv2", "excerpt": "second conv"},
-                {"id": "conv3", "excerpt": "third conv"},
+                {"id": "conv2", "excerpt": "second conv", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "third conv", "created_at": recent_time},
             ],
         }
 
@@ -2680,6 +2708,7 @@ class TestEvidenceDiagnosticSummary:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
@@ -2691,9 +2720,10 @@ class TestEvidenceDiagnosticSummary:
                             "relevance": "Shows root cause",
                         },
                     ],
+                    "created_at": recent_time,
                 },
-                {"id": "conv2", "excerpt": "second"},
-                {"id": "conv3", "excerpt": "third"},
+                {"id": "conv2", "excerpt": "second", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -2720,6 +2750,7 @@ class TestEvidenceDiagnosticSummary:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         long_text = "x" * (MAX_EXCERPT_LENGTH + 100)
         theme_groups = {
             "test_sig": [
@@ -2727,9 +2758,10 @@ class TestEvidenceDiagnosticSummary:
                     "id": "conv1",
                     "excerpt": "short",
                     "diagnostic_summary": long_text,
+                    "created_at": recent_time,
                 },
-                {"id": "conv2", "excerpt": "second"},
-                {"id": "conv3", "excerpt": "third"},
+                {"id": "conv2", "excerpt": "second", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -2752,22 +2784,26 @@ class TestEvidenceDiagnosticSummary:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
                     "id": "conv1",
                     "excerpt": "fallback 1",
                     "diagnostic_summary": "has diagnostic",
+                    "created_at": recent_time,
                 },
                 {
                     "id": "conv2",
                     "excerpt": "fallback 2",
                     # No diagnostic_summary
+                    "created_at": recent_time,
                 },
                 {
                     "id": "conv3",
                     "excerpt": "fallback 3",
                     "diagnostic_summary": "",  # Empty
+                    "created_at": recent_time,
                 },
             ],
         }
@@ -2797,12 +2833,14 @@ class TestEvidenceDiagnosticSummary:
             validation_enabled=False,
         )
 
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
                     "id": "conv1",
                     "excerpt": "main",
                     "key_excerpts": [],  # Empty list
+                    "created_at": recent_time,
                 },
                 {
                     "id": "conv2",
@@ -2813,8 +2851,9 @@ class TestEvidenceDiagnosticSummary:
                         {"not_text": "missing text field"},  # Wrong field
                         "not a dict",  # Wrong type
                     ],
+                    "created_at": recent_time,
                 },
-                {"id": "conv3", "excerpt": "third"},
+                {"id": "conv3", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -2889,15 +2928,18 @@ class TestEvidenceMetadataCompleteness:
             validation_enabled=False,
         )
 
+        # Issue #200: Add created_at for recency gate
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
                     "id": "conv1",
                     "excerpt": "test excerpt",
                     "contact_email": "user@example.com",
+                    "created_at": recent_time,
                 },
-                {"id": "conv2", "excerpt": "second"},
-                {"id": "conv3", "excerpt": "third"},
+                {"id": "conv2", "excerpt": "second", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -2922,11 +2964,13 @@ class TestEvidenceMetadataCompleteness:
             validation_enabled=False,
         )
 
+        # Issue #200: Add created_at for recency gate
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
-                {"id": "conv123", "excerpt": "test excerpt"},
-                {"id": "conv456", "excerpt": "second"},
-                {"id": "conv789", "excerpt": "third"},
+                {"id": "conv123", "excerpt": "test excerpt", "created_at": recent_time},
+                {"id": "conv456", "excerpt": "second", "created_at": recent_time},
+                {"id": "conv789", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -2963,6 +3007,8 @@ class TestEvidenceMetadataCompleteness:
             validation_enabled=False,
         )
 
+        # Issue #200: Add created_at for recency gate
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
@@ -2971,9 +3017,10 @@ class TestEvidenceMetadataCompleteness:
                     "org_id": "org_123",
                     "user_id": "user_456",
                     "contact_id": "contact_789",
+                    "created_at": recent_time,
                 },
-                {"id": "conv2", "excerpt": "second"},
-                {"id": "conv3", "excerpt": "third"},
+                {"id": "conv2", "excerpt": "second", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -3003,11 +3050,14 @@ class TestEvidenceMetadataCompleteness:
             validation_enabled=False,
         )
 
+        # Issue #200: Add created_at for recency gate
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
                     "id": "conv1",
                     "excerpt": "test excerpt",
+                    "created_at": recent_time,
                     # All metadata fields missing
                 },
                 {
@@ -3015,8 +3065,9 @@ class TestEvidenceMetadataCompleteness:
                     "excerpt": "second",
                     "contact_email": None,
                     "org_id": None,
+                    "created_at": recent_time,
                 },
-                {"id": "conv3", "excerpt": "third"},
+                {"id": "conv3", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -3058,6 +3109,8 @@ class TestEvidenceMetadataCompleteness:
             validation_enabled=False,
         )
 
+        # Issue #200: Add created_at for recency gate
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
@@ -3068,9 +3121,10 @@ class TestEvidenceMetadataCompleteness:
                     "key_excerpts": [
                         {"text": "key excerpt text"},
                     ],
+                    "created_at": recent_time,
                 },
-                {"id": "conv2", "excerpt": "second"},
-                {"id": "conv3", "excerpt": "third"},
+                {"id": "conv2", "excerpt": "second", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -3280,17 +3334,20 @@ class TestSignalBasedRanking:
             validation_enabled=False,
         )
 
+        # Issue #200: Add created_at for recency gate
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         # conv1 is first but low signal, conv2 is high signal
         theme_groups = {
             "test_sig": [
-                {"id": "conv1", "excerpt": "simple text"},
+                {"id": "conv1", "excerpt": "simple text", "created_at": recent_time},
                 {
                     "id": "conv2",
                     "excerpt": "Error 500 failed crashed timeout",
                     "diagnostic_summary": "Detailed error analysis",
                     "key_excerpts": [{"text": "critical error"}],
+                    "created_at": recent_time,
                 },
-                {"id": "conv3", "excerpt": "another simple one"},
+                {"id": "conv3", "excerpt": "another simple one", "created_at": recent_time},
             ],
         }
 
@@ -3314,6 +3371,8 @@ class TestSignalBasedRanking:
             validation_enabled=False,
         )
 
+        # Issue #200: Add created_at for recency gate
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         theme_groups = {
             "test_sig": [
                 {
@@ -3326,9 +3385,10 @@ class TestSignalBasedRanking:
                         # This is different - should be kept
                         {"text": "User tried three different browsers"},
                     ],
+                    "created_at": recent_time,
                 },
-                {"id": "conv2", "excerpt": "second"},
-                {"id": "conv3", "excerpt": "third"},
+                {"id": "conv2", "excerpt": "second", "created_at": recent_time},
+                {"id": "conv3", "excerpt": "third", "created_at": recent_time},
             ],
         }
 
@@ -3354,9 +3414,11 @@ class TestSignalBasedRanking:
             validation_enabled=False,
         )
 
+        # Issue #200: Add created_at for recency gate
+        recent_time = datetime.now(timezone.utc) - timedelta(days=5)
         # Create more conversations than MAX_EXCERPTS_IN_THEME
         convs = [
-            {"id": f"conv{i}", "excerpt": f"text {i}"}
+            {"id": f"conv{i}", "excerpt": f"text {i}", "created_at": recent_time}
             for i in range(MAX_EXCERPTS_IN_THEME + 3)
         ]
         theme_groups = {"test_sig": convs}

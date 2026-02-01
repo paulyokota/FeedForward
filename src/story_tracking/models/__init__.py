@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # Re-export orphan models
 from .orphan import (
     MIN_GROUP_SIZE,
+    RECENCY_WINDOW_DAYS,
     Orphan,
     OrphanCreate,
     OrphanGraduationResult,
