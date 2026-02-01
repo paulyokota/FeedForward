@@ -283,6 +283,45 @@ class TestHistoryEndpoint:
         assert data[0]["status"] == "stopped"
         assert data[0]["stories_ready"] is True
 
+    def test_history_includes_failed_counters(self, client, mock_db):
+        """Test history includes embeddings_failed and facets_failed fields (#205)."""
+        mock_cursor = Mock()
+        mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
+        mock_db.cursor.return_value.__exit__ = Mock(return_value=False)
+
+        now = datetime.now(timezone.utc)
+        mock_cursor.fetchall.return_value = [
+            {
+                "id": 1,
+                "started_at": now - timedelta(hours=1),
+                "completed_at": now,
+                "status": "completed",
+                "current_phase": "completed",
+                "conversations_fetched": 100,
+                "conversations_classified": 100,
+                "conversations_stored": 95,
+                "embeddings_generated": 90,
+                "embeddings_failed": 5,
+                "facets_extracted": 85,
+                "facets_failed": 10,
+                "themes_extracted": 50,
+                "stories_created": 10,
+                "stories_ready": True,
+                "error_count": 0,
+            },
+        ]
+
+        response = client.get("/api/pipeline/history")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        # Verify the new failed counters are present (#205)
+        assert data[0]["embeddings_generated"] == 90
+        assert data[0]["embeddings_failed"] == 5
+        assert data[0]["facets_extracted"] == 85
+        assert data[0]["facets_failed"] == 10
+
 
 # -----------------------------------------------------------------------------
 # Status Endpoint Tests
