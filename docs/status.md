@@ -21,8 +21,23 @@
 **Test Suite Optimization (Issue #147): COMPLETE** ✅
 **Story Evidence Quality (Issue #197): COMPLETE** ✅
 **Implementation Head-Start Relevance (Issue #198): COMPLETE** ✅
+**30-Day Recency Gate (Issue #200): COMPLETE** ✅
 
-## Latest: Implementation Head-Start Relevance (2026-01-31)
+## Latest: 30-Day Recency Gate (2026-02-01)
+
+**Issue #200 COMPLETE** - 30-Day Recency Gate for Story Creation
+
+- PR #203 merged: Groups must have at least one conversation from the last 30 days
+- All-old groups route to orphan accumulation with reason "No recent conversations (last 30 days)"
+- Gate covers: signature groups, hybrid clusters, PM keep-together, PM split sub-groups, orphan graduation
+- No high-severity bypass - recency is about staleness, not urgency
+- Codex review: 2 issues fixed (RealDictCursor access, N+1 query elimination)
+- 29 new tests added, all 159 story creation tests pass
+- 5-personality review: CONVERGED
+
+---
+
+## Previous: Implementation Head-Start Relevance (2026-01-31)
 
 **Issue #198 FIXED** - Improve Implementation Head-Start Relevance
 
@@ -3173,6 +3188,37 @@ python -m src.pipeline --dry-run            # No DB writes
 None currently - #176 resolved, pipeline producing stories.
 
 ## Recent Session Notes
+
+### 2026-02-01: Issue #200 - 30-Day Recency Gate for Story Creation
+
+**Objective**: Add hard-coded 30-day recency requirement for story creation. Groups must have at least one conversation from the last 30 days to become stories.
+
+**Implementation**:
+
+- Added `created_at` to `ConversationData` dataclass and threaded through pipeline
+- Added `RECENCY_WINDOW_DAYS = 30` constant in `models/orphan.py` (single source of truth)
+- Added `_has_recent_conversation()` helper for story creation recency checks
+- Added recency gate to `_apply_quality_gates` (covers signature groups, hybrid clusters, PM keep-together)
+- Added recency check to `_handle_pm_split` for PM review sub-groups
+- Added `_check_conversation_recency()` and `_get_conversation_recency_bulk()` to orphan_service for graduation checks
+- Added `skip_recency_check` parameter to `graduate()` to avoid N+1 queries in bulk graduation
+
+**Gate Coverage**:
+| Path | Recency Check Location |
+|------|----------------------|
+| Signature-based groups | `_apply_quality_gates` |
+| Hybrid clusters | `_apply_quality_gates` |
+| PM keep-together | `_apply_quality_gates` |
+| PM split sub-groups | `_handle_pm_split` |
+| Orphan graduation | `graduate()` and `check_and_graduate_ready()` |
+
+**Review**: 5-personality + Codex review → 2 issues fixed (RealDictCursor access, N+1 elimination) → PR #203 merged
+
+**Tests**: 29 new recency gate tests + 130 story creation tests pass
+
+**Issue #200**: CLOSED
+
+---
 
 ### 2026-01-30: Issue #176 Fix and Run #96 Recovery
 

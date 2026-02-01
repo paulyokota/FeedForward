@@ -1,70 +1,48 @@
-# Last Session Notes
+# Session Notes: 2026-02-01
 
-## Date: 2026-01-31
+## Issue #200: 30-Day Recency Gate for Story Creation
 
-## Summary
+### Summary
 
-Implemented Issue #198: Improve Implementation Head-Start Relevance
+Implemented a hard-coded 30-day recency requirement for story creation. Groups must include at least one conversation created within the last 30 days. All-old groups route to orphan accumulation with reason "No recent conversations (last 30 days)".
 
-## What Was Accomplished
+### Key Decisions
 
-1. **Phase 1: High-signal term detection**
-   - Added `HIGH_SIGNAL_FIELDS` for product_area/component/error terms
-   - Suffix-safe stop word filtering (`STOP_WORD_STEMS`, `STOP_WORD_IRREGULARS`)
-   - Modified `_extract_keywords()` to return `(keywords, metadata)` tuple
-   - Track `keyword_sources` map for audit trail
+| Decision                  | Choice                                       | Rationale                                      |
+| ------------------------- | -------------------------------------------- | ---------------------------------------------- |
+| Orphan graduation recency | Query conversations table at graduation time | Single source of truth                         |
+| High-severity bypass      | NO bypass                                    | Recency is about staleness, not urgency        |
+| Gate ordering             | Recency right after MIN_GROUP_SIZE           | Clearer failure reasons                        |
+| Boundary condition        | `>=` (inclusive)                             | 30 days ago = recent                           |
+| Missing created_at        | Treat as NOT recent                          | Conservative approach                          |
+| Constant location         | `models/orphan.py`                           | Single source of truth, next to MIN_GROUP_SIZE |
 
-2. **Phase 2: Wire implementation_context to all story creation paths**
-   - `_create_story_with_evidence`
-   - `_handle_keep_together`
-   - `_create_story_from_subgroup`
-   - `_create_story_from_hybrid_cluster` (already had it)
+### Implementation
 
-3. **Phase 3: Relevance gating in provider**
-   - Added `relevance_metadata` to `ExplorationResult` dataclass
-   - Applied relevance gate in `explore_for_theme()` and `_explore_with_classifier_hints()`
-   - Threshold: `high_signal_matched >= 1 OR term_diversity >= 2`
+**Files Changed (8 files, +1012/-89 lines):**
 
-4. **Phase 4: Plumb relevance_metadata to score_metadata**
-   - Added `relevance_metadata` parameter to `_compute_multi_factor_scores()`
-   - Include `relevance_metadata` in `_build_code_context_dict()` return
+- `src/api/routers/pipeline.py` - Add `created_at` to SQL query
+- `src/story_tracking/models/orphan.py` - Add `RECENCY_WINDOW_DAYS` constant
+- `src/story_tracking/models/__init__.py` - Export `RECENCY_WINDOW_DAYS`
+- `src/story_tracking/services/story_creation_service.py` - Add `_has_recent_conversation` helper, recency gates
+- `src/story_tracking/services/orphan_service.py` - Add recency methods, `skip_recency_check` parameter
+- `tests/test_recency_gate.py` - New test file (29 tests)
+- `tests/test_story_creation_service.py` - Add `created_at` to test fixtures
+- `tests/test_story_creation_service_pm_review.py` - Add `created_at` to test fixtures
 
-## Review Process
+### Review Feedback (Codex)
 
-- **5-Personality Review**: CONVERGED in 2 rounds
-- **Round 1**: Found CRITICAL bug - `_build_code_context_dict` not including `relevance_metadata`
-- **Round 2**: Fix verified, 4 LGTM + 1 minor concern (intentionally not addressed)
-- **Codex Review**: 2 Medium issues fixed:
-  1. `source_fields` consistency for CamelCase identifiers
-  2. `_is_low_confidence_result` parity between exploration paths
+1. **BLOCKER - RealDictCursor compatibility**: Changed index-based access (`result[0]`) to dict-style access (`result["has_recent"]`) to match psycopg2 RealDictCursor behavior
+2. **MAJOR - N+1 query elimination**: Added `skip_recency_check` parameter to `graduate()` so bulk graduation doesn't repeat per-orphan recency checks
 
-## Key Decisions
+### Tests
 
-1. **Dataclass default for error paths**: Chose not to explicitly set `relevance_metadata=None` in error paths since the dataclass default handles it correctly
-2. **Duplicate code pattern**: Chose not to extract helper for 3-line pattern (YAGNI - only 4 places)
-3. **term_diversity counting**: Left as-is - counts compound+split terms separately (measures "terms matched" not "concepts matched")
+- 29 new recency gate tests
+- 130 story creation service tests (22 required `created_at` fixture updates)
+- All tests pass
 
-## Tests Added
+### PR
 
-- 44 new tests total:
-  - `TestHighSignalTermDetection` (18 tests)
-  - `TestRelevanceGating` (12 tests)
-  - `TestImplementationContextWiring` (6 tests)
-  - `TestRelevanceMetadataInScoreMetadata` (6 tests)
-  - `test_build_code_context_dict_includes_relevance_metadata` (2 tests)
-
-## Files Modified
-
-- `src/story_tracking/services/codebase_context_provider.py`
-- `src/story_tracking/services/story_creation_service.py`
-- `tests/test_codebase_context_provider.py`
-- `tests/test_story_creation_service.py`
-
-## PR
-
-- PR #201 merged via squash
-- Commit: `9aa582a`
-
-## Process Note
-
-Initially pushed directly to main (process violation) - reverted and created proper PR.
+- PR #203: https://github.com/paulyokota/FeedForward/pull/203
+- Merged to main
+- Issue #200: CLOSED
