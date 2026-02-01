@@ -1303,6 +1303,21 @@ class TestHighSignalTermDetection:
         # Should be high-signal
         assert "timeouterror" in metadata["high_signal_terms"]
 
+    def test_source_fields_includes_error_for_camelcase_identifiers(self):
+        """source_fields should include 'error' when only CamelCase identifiers found (Codex review)."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            # Only CamelCase identifiers, no all-caps error codes
+            "symptoms": ["SchedulerService failed to initialize"],
+        }
+        keywords, metadata = provider._extract_keywords(theme_data)
+
+        # "error" should be in source_fields even without all-caps error codes
+        assert "error" in metadata["source_fields"]
+        # "schedulerservice" should be extracted as high-signal
+        assert "schedulerservice" in keywords
+        assert "schedulerservice" in metadata["high_signal_terms"]
+
     def test_generic_identifiers_filtered_from_symptoms(self):
         """Generic identifiers like 'Error' should be filtered."""
         provider = CodebaseContextProvider()

@@ -867,6 +867,28 @@ class CodebaseContextProvider:
             # Generate investigation queries
             investigation_queries = self._generate_queries(theme_data, file_references)
 
+            # Check for low-confidence results (parity with explore_for_theme)
+            is_low_confidence = self._is_low_confidence_result(file_references, relevance_metadata)
+
+            if is_low_confidence:
+                logger.info(
+                    "Low-confidence classifier-guided result: treating as unsuccessful",
+                    extra={
+                        "duration_ms": duration_ms,
+                        "files_found": len(file_references),
+                        "snippets_extracted": len(code_snippets),
+                    }
+                )
+                return ExplorationResult(
+                    relevant_files=file_references,
+                    code_snippets=code_snippets,
+                    investigation_queries=investigation_queries,
+                    exploration_duration_ms=duration_ms,
+                    success=False,
+                    error="Low signal: insufficient high-quality file matches",
+                    relevance_metadata=relevance_metadata,
+                )
+
             return ExplorationResult(
                 relevant_files=file_references,
                 code_snippets=code_snippets,
@@ -1091,17 +1113,23 @@ class CodebaseContextProvider:
         # - CamelCase identifiers → HIGH SIGNAL (normalize to lowercase, filter generics)
         # - Quoted strings → SECONDARY
         symptoms = theme_data.get("symptoms", [])
+        error_field_added = False  # Track if "error" already in source_fields
         for symptom in symptoms[:3]:
             # All-caps error codes (HIGH SIGNAL) - keep original case
             error_codes = re.findall(r'\b[A-Z_]+\d+\b|\bERR_[A-Z_]+\b', symptom)
             if error_codes:
-                source_fields.append("error")
+                if not error_field_added:
+                    source_fields.append("error")
+                    error_field_added = True
                 for code in error_codes:
                     add_term(code, "error", is_high_signal=True)  # Keep uppercase
             # CamelCase identifiers (HIGH SIGNAL) - normalize to lowercase, filter generics
             identifiers = re.findall(r'\b[A-Z][A-Za-z0-9_]{2,}\b', symptom)
             for ident in identifiers:
                 if ident not in GENERIC_IDENTIFIER_NAMES:
+                    if not error_field_added:
+                        source_fields.append("error")
+                        error_field_added = True
                     add_term(ident.lower(), "error", is_high_signal=True)  # Normalize
             # Quoted strings (SECONDARY)
             quoted = re.findall(r'"([^"]+)"', symptom)
