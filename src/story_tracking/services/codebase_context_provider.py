@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .codebase_security import (
     APPROVED_REPOS,
@@ -68,6 +68,53 @@ KEYWORD_STOP_WORDS: frozenset = frozenset([
     "have", "has", "had", "been", "were", "are", "was",
     "can", "could", "would", "should", "will",
 ])
+
+# High-signal source fields (Issue #198)
+# Terms from these fields indicate higher relevance for codebase exploration
+HIGH_SIGNAL_FIELDS = frozenset(["product_area", "component", "error"])
+
+# Stop word stems with suffix patterns (Issue #198)
+# Use suffix matching to avoid false positives (e.g., "network" != "work")
+# Each stem maps to allowed suffixes that form stop words
+STOP_WORD_STEMS: Dict[str, List[str]] = {
+    "work": ["", "s", "ed", "ing"],      # work, works, worked, working
+    "help": ["", "s", "ed", "ing"],
+    "support": ["", "s", "ed", "ing"],
+    "try": ["", "ing"],                  # try, trying (tried/tries are irregular)
+    "want": ["", "s", "ed", "ing"],
+    "need": ["", "s", "ed", "ing"],
+    "thank": ["", "s", "ed", "ing"],
+    "question": ["", "s", "ed", "ing"],
+    "problem": ["", "s"],
+}
+
+# Irregular stop-word forms not covered by simple suffix rules
+# "tried" is irregular (try+ied), "tries" is irregular (try+ies)
+STOP_WORD_IRREGULARS = frozenset(["tried", "tries"])
+
+# Generic class names to filter from CamelCase identifier extraction (Issue #198)
+# Trimmed to most generic names that match too broadly
+# TimeoutError, ValueError, etc. are kept as they indicate specific error types
+GENERIC_IDENTIFIER_NAMES = frozenset(["Error", "Exception", "Warning"])
+
+
+def _is_stop_word_variant(word: str) -> bool:
+    """Check if word is a stop word or variant (with word-boundary safety).
+
+    Uses exact suffix matching to avoid false positives where a stop word
+    stem appears inside a longer word (e.g., "network" should NOT match "work").
+    """
+    word_lower = word.lower()
+    # Check irregulars first
+    if word_lower in STOP_WORD_IRREGULARS:
+        return True
+    # Check regular suffix patterns
+    for stem, suffixes in STOP_WORD_STEMS.items():
+        for suffix in suffixes:
+            if word_lower == stem + suffix:
+                return True
+    return False
+
 
 # Path priority tiers for deterministic file ranking
 # Lower tier number = higher priority (tier 0 is highest)
@@ -157,6 +204,7 @@ class ExplorationResult:
     exploration_duration_ms: int = 0
     success: bool = True
     error: Optional[str] = None
+    relevance_metadata: Optional[Dict[str, Any]] = None  # Issue #198: Relevance tracking
 
 
 @dataclass
@@ -430,22 +478,48 @@ class CodebaseContextProvider:
             filtered_files = filter_exploration_results(raw_files)
             logger.info(f"Filtered to {len(filtered_files)} safe files")
 
-            # Search for keywords in content
-            keywords = self._extract_keywords(theme_data)
-            file_references = self._search_for_keywords(repo_path, filtered_files, keywords)
+            # Search for keywords in content (Issue #198: high-signal classification)
+            keywords, keyword_metadata = self._extract_keywords(theme_data)
+            file_references, relevance_metadata = self._search_for_keywords(
+                repo_path, filtered_files, keywords, keyword_metadata
+            )
 
-            # Extract code snippets from top matches
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Issue #198: Relevance gate (single source of truth)
+            # Note: matched_terms in relevance_metadata are ACTUAL terms found in files,
+            # extracted from file_matches[i]['keywords'] during search, not query keywords.
+            if not relevance_metadata.get("threshold_passed", False):
+                logger.info(
+                    "Exploration below relevance threshold",
+                    extra={
+                        "high_signal_matched": relevance_metadata.get("high_signal_matched", []),
+                        "term_diversity": relevance_metadata.get("term_diversity", 0),
+                        "duration_ms": duration_ms,
+                    },
+                )
+                # Mark as gated for audit trail - downstream checks success before using
+                relevance_metadata["gated"] = True
+                return ExplorationResult(
+                    relevant_files=file_references,  # Keep for audit, but gated=True signals not for use
+                    code_snippets=[],  # Don't extract snippets for low-relevance
+                    investigation_queries=[],
+                    exploration_duration_ms=duration_ms,
+                    success=False,
+                    error="Below relevance threshold: no high-confidence context",
+                    relevance_metadata=relevance_metadata,
+                )
+
+            # Extract code snippets from top matches (only for passing results)
             code_snippets = self._extract_snippets(file_references[:10])  # Top 10 files
 
             # Generate investigation queries
             investigation_queries = self._generate_queries(theme_data, file_references)
 
-            duration_ms = int((time.time() - start_time) * 1000)
-
             # Check for low-confidence results (issue #134)
             # If we have few/weak matches, signal this explicitly rather than
             # returning noisy results that mislead downstream consumers
-            is_low_confidence = self._is_low_confidence_result(file_references)
+            is_low_confidence = self._is_low_confidence_result(file_references, relevance_metadata)
 
             if is_low_confidence:
                 logger.info(
@@ -463,6 +537,7 @@ class CodebaseContextProvider:
                     exploration_duration_ms=duration_ms,
                     success=False,
                     error="Low signal: insufficient high-quality file matches",
+                    relevance_metadata=relevance_metadata,
                 )
 
             logger.info(
@@ -480,6 +555,7 @@ class CodebaseContextProvider:
                 investigation_queries=investigation_queries,
                 exploration_duration_ms=duration_ms,
                 success=True,
+                relevance_metadata=relevance_metadata,
             )
 
         except Exception as e:
@@ -756,17 +832,40 @@ class CodebaseContextProvider:
             raw_files = self._find_relevant_files(repo_path, search_patterns)
             filtered_files = filter_exploration_results(raw_files)
 
-            # Search for keywords
-            keywords = self._extract_keywords(theme_data)
-            file_references = self._search_for_keywords(repo_path, filtered_files, keywords)
+            # Search for keywords (Issue #198: high-signal classification)
+            keywords, keyword_metadata = self._extract_keywords(theme_data)
+            file_references, relevance_metadata = self._search_for_keywords(
+                repo_path, filtered_files, keywords, keyword_metadata
+            )
 
-            # Extract code snippets
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            # Issue #198: Relevance gate (same logic as explore_for_theme)
+            if not relevance_metadata.get("threshold_passed", False):
+                logger.info(
+                    "Classifier-guided exploration below relevance threshold",
+                    extra={
+                        "high_signal_matched": relevance_metadata.get("high_signal_matched", []),
+                        "term_diversity": relevance_metadata.get("term_diversity", 0),
+                        "duration_ms": duration_ms,
+                    },
+                )
+                relevance_metadata["gated"] = True
+                return ExplorationResult(
+                    relevant_files=file_references,
+                    code_snippets=[],
+                    investigation_queries=[],
+                    exploration_duration_ms=duration_ms,
+                    success=False,
+                    error="Below relevance threshold: no high-confidence context",
+                    relevance_metadata=relevance_metadata,
+                )
+
+            # Extract code snippets (only for passing results)
             code_snippets = self._extract_snippets(file_references[:10])
 
             # Generate investigation queries
             investigation_queries = self._generate_queries(theme_data, file_references)
-
-            duration_ms = int((time.time() - start_time) * 1000)
 
             return ExplorationResult(
                 relevant_files=file_references,
@@ -774,6 +873,7 @@ class CodebaseContextProvider:
                 investigation_queries=investigation_queries,
                 exploration_duration_ms=duration_ms,
                 success=True,
+                relevance_metadata=relevance_metadata,
             )
 
         except Exception as e:
@@ -925,54 +1025,133 @@ class CodebaseContextProvider:
 
         return list(files)
 
-    def _extract_keywords(self, theme_data: Dict) -> List[str]:
+    def _extract_keywords(self, theme_data: Dict) -> Tuple[List[str], Dict[str, Any]]:
         """
-        Extract search keywords from theme data.
+        Extract search keywords with high-signal classification.
+
+        Issue #198: Enhanced keyword extraction with signal classification.
+
+        Normalization rules:
+        - All terms lowercased EXCEPT all-caps error codes (e.g., ERR_TIMEOUT, HTTP_500)
+        - This ensures consistent intersection logic in _search_for_keywords
 
         Args:
             theme_data: Theme metadata dict
 
         Returns:
-            List of keywords to search for
+            (keywords, metadata) where:
+            - keywords: Sorted list of normalized keywords
+            - metadata: Dict with high_signal_terms, secondary_terms, source_fields, keyword_sources
         """
-        keywords = []
+        high_signal_terms: List[str] = []
+        secondary_terms: List[str] = []
+        source_fields: List[str] = []
+        keyword_sources: Dict[str, Set[str]] = {}  # Map keyword → source fields (SET for multi-source)
 
-        # Extract from component (split camelCase and snake_case)
+        def add_term(term: str, field: str, is_high_signal: bool) -> None:
+            """Helper to add term and accumulate its source field."""
+            if term in keyword_sources:
+                keyword_sources[term].add(field)
+            else:
+                keyword_sources[term] = {field}
+            if is_high_signal:
+                high_signal_terms.append(term)
+            else:
+                secondary_terms.append(term)
+
+        # Extract from component (HIGH SIGNAL)
         component = theme_data.get("component", "")
         if component:
-            # Split on underscores and camelCase boundaries
+            source_fields.append("component")
+            # Add compound form (normalized lowercase)
+            compound = component.lower().replace(" ", "_")
+            add_term(compound, "component", is_high_signal=True)
+            # Add split words (CamelCase + snake_case)
             words = re.findall(r'[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\b)', component)
             words.extend(component.split("_"))
-            keywords.extend([w.lower() for w in words if len(w) > 2])
+            for w in words:
+                if len(w) > 2:
+                    add_term(w.lower(), "component", is_high_signal=True)
+
+        # Extract from product_area (HIGH SIGNAL)
+        product_area = theme_data.get("product_area", "")
+        if product_area:
+            source_fields.append("product_area")
+            # Add compound form (normalized lowercase)
+            compound = product_area.lower().replace(" ", "_")
+            add_term(compound, "product_area", is_high_signal=True)
+            # Add split words
+            words = product_area.replace("_", " ").replace("-", " ").split()
+            for w in words:
+                if len(w) > 2:
+                    add_term(w.lower(), "product_area", is_high_signal=True)
 
         # Extract from symptoms
+        # - All-caps error codes → HIGH SIGNAL (keep original case for matching)
+        # - CamelCase identifiers → HIGH SIGNAL (normalize to lowercase, filter generics)
+        # - Quoted strings → SECONDARY
         symptoms = theme_data.get("symptoms", [])
-        if symptoms:
-            for symptom in symptoms[:3]:  # Top 3 symptoms
-                # Extract quoted strings and technical terms
-                quoted = re.findall(r'"([^"]+)"', symptom)
-                keywords.extend(quoted)
+        for symptom in symptoms[:3]:
+            # All-caps error codes (HIGH SIGNAL) - keep original case
+            error_codes = re.findall(r'\b[A-Z_]+\d+\b|\bERR_[A-Z_]+\b', symptom)
+            if error_codes:
+                source_fields.append("error")
+                for code in error_codes:
+                    add_term(code, "error", is_high_signal=True)  # Keep uppercase
+            # CamelCase identifiers (HIGH SIGNAL) - normalize to lowercase, filter generics
+            identifiers = re.findall(r'\b[A-Z][A-Za-z0-9_]{2,}\b', symptom)
+            for ident in identifiers:
+                if ident not in GENERIC_IDENTIFIER_NAMES:
+                    add_term(ident.lower(), "error", is_high_signal=True)  # Normalize
+            # Quoted strings (SECONDARY)
+            quoted = re.findall(r'"([^"]+)"', symptom)
+            for q in quoted:
+                add_term(q.lower(), "symptoms", is_high_signal=False)
 
-                # Extract error codes (e.g., E123, ERR_CODE)
-                error_codes = re.findall(r'\b[A-Z_]+\d+\b|\bERR_[A-Z_]+\b', symptom)
-                keywords.extend(error_codes)
-
-        # Extract from user_intent
+        # Extract from user_intent (SECONDARY)
         user_intent = theme_data.get("user_intent", "")
         if user_intent:
-            # Extract action verbs and nouns (simple heuristic)
             words = re.findall(r'\b[a-z]{4,}\b', user_intent.lower())
-            keywords.extend(words[:5])  # Top 5 words
+            for w in words[:5]:
+                add_term(w, "user_intent", is_high_signal=False)
 
-        # Deduplicate, filter stop words, and filter short keywords
-        # Stop words add noise by matching too many files (issue #134)
-        filtered = [
-            k for k in set(keywords)
-            if len(k) > 2 and k.lower() not in KEYWORD_STOP_WORDS
-        ]
-        return filtered
+        # Filter: remove stop words using suffix-safe check
+        # Apply to unique terms only (de-dup happens implicitly via set operations)
+        all_terms = set(high_signal_terms + secondary_terms)
+        filtered_set = {
+            k for k in all_terms
+            if len(k) > 2
+            and not _is_stop_word_variant(k)
+            and k.lower() not in KEYWORD_STOP_WORDS
+        }
 
-    def _is_low_confidence_result(self, file_references: List[FileReference]) -> bool:
+        # Preserve classification after filtering, then sort for deterministic output
+        # PRIORITY RULE: If a term appears in both high_signal and secondary, high_signal wins.
+        # The `k not in filtered_high` ensures no duplicates - term appears in exactly one list.
+        filtered_high = sorted([k for k in set(high_signal_terms) if k in filtered_set])
+        filtered_secondary = sorted([k for k in set(secondary_terms) if k in filtered_set and k not in filtered_high])
+
+        # Filter keyword_sources to only include filtered keywords
+        # Convert sets to sorted lists for JSON serialization
+        # NOTE: keyword_sources contains normalized terms (lowercase except all-caps error codes)
+        filtered_keyword_sources = {
+            k: sorted(v) for k, v in keyword_sources.items() if k in filtered_set
+        }
+
+        metadata = {
+            "high_signal_terms": filtered_high,
+            "secondary_terms": filtered_secondary,
+            "source_fields": sorted(set(source_fields)),  # Sorted for determinism
+            "keyword_sources": filtered_keyword_sources,  # Map keyword → source fields (list)
+        }
+
+        return sorted(filtered_set), metadata
+
+    def _is_low_confidence_result(
+        self,
+        file_references: List[FileReference],
+        relevance_metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
         """
         Determine if exploration results have low confidence.
 
@@ -980,12 +1159,14 @@ class CodebaseContextProvider:
         - No files found at all
         - Very few files found (< 3)
         - All top files have weak match counts (1-2 matches only)
+        - Issue #198: Relevance threshold not passed (no high-signal or low diversity)
 
         This allows callers to treat the results appropriately rather than
         trusting noisy/irrelevant context (issue #134).
 
         Args:
             file_references: List of file references from keyword search
+            relevance_metadata: Optional metadata from _search_for_keywords (Issue #198)
 
         Returns:
             True if results are low confidence, False otherwise
@@ -997,6 +1178,11 @@ class CodebaseContextProvider:
         # Very few files = likely low confidence
         if len(file_references) < 3:
             return True
+
+        # Issue #198: Relevance threshold check
+        if relevance_metadata:
+            if not relevance_metadata.get("threshold_passed", False):
+                return True
 
         # Check match quality of top 5 files
         # If all have only 1-2 matches, that's weak signal
@@ -1057,21 +1243,28 @@ class CodebaseContextProvider:
         repo_path: Path,
         files: List[str],
         keywords: List[str],
+        keyword_metadata: Optional[Dict[str, Any]] = None,
         max_results: int = 20
-    ) -> List[FileReference]:
+    ) -> Tuple[List[FileReference], Dict[str, Any]]:
         """
         Search for keywords in file contents with deterministic file ordering.
+
+        Issue #198: Enhanced to return relevance metadata for gating decisions.
 
         Args:
             repo_path: Repository root path
             files: List of files to search
             keywords: Keywords to search for
+            keyword_metadata: Optional metadata from _extract_keywords (high_signal_terms, keyword_sources)
             max_results: Maximum file references to return
 
         Returns:
-            List of FileReference objects with relevance scores
+            Tuple of (file_references, relevance_metadata) where:
+            - file_references: List of FileReference objects with relevance scores
+            - relevance_metadata: Dict with match_score, matched_terms, high_signal_matched, etc.
         """
         file_matches = []
+        high_signal_terms = set(keyword_metadata.get("high_signal_terms", [])) if keyword_metadata else set()
 
         # Rank files deterministically BEFORE applying the 100-file limit
         # This ensures we always search the most relevant files first
@@ -1095,6 +1288,8 @@ class CodebaseContextProvider:
                     content = f.read()
 
                 # Count keyword matches
+                # IMPORTANT: matched_keywords stores the NORMALIZED keyword string (from keywords list),
+                # not raw text from file. This ensures intersection with keyword_sources always works.
                 match_count = 0
                 matched_keywords = []
                 line_numbers = []
@@ -1106,7 +1301,7 @@ class CodebaseContextProvider:
 
                     if matches:
                         match_count += len(matches)
-                        matched_keywords.append(keyword)
+                        matched_keywords.append(keyword)  # Normalized keyword, not raw file text
 
                         # Get line numbers for first match
                         if matches:
@@ -1145,7 +1340,42 @@ class CodebaseContextProvider:
                 relevance=f"{match['match_count']} matches: {', '.join(match['keywords'][:3])}"
             ))
 
-        return references
+        # Issue #198: Compute relevance metadata from top 5 files
+        all_matched_terms: Set[str] = set()
+        for match in file_matches[:5]:  # Top 5 files
+            all_matched_terms.update(match['keywords'])  # These are normalized keywords that matched
+
+        # Compute high-signal matches (intersection of high_signal_terms with actual file matches)
+        high_signal_matched = sorted(high_signal_terms & all_matched_terms)
+        term_diversity = len(all_matched_terms)
+
+        # Compute matched_fields from actual matches using keyword_sources map
+        # keyword_sources maps term → list of source fields (multi-source terms possible)
+        matched_fields_set: Set[str] = set()
+        if keyword_metadata:
+            keyword_sources = keyword_metadata.get("keyword_sources", {})
+            for term in all_matched_terms:
+                source_fields = keyword_sources.get(term, [])
+                matched_fields_set.update(source_fields)
+        matched_fields = sorted(matched_fields_set)
+
+        # Issue #198: Relevance threshold (documented in plan file)
+        # - high_signal_matched >= 1: At least one term from product_area/component/error matched
+        # - term_diversity >= 2: At least 2 distinct terms matched (breadth indicates relevance)
+        # Passing either criterion indicates sufficient confidence for code context.
+        threshold_passed = len(high_signal_matched) >= 1 or term_diversity >= 2
+
+        relevance_metadata = {
+            "match_score": sum(m['match_count'] for m in file_matches[:5]),
+            "matched_terms": sorted(all_matched_terms),  # Sorted for deterministic output
+            "high_signal_matched": high_signal_matched,
+            "matched_fields": matched_fields,
+            "term_diversity": term_diversity,
+            "threshold_passed": threshold_passed,
+            "gated": False,  # Will be set True by gate if threshold fails
+        }
+
+        return references, relevance_metadata
 
     def _extract_snippets(self, file_references: List[FileReference]) -> List[CodeSnippet]:
         """
@@ -1298,7 +1528,7 @@ class CodebaseContextProvider:
 
         # File-based queries (shell-escaped)
         if files:
-            keywords = self._extract_keywords(theme_data)
+            keywords, _ = self._extract_keywords(theme_data)  # Ignore metadata for query generation
             if keywords:
                 # Use shlex.quote for shell escaping to prevent command injection
                 safe_keyword = shlex.quote(keywords[0])

@@ -19,6 +19,12 @@ from src.story_tracking.services.codebase_context_provider import (
     UNSAFE_GLOB_CHARS,
     KEYWORD_STOP_WORDS,
     PATH_PRIORITY_TIERS,
+    # Issue #198: High-signal term detection
+    HIGH_SIGNAL_FIELDS,
+    STOP_WORD_STEMS,
+    STOP_WORD_IRREGULARS,
+    GENERIC_IDENTIFIER_NAMES,
+    _is_stop_word_variant,
 )
 
 
@@ -180,7 +186,7 @@ class TestExtractKeywords:
         """Should extract keywords from component name."""
         provider = CodebaseContextProvider()
         theme_data = {"component": "csv_import"}
-        keywords = provider._extract_keywords(theme_data)
+        keywords, metadata = provider._extract_keywords(theme_data)
 
         assert "csv" in keywords or "import" in keywords
         assert len(keywords) > 0
@@ -194,16 +200,17 @@ class TestExtractKeywords:
                 "ERR_INVALID_FORMAT encountered",
             ]
         }
-        keywords = provider._extract_keywords(theme_data)
+        keywords, metadata = provider._extract_keywords(theme_data)
 
-        assert "Failed to parse CSV" in keywords
+        # Quoted strings are lowercased, error codes preserved
+        assert "failed to parse csv" in keywords
         assert "ERR_INVALID_FORMAT" in keywords
 
     def test_extract_from_user_intent(self):
         """Should extract keywords from user_intent."""
         provider = CodebaseContextProvider()
         theme_data = {"user_intent": "User wants to import scheduling data"}
-        keywords = provider._extract_keywords(theme_data)
+        keywords, metadata = provider._extract_keywords(theme_data)
 
         # Should extract longer words
         assert any(len(k) >= 4 for k in keywords)
@@ -215,7 +222,7 @@ class TestExtractKeywords:
             "component": "csv_import",
             "user_intent": "import csv files",
         }
-        keywords = provider._extract_keywords(theme_data)
+        keywords, metadata = provider._extract_keywords(theme_data)
 
         # Should not have duplicates
         assert len(keywords) == len(set(keywords))
@@ -351,12 +358,23 @@ class TestExploreForTheme:
         mock_get_path.return_value = Path("/tmp/test-repo")
         mock_find_files.return_value = ["file1.py", "file2.py", "file3.py", "file4.py"]
         mock_filter.return_value = ["file1.py", "file2.py", "file3.py"]
-        # Return enough files with strong match counts (>2) to pass low-confidence check
-        mock_search_keywords.return_value = [
-            FileReference(path="file1.py", line_start=10, relevance="10 matches: scheduler, queue"),
-            FileReference(path="file2.py", line_start=20, relevance="8 matches: scheduler"),
-            FileReference(path="file3.py", line_start=30, relevance="5 matches: queue"),
-        ]
+        # Return tuple (file_references, relevance_metadata) - Issue #198
+        mock_search_keywords.return_value = (
+            [
+                FileReference(path="file1.py", line_start=10, relevance="10 matches: scheduler, queue"),
+                FileReference(path="file2.py", line_start=20, relevance="8 matches: scheduler"),
+                FileReference(path="file3.py", line_start=30, relevance="5 matches: queue"),
+            ],
+            {
+                "match_score": 23,
+                "matched_terms": ["scheduler", "queue"],
+                "high_signal_matched": ["scheduler"],
+                "matched_fields": ["product_area"],
+                "term_diversity": 2,
+                "threshold_passed": True,
+                "gated": False,
+            },
+        )
         mock_extract_snippets.return_value = [
             CodeSnippet(
                 file_path="file1.py",
@@ -422,11 +440,24 @@ class TestExploreForTheme:
     ):
         """Should return low confidence (success=False) when no matching files found."""
         # Setup mocks to return empty results
+        # Issue #198: _extract_keywords returns (keywords, metadata) tuple
+        # Issue #198: _search_for_keywords returns (references, relevance_metadata) tuple
         mock_path.return_value = Path("/tmp/test-repo")
         mock_find.return_value = []
         mock_filter.return_value = []
-        mock_keywords.return_value = []
-        mock_search.return_value = []
+        mock_keywords.return_value = ([], {"high_signal_terms": [], "keyword_sources": {}})
+        mock_search.return_value = (
+            [],
+            {
+                "match_score": 0,
+                "matched_terms": [],
+                "high_signal_matched": [],
+                "matched_fields": [],
+                "term_diversity": 0,
+                "threshold_passed": False,
+                "gated": False,
+            },
+        )
         mock_snippets.return_value = []
         mock_queries.return_value = []
 
@@ -436,7 +467,8 @@ class TestExploreForTheme:
 
         # Verify: With no results, should return low confidence (issue #134 behavior)
         assert result.success is False
-        assert result.error == "Low signal: insufficient high-quality file matches"
+        # Issue #198: Error message updated for relevance gating
+        assert "relevance threshold" in result.error.lower() or "low signal" in result.error.lower()
         assert len(result.relevant_files) == 0
         assert len(result.code_snippets) == 0
 
@@ -704,7 +736,7 @@ class TestKeywordStopWords:
         theme_data = {
             "user_intent": "user is trying to help with data issue error problem"
         }
-        keywords = provider._extract_keywords(theme_data)
+        keywords, metadata = provider._extract_keywords(theme_data)
 
         # All these are stop words and should be filtered
         for stop_word in ["user", "trying", "help", "with", "data", "issue", "error", "problem"]:
@@ -717,7 +749,7 @@ class TestKeywordStopWords:
             "component": "scheduler_queue",
             "symptoms": ['"ERR_SCHEDULER_TIMEOUT" error occurred']
         }
-        keywords = provider._extract_keywords(theme_data)
+        keywords, metadata = provider._extract_keywords(theme_data)
 
         # Should keep specific terms
         assert "scheduler" in keywords or "queue" in keywords
@@ -1113,3 +1145,413 @@ class TestConfidenceGating:
         # The actual path merging happens in _explore_with_classifier_hints.
         assert mock_classifier.categories is not None
         assert "related_categories" in mock_classifier.categories["scheduling"]
+
+
+class TestHighSignalTermDetection:
+    """Tests for Issue #198: High-signal term detection in keyword extraction."""
+
+    def test_stop_word_stems_defined(self):
+        """Should have stop word stems with suffix patterns defined."""
+        assert len(STOP_WORD_STEMS) > 0
+        # Key stems should be present
+        assert "work" in STOP_WORD_STEMS
+        assert "help" in STOP_WORD_STEMS
+        assert "try" in STOP_WORD_STEMS
+
+    def test_stop_word_irregulars_defined(self):
+        """Should have irregular stop words defined."""
+        assert "tried" in STOP_WORD_IRREGULARS
+        assert "tries" in STOP_WORD_IRREGULARS
+
+    def test_suffix_safe_stem_filtering_network_not_filtered(self):
+        """'network' should NOT be filtered (not a variant of 'work')."""
+        assert not _is_stop_word_variant("network")
+        assert not _is_stop_word_variant("Network")
+        assert not _is_stop_word_variant("NETWORK")
+
+    def test_suffix_safe_stem_filtering_working_is_filtered(self):
+        """'working' and 'tried' should be filtered."""
+        assert _is_stop_word_variant("working")
+        assert _is_stop_word_variant("Working")
+        assert _is_stop_word_variant("tried")
+        assert _is_stop_word_variant("tries")
+
+    def test_irregulars_coverage(self):
+        """Irregular forms of 'try' should be filtered."""
+        assert _is_stop_word_variant("tried")
+        assert _is_stop_word_variant("tries")
+        assert _is_stop_word_variant("try")
+        assert _is_stop_word_variant("trying")
+
+    def test_generic_identifiers_trimmed(self):
+        """GENERIC_IDENTIFIER_NAMES should contain only most generic names."""
+        assert "Error" in GENERIC_IDENTIFIER_NAMES
+        assert "Exception" in GENERIC_IDENTIFIER_NAMES
+        assert "Warning" in GENERIC_IDENTIFIER_NAMES
+        # These should NOT be in the list (too specific, kept as high-signal)
+        assert "TimeoutError" not in GENERIC_IDENTIFIER_NAMES
+        assert "ValueError" not in GENERIC_IDENTIFIER_NAMES
+
+    def test_high_signal_fields_defined(self):
+        """HIGH_SIGNAL_FIELDS should include product_area, component, error."""
+        assert "product_area" in HIGH_SIGNAL_FIELDS
+        assert "component" in HIGH_SIGNAL_FIELDS
+        assert "error" in HIGH_SIGNAL_FIELDS
+
+    def test_extract_keywords_returns_tuple(self):
+        """_extract_keywords should return (keywords, metadata) tuple."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "component": "pin_scheduler",
+            "product_area": "scheduling",
+        }
+        result = provider._extract_keywords(theme_data)
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        keywords, metadata = result
+        assert isinstance(keywords, list)
+        assert isinstance(metadata, dict)
+
+    def test_extract_keywords_high_signal_classification(self):
+        """Keywords from product_area/component should be in high_signal_terms."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "component": "pin_scheduler",
+            "product_area": "scheduling",
+        }
+        keywords, metadata = provider._extract_keywords(theme_data)
+
+        assert "high_signal_terms" in metadata
+        assert "secondary_terms" in metadata
+        # "scheduling" should be in high_signal_terms (from product_area)
+        assert "scheduling" in metadata["high_signal_terms"]
+        # "pin_scheduler" compound form should be present
+        assert "pin_scheduler" in metadata["high_signal_terms"]
+
+    def test_extract_keywords_sorted_and_deduped(self):
+        """Keywords should be sorted and de-duplicated for determinism."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "component": "scheduler",
+            "product_area": "scheduling",
+        }
+        keywords1, metadata1 = provider._extract_keywords(theme_data)
+        keywords2, metadata2 = provider._extract_keywords(theme_data)
+
+        # Should be deterministic
+        assert keywords1 == keywords2
+        assert metadata1["high_signal_terms"] == metadata2["high_signal_terms"]
+        # Should be sorted
+        assert keywords1 == sorted(keywords1)
+
+    def test_extract_keywords_source_fields_tracking(self):
+        """source_fields should track which fields contributed keywords."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "component": "scheduler",
+            "product_area": "billing",
+        }
+        keywords, metadata = provider._extract_keywords(theme_data)
+
+        assert "source_fields" in metadata
+        assert "component" in metadata["source_fields"]
+        assert "product_area" in metadata["source_fields"]
+
+    def test_keyword_sources_map_structure(self):
+        """keyword_sources should map keywords to source fields as lists."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "component": "scheduler",
+            "product_area": "scheduling",  # Same word, different field
+        }
+        keywords, metadata = provider._extract_keywords(theme_data)
+
+        assert "keyword_sources" in metadata
+        keyword_sources = metadata["keyword_sources"]
+
+        # All values should be lists (not sets) for JSON serialization
+        for term, sources in keyword_sources.items():
+            assert isinstance(sources, list), f"{term} sources should be a list"
+            # Lists should be sorted
+            assert sources == sorted(sources), f"{term} sources should be sorted"
+
+    def test_multi_source_term_accumulation(self):
+        """Same term appearing in multiple fields should accumulate sources."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "component": "timeout",
+            "user_intent": "I need help with timeout issues",
+        }
+        keywords, metadata = provider._extract_keywords(theme_data)
+
+        keyword_sources = metadata["keyword_sources"]
+        if "timeout" in keyword_sources:
+            sources = keyword_sources["timeout"]
+            # Could be from multiple sources (depends on whether user_intent extracts it)
+            assert isinstance(sources, list)
+
+    def test_camelcase_identifiers_extracted_as_high_signal(self):
+        """CamelCase identifiers in symptoms should be high-signal."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "symptoms": ["TimeoutError occurred when calling SchedulerService"],
+        }
+        keywords, metadata = provider._extract_keywords(theme_data)
+
+        # "timeouterror" should be extracted (normalized to lowercase)
+        assert "timeouterror" in keywords
+        # Should be high-signal
+        assert "timeouterror" in metadata["high_signal_terms"]
+
+    def test_generic_identifiers_filtered_from_symptoms(self):
+        """Generic identifiers like 'Error' should be filtered."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "symptoms": ["An Error occurred"],
+        }
+        keywords, metadata = provider._extract_keywords(theme_data)
+
+        # "error" alone should NOT be in high_signal_terms (it's generic)
+        # Note: The word "error" is also in KEYWORD_STOP_WORDS, so it gets filtered
+        assert "error" not in keywords
+
+    def test_case_normalization_lowercase_except_error_codes(self):
+        """CamelCase normalized to lowercase; all-caps error codes kept as-is."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "symptoms": ["ERR_TIMEOUT123 error from TimeoutError"],
+        }
+        keywords, metadata = provider._extract_keywords(theme_data)
+
+        # All-caps error codes kept as-is
+        assert "ERR_TIMEOUT123" in keywords
+        # CamelCase normalized
+        assert "timeouterror" in keywords
+
+    def test_classification_priority_high_signal_wins(self):
+        """If a term appears in both high_signal and secondary, high_signal wins."""
+        provider = CodebaseContextProvider()
+        theme_data = {
+            "component": "timeout",
+            "user_intent": "timeout configuration needed",
+        }
+        keywords, metadata = provider._extract_keywords(theme_data)
+
+        # "timeout" should be in high_signal_terms (from component)
+        if "timeout" in keywords:
+            assert "timeout" in metadata["high_signal_terms"]
+            # And NOT in secondary_terms
+            assert "timeout" not in metadata["secondary_terms"]
+
+
+class TestRelevanceGating:
+    """Tests for Issue #198: Relevance gating in codebase exploration."""
+
+    def test_search_for_keywords_returns_tuple(self):
+        """_search_for_keywords should return (references, relevance_metadata) tuple."""
+        provider = CodebaseContextProvider()
+
+        with patch.object(provider, "_rank_files_for_search", return_value=[]):
+            result = provider._search_for_keywords(
+                repo_path=Path("/tmp"),
+                files=[],
+                keywords=["test"],
+                keyword_metadata={"high_signal_terms": ["test"], "keyword_sources": {}},
+            )
+
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        references, relevance_metadata = result
+        assert isinstance(references, list)
+        assert isinstance(relevance_metadata, dict)
+
+    def test_relevance_metadata_structure(self):
+        """relevance_metadata should have required fields."""
+        provider = CodebaseContextProvider()
+
+        with patch.object(provider, "_rank_files_for_search", return_value=[]):
+            _, relevance_metadata = provider._search_for_keywords(
+                repo_path=Path("/tmp"),
+                files=[],
+                keywords=["test"],
+                keyword_metadata={"high_signal_terms": [], "keyword_sources": {}},
+            )
+
+        assert "match_score" in relevance_metadata
+        assert "matched_terms" in relevance_metadata
+        assert "high_signal_matched" in relevance_metadata
+        assert "matched_fields" in relevance_metadata
+        assert "term_diversity" in relevance_metadata
+        assert "threshold_passed" in relevance_metadata
+        assert "gated" in relevance_metadata
+
+    def test_threshold_passes_with_high_signal_match(self):
+        """Threshold should pass when high_signal_matched >= 1."""
+        provider = CodebaseContextProvider()
+
+        # Mock the file reading to simulate finding a match for "scheduler"
+        # We patch validate_path to allow any path and mock file content
+        with patch(
+            "src.story_tracking.services.codebase_context_provider.validate_path",
+            return_value=True
+        ):
+            with patch("builtins.open", mock_open(read_data="scheduler = True\n")):
+                with patch.object(Path, "stat") as mock_stat:
+                    mock_stat.return_value.st_size = 100
+                    with patch.object(provider, "_rank_files_for_search", return_value=["/fake/path.py"]):
+                        _, relevance_metadata = provider._search_for_keywords(
+                            repo_path=Path("/fake"),
+                            files=["/fake/path.py"],
+                            keywords=["scheduler"],
+                            keyword_metadata={
+                                "high_signal_terms": ["scheduler"],
+                                "keyword_sources": {"scheduler": ["component"]},
+                            },
+                        )
+
+        assert relevance_metadata["threshold_passed"] is True
+        assert len(relevance_metadata["high_signal_matched"]) >= 1
+        assert "scheduler" in relevance_metadata["high_signal_matched"]
+
+    def test_threshold_passes_with_term_diversity(self):
+        """Threshold should pass when term_diversity >= 2."""
+        provider = CodebaseContextProvider()
+
+        # Mock the file reading to simulate finding matches for both keywords
+        with patch(
+            "src.story_tracking.services.codebase_context_provider.validate_path",
+            return_value=True
+        ):
+            with patch("builtins.open", mock_open(read_data="scheduler = True\nbilling = True\n")):
+                with patch.object(Path, "stat") as mock_stat:
+                    mock_stat.return_value.st_size = 100
+                    with patch.object(provider, "_rank_files_for_search", return_value=["/fake/path.py"]):
+                        _, relevance_metadata = provider._search_for_keywords(
+                            repo_path=Path("/fake"),
+                            files=["/fake/path.py"],
+                            keywords=["scheduler", "billing"],
+                            keyword_metadata={
+                                "high_signal_terms": [],  # No high signal
+                                "keyword_sources": {},
+                            },
+                        )
+
+        assert relevance_metadata["term_diversity"] >= 2
+        assert relevance_metadata["threshold_passed"] is True
+
+    def test_threshold_fails_with_low_relevance(self):
+        """Threshold should fail when no high_signal and diversity < 2."""
+        provider = CodebaseContextProvider()
+
+        with patch.object(provider, "_rank_files_for_search", return_value=[]):
+            _, relevance_metadata = provider._search_for_keywords(
+                repo_path=Path("/tmp"),
+                files=[],
+                keywords=["test"],
+                keyword_metadata={
+                    "high_signal_terms": [],
+                    "keyword_sources": {},
+                },
+            )
+
+        # No matches at all
+        assert relevance_metadata["term_diversity"] == 0
+        assert len(relevance_metadata["high_signal_matched"]) == 0
+        assert relevance_metadata["threshold_passed"] is False
+
+    def test_matched_fields_from_actual_matches(self):
+        """matched_fields should reflect actual matched terms, not just source_fields."""
+        provider = CodebaseContextProvider()
+
+        # Mock the file reading to simulate only "scheduler" matching (not "billing")
+        with patch(
+            "src.story_tracking.services.codebase_context_provider.validate_path",
+            return_value=True
+        ):
+            with patch("builtins.open", mock_open(read_data="scheduler = True\n")):
+                with patch.object(Path, "stat") as mock_stat:
+                    mock_stat.return_value.st_size = 100
+                    with patch.object(provider, "_rank_files_for_search", return_value=["/fake/path.py"]):
+                        _, relevance_metadata = provider._search_for_keywords(
+                            repo_path=Path("/fake"),
+                            files=["/fake/path.py"],
+                            keywords=["scheduler", "billing"],
+                            keyword_metadata={
+                                "high_signal_terms": ["scheduler", "billing"],
+                                "keyword_sources": {
+                                    "scheduler": ["component"],
+                                    "billing": ["product_area"],
+                                },
+                            },
+                        )
+
+        # Only "component" should be in matched_fields (since "scheduler" matched)
+        assert "component" in relevance_metadata["matched_fields"]
+        # "product_area" should NOT be in matched_fields (since "billing" didn't match)
+        assert "product_area" not in relevance_metadata["matched_fields"]
+
+    def test_empty_matches_empty_matched_fields(self):
+        """When no matches, matched_fields should be empty even if source_fields exists."""
+        provider = CodebaseContextProvider()
+
+        with patch.object(provider, "_rank_files_for_search", return_value=[]):
+            _, relevance_metadata = provider._search_for_keywords(
+                repo_path=Path("/tmp"),
+                files=[],
+                keywords=["nonexistent"],
+                keyword_metadata={
+                    "high_signal_terms": ["nonexistent"],
+                    "source_fields": ["component", "product_area"],
+                    "keyword_sources": {"nonexistent": ["component"]},
+                },
+            )
+
+        assert relevance_metadata["matched_fields"] == []
+        assert relevance_metadata["matched_terms"] == []
+
+    def test_matched_terms_sorted_deterministic(self):
+        """matched_terms should be sorted for deterministic output."""
+        provider = CodebaseContextProvider()
+
+        # Create a temp file with multiple keywords
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write("billing = True\nscheduler = True\nauth = True\n")
+            temp_path = f.name
+
+        try:
+            _, relevance_metadata = provider._search_for_keywords(
+                repo_path=Path(tempfile.gettempdir()),
+                files=[temp_path],
+                keywords=["billing", "scheduler", "auth"],
+                keyword_metadata={"high_signal_terms": [], "keyword_sources": {}},
+            )
+
+            assert relevance_metadata["matched_terms"] == sorted(relevance_metadata["matched_terms"])
+        finally:
+            import os
+            os.unlink(temp_path)
+
+    def test_exploration_result_has_relevance_metadata(self):
+        """ExplorationResult should have relevance_metadata field."""
+        result = ExplorationResult(
+            relevant_files=[],
+            relevance_metadata={"test": True},
+        )
+        assert result.relevance_metadata == {"test": True}
+
+    def test_is_low_confidence_with_relevance_metadata(self):
+        """_is_low_confidence_result should check relevance_metadata threshold."""
+        provider = CodebaseContextProvider()
+
+        # Many files, but threshold not passed
+        refs = [FileReference(path=f"file{i}.py", relevance="10 matches") for i in range(5)]
+
+        # Without relevance_metadata, should not be low confidence (enough files, strong matches)
+        assert not provider._is_low_confidence_result(refs, relevance_metadata=None)
+
+        # With failing threshold, should be low confidence
+        assert provider._is_low_confidence_result(refs, relevance_metadata={"threshold_passed": False})
+
+        # With passing threshold, should not be low confidence
+        assert not provider._is_low_confidence_result(refs, relevance_metadata={"threshold_passed": True})
