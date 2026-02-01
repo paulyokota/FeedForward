@@ -921,6 +921,100 @@ class TestStreamingBatchPipeline:
         # Should complete without error
         assert result["classified"] == 0
 
+    @pytest.mark.asyncio
+    async def test_stats_seeded_from_checkpoint_on_resume(self):
+        """Test that stats are seeded from checkpoint counts on resume (Codex fix)."""
+        from src.classification_pipeline import _run_streaming_batch_pipeline_async
+        from unittest.mock import MagicMock
+        from contextlib import asynccontextmanager
+
+        mock_client = MagicMock()
+
+        @asynccontextmanager
+        async def mock_session_context():
+            yield MagicMock()
+
+        mock_client._get_aiohttp_session = mock_session_context
+
+        # Empty generator - no conversations to process
+        async def mock_generator(**kwargs):
+            return
+            yield
+
+        mock_client.fetch_quality_conversations_async = mock_generator
+
+        # Checkpoint with prior counts
+        checkpoint = {
+            "phase": "classification",
+            "intercom_cursor": "some_cursor",
+            "conversations_fetched": 100,
+            "conversations_classified": 95,
+            "conversations_stored": 90,
+        }
+
+        result = await _run_streaming_batch_pipeline_async(
+            client=mock_client,
+            since=datetime.now(),
+            until=datetime.now(),
+            max_conversations=None,
+            dry_run=True,
+            concurrency=10,
+            batch_size=50,
+            semaphore=asyncio.Semaphore(10),
+            stop_checker=lambda: False,
+            pipeline_run_id=None,
+            checkpoint=checkpoint,
+        )
+
+        # Stats should be seeded from checkpoint (cumulative)
+        assert result["fetched"] == 100, "fetched should be seeded from checkpoint"
+        assert result["classified"] == 95, "classified should be seeded from checkpoint"
+        assert result["stored"] == 90, "stored should be seeded from checkpoint"
+
+    @pytest.mark.asyncio
+    async def test_max_conversations_enforced_during_fetch(self):
+        """Test that max_conversations stops fetch early (Codex fix)."""
+        from src.classification_pipeline import _run_streaming_batch_pipeline_async
+        from unittest.mock import MagicMock
+        from contextlib import asynccontextmanager
+
+        mock_client = MagicMock()
+
+        @asynccontextmanager
+        async def mock_session_context():
+            yield MagicMock()
+
+        mock_client._get_aiohttp_session = mock_session_context
+
+        # Generator that would yield 100 conversations
+        conversations_yielded = [0]
+
+        async def mock_generator(**kwargs):
+            for i in range(100):
+                conversations_yielded[0] += 1
+                mock_parsed = MagicMock()
+                mock_parsed.id = f"conv_{i}"
+                yield (mock_parsed, {"id": f"conv_{i}"})
+
+        mock_client.fetch_quality_conversations_async = mock_generator
+
+        result = await _run_streaming_batch_pipeline_async(
+            client=mock_client,
+            since=datetime.now(),
+            until=datetime.now(),
+            max_conversations=10,  # Limit to 10
+            dry_run=True,
+            concurrency=10,
+            batch_size=50,  # Larger than max
+            semaphore=asyncio.Semaphore(10),
+            stop_checker=lambda: False,
+            pipeline_run_id=None,
+            checkpoint=None,
+        )
+
+        # Should stop after reaching max_conversations
+        assert conversations_yielded[0] <= 11, f"Should stop fetching early, got {conversations_yielded[0]}"
+
 
 class TestProcessStreamingBatch:
     """Tests for _process_streaming_batch helper."""

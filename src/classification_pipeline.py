@@ -663,18 +663,33 @@ async def _run_streaming_batch_pipeline_async(
         """Called after each page with cursor for NEXT page."""
         current_cursor[0] = next_page_cursor
 
-    # Stats (cumulative across batches)
+    # Stats (cumulative across batches AND across resume sessions)
+    # On resume, seed from checkpoint counts so totals are cumulative
     # NOTE: filtered=0 always in streaming mode (schema parity with legacy path)
-    stats = {
-        "fetched": 0,
-        "filtered": 0,
-        "recovered": 0,
-        "classified": 0,
-        "stored": 0,
-        "stage2_run": 0,
-        "classification_changed": 0,
-        "warnings": [],
-    }
+    if checkpoint and checkpoint.get("phase") == "classification":
+        # Seed from checkpoint for cumulative totals across resume
+        stats = {
+            "fetched": checkpoint.get("conversations_fetched", 0),
+            "filtered": 0,
+            "recovered": 0,
+            "classified": checkpoint.get("conversations_classified", 0),
+            "stored": checkpoint.get("conversations_stored", 0),
+            "stage2_run": 0,
+            "classification_changed": 0,
+            "warnings": [],
+        }
+        logger.info(f"Seeded stats from checkpoint: fetched={stats['fetched']}, classified={stats['classified']}, stored={stats['stored']}")
+    else:
+        stats = {
+            "fetched": 0,
+            "filtered": 0,
+            "recovered": 0,
+            "classified": 0,
+            "stored": 0,
+            "stage2_run": 0,
+            "classification_changed": 0,
+            "warnings": [],
+        }
 
     # Recovery candidates shared list - generator appends here
     recovery_candidates = []
@@ -718,6 +733,14 @@ async def _run_streaming_batch_pipeline_async(
                 )
                 logger.info(f"Stop signal during fetch, discarding {len(batch_buffer)} buffered")
                 break
+
+            # Check max_conversations DURING fetch (not just after batch)
+            # This prevents over-fetching when limit is small (e.g., testing with --max 10)
+            if max_conversations:
+                total_will_process = stats["classified"] + len(batch_buffer) + 1
+                if total_will_process > max_conversations:
+                    logger.info(f"Reached max_conversations={max_conversations} during fetch")
+                    break
 
             batch_buffer.append((parsed, raw_conv))
 
