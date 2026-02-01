@@ -136,6 +136,79 @@ Example: Drag-and-drop testing, screenshot capture
 3. **Frontend Visual Testing** (`docs/testing/playwright-dnd-visual-testing.md`)
    - Drag-and-drop visual QA via MCP Playwright
 
+## GitHub Operations
+
+### Environment Status
+
+| Tool | Available | Notes |
+|------|-----------|-------|
+| `gh` CLI | **No** | Not installed in this environment |
+| `git` commands | **Yes** | Full git access (push, pull, branch, etc.) |
+| `curl` | **Yes** | Can call GitHub API directly |
+| GitHub API via WebFetch | **Yes** | Read-only for public repos |
+
+### Capability Matrix
+
+| Operation | Method | Auth Required | Available |
+|-----------|--------|---------------|-----------|
+| **Read issues** | WebFetch + GitHub API | No (public repos) | Yes |
+| **Create issues** | curl + GitHub API | Yes (token) | No token available |
+| **Post comments** | curl + GitHub API | Yes (token) | No token available |
+| **Read PRs** | WebFetch + GitHub API | No (public repos) | Yes |
+| **Create PRs** | curl + GitHub API | Yes (token) | No token available |
+| **Close PRs/issues** | curl + GitHub API | Yes (token) | No token available |
+| **Create branches** | `git checkout -b` + `git push` | Git credentials | Yes |
+| **Delete branches** | `git push origin --delete` | Git credentials | Yes |
+
+### What Works Now
+
+**Reading (Public Repos):**
+```bash
+# Via WebFetch
+WebFetch https://api.github.com/repos/OWNER/REPO/issues
+
+# Via curl
+curl https://api.github.com/repos/OWNER/REPO/issues
+```
+
+**Branch Operations:**
+```bash
+# Create branch
+git checkout -b feature/my-branch
+git push -u origin feature/my-branch
+
+# Delete branch
+git push origin --delete feature/my-branch
+```
+
+### What Requires GitHub Token
+
+Operations that modify GitHub state (not git state) require authentication:
+
+```bash
+# Would need GITHUB_TOKEN environment variable
+curl -X POST \
+  -H "Authorization: token $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/OWNER/REPO/issues \
+  -d '{"title":"Issue title","body":"Issue body"}'
+```
+
+**Missing:** No `GITHUB_TOKEN` or `GH_TOKEN` available in this environment.
+
+### CLAUDE.md Discrepancy
+
+The project's `CLAUDE.md` references `gh` commands:
+```markdown
+- Use `gh issue list` to view open issues
+- Use `gh issue create` to create new issues
+```
+
+However, **`gh` CLI is not available** in the current environment. This should be addressed by either:
+1. Installing `gh` CLI in the environment
+2. Updating CLAUDE.md to reflect actual capabilities
+3. Providing a GitHub token for API access
+
 ## Gaps and Recommendations
 
 ### Current Gaps
@@ -143,13 +216,17 @@ Example: Drag-and-drop testing, screenshot capture
 1. **No MCP configuration** - `.mcp.json` not present, limiting MCP tool access
 2. **Authentication complexity** - Playwright scripts require interactive login
 3. **No headless CI integration** - Current setup assumes interactive mode
+4. **No `gh` CLI** - Referenced in CLAUDE.md but not available
+5. **No GitHub token** - Cannot create/modify issues, PRs, or comments via API
 
 ### Recommendations
 
 1. **For simple web lookups:** Use WebFetch (already available)
-2. **For GitHub operations:** Use `gh` CLI instead of browser automation when possible
-3. **For visual testing:** Consider adding MCP Playwright configuration if needed
-4. **For authenticated web tasks:** Use Playwright scripts with session persistence
+2. **For reading GitHub data:** Use WebFetch + GitHub API (works for public repos)
+3. **For branch operations:** Use git commands directly (works)
+4. **For GitHub write operations:** Request GitHub token or `gh` CLI installation
+5. **For visual testing:** Consider adding MCP Playwright configuration if needed
+6. **For authenticated web tasks:** Use Playwright scripts with session persistence
 
 ## Files Referenced
 
