@@ -171,39 +171,48 @@ class TestFindResumableRun:
         with patch("src.db.connection.get_connection") as mock_get_conn:
             mock_conn = Mock()
             mock_cursor = Mock()
-            mock_cursor.fetchone.return_value = {
-                "id": 42,
-                "checkpoint": checkpoint,
-                "date_from": date_from,
-                "date_to": date_to,
-                "auto_create_stories": True,
-            }
+            # First call returns count, second returns the run
+            mock_cursor.fetchone.side_effect = [
+                {"count": 1},  # Count query
+                {  # Select query
+                    "id": 42,
+                    "checkpoint": checkpoint,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                    "auto_create_stories": True,
+                }
+            ]
             mock_conn.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
             mock_conn.cursor.return_value.__exit__ = Mock(return_value=False)
             mock_get_conn.return_value.__enter__ = Mock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = Mock(return_value=False)
 
-            # No date parameters - finds most recent resumable run
-            result = pipeline_module._find_most_recent_resumable_run()
+            # Returns tuple of (run, count)
+            result, count = pipeline_module._find_most_recent_resumable_run()
 
             assert result is not None
             assert result["id"] == 42
             assert result["checkpoint"] == checkpoint
+            assert count == 1
 
     def test_returns_none_if_no_match(self):
         """Test returns None when no resumable run exists."""
         with patch("src.db.connection.get_connection") as mock_get_conn:
             mock_conn = Mock()
             mock_cursor = Mock()
-            mock_cursor.fetchone.return_value = None
+            mock_cursor.fetchone.side_effect = [
+                {"count": 0},  # Count query
+                None  # Select query
+            ]
             mock_conn.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
             mock_conn.cursor.return_value.__exit__ = Mock(return_value=False)
             mock_get_conn.return_value.__enter__ = Mock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = Mock(return_value=False)
 
-            result = pipeline_module._find_most_recent_resumable_run()
+            result, count = pipeline_module._find_most_recent_resumable_run()
 
             assert result is None
+            assert count == 0
 
     def test_returns_none_if_wrong_phase(self):
         """Test returns None if checkpoint phase is not classification."""
@@ -215,19 +224,22 @@ class TestFindResumableRun:
         with patch("src.db.connection.get_connection") as mock_get_conn:
             mock_conn = Mock()
             mock_cursor = Mock()
-            mock_cursor.fetchone.return_value = {
-                "id": 42,
-                "checkpoint": checkpoint,
-                "date_from": date_from,
-                "date_to": date_to,
-                "auto_create_stories": False,
-            }
+            mock_cursor.fetchone.side_effect = [
+                {"count": 1},  # Count query
+                {  # Select query - wrong phase
+                    "id": 42,
+                    "checkpoint": checkpoint,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                    "auto_create_stories": False,
+                }
+            ]
             mock_conn.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
             mock_conn.cursor.return_value.__exit__ = Mock(return_value=False)
             mock_get_conn.return_value.__enter__ = Mock(return_value=mock_conn)
             mock_get_conn.return_value.__exit__ = Mock(return_value=False)
 
-            result = pipeline_module._find_most_recent_resumable_run()
+            result, count = pipeline_module._find_most_recent_resumable_run()
 
             assert result is None
 
@@ -313,7 +325,8 @@ class TestResumeEndpoint:
 
     def test_resume_no_eligible_run_returns_400(self, client, mock_db):
         """Test resume with no eligible run returns 400."""
-        with patch.object(pipeline_module, "_find_most_recent_resumable_run", return_value=None):
+        # Returns tuple (None, 0) when no resumable runs
+        with patch.object(pipeline_module, "_find_most_recent_resumable_run", return_value=(None, 0)):
             response = client.post(
                 "/api/pipeline/run",
                 json={"days": 7, "resume": True}
@@ -342,7 +355,8 @@ class TestResumeEndpoint:
         mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
         mock_db.cursor.return_value.__exit__ = Mock(return_value=False)
 
-        with patch.object(pipeline_module, "_find_most_recent_resumable_run", return_value=existing_run):
+        # Returns tuple (run, count=1) - single resumable run, auto-selects
+        with patch.object(pipeline_module, "_find_most_recent_resumable_run", return_value=(existing_run, 1)):
             with patch.object(pipeline_module, "_cleanup_terminal_runs"):
                 with patch.object(pipeline_module, "_run_pipeline_async"):
                     response = client.post(
@@ -354,6 +368,32 @@ class TestResumeEndpoint:
                     data = response.json()
                     assert data["run_id"] == 42
                     assert "resumed" in data["message"].lower()
+
+    def test_resume_multiple_runs_requires_explicit_id(self, client, mock_db):
+        """Test resume with multiple resumable runs requires explicit run_id."""
+        date_from = datetime.now(timezone.utc) - timedelta(days=7)
+        date_to = datetime.now(timezone.utc)
+        checkpoint = {"phase": "classification", "intercom_cursor": "abc123"}
+
+        existing_run = {
+            "id": 42,
+            "checkpoint": checkpoint,
+            "date_from": date_from,
+            "date_to": date_to,
+            "auto_create_stories": True,
+        }
+
+        # Returns tuple (run, count=3) - multiple resumable runs
+        with patch.object(pipeline_module, "_find_most_recent_resumable_run", return_value=(existing_run, 3)):
+            response = client.post(
+                "/api/pipeline/run",
+                json={"days": 7, "resume": True}
+            )
+
+            assert response.status_code == 400
+            data = response.json()
+            assert "Multiple resumable runs" in data["detail"]
+            assert "resume_run_id" in data["detail"]
 
     def test_resume_with_active_run_returns_409(self, client, mock_db):
         """Test resume fails if another run is active."""

@@ -120,6 +120,31 @@ def _clear_checkpoint(run_id: int) -> None:
         logger.warning(f"Run {run_id}: Checkpoint clear failed: {e}")
 
 
+def _get_stored_conversation_ids(pipeline_run_id: int) -> set:
+    """Get conversation IDs already stored for this pipeline run.
+
+    Issue #202: Used on resume to skip classification for already-stored conversations.
+    This preserves the expensive classification work done before interruption.
+
+    Returns:
+        Set of conversation_id strings already in the database for this run.
+    """
+    from src.db.connection import get_connection
+
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT conversation_id
+                    FROM conversations
+                    WHERE pipeline_run_id = %s
+                """, (pipeline_run_id,))
+                return {row[0] for row in cur.fetchall()}
+    except Exception as e:
+        logger.warning(f"Failed to get stored conversation IDs: {e}")
+        return set()
+
+
 def extract_support_messages(raw_conversation: dict) -> List[str]:
     """
     Extract support team messages from conversation parts.
@@ -500,18 +525,16 @@ async def run_pipeline_async(
     # Issue #202: Track warnings for observability
     classification_warnings = []
 
-    # Issue #202: On resume, we deliberately re-fetch from the beginning (no cursor).
-    # The checkpoint cursor points to end-of-fetch (since checkpoint is saved after storage),
-    # so using it would skip all conversations. Instead, we rely on upsert to handle duplicates.
-    # The cursor is saved in checkpoint for observability/debugging only.
-    if checkpoint and checkpoint.get("phase") == "classification":
+    # Issue #202: On resume, query already-stored conversation IDs to skip classification
+    already_stored_ids: set = set()
+    if checkpoint and checkpoint.get("phase") == "classification" and pipeline_run_id:
         stored_count = checkpoint.get("conversations_processed", 0)
-        logger.info("Resuming from checkpoint: %d conversations already stored, re-fetching from beginning", stored_count)
-        # Emit warning so operators see the re-fetch tradeoff
+        logger.info("Resuming from checkpoint: %d conversations already stored", stored_count)
+        # Query DB for already-stored conversation IDs to skip classification
+        already_stored_ids = _get_stored_conversation_ids(pipeline_run_id)
+        logger.info("  Found %d conversation IDs in database, will skip classification for these", len(already_stored_ids))
         classification_warnings.append(
-            f"Resuming: {stored_count} conversations already stored. "
-            "Re-fetching all conversations from beginning - upsert will skip duplicates. "
-            "This adds fetch overhead but preserves classification progress."
+            f"Resuming: {len(already_stored_ids)} conversations already stored, will skip classification for these."
         )
 
     # Issue #202: Track current cursor for checkpoint persistence (observability only)
@@ -613,6 +636,19 @@ async def run_pipeline_async(
             "classification_changed": 0,
         }
 
+    # Issue #202: Filter out already-stored conversations on resume
+    # This preserves the expensive classification work from before interruption
+    skipped_count = 0
+    if already_stored_ids:
+        original_count = len(conversations)
+        conversations = [
+            (parsed, raw_conv) for parsed, raw_conv in conversations
+            if parsed.id not in already_stored_ids
+        ]
+        skipped_count = original_count - len(conversations)
+        logger.info("  Skipped %d already-stored conversations, %d remaining to classify",
+                   skipped_count, len(conversations))
+
     # Phase 2: Classify in parallel (with stop checks between batches)
     logger.info("")
     logger.info("Phase 2: Classifying %d conversations in parallel...", len(conversations))
@@ -654,13 +690,14 @@ async def run_pipeline_async(
 
     # Phase 3: Batch store to database
     stats = {
-        "fetched": len(conversations),
+        "fetched": len(conversations) + skipped_count,  # Total fetched before filtering
         "recovered": recovered_count,  # Issue #164
+        "skipped": skipped_count,  # Issue #202: Already-stored conversations skipped on resume
         "classified": len(results),
         "stored": 0,
         "stage2_run": sum(1 for r in results if r["stage2_result"]),
         "classification_changed": sum(1 for r in results if (r.get("stage2_result") or {}).get("changed_from_stage_1")),
-        "warnings": classification_warnings,  # Issue #202: Observability for cursor fallback
+        "warnings": classification_warnings,  # Issue #202: Observability
     }
 
     if not dry_run:

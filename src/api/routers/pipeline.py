@@ -1776,7 +1776,7 @@ def _finalize_failed_run(run_id: int, error_message: str) -> None:
     _active_runs[run_id] = "failed"
 
 
-def _find_most_recent_resumable_run() -> Optional[dict]:
+def _find_most_recent_resumable_run() -> tuple[Optional[dict], int]:
     """Find the most recent run eligible for resume.
 
     Issue #202: Resumable run eligibility rules:
@@ -1789,13 +1789,28 @@ def _find_most_recent_resumable_run() -> Optional[dict]:
     This supports cross-day resume (start Monday, resume Tuesday).
 
     Returns:
-        Dict with run id, checkpoint, date_from, date_to if found, else None
+        Tuple of (run_dict, total_resumable_count):
+        - run_dict: Dict with run id, checkpoint, date_from, date_to if found, else None
+        - total_resumable_count: Total number of resumable runs (for safety check)
     """
     from src.db.connection import get_connection
     from psycopg2.extras import RealDictCursor
 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # First, count all resumable runs (for safety check)
+            cur.execute("""
+                SELECT COUNT(*) as count
+                FROM pipeline_runs
+                WHERE status IN ('stopped', 'failed', 'stopping')
+                  AND checkpoint IS NOT NULL
+                  AND checkpoint != '{}'::jsonb
+                  AND checkpoint->>'phase' = 'classification'
+            """)
+            count_row = cur.fetchone()
+            total_count = count_row["count"] if count_row else 0
+
+            # Then get the most recent one
             cur.execute("""
                 SELECT id, checkpoint, date_from, date_to, auto_create_stories
                 FROM pipeline_runs
@@ -1808,14 +1823,14 @@ def _find_most_recent_resumable_run() -> Optional[dict]:
             row = cur.fetchone()
 
     if not row:
-        return None
+        return None, 0
 
     # Check checkpoint phase is 'classification' (MVP only supports classification resume)
     checkpoint = row.get("checkpoint", {})
     if checkpoint.get("phase") != "classification":
-        return None
+        return None, total_count
 
-    return dict(row)
+    return dict(row), total_count
 
 
 def _find_resumable_run_by_id(run_id: int) -> Optional[dict]:
@@ -1909,7 +1924,7 @@ def start_pipeline_run(
         else:
             # No explicit run_id - find most recent resumable run
             # This supports cross-day resume (start Monday, resume Tuesday)
-            existing = _find_most_recent_resumable_run()
+            existing, total_resumable = _find_most_recent_resumable_run()
             if not existing:
                 raise HTTPException(
                     status_code=400,
@@ -1917,6 +1932,14 @@ def start_pipeline_run(
                            "Resumable runs must be in stopped/failed/stopping status "
                            "with a non-empty checkpoint in classification phase. "
                            "Tip: Use resume_run_id to target a specific run."
+                )
+            # Safety check: require explicit targeting if multiple resumable runs exist
+            if total_resumable > 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Multiple resumable runs found ({total_resumable}). "
+                           f"Please specify resume_run_id to target a specific run. "
+                           f"Most recent resumable run is {existing['id']}."
                 )
 
         run_id = existing["id"]
