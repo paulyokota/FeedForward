@@ -192,7 +192,11 @@ class TestRetryLogic:
                 client._get("/test")
 
         # Exponential backoff: 2^0 * 2 = 2, 2^1 * 2 = 4, 2^2 * 2 = 8
-        assert sleep_calls == [2, 4, 8]
+        # Plus jitter (0-50%), so actual delays are in ranges [2, 3], [4, 6], [8, 12]
+        assert len(sleep_calls) == 3
+        assert 2 <= sleep_calls[0] <= 3
+        assert 4 <= sleep_calls[1] <= 6
+        assert 8 <= sleep_calls[2] <= 12
 
     def test_post_request_with_retry(self, client):
         """Test that POST requests also use retry logic."""

@@ -12,9 +12,11 @@ Supports both sync and async modes:
 import asyncio
 import logging
 import os
+import random
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from typing import AsyncGenerator, Generator, Optional
 
 import aiohttp
@@ -57,11 +59,17 @@ class IntercomClient:
     # - read: time to receive response (30s allows for slow API responses)
     DEFAULT_TIMEOUT = (10, 30)
 
-    # Retry configuration for transient errors (5xx)
+    # Retry configuration for transient errors (429 rate limit, 5xx server errors)
     # 3 retries with 2s base delay = max 14s total wait (2+4+8), reasonable for API ops
     MAX_RETRIES = 3
     RETRY_DELAY_BASE = 2  # seconds, exponential backoff: 2s, 4s, 8s
-    RETRYABLE_STATUS_CODES = {500, 502, 503, 504}
+    RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}  # Issue #205: Added 429 for rate limit handling
+
+    # Runtime configuration knobs (Issue #205: Backfill tuning)
+    # Validated to prevent misconfiguration causing resource exhaustion
+    FETCH_CONCURRENCY = max(1, min(100, int(os.getenv("INTERCOM_FETCH_CONCURRENCY", "10"))))
+    PER_PAGE = max(1, min(150, int(os.getenv("INTERCOM_PER_PAGE", "50"))))  # Intercom max is 150
+    MAX_RPS = max(0.0, min(100.0, float(os.getenv("INTERCOM_MAX_RPS", "0"))))  # 0 = no limit
 
     # Template messages to skip
     TEMPLATE_MESSAGES = [
@@ -94,6 +102,57 @@ class IntercomClient:
             "Intercom-Version": self.API_VERSION,
         })
 
+    @staticmethod
+    def _parse_retry_after(header_value: str) -> int:
+        """
+        Parse Retry-After header value.
+
+        The header can be either:
+        - An integer (seconds to wait)
+        - An HTTP-date (absolute time to retry after)
+
+        Args:
+            header_value: The Retry-After header value
+
+        Returns:
+            Number of seconds to wait (minimum 1)
+        """
+        try:
+            # Try parsing as integer (seconds)
+            return max(1, int(header_value))
+        except ValueError:
+            # Try parsing as HTTP-date format
+            try:
+                retry_at = parsedate_to_datetime(header_value)
+                # Ensure timezone-aware comparison (RFC 7231 requires GMT but handle edge cases)
+                if retry_at.tzinfo is None:
+                    retry_at = retry_at.replace(tzinfo=timezone.utc)
+                delta = (retry_at - datetime.now(timezone.utc)).total_seconds()
+                return max(1, int(delta))
+            except (ValueError, TypeError):
+                # If parsing fails, return a safe default (10s is typical rate limit window)
+                return 10
+
+    @staticmethod
+    def _add_jitter(base_delay: float) -> float:
+        """
+        Add jitter to a delay to prevent thundering herd.
+
+        When multiple concurrent requests hit rate limits simultaneously,
+        synchronized retries can repeatedly collide. Jitter randomizes
+        retry timing to spread load and increase success rate.
+
+        Adds 0-50% of base delay, so total delay is 100-150% of base.
+
+        Args:
+            base_delay: The base delay in seconds
+
+        Returns:
+            Delay with jitter added
+        """
+        jitter = random.uniform(0, 0.5 * base_delay)
+        return base_delay + jitter
+
     def _request_with_retry(
         self,
         method: str,
@@ -105,14 +164,19 @@ class IntercomClient:
         Make an HTTP request with retry on transient errors.
 
         Retries on:
+        - 429 rate limit (with Retry-After header support)
         - 5xx server errors (500, 502, 503, 504)
         - Connection errors (network issues, timeouts)
 
         Does NOT retry on:
-        - 4xx client errors (these indicate a problem with the request)
+        - 4xx client errors (except 429, these indicate a problem with the request)
         """
         url = f"{self.BASE_URL}{endpoint}"
         last_exception = None
+
+        # Issue #205: Enforce MAX_RPS rate limiting
+        if self.MAX_RPS > 0:
+            time.sleep(1.0 / self.MAX_RPS)
 
         for attempt in range(self.max_retries + 1):
             try:
@@ -121,21 +185,50 @@ class IntercomClient:
                 else:
                     response = self.session.post(url, json=json, timeout=self.timeout)
 
-                # Check if we should retry on 5xx
+                # Issue #205: Log rate limit headers for observability
+                remaining = response.headers.get("X-RateLimit-Remaining")
+                if remaining is not None:
+                    try:
+                        remaining_int = int(remaining)
+                        if remaining_int < 100:
+                            logger.warning(
+                                f"Rate limit low: {remaining_int} requests remaining on {endpoint}"
+                            )
+                        else:
+                            logger.debug(f"Rate limit remaining: {remaining_int} on {endpoint}")
+                    except (ValueError, TypeError):
+                        pass  # Ignore invalid header values
+
+                # Check if we should retry on retryable status codes
                 if response.status_code in self.RETRYABLE_STATUS_CODES:
                     if attempt < self.max_retries:
-                        delay = self.RETRY_DELAY_BASE * (2 ** attempt)
-                        logger.warning(
-                            f"Intercom API error {response.status_code} on {endpoint}, "
-                            f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
-                        )
+                        # Issue #205: Handle 429 with Retry-After header
+                        if response.status_code == 429:
+                            retry_after = response.headers.get("Retry-After")
+                            if retry_after:
+                                base_delay = self._parse_retry_after(retry_after)
+                            else:
+                                base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                            delay = self._add_jitter(base_delay)
+                            logger.warning(
+                                f"Rate limited (429) on {endpoint}, waiting {delay:.1f}s "
+                                f"(retry-after={retry_after}, attempt {attempt + 1}/{self.max_retries + 1})"
+                            )
+                        else:
+                            # 5xx errors: exponential backoff with jitter
+                            base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                            delay = self._add_jitter(base_delay)
+                            logger.warning(
+                                f"Intercom API error {response.status_code} on {endpoint}, "
+                                f"retrying in {delay:.1f}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                            )
                         time.sleep(delay)
                         continue
                     else:
                         # Last attempt failed, raise the error
                         response.raise_for_status()
 
-                # For non-5xx errors (including 4xx), raise immediately without retry
+                # For non-retryable errors (4xx except 429), raise immediately without retry
                 response.raise_for_status()
                 return response.json()
 
@@ -143,10 +236,11 @@ class IntercomClient:
                 # Retry on connection-level errors
                 last_exception = e
                 if attempt < self.max_retries:
-                    delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                    base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                    delay = self._add_jitter(base_delay)
                     logger.warning(
                         f"Intercom API connection error: {e}, "
-                        f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                        f"retrying in {delay:.1f}s (attempt {attempt + 1}/{self.max_retries + 1})"
                     )
                     time.sleep(delay)
                 else:
@@ -198,17 +292,50 @@ class IntercomClient:
         """
         url = f"{self.BASE_URL}{endpoint}"
 
+        # Issue #205: Enforce MAX_RPS rate limiting
+        if self.MAX_RPS > 0:
+            await asyncio.sleep(1.0 / self.MAX_RPS)
+
         for attempt in range(self.max_retries + 1):
             try:
                 if method == "GET":
                     async with session.get(url, params=params) as response:
+                        # Issue #205: Log rate limit headers for observability
+                        remaining = response.headers.get("X-RateLimit-Remaining")
+                        if remaining is not None:
+                            try:
+                                remaining_int = int(remaining)
+                                if remaining_int < 100:
+                                    logger.warning(
+                                        f"Rate limit low: {remaining_int} requests remaining on {endpoint}"
+                                    )
+                                else:
+                                    logger.debug(f"Rate limit remaining: {remaining_int} on {endpoint}")
+                            except (ValueError, TypeError):
+                                pass  # Ignore invalid header values
+
                         if response.status in self.RETRYABLE_STATUS_CODES:
                             if attempt < self.max_retries:
-                                delay = self.RETRY_DELAY_BASE * (2 ** attempt)
-                                logger.warning(
-                                    f"Intercom API error {response.status} on {endpoint}, "
-                                    f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
-                                )
+                                # Issue #205: Handle 429 with Retry-After header
+                                if response.status == 429:
+                                    retry_after = response.headers.get("Retry-After")
+                                    if retry_after:
+                                        base_delay = self._parse_retry_after(retry_after)
+                                    else:
+                                        base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                                    delay = self._add_jitter(base_delay)
+                                    logger.warning(
+                                        f"Rate limited (429) on {endpoint}, waiting {delay:.1f}s "
+                                        f"(retry-after={retry_after}, attempt {attempt + 1}/{self.max_retries + 1})"
+                                    )
+                                else:
+                                    # 5xx errors: exponential backoff with jitter
+                                    base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                                    delay = self._add_jitter(base_delay)
+                                    logger.warning(
+                                        f"Intercom API error {response.status} on {endpoint}, "
+                                        f"retrying in {delay:.1f}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                                    )
                                 await asyncio.sleep(delay)
                                 continue
                             else:
@@ -217,13 +344,42 @@ class IntercomClient:
                         return await response.json()
                 else:
                     async with session.post(url, json=json_data) as response:
+                        # Issue #205: Log rate limit headers for observability
+                        remaining = response.headers.get("X-RateLimit-Remaining")
+                        if remaining is not None:
+                            try:
+                                remaining_int = int(remaining)
+                                if remaining_int < 100:
+                                    logger.warning(
+                                        f"Rate limit low: {remaining_int} requests remaining on {endpoint}"
+                                    )
+                                else:
+                                    logger.debug(f"Rate limit remaining: {remaining_int} on {endpoint}")
+                            except (ValueError, TypeError):
+                                pass  # Ignore invalid header values
+
                         if response.status in self.RETRYABLE_STATUS_CODES:
                             if attempt < self.max_retries:
-                                delay = self.RETRY_DELAY_BASE * (2 ** attempt)
-                                logger.warning(
-                                    f"Intercom API error {response.status} on {endpoint}, "
-                                    f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
-                                )
+                                # Issue #205: Handle 429 with Retry-After header
+                                if response.status == 429:
+                                    retry_after = response.headers.get("Retry-After")
+                                    if retry_after:
+                                        base_delay = self._parse_retry_after(retry_after)
+                                    else:
+                                        base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                                    delay = self._add_jitter(base_delay)
+                                    logger.warning(
+                                        f"Rate limited (429) on {endpoint}, waiting {delay:.1f}s "
+                                        f"(retry-after={retry_after}, attempt {attempt + 1}/{self.max_retries + 1})"
+                                    )
+                                else:
+                                    # 5xx errors: exponential backoff with jitter
+                                    base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                                    delay = self._add_jitter(base_delay)
+                                    logger.warning(
+                                        f"Intercom API error {response.status} on {endpoint}, "
+                                        f"retrying in {delay:.1f}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                                    )
                                 await asyncio.sleep(delay)
                                 continue
                             else:
@@ -233,10 +389,11 @@ class IntercomClient:
 
             except aiohttp.ClientError as e:
                 if attempt < self.max_retries:
-                    delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                    base_delay = self.RETRY_DELAY_BASE * (2 ** attempt)
+                    delay = self._add_jitter(base_delay)
                     logger.warning(
                         f"Intercom API connection error: {e}, "
-                        f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries + 1})"
+                        f"retrying in {delay:.1f}s (attempt {attempt + 1}/{self.max_retries + 1})"
                     )
                     await asyncio.sleep(delay)
                 else:
@@ -269,7 +426,7 @@ class IntercomClient:
         self,
         since: Optional[datetime] = None,
         until: Optional[datetime] = None,
-        per_page: int = 50,
+        per_page: Optional[int] = None,
         max_pages: Optional[int] = None,
     ) -> AsyncGenerator[dict, None]:
         """
@@ -282,7 +439,9 @@ class IntercomClient:
         Yields raw conversation dicts for further processing.
         Handles pagination automatically.
         """
-        params = {"per_page": per_page}
+        # Issue #205: Use runtime knob for per_page default
+        effective_per_page = per_page if per_page is not None else self.PER_PAGE
+        params = {"per_page": effective_per_page}
         endpoint = "/conversations"
         page_count = 0
 
@@ -325,7 +484,7 @@ class IntercomClient:
         self,
         since: Optional[datetime] = None,
         until: Optional[datetime] = None,
-        per_page: int = 50,
+        per_page: Optional[int] = None,
         max_results: Optional[int] = None,
         recovery_candidates: Optional[list] = None,
         initial_cursor: Optional[str] = None,
@@ -341,7 +500,7 @@ class IntercomClient:
         Args:
             since: Start of date range (inclusive)
             until: End of date range (exclusive), defaults to now
-            per_page: Results per API page
+            per_page: Results per API page (default: PER_PAGE from env)
             max_results: Maximum conversations to return
             recovery_candidates: Issue #164 - If provided, filtered conversations
                 that are potentially recoverable (short body, not template) are
@@ -394,7 +553,7 @@ class IntercomClient:
         self,
         start_timestamp: int,
         end_timestamp: int,
-        per_page: int = 50,
+        per_page: Optional[int] = None,
         max_results: Optional[int] = None,
         initial_cursor: Optional[str] = None,
         cursor_callback: Optional[callable] = None,
@@ -409,7 +568,7 @@ class IntercomClient:
         Args:
             start_timestamp: Unix timestamp for start of range (exclusive: >)
             end_timestamp: Unix timestamp for end of range (exclusive: <)
-            per_page: Results per page
+            per_page: Results per page (default: PER_PAGE from env)
             max_results: Maximum conversations to return
             initial_cursor: Optional cursor to resume pagination from (Issue #202).
                            If provided, starts pagination from this cursor instead of the beginning.
@@ -421,6 +580,9 @@ class IntercomClient:
         Yields:
             Raw conversation dicts from Intercom API
         """
+        # Issue #205: Use runtime knob for per_page default
+        effective_per_page = per_page if per_page is not None else self.PER_PAGE
+
         search_query = {
             "query": {
                 "operator": "AND",
@@ -437,7 +599,7 @@ class IntercomClient:
                     },
                 ],
             },
-            "pagination": {"per_page": per_page},
+            "pagination": {"per_page": effective_per_page},
         }
 
         count = 0
@@ -458,13 +620,20 @@ class IntercomClient:
                         session, "POST", "/conversations/search", json_data=search_query
                     )
                 except aiohttp.ClientResponseError as e:
-                    # Issue #202: Handle invalid cursor gracefully (HTTP 4xx errors only)
-                    # Only attempt fallback for client errors (invalid cursor returns 400/422),
-                    # not for rate limits (429) or server errors (5xx) which should propagate.
+                    # Issue #205: Handle invalid cursor gracefully
+                    # Cursor can become invalid if it expires or API state changes.
+                    #
+                    # Retry WITHOUT cursor for: 4xx client errors (except 429)
+                    #   - 400/422: Invalid/expired cursor → restart from beginning
+                    #   - Other 4xx: Request malformed → likely cursor issue
+                    #
+                    # DO NOT retry for:
+                    #   - 429 (rate limit): Not a cursor issue, normal retry with same cursor
+                    #   - 5xx (server error): Not a cursor issue, normal retry with same cursor
                     if initial_cursor and not cursor_fallback_attempted and e.status < 500 and e.status != 429:
                         logger.warning(
-                            f"Search failed with cursor {initial_cursor[:20] if initial_cursor else 'None'}..., "
-                            f"HTTP {e.status}, restarting from beginning: {e}"
+                            "Search failed with cursor <present>, HTTP %d, restarting from beginning: %s",
+                            e.status, e
                         )
                         cursor_fallback_attempted = True
                         starting_after = None
@@ -664,7 +833,7 @@ class IntercomClient:
     async def fetch_contact_org_ids_batch(
         self,
         contact_ids: list[str],
-        concurrency: int = 20,
+        concurrency: Optional[int] = None,
     ) -> dict[str, Optional[str]]:
         """
         Fetch org_ids for multiple contacts in parallel.
@@ -673,7 +842,7 @@ class IntercomClient:
 
         Args:
             contact_ids: List of Intercom contact IDs
-            concurrency: Max parallel requests (default 20)
+            concurrency: Max parallel requests (default: FETCH_CONCURRENCY from env)
 
         Returns:
             Dict mapping contact_id -> org_id (or None if not found)
@@ -686,8 +855,11 @@ class IntercomClient:
         if not unique_ids:
             return {}
 
+        # Issue #205: Use runtime knob for concurrency default
+        effective_concurrency = concurrency if concurrency is not None else self.FETCH_CONCURRENCY
+
         results = {}
-        semaphore = asyncio.Semaphore(concurrency)
+        semaphore = asyncio.Semaphore(effective_concurrency)
 
         # Use same timeout as sync client (connect, read)
         timeout = aiohttp.ClientTimeout(
@@ -723,7 +895,7 @@ class IntercomClient:
     def fetch_contact_org_ids_batch_sync(
         self,
         contact_ids: list[str],
-        concurrency: int = 20,
+        concurrency: Optional[int] = None,
     ) -> dict[str, Optional[str]]:
         """
         Sync wrapper for fetch_contact_org_ids_batch.
@@ -734,13 +906,14 @@ class IntercomClient:
                 org_id = org_ids.get(conv.contact_id)
         """
         import asyncio
+        # Issue #205: Pass through concurrency (async method uses FETCH_CONCURRENCY default)
         return asyncio.run(self.fetch_contact_org_ids_batch(contact_ids, concurrency))
 
     def fetch_conversations(
         self,
         since: Optional[datetime] = None,
         until: Optional[datetime] = None,
-        per_page: int = 50,
+        per_page: Optional[int] = None,
         max_pages: Optional[int] = None,
     ) -> Generator[dict, None, None]:
         """
@@ -749,7 +922,9 @@ class IntercomClient:
         Yields raw conversation dicts for further processing.
         Handles pagination automatically.
         """
-        params = {"per_page": per_page}
+        # Issue #205: Use runtime knob for per_page default
+        effective_per_page = per_page if per_page is not None else self.PER_PAGE
+        params = {"per_page": effective_per_page}
         endpoint = "/conversations"
         page_count = 0
 
@@ -795,7 +970,7 @@ class IntercomClient:
         self,
         since: Optional[datetime] = None,
         until: Optional[datetime] = None,
-        per_page: int = 50,
+        per_page: Optional[int] = None,
         max_pages: Optional[int] = None,
     ) -> Generator[tuple[IntercomConversation, dict], None, None]:
         """
@@ -803,6 +978,7 @@ class IntercomClient:
 
         Yields (parsed_conversation, raw_conversation) tuples.
         """
+        # Issue #205: per_page default is handled by fetch_conversations
         for raw_conv in self.fetch_conversations(since, until, per_page, max_pages):
             filter_result = self.quality_filter(raw_conv)
             if filter_result.passed:
@@ -816,20 +992,22 @@ class IntercomClient:
     def search_conversations(
         self,
         query: str,
-        per_page: int = 20,
+        per_page: Optional[int] = None,
     ) -> Generator[dict, None, None]:
         """
         Search conversations by body content.
 
         Useful for finding specific types of conversations.
         """
+        # Issue #205: Use runtime knob for per_page default
+        effective_per_page = per_page if per_page is not None else self.PER_PAGE
         search_query = {
             "query": {
                 "field": "source.body",
                 "operator": "~",
                 "value": query,
             },
-            "pagination": {"per_page": per_page},
+            "pagination": {"per_page": effective_per_page},
         }
 
         data = self._post("/conversations/search", search_query)
@@ -840,7 +1018,7 @@ class IntercomClient:
         self,
         start_timestamp: int,
         end_timestamp: int,
-        per_page: int = 50,
+        per_page: Optional[int] = None,
         max_results: Optional[int] = None,
     ) -> Generator[dict, None, None]:
         """
@@ -849,11 +1027,13 @@ class IntercomClient:
         Args:
             start_timestamp: Unix timestamp for start of range
             end_timestamp: Unix timestamp for end of range
-            per_page: Results per page
+            per_page: Results per page (default: PER_PAGE from env)
             max_results: Maximum conversations to return
 
         Yields raw conversation dicts.
         """
+        # Issue #205: Use runtime knob for per_page default
+        effective_per_page = per_page if per_page is not None else self.PER_PAGE
         search_query = {
             "query": {
                 "operator": "AND",
@@ -870,7 +1050,7 @@ class IntercomClient:
                     },
                 ],
             },
-            "pagination": {"per_page": per_page},
+            "pagination": {"per_page": effective_per_page},
         }
 
         count = 0
