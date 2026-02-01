@@ -132,12 +132,13 @@ class EvidenceService:
         conversation_id: str,
         source: str,
         excerpt: Optional[str] = None,
+        theme_signature: Optional[str] = None,  # Issue #197: Populate theme_signatures
     ) -> StoryEvidence:
         """Add a single conversation to a story's evidence."""
         with self.db.cursor() as cur:
             # Get current evidence
             cur.execute("""
-                SELECT id, conversation_ids, source_stats, excerpts
+                SELECT id, conversation_ids, theme_signatures, source_stats, excerpts
                 FROM story_evidence
                 WHERE story_id = %s
             """, (str(story_id),))
@@ -148,6 +149,11 @@ class EvidenceService:
                 conversation_ids = list(row["conversation_ids"] or [])
                 if conversation_id not in conversation_ids:
                     conversation_ids.append(conversation_id)
+
+                # Issue #197: Append theme_signature if provided and not already present
+                theme_signatures = list(row["theme_signatures"] or [])
+                if theme_signature and theme_signature not in theme_signatures:
+                    theme_signatures.append(theme_signature)
 
                 source_stats = row["source_stats"] or {}
                 if isinstance(source_stats, str):
@@ -168,6 +174,7 @@ class EvidenceService:
                 cur.execute("""
                     UPDATE story_evidence
                     SET conversation_ids = %s,
+                        theme_signatures = %s,
                         source_stats = %s,
                         excerpts = %s,
                         updated_at = NOW()
@@ -176,12 +183,15 @@ class EvidenceService:
                               source_stats, excerpts, created_at, updated_at
                 """, (
                     conversation_ids,
+                    theme_signatures,
                     json.dumps(source_stats),
                     json.dumps(excerpts_data),
                     str(story_id),
                 ))
             else:
                 # Create new evidence
+                # Issue #197: Initialize theme_signatures with signature if provided
+                theme_signatures = [theme_signature] if theme_signature else []
                 source_stats = {source: 1}
                 excerpts_data = []
                 if excerpt:
@@ -201,7 +211,7 @@ class EvidenceService:
                 """, (
                     str(story_id),
                     [conversation_id],
-                    [],
+                    theme_signatures,
                     json.dumps(source_stats),
                     json.dumps(excerpts_data),
                 ))
@@ -297,6 +307,7 @@ class EvidenceService:
 
     def _update_story_counts(self, cur, story_id: UUID) -> None:
         """Update story counts from evidence."""
+        # Issue #197: Added excerpt_count with COALESCE safety for NULL/empty excerpts
         cur.execute("""
             UPDATE stories s
             SET
@@ -309,6 +320,11 @@ class EvidenceService:
                     SELECT array_length(conversation_ids, 1)
                     FROM story_evidence se
                     WHERE se.story_id = s.id
+                ), 0),
+                excerpt_count = COALESCE((
+                    SELECT jsonb_array_length(COALESCE(excerpts, '[]'::jsonb))
+                    FROM story_evidence se
+                    WHERE se.story_id = s.id
                 ), 0)
             WHERE s.id = %s
         """, (str(story_id),))
@@ -319,13 +335,20 @@ class EvidenceService:
         if isinstance(excerpts_data, str):
             excerpts_data = json.loads(excerpts_data)
 
+        # Issue #197: Include all metadata fields from EvidenceExcerpt model
         excerpts = [
             EvidenceExcerpt(
                 text=e.get("text", ""),
                 source=e.get("source", "unknown"),
                 conversation_id=e.get("conversation_id"),
+                email=e.get("email"),
+                intercom_url=e.get("intercom_url"),
+                org_id=e.get("org_id"),
+                user_id=e.get("user_id"),
+                contact_id=e.get("contact_id"),
             )
             for e in excerpts_data
+            if isinstance(e, dict)  # Validate element is a dict
         ]
 
         source_stats = row["source_stats"] or {}

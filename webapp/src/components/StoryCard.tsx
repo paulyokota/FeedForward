@@ -4,6 +4,7 @@ import type { Story, SortKey } from "@/lib/types";
 import { PRIORITY_CONFIG, getSyncState, SORT_CONFIG } from "@/lib/types";
 import Link from "next/link";
 import React from "react";
+import { EvidenceBadge } from "./EvidenceBadge";
 import { SyncStatusBadge } from "./SyncStatusBadge";
 
 // Extended Story type to include optional sync_status from board API
@@ -129,6 +130,9 @@ export const StoryCard = React.forwardRef<HTMLElement, StoryCardProps>(
           >
             <SyncStatusBadge state={syncState} size="sm" />
           </div>
+
+          {/* Low evidence warning - Issue #197 */}
+          <EvidenceBadge excerptCount={story.excerpt_count} size="sm" />
 
           {/* Active sort score badge - shows % for consistency with confidence */}
           {activeScore && activeScore.value !== null && (

@@ -75,6 +75,7 @@ class MatchResult:
             - "added_to_story": Conversation added to story (orphan was graduated)
             - "no_evidence_service": Could not add to story (no EvidenceService)
         story_id: UUID of the created story (set when action="graduated" or "added_to_story")
+        conversation_ids: List of conversation IDs (set when action="graduated" for evidence creation)
     """
 
     matched: bool
@@ -82,6 +83,7 @@ class MatchResult:
     orphan_signature: Optional[str] = None
     action: Optional[str] = None
     story_id: Optional[str] = None
+    conversation_ids: Optional[List[str]] = None  # Issue #197: For evidence creation after graduation
 
 
 class OrphanMatcher:
@@ -248,11 +250,13 @@ class OrphanMatcher:
             )
 
         excerpt = extracted_theme.excerpt[:500] if extracted_theme.excerpt else None
+        # Issue #197: Pass theme_signature to populate theme_signatures in evidence bundle
         self.evidence_service.add_conversation(
             story_id=orphan.story_id,
             conversation_id=conversation_id,
             source="intercom",
             excerpt=excerpt,
+            theme_signature=orphan.signature,
         )
 
         logger.info(
@@ -350,6 +354,7 @@ class OrphanMatcher:
             orphan_signature=orphan.signature,
             action="graduated",
             story_id=str(result.story_id),
+            conversation_ids=list(orphan.conversation_ids),  # Issue #197: For evidence creation
         )
 
     def batch_match(

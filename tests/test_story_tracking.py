@@ -298,10 +298,12 @@ class TestEvidenceService:
         """Test adding a conversation to evidence."""
         db, cursor = mock_db
         # First call returns existing evidence, second returns updated
+        # Issue #197: Include theme_signatures key in mock row
         cursor.fetchone.side_effect = [
             {
                 "id": sample_evidence_row["id"],
                 "conversation_ids": ["conv1"],
+                "theme_signatures": [],  # Issue #197: Required by add_conversation
                 "source_stats": {"intercom": 1},
                 "excerpts": [],
             },
