@@ -810,20 +810,26 @@ class StoryService:
             excerpts_data = json.loads(excerpts_data)
 
         # Issue #197: Include all metadata fields from EvidenceExcerpt model
-        excerpts = [
-            EvidenceExcerpt(
-                text=e.get("text", ""),
-                source=e.get("source", "unknown"),
-                conversation_id=e.get("conversation_id"),
-                email=e.get("email"),
-                intercom_url=e.get("intercom_url"),
-                org_id=e.get("org_id"),
-                user_id=e.get("user_id"),
-                contact_id=e.get("contact_id"),
-            )
-            for e in excerpts_data
-            if isinstance(e, dict)  # Validate element is a dict
-        ]
+        # Handle both dict format and legacy string format for backwards compatibility
+        excerpts = []
+        for e in excerpts_data:
+            if isinstance(e, dict):
+                excerpts.append(EvidenceExcerpt(
+                    text=e.get("text", ""),
+                    source=e.get("source", "unknown"),
+                    conversation_id=e.get("conversation_id"),
+                    email=e.get("email"),
+                    intercom_url=e.get("intercom_url"),
+                    org_id=e.get("org_id"),
+                    user_id=e.get("user_id"),
+                    contact_id=e.get("contact_id"),
+                ))
+            elif isinstance(e, str) and e.strip():
+                # Legacy string format - convert to EvidenceExcerpt with minimal metadata
+                excerpts.append(EvidenceExcerpt(
+                    text=e,
+                    source="unknown",
+                ))
 
         source_stats = row["source_stats"] or {}
         if isinstance(source_stats, str):

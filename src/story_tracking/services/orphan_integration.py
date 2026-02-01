@@ -163,8 +163,10 @@ class OrphanIntegrationService:
                 return False
 
             # Collect all unique theme signatures (for multi-signature stories)
-            # Collect all unique theme signatures
-            theme_signatures = set([orphan_signature])
+            # Guard against None to prevent [None] in DB
+            theme_signatures = set()
+            if orphan_signature:
+                theme_signatures.add(orphan_signature)
             for row in rows:
                 sig = row.get("issue_signature")
                 if sig:
@@ -199,10 +201,17 @@ class OrphanIntegrationService:
                     ))
 
                 # Secondary: key_excerpts (with consistent metadata)
+                # Handle both dict format {"text": "..."} and legacy string format
                 for ke in key_excerpts_data:
+                    excerpt_text = None
                     if isinstance(ke, dict) and ke.get("text"):
+                        excerpt_text = str(ke["text"])
+                    elif isinstance(ke, str) and ke.strip():
+                        excerpt_text = ke
+
+                    if excerpt_text:
                         excerpts.append(EvidenceExcerpt(
-                            text=str(ke["text"])[:MAX_EXCERPT_LENGTH],
+                            text=excerpt_text[:MAX_EXCERPT_LENGTH],
                             source="intercom",
                             conversation_id=conv_id,
                             email=contact_email,

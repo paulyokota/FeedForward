@@ -517,3 +517,37 @@ class TestEvidenceExcerptMetadataPreservation:
         mock_row["excerpts"] = None
         evidence = service._row_to_evidence(mock_row)
         assert evidence.excerpts == []
+
+    def test_row_to_evidence_handles_string_excerpts(self):
+        """_row_to_evidence should handle legacy string format excerpts."""
+        from story_tracking.services.evidence_service import EvidenceService
+
+        mock_db = Mock()
+        service = EvidenceService(mock_db)
+
+        # Test with mixed dict and string excerpts (legacy data)
+        mock_row = {
+            "id": uuid4(),
+            "story_id": uuid4(),
+            "conversation_ids": ["conv1"],
+            "theme_signatures": ["test_sig"],
+            "source_stats": {"intercom": 1},
+            "excerpts": [
+                {"text": "Dict excerpt", "source": "intercom"},
+                "String excerpt from legacy data",
+                {"text": "Another dict", "source": "coda"},
+                "  ",  # Whitespace-only should be skipped
+            ],
+            "created_at": datetime.now(),
+            "updated_at": datetime.now(),
+        }
+
+        evidence = service._row_to_evidence(mock_row)
+
+        # Should have 3 excerpts (2 dicts + 1 non-empty string)
+        assert len(evidence.excerpts) == 3
+        assert evidence.excerpts[0].text == "Dict excerpt"
+        assert evidence.excerpts[0].source == "intercom"
+        assert evidence.excerpts[1].text == "String excerpt from legacy data"
+        assert evidence.excerpts[1].source == "unknown"  # Legacy strings get "unknown" source
+        assert evidence.excerpts[2].text == "Another dict"
