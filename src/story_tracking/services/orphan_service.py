@@ -283,7 +283,12 @@ class OrphanService:
             ),
         )
 
-    def graduate(self, orphan_id: UUID, story_service) -> Optional[OrphanGraduationResult]:
+    def graduate(
+        self,
+        orphan_id: UUID,
+        story_service,
+        skip_recency_check: bool = False,
+    ) -> Optional[OrphanGraduationResult]:
         """
         Graduate an orphan to a full story.
 
@@ -293,6 +298,8 @@ class OrphanService:
         Args:
             orphan_id: The orphan to graduate
             story_service: StoryService instance for creating the story
+            skip_recency_check: If True, skip recency validation (used by bulk
+                graduation which already did a bulk recency check)
 
         Returns:
             OrphanGraduationResult if successful, None if orphan not found
@@ -314,8 +321,8 @@ class OrphanService:
             logger.warning(f"Cannot graduate orphan {orphan_id}: already graduated")
             return None
 
-        # Issue #200: Recency gate
-        if not self._check_conversation_recency(orphan.conversation_ids):
+        # Issue #200: Recency gate (skip if already checked via bulk path)
+        if not skip_recency_check and not self._check_conversation_recency(orphan.conversation_ids):
             logger.warning(f"Cannot graduate orphan {orphan_id}: No recent conversations (last 30 days)")
             return None
 
@@ -382,7 +389,8 @@ class OrphanService:
 
         for orphan in response.orphans:
             if orphan.can_graduate and recency_map.get(orphan.id, False):
-                result = self.graduate(orphan.id, story_service)
+                # Pass skip_recency_check=True since we already did bulk recency check above
+                result = self.graduate(orphan.id, story_service, skip_recency_check=True)
                 if result:
                     results.append(result)
 
@@ -424,10 +432,10 @@ class OrphanService:
                     SELECT 1 FROM conversations
                     WHERE id = ANY(%s)
                       AND created_at >= %s
-                )
+                ) AS has_recent
             """, (conversation_ids, cutoff))
             result = cur.fetchone()
-            return result[0] if result else False
+            return result["has_recent"] if result else False
 
     def _get_conversation_recency_bulk(
         self,
@@ -470,7 +478,7 @@ class OrphanService:
                 FROM story_orphans o
                 WHERE o.id = ANY(%s)
             """, (cutoff, orphan_ids))
-            return {row[0]: row[1] for row in cur.fetchall()}
+            return {row["orphan_id"]: row["has_recent"] for row in cur.fetchall()}
 
     def _generate_story_title(self, orphan: Orphan) -> str:
         """Generate a story title from orphan data."""

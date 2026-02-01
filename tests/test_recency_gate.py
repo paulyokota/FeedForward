@@ -281,8 +281,9 @@ class TestOrphanGraduationRecency:
         service = OrphanService(mock_db_connection)
 
         # Mock cursor to return True (recent conversation exists)
+        # Use dict to match RealDictCursor behavior
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = (True,)
+        mock_cursor.fetchone.return_value = {"has_recent": True}
         mock_db_connection.cursor.return_value.__enter__.return_value = mock_cursor
 
         result = service._check_conversation_recency(["conv1", "conv2"])
@@ -303,8 +304,9 @@ class TestOrphanGraduationRecency:
         service = OrphanService(mock_db_connection)
 
         # Mock cursor to return False (no recent conversation)
+        # Use dict to match RealDictCursor behavior
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = (False,)
+        mock_cursor.fetchone.return_value = {"has_recent": False}
         mock_db_connection.cursor.return_value.__enter__.return_value = mock_cursor
 
         result = service._check_conversation_recency(["conv1", "conv2"])
@@ -330,11 +332,12 @@ class TestOrphanGraduationRecency:
         orphan_id_3 = uuid4()
 
         # Mock cursor to return bulk results
+        # Use dicts to match RealDictCursor behavior
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [
-            (orphan_id_1, True),
-            (orphan_id_2, False),
-            (orphan_id_3, True),
+            {"orphan_id": orphan_id_1, "has_recent": True},
+            {"orphan_id": orphan_id_2, "has_recent": False},
+            {"orphan_id": orphan_id_3, "has_recent": True},
         ]
         mock_db_connection.cursor.return_value.__enter__.return_value = mock_cursor
 
