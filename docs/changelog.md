@@ -8,6 +8,21 @@ Format: [ISO Date] - Summary of changes
 
 ## [Unreleased]
 
+### Added
+
+**Implementation Head-Start Relevance (2026-01-31)** - Issue #198, PR #201:
+
+- **High-signal term detection**: Terms from `product_area`, `component`, `error` fields prioritized
+  - Suffix-safe stop word filtering (e.g., "network" not filtered, "working" is)
+  - CamelCase identifier extraction from symptoms (e.g., `TimeoutError` → high-signal)
+  - Generic identifiers filtered (`Error`, `Exception`, `Warning`)
+- **Relevance gating**: Single source of truth in `CodebaseContextProvider`
+  - Threshold: `high_signal_matched >= 1 OR term_diversity >= 2`
+  - Gated results marked with `success=False` and `gated=True` flag
+- **Implementation context wiring**: All 4 story creation paths now generate `implementation_context`
+- **Audit trail**: `relevance_metadata` flows to `score_metadata.relevance_metrics`
+- **Tests**: 44 new tests covering high-signal detection, relevance gating, and metadata plumbing
+
 ### Fixed
 
 **BrokenPipe Pipeline Crashes (2026-01-30)** - Issue #185:

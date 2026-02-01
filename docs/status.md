@@ -20,8 +20,25 @@
 **Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
 **Test Suite Optimization (Issue #147): COMPLETE** ✅
 **Story Evidence Quality (Issue #197): COMPLETE** ✅
+**Implementation Head-Start Relevance (Issue #198): COMPLETE** ✅
 
-## Latest: Story Evidence Quality Fixed (2026-01-31)
+## Latest: Implementation Head-Start Relevance (2026-01-31)
+
+**Issue #198 FIXED** - Improve Implementation Head-Start Relevance
+
+- PR #201 merged: High-signal term detection + relevance gating
+- 4 phases implemented:
+  1. High-signal term detection (product_area/component/error terms prioritized)
+  2. Implementation_context wired to all 4 story creation paths
+  3. Relevance gating in provider (threshold: high_signal >= 1 OR diversity >= 2)
+  4. Audit trail via score_metadata.relevance_metrics
+- Codex review: 2 Medium issues fixed (source_fields consistency, low-confidence parity)
+- 44 new tests added, all 211 modified-file tests pass
+- 5-personality review: CONVERGED in 2 rounds
+
+---
+
+## Previous: Story Evidence Quality Fixed (2026-01-31)
 
 **Issue #197 FIXED** - Raise Story Evidence Quality
 
