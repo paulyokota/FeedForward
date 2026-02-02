@@ -7,10 +7,11 @@ Covers checkpoint save/load, resume eligibility, and edge cases.
 Run with: pytest tests/test_pipeline_checkpoint.py -v
 """
 
+import asyncio
 import pytest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 import json
 
 import sys
@@ -625,3 +626,521 @@ class TestClassificationPipelineCheckpoint:
 
                 # Should save empty checkpoint
                 mock_save.assert_called_once_with(run_id, {})
+
+
+# -----------------------------------------------------------------------------
+# Issue #209: Streaming Batch Mode Tests
+# -----------------------------------------------------------------------------
+
+
+class TestStreamingBatchEnvParsing:
+    """Tests for streaming batch environment variable parsing."""
+
+    def test_parse_env_int_valid(self):
+        """Test _parse_env_int with valid value."""
+        from src.classification_pipeline import _parse_env_int
+
+        with patch.dict("os.environ", {"TEST_VAR": "75"}):
+            result = _parse_env_int("TEST_VAR", 50, 10, 100)
+            assert result == 75
+
+    def test_parse_env_int_out_of_bounds_low(self):
+        """Test _parse_env_int with value below minimum."""
+        from src.classification_pipeline import _parse_env_int
+
+        with patch.dict("os.environ", {"TEST_VAR": "5"}):
+            result = _parse_env_int("TEST_VAR", 50, 10, 100)
+            assert result == 50  # Returns default
+
+    def test_parse_env_int_out_of_bounds_high(self):
+        """Test _parse_env_int with value above maximum."""
+        from src.classification_pipeline import _parse_env_int
+
+        with patch.dict("os.environ", {"TEST_VAR": "150"}):
+            result = _parse_env_int("TEST_VAR", 50, 10, 100)
+            assert result == 50  # Returns default
+
+    def test_parse_env_int_invalid(self):
+        """Test _parse_env_int with non-integer value."""
+        from src.classification_pipeline import _parse_env_int
+
+        with patch.dict("os.environ", {"TEST_VAR": "not_a_number"}):
+            result = _parse_env_int("TEST_VAR", 50, 10, 100)
+            assert result == 50  # Returns default
+
+    def test_parse_env_int_missing(self):
+        """Test _parse_env_int with missing env var."""
+        from src.classification_pipeline import _parse_env_int
+
+        with patch.dict("os.environ", {}, clear=True):
+            result = _parse_env_int("TEST_VAR_NONEXISTENT", 50, 10, 100)
+            assert result == 50  # Returns default
+
+
+class TestAccumulateStats:
+    """Tests for _accumulate_stats helper."""
+
+    def test_accumulates_numeric_fields(self):
+        """Test that numeric fields are summed correctly."""
+        from src.classification_pipeline import _accumulate_stats
+
+        cumulative = {
+            "fetched": 100,
+            "classified": 90,
+            "stored": 80,
+            "stage2_run": 50,
+            "classification_changed": 10,
+            "warnings": [],
+        }
+        batch = {
+            "fetched": 50,
+            "classified": 45,
+            "stored": 40,
+            "stage2_run": 25,
+            "classification_changed": 5,
+        }
+
+        _accumulate_stats(cumulative, batch)
+
+        assert cumulative["fetched"] == 150
+        assert cumulative["classified"] == 135
+        assert cumulative["stored"] == 120
+        assert cumulative["stage2_run"] == 75
+        assert cumulative["classification_changed"] == 15
+
+    def test_extends_warnings(self):
+        """Test that warnings are extended, not summed."""
+        from src.classification_pipeline import _accumulate_stats
+
+        cumulative = {"fetched": 0, "warnings": ["warning1"]}
+        batch = {"fetched": 10, "warnings": ["warning2", "warning3"]}
+
+        _accumulate_stats(cumulative, batch)
+
+        assert cumulative["warnings"] == ["warning1", "warning2", "warning3"]
+
+    def test_handles_missing_fields(self):
+        """Test graceful handling of missing fields in batch."""
+        from src.classification_pipeline import _accumulate_stats
+
+        cumulative = {"fetched": 100, "classified": 90}
+        batch = {"fetched": 10}  # Missing classified
+
+        _accumulate_stats(cumulative, batch)
+
+        assert cumulative["fetched"] == 110
+        assert cumulative["classified"] == 90  # Unchanged
+
+
+class TestStreamingBatchPipeline:
+    """Tests for _run_streaming_batch_pipeline_async."""
+
+    @pytest.mark.asyncio
+    async def test_cursor_used_on_resume(self):
+        """Test that initial_cursor is passed to fetch on resume."""
+        from src.classification_pipeline import _run_streaming_batch_pipeline_async
+        from unittest.mock import AsyncMock, MagicMock
+        from contextlib import asynccontextmanager
+
+        mock_client = MagicMock()
+
+        @asynccontextmanager
+        async def mock_session_cm():
+            yield MagicMock()
+
+        mock_client._get_aiohttp_session = mock_session_cm
+
+        # Mock the generator to yield nothing (empty result)
+        async def empty_generator(*args, **kwargs):
+            # Capture the initial_cursor that was passed
+            empty_generator.initial_cursor = kwargs.get("initial_cursor")
+            return
+            yield  # Make it a generator
+
+        mock_client.fetch_quality_conversations_async = empty_generator
+
+        checkpoint = {
+            "phase": "classification",
+            "intercom_cursor": "resume_cursor_abc",
+            "conversations_processed": 50,
+        }
+
+        result = await _run_streaming_batch_pipeline_async(
+            client=mock_client,
+            since=datetime.now(),
+            until=datetime.now(),
+            max_conversations=None,
+            dry_run=True,
+            concurrency=10,
+            batch_size=50,
+            semaphore=asyncio.Semaphore(10),
+            stop_checker=lambda: False,
+            pipeline_run_id=None,
+            checkpoint=checkpoint,
+        )
+
+        assert empty_generator.initial_cursor == "resume_cursor_abc"
+
+    @pytest.mark.asyncio
+    async def test_checkpoint_saved_only_after_storage(self):
+        """Test that checkpoint is saved AFTER storage, not before."""
+        from src.classification_pipeline import (
+            _run_streaming_batch_pipeline_async,
+            _save_classification_checkpoint,
+        )
+        from unittest.mock import MagicMock, AsyncMock, call
+        from contextlib import asynccontextmanager
+
+        save_checkpoint_calls = []
+        store_calls = []
+
+        # Track order of operations
+        original_save = _save_classification_checkpoint
+
+        def tracking_save(*args, **kwargs):
+            save_checkpoint_calls.append(("checkpoint", len(store_calls)))
+
+        mock_client = MagicMock()
+
+        @asynccontextmanager
+        async def mock_session_cm():
+            yield MagicMock()
+
+        mock_client._get_aiohttp_session = mock_session_cm
+
+        # Mock generator to yield one batch
+        conversations_yielded = []
+
+        async def mock_generator(*args, **kwargs):
+            for i in range(3):  # 3 conversations
+                mock_parsed = MagicMock()
+                mock_parsed.id = f"conv_{i}"
+                mock_parsed.source_body = "test message"
+                mock_parsed.source_type = "conversation"
+                mock_parsed.source_url = None
+                mock_parsed.contact_email = None
+                mock_parsed.contact_id = None
+                mock_parsed.created_at = datetime.now()
+                conversations_yielded.append(mock_parsed.id)
+                yield (mock_parsed, {"id": f"conv_{i}"})
+
+        mock_client.fetch_quality_conversations_async = mock_generator
+        mock_client.get_conversation_async = AsyncMock(return_value={"id": "test"})
+        mock_client.should_recover_conversation = MagicMock(return_value=False)
+
+        with patch("src.classification_pipeline.store_classification_results_batch") as mock_store:
+            mock_store.return_value = 3
+            mock_store.side_effect = lambda *args, **kwargs: (
+                store_calls.append("store"),
+                3
+            )[1]
+
+            with patch("src.classification_pipeline._save_classification_checkpoint", tracking_save):
+                with patch("src.classification_pipeline._clear_checkpoint"):
+                    with patch("src.classification_pipeline.classify_conversation_async") as mock_classify:
+                        mock_classify.return_value = {
+                            "conversation_id": "test",
+                            "stage1_result": {"conversation_type": "general_inquiry"},
+                            "stage2_result": None,
+                        }
+
+                        result = await _run_streaming_batch_pipeline_async(
+                            client=mock_client,
+                            since=datetime.now(),
+                            until=datetime.now(),
+                            max_conversations=None,
+                            dry_run=False,
+                            concurrency=10,
+                            batch_size=3,  # Process all 3 in one batch
+                            semaphore=asyncio.Semaphore(10),
+                            stop_checker=lambda: False,
+                            pipeline_run_id=42,
+                            checkpoint=None,
+                        )
+
+        # Checkpoint should be saved AFTER store (store_calls should have 1 entry when checkpoint is saved)
+        assert len(save_checkpoint_calls) > 0
+        for call_info in save_checkpoint_calls:
+            operation, store_count = call_info
+            assert store_count >= 1, "Checkpoint saved before storage completed"
+
+    @pytest.mark.asyncio
+    async def test_resume_with_missing_cursor(self):
+        """Test resume works when cursor is missing (fallback to beginning)."""
+        from src.classification_pipeline import _run_streaming_batch_pipeline_async
+        from unittest.mock import MagicMock
+        from contextlib import asynccontextmanager
+
+        mock_client = MagicMock()
+
+        @asynccontextmanager
+        async def mock_session_cm():
+            yield MagicMock()
+
+        mock_client._get_aiohttp_session = mock_session_cm
+
+        fallback_called = []
+
+        async def mock_generator(*args, **kwargs):
+            # Capture the on_cursor_fallback callback
+            on_fallback = kwargs.get("on_cursor_fallback")
+            initial_cursor = kwargs.get("initial_cursor")
+
+            # Simulate cursor being None (missing)
+            if initial_cursor is None and on_fallback:
+                # In real code, fallback is called when cursor is invalid
+                # Here we just verify the callback is provided
+                pass
+
+            return
+            yield
+
+        mock_client.fetch_quality_conversations_async = mock_generator
+
+        # Checkpoint with missing cursor
+        checkpoint = {
+            "phase": "classification",
+            "intercom_cursor": None,  # Missing cursor
+            "conversations_processed": 50,
+        }
+
+        result = await _run_streaming_batch_pipeline_async(
+            client=mock_client,
+            since=datetime.now(),
+            until=datetime.now(),
+            max_conversations=None,
+            dry_run=True,
+            concurrency=10,
+            batch_size=50,
+            semaphore=asyncio.Semaphore(10),
+            stop_checker=lambda: False,
+            pipeline_run_id=None,
+            checkpoint=checkpoint,
+        )
+
+        # Should complete without error
+        assert result["classified"] == 0
+
+    @pytest.mark.asyncio
+    async def test_stats_seeded_from_checkpoint_on_resume(self):
+        """Test that stats are seeded from checkpoint counts on resume (Codex fix)."""
+        from src.classification_pipeline import _run_streaming_batch_pipeline_async
+        from unittest.mock import MagicMock
+        from contextlib import asynccontextmanager
+
+        mock_client = MagicMock()
+
+        @asynccontextmanager
+        async def mock_session_context():
+            yield MagicMock()
+
+        mock_client._get_aiohttp_session = mock_session_context
+
+        # Empty generator - no conversations to process
+        async def mock_generator(**kwargs):
+            return
+            yield
+
+        mock_client.fetch_quality_conversations_async = mock_generator
+
+        # Checkpoint with prior counts (matches real checkpoint structure)
+        checkpoint = {
+            "phase": "classification",
+            "intercom_cursor": "some_cursor",
+            "counts": {
+                "fetched": 100,
+                "classified": 95,
+                "stored": 90,
+            },
+        }
+
+        result = await _run_streaming_batch_pipeline_async(
+            client=mock_client,
+            since=datetime.now(),
+            until=datetime.now(),
+            max_conversations=None,
+            dry_run=True,
+            concurrency=10,
+            batch_size=50,
+            semaphore=asyncio.Semaphore(10),
+            stop_checker=lambda: False,
+            pipeline_run_id=None,
+            checkpoint=checkpoint,
+        )
+
+        # Stats should be seeded from checkpoint (cumulative)
+        assert result["fetched"] == 100, "fetched should be seeded from checkpoint"
+        assert result["classified"] == 95, "classified should be seeded from checkpoint"
+        assert result["stored"] == 90, "stored should be seeded from checkpoint"
+
+    @pytest.mark.asyncio
+    async def test_max_conversations_enforced_during_fetch(self):
+        """Test that max_conversations stops fetch early (Codex fix)."""
+        from src.classification_pipeline import _run_streaming_batch_pipeline_async
+        from unittest.mock import MagicMock
+        from contextlib import asynccontextmanager
+
+        mock_client = MagicMock()
+
+        @asynccontextmanager
+        async def mock_session_context():
+            yield MagicMock()
+
+        mock_client._get_aiohttp_session = mock_session_context
+
+        # Generator that would yield 100 conversations
+        conversations_yielded = [0]
+
+        async def mock_generator(**kwargs):
+            for i in range(100):
+                conversations_yielded[0] += 1
+                mock_parsed = MagicMock()
+                mock_parsed.id = f"conv_{i}"
+                yield (mock_parsed, {"id": f"conv_{i}"})
+
+        mock_client.fetch_quality_conversations_async = mock_generator
+
+        result = await _run_streaming_batch_pipeline_async(
+            client=mock_client,
+            since=datetime.now(),
+            until=datetime.now(),
+            max_conversations=10,  # Limit to 10
+            dry_run=True,
+            concurrency=10,
+            batch_size=50,  # Larger than max
+            semaphore=asyncio.Semaphore(10),
+            stop_checker=lambda: False,
+            pipeline_run_id=None,
+            checkpoint=None,
+        )
+
+        # Should stop after reaching max_conversations
+        assert conversations_yielded[0] <= 11, f"Should stop fetching early, got {conversations_yielded[0]}"
+
+
+class TestProcessStreamingBatch:
+    """Tests for _process_streaming_batch helper."""
+
+    @pytest.mark.asyncio
+    async def test_recovery_evaluation_order(self):
+        """Test that recovery is evaluated BEFORE classification."""
+        from src.classification_pipeline import _process_streaming_batch
+        from unittest.mock import MagicMock, AsyncMock
+
+        mock_client = MagicMock()
+        mock_session = MagicMock()
+        semaphore = asyncio.Semaphore(10)
+
+        # Track order of operations
+        operation_order = []
+
+        mock_client.get_conversation_async = AsyncMock(side_effect=lambda session, id: (
+            operation_order.append(f"detail_fetch_{id}"),
+            {"id": id, "conversation_parts": {"conversation_parts": []}}
+        )[1])
+
+        mock_client.should_recover_conversation = MagicMock(side_effect=lambda parts, had_template_opener: (
+            operation_order.append("recovery_check"),
+            True
+        )[1])
+
+        # Mock parsed conversation
+        mock_parsed = MagicMock()
+        mock_parsed.id = "conv_1"
+        mock_parsed.source_body = "test"
+        mock_parsed.source_type = "conversation"
+        mock_parsed.source_url = None
+        mock_parsed.contact_email = None
+        mock_parsed.contact_id = None
+        mock_parsed.created_at = datetime.now()
+
+        # One recovery candidate
+        recovery_candidates = [(mock_parsed, {"id": "conv_1"}, False)]
+
+        async def classify_side_effect(p, r, s):
+            operation_order.append("classify")
+            return {
+                "conversation_id": "conv_1",
+                "stage1_result": {"conversation_type": "general_inquiry"},
+                "stage2_result": None,
+            }
+
+        with patch("src.classification_pipeline.classify_conversation_async", side_effect=classify_side_effect):
+            with patch("src.classification_pipeline.store_classification_results_batch", return_value=1):
+                result = await _process_streaming_batch(
+                    batch=[],  # Empty batch, only recovery candidates
+                    recovery_candidates=recovery_candidates,
+                    client=mock_client,
+                    session=mock_session,
+                    semaphore=semaphore,
+                    concurrency=10,
+                    dry_run=False,
+                    pipeline_run_id=42,
+                )
+
+        # Verify order: detail_fetch → recovery_check → classify
+        assert "recovery_check" in operation_order
+        classify_index = next((i for i, op in enumerate(operation_order) if op == "classify"), -1)
+        recovery_index = next((i for i, op in enumerate(operation_order) if op == "recovery_check"), -1)
+
+        if classify_index >= 0 and recovery_index >= 0:
+            assert recovery_index < classify_index, "Recovery should happen before classification"
+
+    @pytest.mark.asyncio
+    async def test_classification_error_logged(self):
+        """Test that classification errors are logged but batch continues."""
+        from src.classification_pipeline import _process_streaming_batch
+        from unittest.mock import MagicMock, AsyncMock
+
+        mock_client = MagicMock()
+        mock_session = MagicMock()
+        semaphore = asyncio.Semaphore(10)
+
+        mock_client.get_conversation_async = AsyncMock(return_value={
+            "id": "test",
+            "conversation_parts": {"conversation_parts": []}
+        })
+
+        # Mock parsed conversations
+        def make_parsed(id):
+            p = MagicMock()
+            p.id = id
+            p.source_body = "test"
+            p.source_type = "conversation"
+            p.source_url = None
+            p.contact_email = None
+            p.contact_id = None
+            p.created_at = datetime.now()
+            return p
+
+        batch = [
+            (make_parsed("conv_1"), {"id": "conv_1"}),
+            (make_parsed("conv_2"), {"id": "conv_2"}),
+        ]
+
+        with patch("src.classification_pipeline.classify_conversation_async") as mock_classify:
+            # First succeeds, second fails
+            mock_classify.side_effect = [
+                {
+                    "conversation_id": "conv_1",
+                    "stage1_result": {"conversation_type": "general_inquiry"},
+                    "stage2_result": None,
+                },
+                Exception("Classification failed"),
+            ]
+
+            with patch("src.classification_pipeline.store_classification_results_batch", return_value=1):
+                result = await _process_streaming_batch(
+                    batch=batch,
+                    recovery_candidates=[],
+                    client=mock_client,
+                    session=mock_session,
+                    semaphore=semaphore,
+                    concurrency=10,
+                    dry_run=False,
+                    pipeline_run_id=42,
+                )
+
+        # Should have 1 classified (the successful one)
+        assert result["classified"] == 1
+        assert result["stored"] == 1

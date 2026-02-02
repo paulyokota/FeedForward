@@ -57,6 +57,37 @@ async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 CHECKPOINT_UPDATE_FREQUENCY = int(os.getenv("CHECKPOINT_UPDATE_FREQUENCY", "50"))
 
 
+def _parse_env_int(name: str, default: int, min_val: int, max_val: int) -> int:
+    """Parse an integer environment variable with bounds checking.
+
+    Issue #209: Used for streaming batch configuration.
+
+    Args:
+        name: Environment variable name
+        default: Default value if not set or invalid
+        min_val: Minimum allowed value (inclusive)
+        max_val: Maximum allowed value (inclusive)
+
+    Returns:
+        Parsed integer within bounds, or default if invalid
+    """
+    try:
+        val = int(os.getenv(name, str(default)))
+        if not (min_val <= val <= max_val):
+            logger.warning(f"{name}={val} out of bounds [{min_val}, {max_val}], using {default}")
+            return default
+        return val
+    except ValueError:
+        logger.warning(f"{name} invalid, using {default}")
+        return default
+
+
+# Issue #209: Streaming batch mode for safe historical backfills
+# When enabled, processes in batches with cursor-based checkpoint/resume
+PIPELINE_STREAMING_BATCH_ENABLED = os.getenv("PIPELINE_STREAMING_BATCH", "false").lower() == "true"
+PIPELINE_STREAMING_BATCH_SIZE = _parse_env_int("PIPELINE_STREAMING_BATCH_SIZE", 50, 10, 500)
+
+
 def _save_classification_checkpoint(
     run_id: int,
     cursor: Optional[str],
@@ -445,6 +476,382 @@ async def classify_conversation_async(
     }
 
 
+def _accumulate_stats(cumulative: Dict[str, Any], batch: Dict[str, Any]) -> None:
+    """Accumulate batch stats into cumulative stats.
+
+    Issue #209: Used in streaming batch mode.
+    """
+    for key in ["fetched", "filtered", "recovered", "classified", "stored",
+                "stage2_run", "classification_changed"]:
+        cumulative[key] = cumulative.get(key, 0) + batch.get(key, 0)
+    # Warnings are appended, not summed
+    if batch.get("warnings"):
+        cumulative.setdefault("warnings", []).extend(batch["warnings"])
+
+
+async def _process_streaming_batch(
+    batch: List[tuple],
+    recovery_candidates: List[tuple],
+    client: "IntercomClient",
+    session,
+    semaphore: asyncio.Semaphore,
+    concurrency: int,
+    dry_run: bool,
+    pipeline_run_id: Optional[int],
+) -> Dict[str, Any]:
+    """Process a single batch: fetch details → evaluate recovery → classify → store.
+
+    Issue #209: Used in streaming batch mode.
+
+    Args:
+        batch: List of (parsed, raw_conv) tuples for quality conversations
+        recovery_candidates: List of (parsed, raw_conv, had_template) tuples for recovery
+        client: IntercomClient instance
+        session: aiohttp session for API calls
+        semaphore: Semaphore for concurrency control
+        concurrency: Max parallel detail fetches
+        dry_run: If True, don't store to database
+        pipeline_run_id: Pipeline run ID for storage
+
+    Returns:
+        Batch statistics dictionary
+    """
+    batch_stats = {
+        "fetched": len(batch),
+        "filtered": 0,  # Always 0 in streaming mode (filtering happens at page level, not batch)
+        "recovered": 0,
+        "classified": 0,
+        "stored": 0,
+        "stage2_run": 0,
+        "classification_changed": 0,
+        "warnings": [],
+    }
+
+    if not batch and not recovery_candidates:
+        return batch_stats
+
+    # Step 1: Fetch details for batch + recovery candidates (parallel)
+    all_to_fetch = list(batch) + [(p, r) for p, r, _ in recovery_candidates]
+    detail_semaphore = asyncio.Semaphore(concurrency)
+
+    async def fetch_detail(parsed, raw_conv):
+        async with detail_semaphore:
+            try:
+                full_conv = await client.get_conversation_async(session, parsed.id)
+                return (parsed, full_conv)
+            except Exception as e:
+                logger.warning(f"Failed to fetch details for {parsed.id}: {e}")
+                return (parsed, raw_conv)
+
+    tasks = [fetch_detail(p, r) for p, r in all_to_fetch]
+    all_results = await asyncio.gather(*tasks)  # Returns list, no conversion needed
+
+    # Split back into batch and recovery
+    batch_with_details = all_results[:len(batch)]
+    recovery_with_details = all_results[len(batch):]
+
+    # Step 2: Evaluate recovery BEFORE classification (Issue #164 parity)
+    for i, (parsed, full_conv) in enumerate(recovery_with_details):
+        _, _, had_template = recovery_candidates[i]
+        parts = full_conv.get("conversation_parts", {}).get("conversation_parts", [])
+        if client.should_recover_conversation(parts, had_template_opener=had_template):
+            batch_with_details.append((parsed, full_conv))
+            batch_stats["recovered"] += 1
+
+    if not batch_with_details:
+        return batch_stats
+
+    # Step 3: Classify (NO stop check here - only at batch boundaries)
+    classify_tasks = [
+        classify_conversation_async(parsed, raw_conv, semaphore)
+        for parsed, raw_conv in batch_with_details
+    ]
+    results = await asyncio.gather(*classify_tasks, return_exceptions=True)
+
+    valid_results = []
+    for i, r in enumerate(results):
+        if isinstance(r, Exception):
+            conv_id = batch_with_details[i][0].id if i < len(batch_with_details) else "unknown"
+            logger.error(f"Classification error for {conv_id}: {r}")
+            continue
+        valid_results.append(r)
+        if r.get("stage2_result"):
+            batch_stats["stage2_run"] += 1
+            if r["stage2_result"].get("changed_from_stage_1"):
+                batch_stats["classification_changed"] += 1
+
+    batch_stats["classified"] = len(valid_results)
+
+    # Step 4: Store
+    if not dry_run and valid_results:
+        stored = store_classification_results_batch(valid_results, pipeline_run_id=pipeline_run_id)
+        batch_stats["stored"] = stored
+
+    return batch_stats
+
+
+async def _run_streaming_batch_pipeline_async(
+    client: "IntercomClient",
+    since: datetime,
+    until: datetime,
+    max_conversations: Optional[int],
+    dry_run: bool,
+    concurrency: int,
+    batch_size: int,
+    semaphore: asyncio.Semaphore,
+    stop_checker: callable,
+    pipeline_run_id: Optional[int],
+    checkpoint: Optional[Dict[str, Any]],
+) -> Dict[str, int]:
+    """Streaming batch pipeline: fetch → classify → store → checkpoint per batch.
+
+    Issue #209: True batch-level resume for Intercom backfill.
+
+    Operational guarantees:
+    - Max rework on crash = 1 batch
+    - Memory bounded to 1 batch
+    - Cursor resume skips already-fetched pages
+
+    Args:
+        client: IntercomClient instance
+        since: Start of date range
+        until: End of date range
+        max_conversations: Maximum conversations to process
+        dry_run: If True, don't store to database
+        concurrency: Max parallel API calls
+        batch_size: Conversations per batch
+        semaphore: Semaphore for classification concurrency
+        stop_checker: Callable returning True if pipeline should stop
+        pipeline_run_id: Pipeline run ID for storage and checkpointing
+        checkpoint: Optional checkpoint dict to resume from
+
+    Returns:
+        Statistics dictionary
+    """
+    logger.info("Starting streaming batch pipeline (Issue #209)")
+    start_time = datetime.now()
+
+    # Initialize from checkpoint on resume
+    initial_cursor = None
+    if checkpoint and checkpoint.get("phase") == "classification":
+        initial_cursor = checkpoint.get("intercom_cursor")
+        logger.info(f"Resuming from cursor (stored={checkpoint.get('conversations_processed', 0)})")
+
+    # ==========================================================================
+    # CURSOR SEMANTICS - READ BEFORE MODIFYING
+    # ==========================================================================
+    # cursor_callback receives the cursor for the NEXT page to fetch, NOT the
+    # page we just processed. This is extracted from pages.next in
+    # intercom_client.py:661.
+    #
+    # Example timeline:
+    #   Page 1 fetched → cursor_callback("cursor_for_page_2")
+    #   Page 2 fetched → cursor_callback("cursor_for_page_3")
+    #   Page 3 fetched → cursor_callback(None) [no more pages]
+    #
+    # On resume with cursor_for_page_3, we start from page 3, skipping 1-2.
+    #
+    # CRITICAL INVARIANT: We only checkpoint AFTER processing a batch.
+    # This ensures checkpoint.cursor = cursor for FIRST UNFETCHED page.
+    # If we checkpointed with unprocessed data in buffer, we'd skip it!
+    #
+    # Using list wrapper for closure capture (Python scoping limitation)
+    # ==========================================================================
+    current_cursor = [initial_cursor]
+
+    def cursor_callback(next_page_cursor: str) -> None:
+        """Called after each page with cursor for NEXT page."""
+        current_cursor[0] = next_page_cursor
+
+    # Stats (cumulative across batches AND across resume sessions)
+    # On resume, seed from checkpoint.counts so totals are cumulative
+    # NOTE: filtered=0 always in streaming mode (schema parity with legacy path)
+    if checkpoint and checkpoint.get("phase") == "classification":
+        # Seed from checkpoint.counts for cumulative totals across resume
+        # Checkpoint structure: {"phase": "classification", "counts": {"fetched": N, "classified": N, "stored": N}, ...}
+        counts = checkpoint.get("counts", {})
+        stats = {
+            "fetched": counts.get("fetched", 0),
+            "filtered": 0,
+            "recovered": 0,
+            "classified": counts.get("classified", 0),
+            "stored": counts.get("stored", 0),
+            "stage2_run": 0,
+            "classification_changed": 0,
+            "warnings": [],
+        }
+        logger.info(f"Seeded stats from checkpoint: fetched={stats['fetched']}, classified={stats['classified']}, stored={stats['stored']}")
+    else:
+        stats = {
+            "fetched": 0,
+            "filtered": 0,
+            "recovered": 0,
+            "classified": 0,
+            "stored": 0,
+            "stage2_run": 0,
+            "classification_changed": 0,
+            "warnings": [],
+        }
+
+    # Recovery candidates shared list - generator appends here
+    recovery_candidates = []
+
+    def on_cursor_fallback() -> None:
+        """Called if cursor is invalid and pagination restarts from beginning."""
+        stats["warnings"].append("Cursor invalid on resume, restarted from beginning")
+        logger.warning("Cursor fallback: invalid cursor, restarting from beginning")
+
+    batch_buffer = []
+    batch_number = 0
+    stopped_during_fetch = False
+
+    async with client._get_aiohttp_session() as session:
+        async for parsed, raw_conv in client.fetch_quality_conversations_async(
+            since=since,
+            until=until,
+            initial_cursor=initial_cursor,
+            cursor_callback=cursor_callback,
+            recovery_candidates=recovery_candidates,
+            on_cursor_fallback=on_cursor_fallback,
+        ):
+            # Stop signal during fetch (mid-batch)
+            # ===================================================================
+            # We buffer conversations before classification. If stopped mid-batch,
+            # we have incomplete work that cannot be safely checkpointed:
+            #   - Some conversations fetched but not classified
+            #   - Recovery candidates not yet evaluated
+            #   - Cursor points PAST the buffered conversations
+            #
+            # Checkpointing here would skip these conversations on resume.
+            # Instead, we discard the buffer and let resume refetch them.
+            #
+            # Cost: Refetch up to batch_size conversations (acceptable)
+            # ===================================================================
+            if stop_checker():
+                stopped_during_fetch = True
+                stats["warnings"].append(
+                    f"Stopped during fetch with {len(batch_buffer)} conversations buffered "
+                    f"(will be refetched on next run - no data loss)"
+                )
+                logger.info(f"Stop signal during fetch, discarding {len(batch_buffer)} buffered")
+                break
+
+            # Check max_conversations DURING fetch (not just after batch)
+            # This prevents over-fetching when limit is small (e.g., testing with --max 10)
+            if max_conversations:
+                total_will_process = stats["classified"] + len(batch_buffer) + 1
+                if total_will_process > max_conversations:
+                    logger.info(f"Reached max_conversations={max_conversations} during fetch")
+                    break
+
+            batch_buffer.append((parsed, raw_conv))
+
+            if len(batch_buffer) >= batch_size:
+                # Grab recovery candidates accumulated during this batch
+                batch_recovery = recovery_candidates.copy()
+                recovery_candidates.clear()
+
+                batch_number += 1
+                logger.info(f"Processing batch {batch_number}: {len(batch_buffer)} conversations")
+
+                # Process: details → evaluate recovery → classify → store
+                batch_stats = await _process_streaming_batch(
+                    batch=batch_buffer,
+                    recovery_candidates=batch_recovery,
+                    client=client,
+                    session=session,
+                    semaphore=semaphore,
+                    concurrency=concurrency,
+                    dry_run=dry_run,
+                    pipeline_run_id=pipeline_run_id,
+                )
+                _accumulate_stats(stats, batch_stats)
+
+                logger.info(
+                    f"Batch {batch_number} complete: "
+                    f"classified={batch_stats['classified']}, stored={batch_stats['stored']}"
+                )
+
+                # Checkpoint AFTER storage succeeds (invariant: never checkpoint before storage)
+                # Also updates _active_checkpoints in-memory via _save_classification_checkpoint
+                if not dry_run and pipeline_run_id:
+                    _save_classification_checkpoint(
+                        pipeline_run_id, current_cursor[0],
+                        fetched=stats["fetched"],
+                        classified=stats["classified"],
+                        stored=stats["stored"],
+                    )
+
+                batch_buffer = []
+
+                # Check stop AFTER processing and checkpointing (not before)
+                # This ensures we never checkpoint with unprocessed data in buffer
+                if stop_checker():
+                    logger.info("Stop signal at batch boundary, exiting after checkpoint")
+                    break
+
+                # Max conversations check
+                if max_conversations and stats["classified"] >= max_conversations:
+                    logger.info(f"Reached max_conversations={max_conversations}")
+                    break
+
+        # Process final partial batch (if not stopped during fetch)
+        if batch_buffer and not stopped_during_fetch and not stop_checker():
+            batch_recovery = recovery_candidates.copy()
+            recovery_candidates.clear()
+
+            batch_number += 1
+            logger.info(f"Processing final batch {batch_number}: {len(batch_buffer)} conversations")
+
+            batch_stats = await _process_streaming_batch(
+                batch=batch_buffer,
+                recovery_candidates=batch_recovery,
+                client=client,
+                session=session,
+                semaphore=semaphore,
+                concurrency=concurrency,
+                dry_run=dry_run,
+                pipeline_run_id=pipeline_run_id,
+            )
+            _accumulate_stats(stats, batch_stats)
+
+            if not dry_run and pipeline_run_id:
+                _save_classification_checkpoint(
+                    pipeline_run_id, current_cursor[0],
+                    fetched=stats["fetched"],
+                    classified=stats["classified"],
+                    stored=stats["stored"],
+                )
+
+    # Clear checkpoint on success (pipeline complete)
+    if not dry_run and pipeline_run_id and not stop_checker():
+        _clear_checkpoint(pipeline_run_id)
+
+    # Log summary
+    elapsed = (datetime.now() - start_time).total_seconds()
+    throughput = stats["classified"] / elapsed if elapsed > 0 else 0
+
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("Streaming Batch Pipeline Complete")
+    logger.info("=" * 60)
+    logger.info(f"Batches processed:        {batch_number}")
+    logger.info(f"Conversations classified: {stats['classified']}")
+    if stats['recovered'] > 0:
+        logger.info(f"Conversations recovered:  {stats['recovered']}")
+    logger.info(f"Stage 2 run:              {stats['stage2_run']}")
+    logger.info(f"Classifications changed:  {stats['classification_changed']}")
+    if not dry_run:
+        logger.info(f"Stored to database:       {stats['stored']}")
+    logger.info(f"Total time:               {elapsed:.1f}s")
+    logger.info(f"Throughput:               {throughput:.1f} conv/sec")
+    if stats['warnings']:
+        logger.info(f"Warnings:                 {len(stats['warnings'])}")
+    logger.info("")
+
+    return stats
+
+
 async def run_pipeline_async(
     days: int = 7,
     max_conversations: Optional[int] = None,
@@ -521,6 +928,24 @@ async def run_pipeline_async(
     else:
         since = datetime.utcnow() - timedelta(days=days)
         until = datetime.utcnow()
+
+    # Issue #209: Streaming batch mode for safe historical backfills
+    # Processes in batches with true cursor-based checkpoint/resume
+    if PIPELINE_STREAMING_BATCH_ENABLED:
+        logger.info("Streaming batch mode enabled (batch_size=%d)", PIPELINE_STREAMING_BATCH_SIZE)
+        return await _run_streaming_batch_pipeline_async(
+            client=client,
+            since=since,
+            until=until,
+            max_conversations=max_conversations,
+            dry_run=dry_run,
+            concurrency=concurrency,
+            batch_size=PIPELINE_STREAMING_BATCH_SIZE,
+            semaphore=semaphore,
+            stop_checker=should_stop,
+            pipeline_run_id=pipeline_run_id,
+            checkpoint=checkpoint,
+        )
 
     # Issue #202: Track warnings for observability
     classification_warnings = []
