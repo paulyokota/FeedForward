@@ -1,57 +1,54 @@
-# Last Session Summary
+# Session Notes: 2026-02-01
 
-**Date**: 2026-02-01
-**Issue**: #205 - Full Historical Backfill Blockers
+## Issue #209: Streaming Batch Resume for Intercom Backfill
 
-## Accomplishments
+### What Was Accomplished
 
-### Merged PRs
+1. **Implementation** (PR #210):
+   - Transformed classification pipeline from fetch-all-then-classify to streaming batch
+   - Each batch: fetch → classify → store → checkpoint before moving to next
+   - Feature-flagged via `PIPELINE_STREAMING_BATCH` env var (default: off)
+   - Configurable batch size: `PIPELINE_STREAMING_BATCH_SIZE` (10-500, default 50)
 
-| PR   | Blockers | Summary                                            |
-| ---- | -------- | -------------------------------------------------- |
-| #207 | 5+6      | `/history` endpoint parity + schema sync           |
-| #208 | 2        | 429 rate limiting with Retry-After + runtime knobs |
+2. **5-Personality Code Review**:
+   - Round 1: Found critical checkpoint timing bug (checkpointing before storage)
+   - Fixed: Process batch FIRST, then checkpoint
+   - Round 2: Converged after schema parity fix (`filtered` field)
 
-### Key Changes
+3. **Codex Review** (3 rounds):
+   - Round 1: Found 2 critical issues (cumulative stats, max_conversations)
+   - Round 2: Found checkpoint field name mismatch (`conversations_fetched` vs `counts.fetched`)
+   - Round 3: LGTM - approved for merge
 
-**Rate Limit Handling (Blocker 2):**
+4. **Bug Fix During Testing**:
+   - Missing `Json` import in pipeline.py caused crash
+   - Fixed with `from psycopg2.extras import Json` at correct scope
 
-- Added 429 to `RETRYABLE_STATUS_CODES`
-- Retry-After parsing (seconds and HTTP-date formats)
-- Jitter (0-50%) to prevent thundering herd
-- Runtime knobs now enforced (not just declared)
+5. **Documentation**:
+   - Added runbook: `docs/runbook/streaming-batch-pipeline.md`
+   - Documents counter semantics difference between streaming/legacy modes
 
-**Observability (Blockers 5+6):**
+### Key Decisions
 
-- Added `embeddings_failed`, `facets_failed` to `/history`
-- Regenerated `schema.sql` from live database
+| Decision                      | Rationale                                         |
+| ----------------------------- | ------------------------------------------------- |
+| Feature flag default OFF      | Safe rollout - legacy path unchanged              |
+| Batch size 50 default         | Balance between checkpoint frequency and overhead |
+| Stop only at batch boundaries | Avoids partial batch complexity                   |
+| Cursor = NEXT page            | Matches Intercom API semantics                    |
 
-## Key Decisions
+### Test Results
 
-1. **PR Split**: Original PR #206 split into focused PRs per Codex review
-2. **Blocker 1 Deferred**: Cursor-based resume needs streaming batch architecture
-3. **Knobs Enforced**: FETCH_CONCURRENCY, PER_PAGE, MAX_RPS now actually used
+- 37 checkpoint tests passing (15 new for streaming batch)
+- Dry run test: 10 conversations processed correctly
+- Full run test: 15 conversations → 6 themes extracted
 
-## Lessons Learned
+### Commits
 
-- **Codex review adds value**: Caught that runtime knobs were declared but not enforced
-- **Split PRs when advised**: Separating concerns makes review and merge easier
-- **Don't implement half-measures**: Blocker 1's cursor logic was unsafe with fetch-all architecture
+1. `8754d14` - feat(pipeline): Add streaming batch resume (#210)
+2. `ff1ed69` - docs: Add streaming batch pipeline runbook
+3. `18746eb` - fix(pipeline): Add missing Json import
 
-## Deferred Work
+### Follow-up Items
 
-**Blocker 1 (True Batch-Level Resume):**
-
-- Current architecture fetches ALL conversations before classification
-- Cursor saved at end-of-fetch is unsafe for resume
-- Needs full streaming batch loop: fetch batch → classify → store → checkpoint → repeat
-- Filed as follow-on work for Issue #205
-
-## Next Steps
-
-1. Blocker 1 implementation (streaming batch architecture)
-2. Or move to other priorities - pipeline is now rate-limit safe for backfills
-
----
-
-_Session completed: 2026-02-01_
+- None blocking - ready for production testing with feature flag

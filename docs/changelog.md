@@ -10,6 +10,24 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Streaming Batch Resume (2026-02-01)** - Issue #209, PR #210:
+
+- **Streaming batch architecture**: Transform from fetch-all to streaming batch
+  - Each batch: fetch → classify → store → checkpoint
+  - Max rework on crash = 1 batch (~50 conversations)
+  - Memory bounded to 1 batch at any time
+- **Feature-flagged rollout**: `PIPELINE_STREAMING_BATCH=true` to enable
+- **Configurable batch size**: `PIPELINE_STREAMING_BATCH_SIZE` (10-500, default 50)
+- **Cursor resume**: Skips already-fetched pages on resume
+- **Cumulative stats**: Stats seeded from checkpoint on resume
+- **max_conversations enforcement**: Checked during fetch (not just after batch)
+- **Checkpoint invariants**:
+  - Cursor saved AFTER storage (never before)
+  - Stop checks only at batch boundaries
+  - Cursor = NEXT page (not current)
+- **Runbook**: `docs/runbook/streaming-batch-pipeline.md` with counter semantics docs
+- **Tests**: 15 new tests for streaming batch mode
+
 **Backfill Reliability - Rate Limiting (2026-02-01)** - Issue #205, PR #208:
 
 - **429 rate limit handling**: Added to RETRYABLE_STATUS_CODES with Retry-After parsing

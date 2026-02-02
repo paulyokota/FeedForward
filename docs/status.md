@@ -23,8 +23,32 @@
 **Implementation Head-Start Relevance (Issue #198): COMPLETE** ✅
 **30-Day Recency Gate (Issue #200): COMPLETE** ✅
 **Pipeline Checkpoint/Resumability (Issue #202): COMPLETE** ✅
+**Streaming Batch Resume (Issue #209): COMPLETE** ✅
 
-## Latest: Pipeline Checkpoint/Resumability (2026-02-01)
+## Latest: Streaming Batch Resume (2026-02-01)
+
+**Issue #209 COMPLETE** - Streaming Batch Resume for Intercom Backfill
+
+- PR #210 merged: Transform pipeline from fetch-all to streaming batch architecture
+- Key guarantees:
+  - Max rework on crash = 1 batch (~50 conversations)
+  - Memory bounded to 1 batch
+  - Cursor resume skips already-fetched pages
+- Feature-flagged: `PIPELINE_STREAMING_BATCH=true` (default: off)
+- Configurable batch size: `PIPELINE_STREAMING_BATCH_SIZE` (10-500, default 50)
+- Implementation:
+  - `_run_streaming_batch_pipeline_async`: Main streaming loop
+  - `_process_streaming_batch`: Per-batch processing (detail fetch → recovery → classify → store)
+  - Checkpoint saved AFTER storage (never before)
+  - Stop checks only at batch boundaries
+- Codex review: 3 rounds, 2 critical fixes (cumulative stats, max_conversations enforcement)
+- 15 new tests added, all 37 checkpoint tests pass
+- Runbook added: `docs/runbook/streaming-batch-pipeline.md`
+- Tested: dry run (10 convs) + full run (15 convs → 6 themes) ✅
+
+---
+
+## Previous: Pipeline Checkpoint/Resumability (2026-02-01)
 
 **Issue #202 COMPLETE** - Pipeline Checkpoint/Resumability for Long Backfills
 
