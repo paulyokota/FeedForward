@@ -1474,6 +1474,7 @@ def _run_pipeline_task(
         # Update classification results
         # Issue #202: Stats now include proper totals (new + skipped from previous run),
         # so direct SET is correct and counters won't regress on resume.
+        from psycopg2.extras import Json
         classification_warnings = result.get("warnings", [])
         with get_connection() as conn:
             with conn.cursor() as cur:
