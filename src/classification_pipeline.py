@@ -664,16 +664,18 @@ async def _run_streaming_batch_pipeline_async(
         current_cursor[0] = next_page_cursor
 
     # Stats (cumulative across batches AND across resume sessions)
-    # On resume, seed from checkpoint counts so totals are cumulative
+    # On resume, seed from checkpoint.counts so totals are cumulative
     # NOTE: filtered=0 always in streaming mode (schema parity with legacy path)
     if checkpoint and checkpoint.get("phase") == "classification":
-        # Seed from checkpoint for cumulative totals across resume
+        # Seed from checkpoint.counts for cumulative totals across resume
+        # Checkpoint structure: {"phase": "classification", "counts": {"fetched": N, "classified": N, "stored": N}, ...}
+        counts = checkpoint.get("counts", {})
         stats = {
-            "fetched": checkpoint.get("conversations_fetched", 0),
+            "fetched": counts.get("fetched", 0),
             "filtered": 0,
             "recovered": 0,
-            "classified": checkpoint.get("conversations_classified", 0),
-            "stored": checkpoint.get("conversations_stored", 0),
+            "classified": counts.get("classified", 0),
+            "stored": counts.get("stored", 0),
             "stage2_run": 0,
             "classification_changed": 0,
             "warnings": [],

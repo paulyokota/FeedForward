@@ -943,13 +943,15 @@ class TestStreamingBatchPipeline:
 
         mock_client.fetch_quality_conversations_async = mock_generator
 
-        # Checkpoint with prior counts
+        # Checkpoint with prior counts (matches real checkpoint structure)
         checkpoint = {
             "phase": "classification",
             "intercom_cursor": "some_cursor",
-            "conversations_fetched": 100,
-            "conversations_classified": 95,
-            "conversations_stored": 90,
+            "counts": {
+                "fetched": 100,
+                "classified": 95,
+                "stored": 90,
+            },
         }
 
         result = await _run_streaming_batch_pipeline_async(
