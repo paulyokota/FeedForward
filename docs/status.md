@@ -26,7 +26,25 @@
 **Streaming Batch Resume (Issue #209): COMPLETE** ✅
 **Discovery Engine: PHASE 1 IN PROGRESS** 🔄
 
-## Latest: Customer Voice Explorer — Capability Thesis Test (2026-02-08)
+## Latest: Opportunity PM Agent — Stage 1 Opportunity Framing (2026-02-08)
+
+**Issue #219 COMPLETE** ✅ — Opportunity PM Agent (PR #236)
+
+Stage 1 agent that synthesizes explorer findings into problem-focused OpportunityBriefs:
+
+- Single-pass LLM strategy: explorer findings are structured JSON (3-10 findings), one call produces all briefs
+- OpportunityFramingCheckpoint wrapper model for multi-brief submission (single checkpoint per stage)
+- Evidence traceability: conversation IDs validated against explorer findings, unknown IDs filtered with warnings
+- Counterfactual framing enforced at prompt level (no solution direction)
+- Re-query support for follow-up questions to explorers (pure LLM function, orchestrator handles events)
+- 258 discovery tests passing (32 new: 25 unit + 7 integration)
+- Codex-reviewed via Agenterminal (2HMK234: evidence traceability fix, REVIEW_APPROVED)
+
+**Next**: Issue #65 (P1 SQL injection fix) or next Discovery Engine stage
+
+---
+
+## Previous: Customer Voice Explorer — Capability Thesis Test (2026-02-08)
 
 **Issue #215 COMPLETE** ✅ — Customer Voice Explorer Agent (capability thesis PASS)
 
@@ -44,11 +62,9 @@ First explorer agent and primary thesis test for the Discovery Engine:
 
 **Thesis result**: Explorer operates at strategic abstraction level (product area patterns) vs pipeline's tactical level (specific bugs/features). Complementary, not competitive. 1 novel cross-cutting pattern surfaced.
 
-**Next**: Issue #65 (P1 SQL injection fix) or Issue #219 (Opportunity Framing agent)
-
 ---
 
-## Previous: Discovery Engine Foundation (2026-02-08)
+## Previous (2): Discovery Engine Foundation (2026-02-08)
 
 **Issue #213 COMPLETE** ✅ — Foundation: state machine, artifact contracts, run metadata (PR #232)
 **Issue #214 COMPLETE** ✅ — Conversation protocol for agent dialogue (PR #233)
