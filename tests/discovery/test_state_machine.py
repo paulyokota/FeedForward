@@ -505,12 +505,27 @@ class TestInvalidTransitions:
     def test_complete_not_at_human_review(self, sm, running_run):
         # At exploration, can't complete
         with pytest.raises(InvalidTransitionError, match="must be at human_review"):
-            sm.complete_run(running_run.id)
+            sm.complete_run(running_run.id, artifacts={"data": True})
 
     def test_complete_not_running(self, sm):
         run = sm.create_run()
         with pytest.raises(InvalidTransitionError, match="not running"):
-            sm.complete_run(run.id)
+            sm.complete_run(run.id, artifacts={"data": True})
+
+    def test_complete_without_artifacts_rejected(self, sm, running_run):
+        """human_review checkpoint output is required."""
+        run_id = running_run.id
+        for _ in STAGE_ORDER[1:]:
+            sm.advance_stage(run_id, artifacts={"data": True})
+        with pytest.raises(InvalidTransitionError, match="artifacts"):
+            sm.complete_run(run_id, artifacts={})
+
+    def test_complete_with_none_artifacts_rejected(self, sm, running_run):
+        run_id = running_run.id
+        for _ in STAGE_ORDER[1:]:
+            sm.advance_stage(run_id, artifacts={"data": True})
+        with pytest.raises(InvalidTransitionError, match="artifacts"):
+            sm.complete_run(run_id, artifacts=None)
 
 
 # ============================================================================

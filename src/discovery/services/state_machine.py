@@ -275,12 +275,21 @@ class DiscoveryStateMachine:
     def complete_run(
         self,
         run_id: UUID,
-        artifacts: Optional[Dict[str, Any]] = None,
+        artifacts: Dict[str, Any],
     ) -> DiscoveryRun:
         """Complete a run after the final stage (human_review).
 
+        Requires artifacts for the human_review stage (same as advance_stage).
         Completes the active stage and marks the run as completed.
+
+        Raises:
+            InvalidTransitionError: if run is not running, no active stage,
+                not at human_review, or artifacts not provided.
         """
+        if not artifacts:
+            raise InvalidTransitionError(
+                "Cannot complete run without artifacts — human_review checkpoint output is required"
+            )
         run = self._get_run_or_raise(run_id)
 
         if run.status != RunStatus.RUNNING:
