@@ -16,13 +16,14 @@ can't see (because it only looks at customer conversations).
 import json
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 
+from src.discovery.agents.base import ExplorerResult
 from src.discovery.agents.codebase_data_access import CodebaseItem, CodebaseReader
 from src.discovery.agents.prompts import (
     CODEBASE_BATCH_ANALYSIS_SYSTEM,
@@ -51,20 +52,6 @@ class CodebaseExplorerConfig:
     model: str = "gpt-4o-mini"
     temperature: float = 0.7
     max_chars_per_file: int = 3000
-
-
-@dataclass
-class ExplorerResult:
-    """Result of an exploration run, before checkpoint formatting."""
-
-    findings: List[Dict[str, Any]] = field(default_factory=list)
-    coverage: Dict[str, Any] = field(default_factory=dict)
-    token_usage: Dict[str, int] = field(default_factory=lambda: {
-        "prompt_tokens": 0,
-        "completion_tokens": 0,
-        "total_tokens": 0,
-    })
-    batch_errors: List[str] = field(default_factory=list)
 
 
 class CodebaseExplorer:
@@ -238,7 +225,7 @@ class CodebaseExplorer:
                     "source_type": SourceType.CODEBASE.value,
                     "source_id": file_path,
                     "retrieved_at": now,
-                    "confidence": _map_confidence(
+                    "confidence": ConfidenceLevel.from_raw(
                         raw_finding.get("confidence", "medium")
                     ),
                 })
@@ -247,7 +234,7 @@ class CodebaseExplorer:
                 "pattern_name": raw_finding.get("pattern_name", "unnamed"),
                 "description": raw_finding.get("description", ""),
                 "evidence": evidence,
-                "confidence": _map_confidence(
+                "confidence": ConfidenceLevel.from_raw(
                     raw_finding.get("confidence", "medium")
                 ),
                 "severity_assessment": raw_finding.get(
@@ -394,13 +381,3 @@ class CodebaseExplorer:
         return f"{meta}\n{content}"
 
 
-def _map_confidence(raw) -> str:
-    """Map LLM confidence strings to ConfidenceLevel enum values."""
-    if not isinstance(raw, str):
-        return ConfidenceLevel.MEDIUM.value
-    mapping = {
-        "high": ConfidenceLevel.HIGH.value,
-        "medium": ConfidenceLevel.MEDIUM.value,
-        "low": ConfidenceLevel.LOW.value,
-    }
-    return mapping.get(raw.lower(), ConfidenceLevel.MEDIUM.value)

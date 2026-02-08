@@ -18,10 +18,10 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from src.discovery.agents.base import ExplorerResult
 from src.discovery.agents.customer_voice import (
     CustomerVoiceExplorer,
     ExplorerConfig,
-    ExplorerResult,
 )
 from src.discovery.agents.data_access import RawConversation
 from src.discovery.models.artifacts import ExplorerCheckpoint

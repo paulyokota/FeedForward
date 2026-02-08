@@ -73,6 +73,21 @@ class ConfidenceLevel(str, Enum):
     MEDIUM = "medium"
     LOW = "low"
 
+    @classmethod
+    def from_raw(cls, raw) -> str:
+        """Map LLM confidence strings to ConfidenceLevel enum values.
+
+        Handles case-insensitive matching and defaults to MEDIUM for
+        unknown strings or non-string inputs.
+
+        Extracted per 'third use = extract' rule — previously duplicated
+        as _map_confidence() in customer_voice.py, codebase_explorer.py,
+        and opportunity_pm.py.
+        """
+        if not isinstance(raw, str):
+            return cls.MEDIUM.value
+        return cls._value2member_map_.get(raw.lower(), cls.MEDIUM).value
+
 
 class BuildExperimentDecision(str, Enum):
     """Stage 2 Build/Experiment Decision gate from #212."""
