@@ -22,6 +22,12 @@ from src.discovery.models.run import (
     RunMetadata,
     TokenUsage,
 )
+from src.discovery.models.conversation import (
+    EventType,
+    ConversationTurn,
+    ConversationEvent,
+    CheckpointSubmission,
+)
 
 __all__ = [
     "RunStatus",
@@ -40,4 +46,8 @@ __all__ = [
     "AgentInvocation",
     "RunMetadata",
     "TokenUsage",
+    "EventType",
+    "ConversationTurn",
+    "ConversationEvent",
+    "CheckpointSubmission",
 ]
