@@ -132,6 +132,10 @@ class DiscoveryStateMachine:
         Requires artifacts for the current stage (output validation per #212).
         Creates a new stage execution for the next stage.
 
+        Note: Caller is responsible for validating artifacts against the
+        stage-specific contract models (OpportunityBrief, SolutionBrief, etc.).
+        This method only checks that artifacts are non-empty.
+
         Returns the new stage execution.
 
         Raises:
@@ -281,6 +285,9 @@ class DiscoveryStateMachine:
 
         Requires artifacts for the human_review stage (same as advance_stage).
         Completes the active stage and marks the run as completed.
+
+        Note: Caller is responsible for validating artifacts against the
+        stage-specific contract models. This method only checks non-empty.
 
         Raises:
             InvalidTransitionError: if run is not running, no active stage,
