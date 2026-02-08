@@ -1,22 +1,22 @@
-"""Customer Voice Explorer agent for the Discovery Engine.
+"""Analytics Explorer agent for the Discovery Engine (Issue #216).
 
-Reads raw customer conversations and reasons openly about patterns —
+Reads pre-fetched PostHog analytics data and reasons openly about patterns —
 NOT through predefined categories, NOT using the existing theme vocabulary.
 The artifact contracts validate output structure, not the agent's cognitive process.
 
-Two-pass LLM strategy:
-  1. Per-batch analysis: open-ended pattern recognition (~20 conversations per batch)
-  2. Synthesis pass: dedup and cross-reference findings across batches
+Structural batching strategy:
+  - Group PostHogDataPoints by data_type (events, dashboards, insights, errors)
+  - One LLM batch per data_type group (not by count)
+  - Synthesis pass merges findings across data_type groups
 
-Per Issue #215: This is the primary capability thesis test. If this agent can't
-surface patterns the existing structured pipeline misses, the discovery engine
-concept doesn't hold.
+Key design: PostHogReader does loss-minimizing compression (format, don't filter).
+The LLM decides what's interesting.
 """
 
 import json
 import logging
 import os
-import re
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,14 +25,14 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
 from src.discovery.agents.base import ExplorerResult
-from src.discovery.agents.data_access import ConversationReader, RawConversation
+from src.discovery.agents.posthog_data_access import PostHogDataPoint, PostHogReader
 from src.discovery.agents.prompts import (
-    BATCH_ANALYSIS_SYSTEM,
-    BATCH_ANALYSIS_USER,
-    REQUERY_SYSTEM,
-    REQUERY_USER,
-    SYNTHESIS_SYSTEM,
-    SYNTHESIS_USER,
+    ANALYTICS_BATCH_ANALYSIS_SYSTEM,
+    ANALYTICS_BATCH_ANALYSIS_USER,
+    ANALYTICS_REQUERY_SYSTEM,
+    ANALYTICS_REQUERY_USER,
+    ANALYTICS_SYNTHESIS_SYSTEM,
+    ANALYTICS_SYNTHESIS_USER,
 )
 from src.discovery.models.enums import ConfidenceLevel, SourceType
 
@@ -44,31 +44,30 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ExplorerConfig:
-    """Configuration for the Customer Voice Explorer."""
+class AnalyticsExplorerConfig:
+    """Configuration for the Analytics Explorer."""
 
-    time_window_days: int = 14
-    max_conversations: int = 200
-    batch_size: int = 20
     model: str = "gpt-4o-mini"
     temperature: float = 0.7
-    max_chars_per_conversation: int = 2000
+    max_chars_per_data_point: int = 1000
+    max_chars_per_batch: int = 50000
 
 
-class CustomerVoiceExplorer:
-    """Explorer agent that discovers patterns in raw customer conversations.
+class AnalyticsExplorer:
+    """Explorer agent that discovers patterns in PostHog analytics data.
 
-    Uses a two-pass LLM strategy: per-batch analysis followed by synthesis.
+    Uses a structural batching strategy: one LLM batch per data_type group,
+    followed by a synthesis pass across all groups.
     """
 
     def __init__(
         self,
-        reader: ConversationReader,
+        reader: PostHogReader,
         openai_client=None,
-        config: Optional[ExplorerConfig] = None,
+        config: Optional[AnalyticsExplorerConfig] = None,
     ):
         self.reader = reader
-        self.config = config or ExplorerConfig()
+        self.config = config or AnalyticsExplorerConfig()
 
         if openai_client is not None:
             self.client = openai_client
@@ -77,41 +76,32 @@ class CustomerVoiceExplorer:
             self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def explore(self) -> ExplorerResult:
-        """Run the full exploration: fetch → batch analyze → synthesize.
+        """Run the full exploration: fetch → group by type → batch analyze → synthesize.
 
-        Per-batch errors are caught and recorded (batch skipped, conversations
-        counted as conversations_skipped), so one LLM failure doesn't abort
-        the whole run.
+        Per-batch errors are caught and recorded (batch skipped, data points
+        counted as skipped), so one LLM failure doesn't abort the whole run.
 
         Returns an ExplorerResult with findings and coverage metadata.
         """
-        conversations = self.reader.fetch_conversations(
-            days=self.config.time_window_days,
-            limit=self.config.max_conversations,
-        )
+        data_points = self.reader.fetch_overview()
+        total_available = self.reader.get_data_point_count()
 
-        total_available = self.reader.get_conversation_count(
-            days=self.config.time_window_days,
-        )
-
-        if not conversations:
-            logger.info("No conversations found for exploration")
+        if not data_points:
+            logger.info("No analytics data found for exploration")
             return ExplorerResult(
                 coverage={
-                    "time_window_days": self.config.time_window_days,
+                    "time_window_days": 1,
                     "conversations_available": total_available,
                     "conversations_reviewed": 0,
                     "conversations_skipped": total_available,
                     "model": self.config.model,
                     "findings_count": 0,
+                    "items_type": "analytics_data_points",
                 },
             )
 
-        # Split into batches
-        batches = [
-            conversations[i : i + self.config.batch_size]
-            for i in range(0, len(conversations), self.config.batch_size)
-        ]
+        # Group by data_type for structural batching
+        groups = self._group_by_type(data_points)
 
         all_batch_findings: List[List[Dict[str, Any]]] = []
         reviewed_count = 0
@@ -119,20 +109,20 @@ class CustomerVoiceExplorer:
         total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         batch_errors = []
 
-        for batch_idx, batch in enumerate(batches):
+        for data_type, group_points in groups.items():
             try:
-                findings, usage = self._analyze_batch(batch, batch_idx)
+                findings, usage = self._analyze_batch(group_points, data_type)
                 all_batch_findings.append(findings)
-                reviewed_count += len(batch)
+                reviewed_count += len(group_points)
                 for key in total_usage:
                     total_usage[key] += usage.get(key, 0)
             except Exception as e:
                 logger.warning(
-                    "Batch %d failed (%d conversations skipped): %s",
-                    batch_idx, len(batch), e,
+                    "Batch %s failed (%d data points skipped): %s",
+                    data_type, len(group_points), e,
                 )
-                skipped_count += len(batch)
-                batch_errors.append(f"Batch {batch_idx}: {e}")
+                skipped_count += len(group_points)
+                batch_errors.append(f"Batch {data_type}: {e}")
 
         # Synthesis pass
         if all_batch_findings:
@@ -149,18 +139,19 @@ class CustomerVoiceExplorer:
         else:
             synthesized = []
 
-        # Account for conversations not fetched (available > fetched)
-        not_fetched = max(0, total_available - len(conversations))
+        # Account for data points not fetched (available > fetched)
+        not_fetched = max(0, total_available - len(data_points))
 
         return ExplorerResult(
             findings=synthesized,
             coverage={
-                "time_window_days": self.config.time_window_days,
+                "time_window_days": 1,
                 "conversations_available": total_available,
                 "conversations_reviewed": reviewed_count,
                 "conversations_skipped": skipped_count + not_fetched,
                 "model": self.config.model,
                 "findings_count": len(synthesized),
+                "items_type": "analytics_data_points",
             },
             token_usage=total_usage,
             batch_errors=batch_errors,
@@ -170,34 +161,32 @@ class CustomerVoiceExplorer:
         self,
         request_text: str,
         previous_findings: List[Dict[str, Any]],
-        conversation_ids: Optional[List[str]] = None,
+        source_refs: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Handle an explorer:request event with a follow-up question.
 
-        Fetches relevant conversations if IDs provided, then asks the LLM.
+        Fetches relevant data points if source_refs provided, then asks the LLM.
         """
         relevant_text = ""
-        if conversation_ids:
-            convos = []
-            for cid in conversation_ids:
-                conv = self.reader.fetch_conversation_by_id(cid)
-                if conv:
-                    convos.append(conv)
-            if convos:
-                relevant_text = "\n\n".join(
-                    self._format_conversation(c) for c in convos
+        if source_refs:
+            # Search for data points matching the source_refs
+            all_points = self.reader.fetch_overview()
+            matching = [p for p in all_points if p.source_ref in source_refs]
+            if matching:
+                relevant_text = "\n\n---\n\n".join(
+                    p.result_summary for p in matching
                 )
 
-        user_prompt = REQUERY_USER.format(
+        user_prompt = ANALYTICS_REQUERY_USER.format(
             previous_findings_json=json.dumps(previous_findings, indent=2),
             request_text=request_text,
-            relevant_conversations=relevant_text or "(no specific conversations requested)",
+            relevant_data_points=relevant_text or "(no specific data points requested)",
         )
 
         response = self.client.chat.completions.create(
             model=self.config.model,
             messages=[
-                {"role": "system", "content": REQUERY_SYSTEM},
+                {"role": "system", "content": ANALYTICS_REQUERY_SYSTEM},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=self.config.temperature,
@@ -212,23 +201,31 @@ class CustomerVoiceExplorer:
         """Convert ExplorerResult into a dict validated against ExplorerCheckpoint.
 
         Transforms raw LLM findings into typed EvidencePointer + ExplorerFinding
-        structures. Evidence pointers reference conversation_id (not text offsets),
-        so truncation doesn't break references.
+        structures. Evidence pointers reference PostHog source_refs mapped to
+        EvidencePointer(source_type=POSTHOG, source_id=ref).
         """
         now = datetime.now(timezone.utc).isoformat()
         findings = []
 
         for raw_finding in result.findings:
             evidence = []
-            for conv_id in raw_finding.get("evidence_conversation_ids", []):
+            for ref in raw_finding.get("evidence_refs", []):
                 evidence.append({
-                    "source_type": SourceType.INTERCOM.value,
-                    "source_id": conv_id,
+                    "source_type": SourceType.POSTHOG.value,
+                    "source_id": ref,
                     "retrieved_at": now,
                     "confidence": ConfidenceLevel.from_raw(
                         raw_finding.get("confidence", "medium")
                     ),
                 })
+
+            if not evidence:
+                logger.warning(
+                    "Dropping finding '%s' — no evidence_refs "
+                    "(ExplorerFinding requires min 1 evidence pointer)",
+                    raw_finding.get("pattern_name", "unnamed"),
+                )
+                continue
 
             findings.append({
                 "pattern_name": raw_finding.get("pattern_name", "unnamed"),
@@ -247,7 +244,7 @@ class CustomerVoiceExplorer:
 
         return {
             "schema_version": 1,
-            "agent_name": "customer_voice",
+            "agent_name": "analytics",
             "findings": findings,
             "coverage": result.coverage,
         }
@@ -256,29 +253,67 @@ class CustomerVoiceExplorer:
     # Internal methods
     # ========================================================================
 
+    @staticmethod
+    def _group_by_type(
+        data_points: List[PostHogDataPoint],
+    ) -> Dict[str, List[PostHogDataPoint]]:
+        """Group data points by data_type for structural batching."""
+        groups: Dict[str, List[PostHogDataPoint]] = defaultdict(list)
+        for point in data_points:
+            groups[point.data_type].append(point)
+        return dict(groups)
+
     def _analyze_batch(
         self,
-        batch: List[RawConversation],
-        batch_idx: int,
+        data_points: List[PostHogDataPoint],
+        data_type: str,
     ) -> tuple:
-        """Send one batch to LLM, parse JSON response.
+        """Send one data_type group to LLM, parse JSON response.
+
+        Applies max_chars_per_batch safety valve: if the formatted text
+        exceeds the budget, truncate the longest result_summary fields.
 
         Returns (findings_list, usage_dict).
         """
-        formatted = "\n\n---\n\n".join(
-            self._format_conversation(c) for c in batch
-        )
+        # Format data points, respecting per-point truncation
+        formatted_points = []
+        for point in data_points:
+            summary = point.result_summary
+            if len(summary) > self.config.max_chars_per_data_point:
+                summary = (
+                    summary[:self.config.max_chars_per_data_point]
+                    + " [... truncated]"
+                )
+            formatted_points.append(summary)
 
-        user_prompt = BATCH_ANALYSIS_USER.format(
-            batch_size=len(batch),
-            time_window_days=self.config.time_window_days,
-            formatted_conversations=formatted,
+        # Safety valve: drop tail records if total exceeds batch budget
+        # (keeps record boundaries intact instead of cutting mid-record)
+        separator = "\n\n---\n\n"
+        total_chars = 0
+        included = []
+        for fp in formatted_points:
+            needed = len(fp) + (len(separator) if included else 0)
+            if total_chars + needed > self.config.max_chars_per_batch:
+                logger.info(
+                    "Batch %s: dropped %d/%d records due to size budget",
+                    data_type, len(formatted_points) - len(included),
+                    len(formatted_points),
+                )
+                break
+            included.append(fp)
+            total_chars += needed
+
+        formatted = separator.join(included or formatted_points[:1])
+
+        user_prompt = ANALYTICS_BATCH_ANALYSIS_USER.format(
+            data_type=data_type,
+            formatted_data_points=formatted,
         )
 
         response = self.client.chat.completions.create(
             model=self.config.model,
             messages=[
-                {"role": "system", "content": BATCH_ANALYSIS_SYSTEM},
+                {"role": "system", "content": ANALYTICS_BATCH_ANALYSIS_SYSTEM},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=self.config.temperature,
@@ -298,7 +333,7 @@ class CustomerVoiceExplorer:
         # JSON schema pre-check: must have a findings list
         if not isinstance(raw.get("findings"), list):
             raise ValueError(
-                f"Batch {batch_idx}: LLM response missing 'findings' list"
+                f"Batch {data_type}: LLM response missing 'findings' list"
             )
 
         return raw["findings"], usage
@@ -308,11 +343,10 @@ class CustomerVoiceExplorer:
         all_batch_findings: List[List[Dict[str, Any]]],
         total_reviewed: int,
     ) -> tuple:
-        """Merge findings across batches via LLM.
+        """Merge findings across data_type groups via LLM.
 
         Returns (synthesized_findings, usage_dict).
         """
-        # Build batch findings JSON with batch indices
         batch_data = []
         for idx, findings in enumerate(all_batch_findings):
             batch_data.append({
@@ -320,17 +354,16 @@ class CustomerVoiceExplorer:
                 "findings": findings,
             })
 
-        user_prompt = SYNTHESIS_USER.format(
+        user_prompt = ANALYTICS_SYNTHESIS_USER.format(
             num_batches=len(all_batch_findings),
-            total_conversations=total_reviewed,
-            time_window_days=self.config.time_window_days,
+            total_data_points=total_reviewed,
             batch_findings_json=json.dumps(batch_data, indent=2),
         )
 
         response = self.client.chat.completions.create(
             model=self.config.model,
             messages=[
-                {"role": "system", "content": SYNTHESIS_SYSTEM},
+                {"role": "system", "content": ANALYTICS_SYNTHESIS_SYSTEM},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=self.config.temperature,
@@ -351,77 +384,3 @@ class CustomerVoiceExplorer:
             raise ValueError("Synthesis response missing 'findings' list")
 
         return raw["findings"], usage
-
-    def _format_conversation(self, conv: RawConversation) -> str:
-        """Format a conversation for LLM input with deterministic truncation.
-
-        MF2: Keep first customer message in full (opening complaint is almost
-        always most important) + last 3 messages (resolution context).
-        Metadata line is always outside the truncation boundary.
-        Character budget: max_chars_per_conversation (default 2000).
-        Evidence pointers reference conversation_id (not text offsets),
-        so truncation doesn't break references.
-        """
-        budget = self.config.max_chars_per_conversation
-
-        # Metadata line — always present, outside truncation boundary
-        created_str = (
-            conv.created_at.isoformat() if conv.created_at else "unknown"
-        )
-        meta = (
-            f"[{conv.conversation_id}] created={created_str}"
-            f" url={conv.source_url or 'none'}"
-        )
-
-        text = conv.full_conversation or conv.source_body or ""
-        if not text.strip():
-            return f"{meta}\n(no conversation text)"
-
-        # Try to split into messages by speaker tags
-        messages = _split_messages(text)
-
-        if len(messages) <= 4:
-            # Short enough — just truncate by character budget
-            truncated = text[:budget]
-            if len(text) > budget:
-                truncated += "\n[... truncated ...]"
-            return f"{meta}\n{truncated}"
-
-        # Deterministic truncation: first message + last 3 messages
-        first_msg = messages[0]
-        last_three = messages[-3:]
-        omitted = len(messages) - 4
-
-        middle_marker = f"\n[... {omitted} messages omitted ...]\n"
-        core = first_msg + middle_marker + "\n".join(last_three)
-
-        if len(core) > budget:
-            core = core[:budget]
-            if not core.endswith("...]"):
-                core += "\n[... truncated ...]"
-
-        return f"{meta}\n{core}"
-
-
-def _split_messages(text: str) -> List[str]:
-    """Split conversation text into individual messages by speaker tags.
-
-    Handles patterns like "Customer:", "Agent:", "Support:", etc.
-    If no speaker tags found, treats the whole text as a single block.
-    """
-    # Match lines that start with a speaker tag
-    pattern = re.compile(r"^(?:Customer|Agent|Support|User|Bot|Admin)\s*:", re.MULTILINE)
-    splits = list(pattern.finditer(text))
-
-    if not splits:
-        return [text]
-
-    messages = []
-    for i, match in enumerate(splits):
-        start = match.start()
-        end = splits[i + 1].start() if i + 1 < len(splits) else len(text)
-        messages.append(text[start:end].strip())
-
-    return messages
-
-

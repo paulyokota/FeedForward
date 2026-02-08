@@ -211,7 +211,7 @@ class OpportunityPM:
                     "source_type": SourceType.INTERCOM.value,
                     "source_id": conv_id,
                     "retrieved_at": now,
-                    "confidence": _map_confidence(
+                    "confidence": ConfidenceLevel.from_raw(
                         raw_opp.get("confidence", "medium")
                     ),
                 })
@@ -255,13 +255,3 @@ def extract_evidence_ids(explorer_checkpoint: Dict[str, Any]) -> set:
     return ids
 
 
-def _map_confidence(raw) -> str:
-    """Map LLM confidence strings to ConfidenceLevel enum values."""
-    if not isinstance(raw, str):
-        return ConfidenceLevel.MEDIUM.value
-    mapping = {
-        "high": ConfidenceLevel.HIGH.value,
-        "medium": ConfidenceLevel.MEDIUM.value,
-        "low": ConfidenceLevel.LOW.value,
-    }
-    return mapping.get(raw.lower(), ConfidenceLevel.MEDIUM.value)

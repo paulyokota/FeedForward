@@ -1,36 +1,33 @@
-"""Integration tests for the Codebase Explorer with the state machine.
+"""Integration tests for the Analytics Explorer with the state machine.
 
-Tests the full flow: create run → start → create EXPLORATION stage conversation
-→ codebase explorer produces findings → submit checkpoint (validated against
-ExplorerCheckpoint) → verify stage advances to OPPORTUNITY_FRAMING.
+Tests the full flow: create run -> start -> create EXPLORATION stage conversation
+-> analytics explorer produces findings -> submit checkpoint (validated against
+ExplorerCheckpoint) -> verify stage advances to OPPORTUNITY_FRAMING.
 
-Also tests requery flow and taxonomy guard.
+Also tests requery flow, taxonomy guard, and SourceType.POSTHOG evidence.
 
 Marked @pytest.mark.slow for the test runner.
 Uses InMemoryTransport and InMemoryStorage (same as test_conversation_service.py).
 """
 
 import json
-from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
 
 from src.discovery.agents.base import ExplorerResult
-from src.discovery.agents.codebase_explorer import (
-    CodebaseExplorer,
-    CodebaseExplorerConfig,
+from src.discovery.agents.analytics_explorer import (
+    AnalyticsExplorer,
+    AnalyticsExplorerConfig,
 )
-from src.discovery.agents.codebase_data_access import CodebaseItem
+from src.discovery.agents.posthog_data_access import PostHogReader
 from src.discovery.models.artifacts import ExplorerCheckpoint
 from src.discovery.models.conversation import EventType
 from src.discovery.models.enums import (
-    RunStatus,
     SourceType,
     StageStatus,
     StageType,
 )
-from src.discovery.models.run import DiscoveryRun, StageExecution
 from src.discovery.services.conversation import ConversationService
 from src.discovery.services.state_machine import DiscoveryStateMachine
 from src.discovery.services.transport import InMemoryTransport
@@ -42,41 +39,6 @@ from tests.discovery.test_conversation_service import InMemoryStorage
 # ============================================================================
 # Helpers
 # ============================================================================
-
-
-def _make_codebase_item(**overrides) -> CodebaseItem:
-    defaults = {
-        "path": "src/api/main.py",
-        "content": "from fastapi import FastAPI\n\napp = FastAPI()\n",
-        "item_type": "source_file",
-        "metadata": {
-            "line_count": 3,
-            "commit_count": 2,
-            "last_modified": "2026-02-01T10:00:00+00:00",
-            "authors": ["dev1"],
-        },
-    }
-    defaults.update(overrides)
-    return CodebaseItem(**defaults)
-
-
-class MockCodebaseReader:
-    def __init__(self, items=None, count=None):
-        self._items = items or []
-        self._count = count if count is not None else len(self._items)
-        self._by_path = {item.path: item for item in self._items}
-
-    def fetch_recently_changed(self, days, limit=None):
-        result = self._items
-        if limit:
-            result = result[:limit]
-        return result
-
-    def fetch_file(self, path):
-        return self._by_path.get(path)
-
-    def get_item_count(self, days):
-        return self._count
 
 
 def _make_llm_response(content_dict):
@@ -91,32 +53,51 @@ def _make_llm_response(content_dict):
 
 
 def _make_explorer_with_findings(findings=None):
-    """Create a CodebaseExplorer that will produce the given findings."""
+    """Create an AnalyticsExplorer that will produce the given findings."""
     if findings is None:
         findings = [
             {
-                "pattern_name": "inconsistent_error_handling",
-                "description": "Error handling varies across API endpoints",
-                "evidence_file_paths": ["src/api/main.py"],
+                "pattern_name": "low_feature_adoption",
+                "description": "Several features show minimal usage despite shipping",
+                "evidence_refs": ["event_user_signed_up", "dashboard_42"],
                 "confidence": "high",
-                "severity_assessment": "moderate impact",
-                "affected_users_estimate": "~30% of codebase",
+                "severity_assessment": "moderate impact on growth",
+                "affected_users_estimate": "~40% of user base",
             }
         ]
 
-    items = [_make_codebase_item(path=f"src/mod_{i}.py") for i in range(3)]
-    reader = MockCodebaseReader(items=items, count=3)
+    reader = PostHogReader(
+        event_definitions=[{
+            "name": "user_signed_up",
+            "event_type": "custom",
+            "last_seen_at": "2026-02-01T12:00:00Z",
+            "volume_30_day": 1500,
+        }],
+        dashboards=[{
+            "id": 42,
+            "name": "Growth Dashboard",
+            "description": "Tracks growth",
+            "tags": ["growth"],
+        }],
+        insights=[{
+            "id": 101,
+            "name": "WAU",
+            "query": {"kind": "TrendsQuery", "series": [{"event": "$pageview"}]},
+        }],
+    )
 
     mock_client = MagicMock()
+    # 3 data types = 3 batch calls + 1 synthesis
     mock_client.chat.completions.create.side_effect = [
+        _make_llm_response({"findings": findings, "batch_notes": ""}),
+        _make_llm_response({"findings": findings, "batch_notes": ""}),
         _make_llm_response({"findings": findings, "batch_notes": ""}),
         _make_llm_response({"findings": findings, "synthesis_notes": ""}),
     ]
 
-    explorer = CodebaseExplorer(
+    explorer = AnalyticsExplorer(
         reader=reader,
         openai_client=mock_client,
-        config=CodebaseExplorerConfig(batch_size=20),
     )
     return explorer
 
@@ -127,11 +108,11 @@ def _make_explorer_with_findings(findings=None):
 
 
 @pytest.mark.slow
-class TestCodebaseExplorerFullFlow:
-    """Full flow: run → explore → checkpoint → advance."""
+class TestAnalyticsExplorerFullFlow:
+    """Full flow: run -> explore -> checkpoint -> advance."""
 
-    def test_codebase_checkpoint_advances_to_opportunity_framing(self):
-        """End-to-end: codebase explorer produces findings → checkpoint validates →
+    def test_analytics_checkpoint_advances_to_opportunity_framing(self):
+        """End-to-end: analytics explorer produces findings -> checkpoint validates ->
         state machine advances to OPPORTUNITY_FRAMING."""
         storage = InMemoryStorage()
         transport = InMemoryTransport()
@@ -156,11 +137,11 @@ class TestCodebaseExplorerFullFlow:
 
         # Validate checkpoint against model before submission
         validated = ExplorerCheckpoint(**checkpoint)
-        assert validated.agent_name == "codebase"
+        assert validated.agent_name == "analytics"
 
         # Submit checkpoint — this should advance the stage
         new_stage = service.submit_checkpoint(
-            convo_id, run.id, "codebase", artifacts=checkpoint
+            convo_id, run.id, "analytics", artifacts=checkpoint
         )
 
         assert new_stage.stage == StageType.OPPORTUNITY_FRAMING
@@ -188,7 +169,7 @@ class TestCodebaseExplorerFullFlow:
         result = explorer.explore()
         checkpoint = explorer.build_checkpoint_artifacts(result)
 
-        service.submit_checkpoint(convo_id, run.id, "codebase", artifacts=checkpoint)
+        service.submit_checkpoint(convo_id, run.id, "analytics", artifacts=checkpoint)
 
         # Read conversation history
         history = service.read_history(convo_id)
@@ -218,7 +199,7 @@ class TestCodebaseExplorerFullFlow:
 
         # Should still validate and advance
         new_stage = service.submit_checkpoint(
-            convo_id, run.id, "codebase", artifacts=checkpoint
+            convo_id, run.id, "analytics", artifacts=checkpoint
         )
         assert new_stage.stage == StageType.OPPORTUNITY_FRAMING
 
@@ -229,9 +210,9 @@ class TestCodebaseExplorerFullFlow:
 
 
 @pytest.mark.slow
-class TestCodebaseRequeryFlow:
+class TestAnalyticsRequeryFlow:
     def test_requery_through_conversation(self):
-        """Post explorer:request → explorer reads → responds with explorer:response."""
+        """Post explorer:request -> explorer reads -> responds with explorer:response."""
         storage = InMemoryStorage()
         transport = InMemoryTransport()
         state_machine = DiscoveryStateMachine(storage=storage)
@@ -249,7 +230,7 @@ class TestCodebaseRequeryFlow:
             convo_id,
             "orchestrator",
             EventType.EXPLORER_REQUEST,
-            {"query": "What tech debt patterns did you find?"},
+            {"query": "What adoption patterns did you find?"},
         )
 
         # Explorer reads history and finds the request
@@ -258,27 +239,33 @@ class TestCodebaseRequeryFlow:
         assert len(requests) == 1
 
         # Explorer handles the requery
-        items = [_make_codebase_item()]
-        reader = MockCodebaseReader(items=items)
+        reader = PostHogReader(
+            event_definitions=[{
+                "name": "user_signed_up",
+                "event_type": "custom",
+                "last_seen_at": "2026-02-01T12:00:00Z",
+                "volume_30_day": 1500,
+            }],
+        )
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = _make_llm_response({
-            "answer": "I found 3 inconsistent error handling patterns",
-            "evidence_file_paths": ["src/api/main.py"],
+            "answer": "I found 3 features with declining adoption",
+            "evidence_refs": ["event_user_signed_up"],
             "confidence": "high",
             "additional_findings": [],
         })
 
-        explorer = CodebaseExplorer(reader=reader, openai_client=mock_client)
+        explorer = AnalyticsExplorer(reader=reader, openai_client=mock_client)
         requery_result = explorer.requery(
-            request_text="What tech debt patterns did you find?",
+            request_text="What adoption patterns did you find?",
             previous_findings=[],
-            file_paths=["src/api/main.py"],
+            source_refs=["event_user_signed_up"],
         )
 
         # Post the response back
         service.post_event(
             convo_id,
-            "codebase",
+            "analytics",
             EventType.EXPLORER_RESPONSE,
             {"answer": requery_result["answer"]},
         )
@@ -287,7 +274,7 @@ class TestCodebaseRequeryFlow:
         history = service.read_history(convo_id)
         responses = [e for e in history if e.event_type == EventType.EXPLORER_RESPONSE]
         assert len(responses) == 1
-        assert "error handling" in responses[0].payload.get("answer", "")
+        assert "adoption" in responses[0].payload.get("answer", "")
 
 
 # ============================================================================
@@ -318,28 +305,24 @@ PIPELINE_FIELDS = {
 
 
 @pytest.mark.slow
-class TestCodebaseTaxonomyGuard:
-    """Lightweight keyword check to enforce the 'no theme vocabulary' constraint.
-
-    These tests verify that the codebase explorer's artifact output doesn't
-    contain prohibited terms from the existing pipeline vocabulary.
-    """
+class TestAnalyticsTaxonomyGuard:
+    """Lightweight keyword check to enforce the 'no theme vocabulary' constraint."""
 
     def test_findings_dont_use_pipeline_categories(self):
         """Explorer pattern names should not match pipeline ConversationType values."""
         explorer = _make_explorer_with_findings(findings=[
             {
-                "pattern_name": "inconsistent_error_handling",
-                "description": "Error handling varies across endpoints",
-                "evidence_file_paths": ["src/api/main.py"],
+                "pattern_name": "low_feature_adoption",
+                "description": "Features with low usage",
+                "evidence_refs": ["event_user_signed_up"],
                 "confidence": "high",
                 "severity_assessment": "moderate",
-                "affected_users_estimate": "~30%",
+                "affected_users_estimate": "~40%",
             },
             {
-                "pattern_name": "duplicated_validation_logic",
-                "description": "Same validation in multiple places",
-                "evidence_file_paths": ["src/api/routes.py"],
+                "pattern_name": "error_clustering_in_checkout",
+                "description": "Errors concentrated in checkout flow",
+                "evidence_refs": ["error_err_001"],
                 "confidence": "medium",
                 "severity_assessment": "high",
                 "affected_users_estimate": "~15%",
@@ -367,4 +350,24 @@ class TestCodebaseTaxonomyGuard:
             if field_name == "conversation_type":
                 assert field_name not in checkpoint, (
                     f"Pipeline field '{field_name}' found in checkpoint top-level keys"
+                )
+
+
+# ============================================================================
+# Evidence source type
+# ============================================================================
+
+
+@pytest.mark.slow
+class TestAnalyticsEvidenceSourceType:
+    def test_evidence_uses_posthog_source_type(self):
+        """All evidence pointers should use SourceType.POSTHOG."""
+        explorer = _make_explorer_with_findings()
+        result = explorer.explore()
+        checkpoint = explorer.build_checkpoint_artifacts(result)
+
+        for finding in checkpoint["findings"]:
+            for evidence in finding["evidence"]:
+                assert evidence["source_type"] == SourceType.POSTHOG.value, (
+                    f"Expected source_type 'posthog' but got '{evidence['source_type']}'"
                 )

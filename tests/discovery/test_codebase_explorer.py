@@ -15,13 +15,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from src.discovery.agents.base import ExplorerResult
 from src.discovery.agents.codebase_explorer import (
     CodebaseExplorer,
     CodebaseExplorerConfig,
-    ExplorerResult,
-    _map_confidence,
 )
 from src.discovery.agents.codebase_data_access import CodebaseItem
+from src.discovery.models.enums import ConfidenceLevel
 
 
 # ============================================================================
@@ -689,23 +689,23 @@ class TestRequery:
 
 class TestConfidenceMapping:
     def test_maps_high(self):
-        assert _map_confidence("high") == "high"
+        assert ConfidenceLevel.from_raw("high") == "high"
 
     def test_maps_medium(self):
-        assert _map_confidence("medium") == "medium"
+        assert ConfidenceLevel.from_raw("medium") == "medium"
 
     def test_maps_low(self):
-        assert _map_confidence("low") == "low"
+        assert ConfidenceLevel.from_raw("low") == "low"
 
     def test_unknown_defaults_to_medium(self):
-        assert _map_confidence("uncertain") == "medium"
+        assert ConfidenceLevel.from_raw("uncertain") == "medium"
 
     def test_case_insensitive(self):
-        assert _map_confidence("HIGH") == "high"
+        assert ConfidenceLevel.from_raw("HIGH") == "high"
 
     def test_none_defaults_to_medium(self):
-        assert _map_confidence(None) == "medium"
+        assert ConfidenceLevel.from_raw(None) == "medium"
 
     def test_non_string_defaults_to_medium(self):
-        assert _map_confidence(42) == "medium"
-        assert _map_confidence({"level": "high"}) == "medium"
+        assert ConfidenceLevel.from_raw(42) == "medium"
+        assert ConfidenceLevel.from_raw({"level": "high"}) == "medium"

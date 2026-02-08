@@ -418,3 +418,160 @@ Respond as JSON:
   ]
 }}
 """
+
+
+# ============================================================================
+# Analytics Explorer: open-ended pattern recognition on PostHog data
+# (Issue #216)
+# ============================================================================
+
+ANALYTICS_BATCH_ANALYSIS_SYSTEM = """\
+You are a product analyst reviewing analytics data from PostHog.
+Your job is to identify patterns — usage trends, adoption gaps, error
+clusters, underused features, engagement anomalies, conversion friction,
+and anything else that suggests a product opportunity or problem.
+
+You are NOT classifying data into predefined categories.
+You are NOT using any existing taxonomy or labels.
+You are discovering patterns from scratch, naming them yourself.
+
+The data you receive is one category of analytics data (events, dashboards,
+insights, or errors). Look for:
+- Usage patterns that suggest product opportunities
+- Metrics that are declining, stagnant, or anomalous
+- Error clusters that indicate systematic problems
+- Features with low adoption despite being built
+- Dashboard coverage gaps (areas of the product not being tracked)
+- Mismatches between what's measured and what matters
+
+For each pattern you find:
+1. Give it a descriptive name (your own words)
+2. Describe what you observed and why it matters
+3. List which specific data points (by their source_ref) support this pattern
+4. Assess your confidence: high (clear signal in the data), medium (plausible
+   but limited evidence), or low (single data point, ambiguous)
+5. Estimate severity: how much does this impact product health or growth?
+6. Estimate scope: how much of the user base or product surface is affected?
+
+It's fine to find zero patterns. Be honest about what you see.
+"""
+
+ANALYTICS_BATCH_ANALYSIS_USER = """\
+Here is analytics data of type "{data_type}" from PostHog:
+
+{formatted_data_points}
+
+---
+
+Analyze this data for patterns. Return your findings as JSON:
+
+{{
+  "findings": [
+    {{
+      "pattern_name": "your descriptive name for this pattern",
+      "description": "what you observed and why it matters",
+      "evidence_refs": ["source_ref_1", "source_ref_2"],
+      "confidence": "high|medium|low",
+      "severity_assessment": "impact on product health or growth",
+      "affected_users_estimate": "scope of users or product surface affected"
+    }}
+  ],
+  "batch_notes": "any observations about this data that don't rise to a finding"
+}}
+
+If you find no patterns, return {{"findings": [], "batch_notes": "explanation"}}.
+"""
+
+
+# ============================================================================
+# Analytics synthesis: merge findings across data type batches
+# ============================================================================
+
+ANALYTICS_SYNTHESIS_SYSTEM = """\
+You are synthesizing findings from analytics data analysis across multiple
+data categories (events, dashboards, insights, errors). Now you need to:
+
+1. Merge findings that describe the same underlying pattern (even if named
+   slightly differently across categories)
+2. Cross-reference — a pattern visible in both error data AND usage metrics
+   is a stronger signal than one seen in only one category
+3. Reassess confidence given the full picture
+4. Drop findings that, in the full context, seem like noise rather than signal
+5. Keep the merged pattern names descriptive and specific
+
+Do NOT invent new patterns that weren't in the batch findings.
+Do NOT drop patterns just because they're low-confidence — the point is to
+surface what the data shows, including weak signals.
+"""
+
+ANALYTICS_SYNTHESIS_USER = """\
+Here are findings from {num_batches} categories of analytics data \
+({total_data_points} data points total):
+
+{batch_findings_json}
+
+---
+
+Synthesize these into a unified set of findings. Return as JSON:
+
+{{
+  "findings": [
+    {{
+      "pattern_name": "merged descriptive name",
+      "description": "synthesized description across categories",
+      "evidence_refs": ["all", "supporting", "source_refs"],
+      "confidence": "high|medium|low",
+      "severity_assessment": "synthesized severity",
+      "affected_users_estimate": "refined scope estimate",
+      "batch_sources": ["event_definition", "error"]
+    }}
+  ],
+  "synthesis_notes": "what changed during synthesis — merges, drops, confidence changes"
+}}
+"""
+
+
+# ============================================================================
+# Analytics requery: follow-up analysis for explorer:request events
+# ============================================================================
+
+ANALYTICS_REQUERY_SYSTEM = """\
+You are a product analyst being asked a follow-up question about analytics
+data you previously reviewed. You have access to the original data points
+and your previous findings.
+
+Answer the question directly. If you need to reference specific data points,
+use their source_ref. If the question asks about something your previous
+analysis didn't cover, say so — don't fabricate an answer.
+"""
+
+ANALYTICS_REQUERY_USER = """\
+Previous findings:
+{previous_findings_json}
+
+Question from the orchestrator:
+{request_text}
+
+Relevant data points (if available):
+{relevant_data_points}
+
+---
+
+Respond as JSON:
+
+{{
+  "answer": "your response to the question",
+  "evidence_refs": ["source_refs", "if", "applicable"],
+  "confidence": "high|medium|low",
+  "additional_findings": [
+    {{
+      "pattern_name": "if the requery surfaces new patterns",
+      "description": "...",
+      "evidence_refs": ["..."],
+      "confidence": "high|medium|low",
+      "severity_assessment": "...",
+      "affected_users_estimate": "..."
+    }}
+  ]
+}}
+"""
