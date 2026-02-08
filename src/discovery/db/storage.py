@@ -209,12 +209,13 @@ class DiscoveryStorage:
                 INSERT INTO stage_executions (
                     run_id, stage, status, attempt_number, participating_agents,
                     artifacts, artifact_schema_version,
-                    sent_back_from, send_back_reason, started_at
+                    conversation_id, sent_back_from, send_back_reason, started_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, run_id, stage, status, attempt_number,
                           participating_agents, artifacts, artifact_schema_version,
-                          sent_back_from, send_back_reason, started_at, completed_at
+                          conversation_id, sent_back_from, send_back_reason,
+                          started_at, completed_at
                 """,
                 (
                     str(stage_exec.run_id),
@@ -224,6 +225,7 @@ class DiscoveryStorage:
                     stage_exec.participating_agents,
                     json.dumps(stage_exec.artifacts) if stage_exec.artifacts is not None else None,
                     stage_exec.artifact_schema_version,
+                    stage_exec.conversation_id,
                     stage_exec.sent_back_from.value if stage_exec.sent_back_from else None,
                     stage_exec.send_back_reason,
                     stage_exec.started_at,
@@ -239,7 +241,8 @@ class DiscoveryStorage:
                 """
                 SELECT id, run_id, stage, status, attempt_number,
                        participating_agents, artifacts, artifact_schema_version,
-                       sent_back_from, send_back_reason, started_at, completed_at
+                       conversation_id, sent_back_from, send_back_reason,
+                       started_at, completed_at
                 FROM stage_executions
                 WHERE id = %s
                 """,
@@ -288,7 +291,8 @@ class DiscoveryStorage:
                 """
                 SELECT id, run_id, stage, status, attempt_number,
                        participating_agents, artifacts, artifact_schema_version,
-                       sent_back_from, send_back_reason, started_at, completed_at
+                       conversation_id, sent_back_from, send_back_reason,
+                       started_at, completed_at
                 FROM stage_executions
                 WHERE run_id = %s AND status IN ('in_progress', 'checkpoint_reached')
                 LIMIT 1
@@ -317,7 +321,8 @@ class DiscoveryStorage:
                     WHERE id = %s
                     RETURNING id, run_id, stage, status, attempt_number,
                               participating_agents, artifacts, artifact_schema_version,
-                              sent_back_from, send_back_reason, started_at, completed_at
+                              conversation_id, sent_back_from, send_back_reason,
+                              started_at, completed_at
                     """,
                     (status.value, json.dumps(artifacts), completed_at, execution_id),
                 )
@@ -329,7 +334,8 @@ class DiscoveryStorage:
                     WHERE id = %s
                     RETURNING id, run_id, stage, status, attempt_number,
                               participating_agents, artifacts, artifact_schema_version,
-                              sent_back_from, send_back_reason, started_at, completed_at
+                              conversation_id, sent_back_from, send_back_reason,
+                              started_at, completed_at
                     """,
                     (status.value, completed_at, execution_id),
                 )
@@ -351,6 +357,48 @@ class DiscoveryStorage:
             )
             row = cur.fetchone()
             return row["coalesce"]
+
+    def update_stage_conversation_id(
+        self, execution_id: int, conversation_id: str
+    ) -> Optional[StageExecution]:
+        """Link a conversation to a stage execution."""
+        with self._cursor() as cur:
+            cur.execute(
+                """
+                UPDATE stage_executions
+                SET conversation_id = %s
+                WHERE id = %s
+                RETURNING id, run_id, stage, status, attempt_number,
+                          participating_agents, artifacts, artifact_schema_version,
+                          conversation_id, sent_back_from, send_back_reason,
+                          started_at, completed_at
+                """,
+                (conversation_id, execution_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return self._row_to_stage_execution(row)
+
+    def get_stage_conversation_id(
+        self, run_id: UUID, stage: StageType
+    ) -> Optional[str]:
+        """Get the conversation_id for the latest attempt of a stage in a run."""
+        with self._cursor() as cur:
+            cur.execute(
+                """
+                SELECT conversation_id
+                FROM stage_executions
+                WHERE run_id = %s AND stage = %s AND conversation_id IS NOT NULL
+                ORDER BY attempt_number DESC
+                LIMIT 1
+                """,
+                (str(run_id), stage.value),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return row["conversation_id"]
 
     # ========================================================================
     # Agent Invocations
@@ -530,6 +578,7 @@ class DiscoveryStorage:
             participating_agents=row["participating_agents"] or [],
             artifacts=row["artifacts"] if isinstance(row["artifacts"], dict) else None,
             artifact_schema_version=row.get("artifact_schema_version", 1),
+            conversation_id=row.get("conversation_id"),
             sent_back_from=StageType(row["sent_back_from"]) if row["sent_back_from"] else None,
             send_back_reason=row["send_back_reason"],
             started_at=row["started_at"],

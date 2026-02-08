@@ -88,6 +88,7 @@ class StageExecution(BaseModel):
     participating_agents: List[str] = Field(default_factory=list)
     artifacts: Optional[Dict[str, Any]] = None
     artifact_schema_version: int = 1
+    conversation_id: Optional[str] = None
     sent_back_from: Optional[StageType] = None
     send_back_reason: Optional[str] = None
     started_at: Optional[datetime] = None

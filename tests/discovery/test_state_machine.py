@@ -115,6 +115,7 @@ class InMemoryStorage:
             participating_agents=stage_exec.participating_agents,
             artifacts=stage_exec.artifacts,
             artifact_schema_version=stage_exec.artifact_schema_version,
+            conversation_id=stage_exec.conversation_id,
             sent_back_from=stage_exec.sent_back_from,
             send_back_reason=stage_exec.send_back_reason,
             started_at=stage_exec.started_at,
