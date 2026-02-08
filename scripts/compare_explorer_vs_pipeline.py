@@ -146,18 +146,34 @@ def format_explorer_findings(checkpoint: dict) -> str:
 
 
 def format_pipeline_themes(themes: list) -> str:
-    """Format pipeline themes for the comparison prompt."""
+    """Format pipeline themes for the comparison prompt.
+
+    Aggregates by product_area/component to stay within LLM context limits.
+    Shows top issue signatures per area (by occurrence count) rather than
+    listing every individual theme.
+    """
     if not themes:
         return "(no themes extracted)"
 
-    lines = []
-    for i, t in enumerate(themes, 1):
-        summary = (t.get("diagnostic_summary") or "")[:200]
+    # Aggregate by product_area/component
+    from collections import defaultdict
+
+    areas = defaultdict(lambda: {"count": 0, "signatures": defaultdict(int)})
+    for t in themes:
+        key = f"{t['product_area']}/{t.get('component', 'general')}"
+        areas[key]["count"] += t.get("occurrence_count", 1)
+        areas[key]["signatures"][t["issue_signature"]] += t.get("occurrence_count", 1)
+
+    # Sort areas by total count descending
+    sorted_areas = sorted(areas.items(), key=lambda x: x[1]["count"], reverse=True)
+
+    lines = [f"Total: {len(themes)} distinct themes across {len(sorted_areas)} product areas\n"]
+    for i, (area, data) in enumerate(sorted_areas, 1):
+        top_sigs = sorted(data["signatures"].items(), key=lambda x: x[1], reverse=True)[:5]
+        sig_list = "; ".join(f"{sig} ({cnt})" for sig, cnt in top_sigs)
         lines.append(
-            f"{i}. [{t['product_area']}/{t['component']}] "
-            f"**{t['issue_signature']}** "
-            f"(count: {t.get('occurrence_count', '?')})"
-            f"{' — ' + summary if summary else ''}"
+            f"{i}. **{area}** (total: {data['count']})\n"
+            f"   Top issues: {sig_list}"
         )
     return "\n".join(lines)
 
