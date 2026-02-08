@@ -196,6 +196,22 @@ def _valid_evidence():
     }
 
 
+def _valid_explorer_checkpoint():
+    return {
+        "schema_version": 1,
+        "agent_name": "customer_voice",
+        "findings": [],
+        "coverage": {
+            "time_window_days": 14,
+            "conversations_available": 100,
+            "conversations_reviewed": 95,
+            "conversations_skipped": 5,
+            "model": "gpt-4o-mini",
+            "findings_count": 0,
+        },
+    }
+
+
 def _valid_opportunity_brief():
     return {
         "problem_statement": "Users can't reset passwords",
@@ -401,12 +417,12 @@ class TestCheckpointSubmission:
         active = storage.get_active_stage(running_run.id)
         convo_id = service.create_stage_conversation(running_run.id, active.id)
 
-        # Submit checkpoint with valid exploration artifacts (no specific model)
+        # Submit checkpoint with valid ExplorerCheckpoint artifacts
         new_stage = service.submit_checkpoint(
             convo_id,
             running_run.id,
             "exploration_agent",
-            artifacts={"findings": "data", "coverage": "intercom 14d"},
+            artifacts=_valid_explorer_checkpoint(),
         )
 
         assert new_stage.stage == StageType.OPPORTUNITY_FRAMING
@@ -422,7 +438,7 @@ class TestCheckpointSubmission:
             convo_id,
             running_run.id,
             "agent",
-            artifacts={"data": True},
+            artifacts=_valid_explorer_checkpoint(),
         )
 
         # New stage should have a conversation
@@ -438,7 +454,7 @@ class TestCheckpointSubmission:
             convo_id,
             running_run.id,
             "agent",
-            artifacts={"data": True},
+            artifacts=_valid_explorer_checkpoint(),
         )
 
         # Check that checkpoint and transition events were posted
@@ -454,7 +470,7 @@ class TestCheckpointSubmission:
 
         # Advance to opportunity_framing (which requires OpportunityBrief)
         service.submit_checkpoint(
-            convo_id, running_run.id, "agent", artifacts={"data": True}
+            convo_id, running_run.id, "agent", artifacts=_valid_explorer_checkpoint()
         )
 
         # Get new stage conversation
@@ -478,7 +494,7 @@ class TestCheckpointSubmission:
 
         # Advance past exploration
         service.submit_checkpoint(
-            convo_id, running_run.id, "agent", artifacts={"data": True}
+            convo_id, running_run.id, "agent", artifacts=_valid_explorer_checkpoint()
         )
 
         new_active = storage.get_active_stage(running_run.id)
@@ -525,7 +541,7 @@ class TestCheckpointSubmission:
 
         # Advance to opportunity_framing
         service.submit_checkpoint(
-            first_convo, running_run.id, "agent", artifacts={"data": True}
+            first_convo, running_run.id, "agent", artifacts=_valid_explorer_checkpoint()
         )
 
         # Try to submit with the old conversation (now stale)
@@ -546,7 +562,7 @@ class TestCheckpointSubmission:
 class TestCompleteWithCheckpoint:
     # Stage-appropriate artifacts for advancing through the pipeline
     _stage_artifacts = {
-        StageType.EXPLORATION: {"findings": "data", "coverage": "intercom 14d"},
+        StageType.EXPLORATION: _valid_explorer_checkpoint(),
         StageType.OPPORTUNITY_FRAMING: _valid_opportunity_brief(),
         StageType.SOLUTION_VALIDATION: _valid_solution_brief(),
         StageType.FEASIBILITY_RISK: _valid_technical_spec(),
@@ -616,15 +632,16 @@ class TestPriorCheckpoints:
         convo_id = service.create_stage_conversation(running_run.id, active.id)
 
         # Submit checkpoint for exploration
+        explorer_artifacts = _valid_explorer_checkpoint()
         service.submit_checkpoint(
-            convo_id, running_run.id, "agent", artifacts={"exploration": "data"}
+            convo_id, running_run.id, "agent", artifacts=explorer_artifacts
         )
 
         # Now at opportunity_framing — should see exploration checkpoint
         checkpoints = service.get_prior_checkpoints(running_run.id)
         assert len(checkpoints) == 1
         assert checkpoints[0]["stage"] == "exploration"
-        assert checkpoints[0]["artifacts"] == {"exploration": "data"}
+        assert checkpoints[0]["artifacts"] == explorer_artifacts
 
     def test_empty_checkpoints_for_new_run(self, service, running_run):
         checkpoints = service.get_prior_checkpoints(running_run.id)

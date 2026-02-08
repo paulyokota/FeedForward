@@ -16,6 +16,7 @@ from pydantic import BaseModel, ValidationError
 
 from src.discovery.db.storage import DiscoveryStorage
 from src.discovery.models.artifacts import (
+    ExplorerCheckpoint,
     OpportunityBrief,
     SolutionBrief,
     TechnicalSpec,
@@ -38,7 +39,7 @@ logger = logging.getLogger(__name__)
 # Stage → artifact model mapping.
 # Stages without a specific model use None (accept any non-empty dict).
 STAGE_ARTIFACT_MODELS: Dict[StageType, Optional[Type[BaseModel]]] = {
-    StageType.EXPLORATION: None,  # Phase 1: no formal schema yet
+    StageType.EXPLORATION: ExplorerCheckpoint,  # Issue #215: formal schema (MF1)
     StageType.OPPORTUNITY_FRAMING: OpportunityBrief,
     StageType.SOLUTION_VALIDATION: SolutionBrief,
     StageType.FEASIBILITY_RISK: TechnicalSpec,

@@ -354,8 +354,8 @@ class TestArtifactValidation:
         }
         svc._validate_artifacts(StageType.FEASIBILITY_RISK, artifacts)
 
-    def test_exploration_accepts_any_dict(self):
-        """Stages without models accept any non-empty dict."""
+    def test_exploration_validates_explorer_checkpoint(self):
+        """EXPLORATION stage validates against ExplorerCheckpoint model."""
         from src.discovery.services.conversation import ConversationService
         from src.discovery.services.transport import InMemoryTransport
 
@@ -364,9 +364,22 @@ class TestArtifactValidation:
             storage=None,
             state_machine=None,
         )
-        svc._validate_artifacts(StageType.EXPLORATION, {"any": "data"})
+        valid_checkpoint = {
+            "agent_name": "customer_voice",
+            "findings": [],
+            "coverage": {
+                "time_window_days": 14,
+                "conversations_available": 100,
+                "conversations_reviewed": 95,
+                "conversations_skipped": 5,
+                "model": "gpt-4o-mini",
+                "findings_count": 0,
+            },
+        }
+        svc._validate_artifacts(StageType.EXPLORATION, valid_checkpoint)
 
-    def test_exploration_rejects_empty(self):
+    def test_exploration_rejects_invalid(self):
+        """EXPLORATION rejects artifacts that don't match ExplorerCheckpoint."""
         from src.discovery.services.conversation import ConversationService
         from src.discovery.services.transport import InMemoryTransport
 
@@ -375,7 +388,7 @@ class TestArtifactValidation:
             storage=None,
             state_machine=None,
         )
-        with pytest.raises(ArtifactValidationError, match="cannot be empty"):
+        with pytest.raises(ArtifactValidationError, match="Field required"):
             svc._validate_artifacts(StageType.EXPLORATION, {})
 
     def test_extra_fields_allowed(self):

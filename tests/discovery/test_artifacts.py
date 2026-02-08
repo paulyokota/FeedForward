@@ -10,7 +10,10 @@ import pytest
 from pydantic import ValidationError
 
 from src.discovery.models.artifacts import (
+    CoverageMetadata,
     EvidencePointer,
+    ExplorerCheckpoint,
+    ExplorerFinding,
     OpportunityBrief,
     SolutionBrief,
     TechnicalSpec,
@@ -323,3 +326,244 @@ class TestTechnicalSpec:
             estimated_lines_changed=500,
         )
         assert ts.suggested_reviewers == ["backend-team"]  # type: ignore[attr-defined]
+
+
+# ============================================================================
+# Explorer artifact helpers
+# ============================================================================
+
+
+def _make_explorer_finding(**overrides) -> dict:
+    """Create a valid explorer finding dict."""
+    base = {
+        "pattern_name": "timezone-scheduling-confusion",
+        "description": "Users schedule posts expecting local time but system uses UTC",
+        "evidence": [_make_evidence()],
+        "confidence": "high",
+        "severity_assessment": "Medium-high: posts go out at wrong times",
+        "affected_users_estimate": "~4% of conversations in sample",
+    }
+    base.update(overrides)
+    return base
+
+
+def _make_coverage_metadata(**overrides) -> dict:
+    """Create a valid coverage metadata dict."""
+    base = {
+        "time_window_days": 14,
+        "conversations_available": 450,
+        "conversations_reviewed": 200,
+        "conversations_skipped": 0,
+        "model": "gpt-4o-mini",
+        "findings_count": 3,
+    }
+    base.update(overrides)
+    return base
+
+
+def _make_explorer_checkpoint(**overrides) -> dict:
+    """Create a valid explorer checkpoint dict."""
+    base = {
+        "agent_name": "customer_voice",
+        "findings": [_make_explorer_finding()],
+        "coverage": _make_coverage_metadata(),
+    }
+    base.update(overrides)
+    return base
+
+
+# ============================================================================
+# ExplorerFinding tests
+# ============================================================================
+
+
+class TestExplorerFinding:
+    def test_valid_finding(self):
+        f = ExplorerFinding(**_make_explorer_finding())
+        assert f.pattern_name == "timezone-scheduling-confusion"
+        assert f.confidence == ConfidenceLevel.HIGH
+        assert len(f.evidence) == 1
+
+    def test_missing_pattern_name_rejected(self):
+        data = _make_explorer_finding()
+        del data["pattern_name"]
+        with pytest.raises(ValidationError):
+            ExplorerFinding(**data)
+
+    def test_empty_pattern_name_rejected(self):
+        with pytest.raises(ValidationError):
+            ExplorerFinding(**_make_explorer_finding(pattern_name=""))
+
+    def test_missing_description_rejected(self):
+        data = _make_explorer_finding()
+        del data["description"]
+        with pytest.raises(ValidationError):
+            ExplorerFinding(**data)
+
+    def test_missing_evidence_rejected(self):
+        data = _make_explorer_finding()
+        del data["evidence"]
+        with pytest.raises(ValidationError):
+            ExplorerFinding(**data)
+
+    def test_empty_evidence_rejected(self):
+        with pytest.raises(ValidationError):
+            ExplorerFinding(**_make_explorer_finding(evidence=[]))
+
+    def test_missing_confidence_rejected(self):
+        data = _make_explorer_finding()
+        del data["confidence"]
+        with pytest.raises(ValidationError):
+            ExplorerFinding(**data)
+
+    def test_missing_severity_rejected(self):
+        data = _make_explorer_finding()
+        del data["severity_assessment"]
+        with pytest.raises(ValidationError):
+            ExplorerFinding(**data)
+
+    def test_missing_affected_users_rejected(self):
+        data = _make_explorer_finding()
+        del data["affected_users_estimate"]
+        with pytest.raises(ValidationError):
+            ExplorerFinding(**data)
+
+    def test_extra_fields_allowed(self):
+        f = ExplorerFinding(
+            **_make_explorer_finding(),
+            related_patterns=["calendar-display-mismatch"],
+            reasoning="This is distinct from scheduling_failure...",
+        )
+        assert f.related_patterns == ["calendar-display-mismatch"]  # type: ignore[attr-defined]
+
+    def test_multiple_evidence_pointers(self):
+        data = _make_explorer_finding(
+            evidence=[
+                _make_evidence(source_id="conv_001"),
+                _make_evidence(source_id="conv_002"),
+                _make_evidence(source_id="conv_003"),
+            ]
+        )
+        f = ExplorerFinding(**data)
+        assert len(f.evidence) == 3
+
+
+# ============================================================================
+# CoverageMetadata tests
+# ============================================================================
+
+
+class TestCoverageMetadata:
+    def test_valid_coverage(self):
+        cm = CoverageMetadata(**_make_coverage_metadata())
+        assert cm.time_window_days == 14
+        assert cm.conversations_available == 450
+        assert cm.model == "gpt-4o-mini"
+
+    def test_missing_time_window_rejected(self):
+        data = _make_coverage_metadata()
+        del data["time_window_days"]
+        with pytest.raises(ValidationError):
+            CoverageMetadata(**data)
+
+    def test_zero_time_window_rejected(self):
+        with pytest.raises(ValidationError):
+            CoverageMetadata(**_make_coverage_metadata(time_window_days=0))
+
+    def test_negative_conversations_rejected(self):
+        with pytest.raises(ValidationError):
+            CoverageMetadata(**_make_coverage_metadata(conversations_available=-1))
+
+    def test_missing_model_rejected(self):
+        data = _make_coverage_metadata()
+        del data["model"]
+        with pytest.raises(ValidationError):
+            CoverageMetadata(**data)
+
+    def test_empty_model_rejected(self):
+        with pytest.raises(ValidationError):
+            CoverageMetadata(**_make_coverage_metadata(model=""))
+
+    def test_extra_fields_allowed(self):
+        cm = CoverageMetadata(
+            **_make_coverage_metadata(),
+            batches_processed=10,
+        )
+        assert cm.batches_processed == 10  # type: ignore[attr-defined]
+
+
+# ============================================================================
+# ExplorerCheckpoint tests
+# ============================================================================
+
+
+class TestExplorerCheckpoint:
+    def test_valid_checkpoint(self):
+        cp = ExplorerCheckpoint(**_make_explorer_checkpoint())
+        assert cp.agent_name == "customer_voice"
+        assert cp.schema_version == 1
+        assert len(cp.findings) == 1
+        assert cp.coverage.conversations_available == 450
+
+    def test_missing_agent_name_rejected(self):
+        data = _make_explorer_checkpoint()
+        del data["agent_name"]
+        with pytest.raises(ValidationError):
+            ExplorerCheckpoint(**data)
+
+    def test_empty_agent_name_rejected(self):
+        with pytest.raises(ValidationError):
+            ExplorerCheckpoint(**_make_explorer_checkpoint(agent_name=""))
+
+    def test_missing_coverage_rejected(self):
+        data = _make_explorer_checkpoint()
+        del data["coverage"]
+        with pytest.raises(ValidationError):
+            ExplorerCheckpoint(**data)
+
+    def test_empty_findings_allowed(self):
+        """Explorer may find nothing — that's a valid result."""
+        cp = ExplorerCheckpoint(**_make_explorer_checkpoint(findings=[]))
+        assert len(cp.findings) == 0
+
+    def test_default_findings_is_empty(self):
+        data = _make_explorer_checkpoint()
+        del data["findings"]
+        cp = ExplorerCheckpoint(**data)
+        assert cp.findings == []
+
+    def test_invalid_finding_inside_checkpoint_rejected(self):
+        data = _make_explorer_checkpoint(
+            findings=[{"pattern_name": ""}]  # Empty pattern_name
+        )
+        with pytest.raises(ValidationError):
+            ExplorerCheckpoint(**data)
+
+    def test_invalid_coverage_inside_checkpoint_rejected(self):
+        data = _make_explorer_checkpoint(
+            coverage={"time_window_days": 0}  # Below minimum
+        )
+        with pytest.raises(ValidationError):
+            ExplorerCheckpoint(**data)
+
+    def test_extra_fields_allowed(self):
+        cp = ExplorerCheckpoint(
+            **_make_explorer_checkpoint(),
+            run_duration_seconds=45.2,
+        )
+        assert cp.run_duration_seconds == 45.2  # type: ignore[attr-defined]
+
+    def test_schema_version_defaults_to_1(self):
+        cp = ExplorerCheckpoint(**_make_explorer_checkpoint())
+        assert cp.schema_version == 1
+
+    def test_multiple_findings(self):
+        data = _make_explorer_checkpoint(
+            findings=[
+                _make_explorer_finding(pattern_name="pattern-1"),
+                _make_explorer_finding(pattern_name="pattern-2"),
+                _make_explorer_finding(pattern_name="pattern-3"),
+            ]
+        )
+        cp = ExplorerCheckpoint(**data)
+        assert len(cp.findings) == 3

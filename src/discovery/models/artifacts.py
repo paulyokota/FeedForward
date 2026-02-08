@@ -112,3 +112,63 @@ class TechnicalSpec(BaseModel):
         extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
         if extra_fields:
             logger.info("TechnicalSpec has extra fields: %s", extra_fields)
+
+
+# ============================================================================
+# Explorer agent artifacts (Issue #215)
+# ============================================================================
+
+
+class ExplorerFinding(BaseModel):
+    """A single finding from an explorer agent.
+
+    Each finding names its own pattern (NOT from the existing theme
+    vocabulary) and includes typed evidence pointers.
+    """
+
+    model_config = {"extra": "allow"}
+
+    pattern_name: str = Field(min_length=1, description="Agent-chosen name for the pattern")
+    description: str = Field(min_length=1, description="What was observed")
+    evidence: List[EvidencePointer] = Field(min_length=1)
+    confidence: ConfidenceLevel
+    severity_assessment: str = Field(min_length=1)
+    affected_users_estimate: str = Field(min_length=1)
+
+    def model_post_init(self, __context) -> None:
+        extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
+        if extra_fields:
+            logger.info("ExplorerFinding has extra fields: %s", extra_fields)
+
+
+class CoverageMetadata(BaseModel):
+    """Coverage metadata from an exploration run.
+
+    Tracks what data was reviewed so later stages know the scope.
+    Invariant: conversations_reviewed + conversations_skipped should
+    equal conversations_available (enforced by tests, not the model).
+    """
+
+    model_config = {"extra": "allow"}
+
+    time_window_days: int = Field(ge=1)
+    conversations_available: int = Field(ge=0)
+    conversations_reviewed: int = Field(ge=0)
+    conversations_skipped: int = Field(ge=0)
+    model: str = Field(min_length=1)
+    findings_count: int = Field(ge=0)
+
+
+class ExplorerCheckpoint(BaseModel):
+    """Formal EXPLORATION stage checkpoint artifact (MF1).
+
+    Registered in STAGE_ARTIFACT_MODELS so the state machine validates
+    explorer output before advancing to OPPORTUNITY_FRAMING.
+    """
+
+    model_config = {"extra": "allow"}
+
+    schema_version: int = 1
+    agent_name: str = Field(min_length=1)
+    findings: List[ExplorerFinding] = Field(default_factory=list)
+    coverage: CoverageMetadata

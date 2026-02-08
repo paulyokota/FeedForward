@@ -10,7 +10,10 @@ from src.discovery.models.enums import (
     BuildExperimentDecision,
 )
 from src.discovery.models.artifacts import (
+    CoverageMetadata,
     EvidencePointer,
+    ExplorerCheckpoint,
+    ExplorerFinding,
     OpportunityBrief,
     SolutionBrief,
     TechnicalSpec,
@@ -37,7 +40,10 @@ __all__ = [
     "SourceType",
     "ConfidenceLevel",
     "BuildExperimentDecision",
+    "CoverageMetadata",
     "EvidencePointer",
+    "ExplorerCheckpoint",
+    "ExplorerFinding",
     "OpportunityBrief",
     "SolutionBrief",
     "TechnicalSpec",
