@@ -509,7 +509,8 @@ class TestDocTruncation:
         assert "[... truncated ...]" in formatted
 
     def test_batch_budget_truncation(self):
-        """When total formatted text exceeds max_chars_per_batch, tail docs dropped."""
+        """When total formatted text exceeds max_chars_per_batch, tail docs dropped
+        and coverage correctly reflects only docs the LLM actually saw."""
         items = [
             _make_research_item(f"docs/doc_{i}.md", f"# Doc {i}\n" + "x" * 500, bucket="general")
             for i in range(10)
@@ -527,7 +528,11 @@ class TestDocTruncation:
         result = explorer.explore()
 
         # Should still complete without error
-        assert result.coverage["conversations_reviewed"] == 10
+        cov = result.coverage
+        # Not all 10 docs fit in 1000 chars — dropped docs go to skipped
+        assert cov["conversations_reviewed"] < 10
+        assert cov["conversations_skipped"] > 0
+        assert cov["conversations_reviewed"] + cov["conversations_skipped"] == cov["conversations_available"]
 
     def test_empty_doc_formatted_as_empty(self):
         """Empty or whitespace-only docs get (empty document) marker."""

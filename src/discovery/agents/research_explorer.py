@@ -133,9 +133,12 @@ class ResearchExplorer:
 
             for sub_batch in sub_batches:
                 try:
-                    findings, usage = self._analyze_batch(sub_batch, bucket_name)
+                    findings, usage, docs_included = self._analyze_batch(
+                        sub_batch, bucket_name
+                    )
                     all_batch_findings.append(findings)
-                    reviewed_count += len(sub_batch)
+                    reviewed_count += docs_included
+                    skipped_count += len(sub_batch) - docs_included
                     for key in total_usage:
                         total_usage[key] += usage.get(key, 0)
                 except Exception as e:
@@ -301,7 +304,7 @@ class ResearchExplorer:
         Applies max_chars_per_batch safety valve: if the formatted text
         exceeds the budget, drop tail docs (keeps doc boundaries intact).
 
-        Returns (findings_list, usage_dict).
+        Returns (findings_list, usage_dict, docs_included_count).
         """
         formatted_docs = []
         for doc in batch:
@@ -323,10 +326,11 @@ class ResearchExplorer:
             included.append(fd)
             total_chars += needed
 
+        docs_included = len(included) if included else 1  # fallback always includes 1
         formatted = separator.join(included or formatted_docs[:1])
 
         user_prompt = RESEARCH_BATCH_ANALYSIS_USER.format(
-            batch_size=len(batch),
+            batch_size=docs_included,
             bucket_name=bucket_name,
             formatted_docs=formatted,
         )
@@ -359,7 +363,7 @@ class ResearchExplorer:
                 f"Batch {bucket_name}: LLM response missing 'findings' list"
             )
 
-        return raw["findings"], usage
+        return raw["findings"], usage, docs_included
 
     def _synthesize(
         self,
