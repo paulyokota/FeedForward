@@ -66,18 +66,20 @@ class InMemoryStorage:
     def get_run(self, run_id: UUID) -> Optional[DiscoveryRun]:
         return self.runs.get(run_id)
 
+    _UNSET = object()
+
     def update_run_status(
         self,
         run_id: UUID,
         status: RunStatus,
-        current_stage: Optional[StageType] = None,
+        current_stage=_UNSET,
         completed_at: Optional[datetime] = None,
     ) -> Optional[DiscoveryRun]:
         run = self.runs.get(run_id)
         if not run:
             return None
         run.status = status
-        if current_stage is not None:
+        if current_stage is not self._UNSET:
             run.current_stage = current_stage
         if completed_at is not None:
             run.completed_at = completed_at
@@ -294,6 +296,15 @@ class TestHappyPath:
         completed = [s for s in stages if s.status == StageStatus.COMPLETED]
         assert len(completed) == 1
         assert completed[0].completed_at is not None
+
+    def test_advance_without_artifacts_rejected(self, sm, running_run):
+        """Checkpoint output is required for forward transitions (#212)."""
+        with pytest.raises(InvalidTransitionError, match="artifacts"):
+            sm.advance_stage(running_run.id, artifacts=None)
+
+    def test_advance_with_empty_artifacts_rejected(self, sm, running_run):
+        with pytest.raises(InvalidTransitionError, match="artifacts"):
+            sm.advance_stage(running_run.id, artifacts={})
 
 
 # ============================================================================
@@ -655,3 +666,40 @@ class TestInvariants:
         sm.fail_run(running_run.id, {"message": "boom"})
         active = storage.get_active_stage(running_run.id)
         assert active is None
+
+    def test_current_stage_preserved_after_fail(self, sm, storage, running_run):
+        """fail_run should NOT null out current_stage — it records where the failure happened."""
+        run_id = running_run.id
+        # Advance to opportunity_framing so current_stage is non-trivial
+        sm.advance_stage(run_id, artifacts={"data": True})
+        run = storage.get_run(run_id)
+        assert run.current_stage == StageType.OPPORTUNITY_FRAMING
+
+        sm.fail_run(run_id, {"message": "agent crashed"})
+        run = storage.get_run(run_id)
+        assert run.status == RunStatus.FAILED
+        assert run.current_stage == StageType.OPPORTUNITY_FRAMING
+
+    def test_current_stage_preserved_after_stop(self, sm, storage, running_run):
+        """stop_run should NOT null out current_stage."""
+        run_id = running_run.id
+        sm.advance_stage(run_id, artifacts={"data": True})
+        sm.advance_stage(run_id, artifacts={"data": True})
+        run = storage.get_run(run_id)
+        assert run.current_stage == StageType.SOLUTION_VALIDATION
+
+        sm.stop_run(run_id)
+        run = storage.get_run(run_id)
+        assert run.status == RunStatus.STOPPED
+        assert run.current_stage == StageType.SOLUTION_VALIDATION
+
+    def test_current_stage_preserved_after_complete(self, sm, storage, running_run):
+        """complete_run should preserve current_stage as human_review."""
+        run_id = running_run.id
+        for _ in STAGE_ORDER[1:]:
+            sm.advance_stage(run_id, artifacts={"data": True})
+        sm.complete_run(run_id, artifacts={"final": True})
+
+        run = storage.get_run(run_id)
+        assert run.status == RunStatus.COMPLETED
+        assert run.current_stage == StageType.HUMAN_REVIEW

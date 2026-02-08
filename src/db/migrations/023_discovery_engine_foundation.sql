@@ -126,7 +126,9 @@ COMMENT ON COLUMN stage_executions.sent_back_from IS 'If this execution was crea
 CREATE TABLE agent_invocations (
     id SERIAL PRIMARY KEY,
     stage_execution_id INTEGER NOT NULL REFERENCES stage_executions(id) ON DELETE CASCADE,
-    run_id UUID NOT NULL REFERENCES discovery_runs(id) ON DELETE CASCADE,  -- denormalized for queries
+    -- Denormalized for queries. Invariant: must match stage_executions.run_id.
+    -- Enforced by storage layer (not DB constraint) — Phase 2 may add a trigger.
+    run_id UUID NOT NULL REFERENCES discovery_runs(id) ON DELETE CASCADE,
 
     agent_name VARCHAR(100) NOT NULL,
     status discovery_agent_status NOT NULL DEFAULT 'pending',

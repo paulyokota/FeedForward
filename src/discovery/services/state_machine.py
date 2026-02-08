@@ -125,15 +125,24 @@ class DiscoveryStateMachine:
     def advance_stage(
         self,
         run_id: UUID,
-        artifacts: Optional[Dict[str, Any]] = None,
+        artifacts: Dict[str, Any],
     ) -> StageExecution:
         """Complete the current stage and advance to the next one.
 
-        Requires artifacts for the current stage (output validation).
+        Requires artifacts for the current stage (output validation per #212).
         Creates a new stage execution for the next stage.
 
         Returns the new stage execution.
+
+        Raises:
+            InvalidTransitionError: if run is not running, no active stage,
+                at last stage, or artifacts not provided.
         """
+        if not artifacts:
+            raise InvalidTransitionError(
+                "Cannot advance stage without artifacts — checkpoint output is required"
+            )
+
         run = self._get_run_or_raise(run_id)
 
         if run.status != RunStatus.RUNNING:
@@ -301,10 +310,10 @@ class DiscoveryStateMachine:
             completed_at=now,
         )
 
-        # Complete the run
+        # Complete the run (current_stage preserved as human_review)
         return self.storage.update_run_status(
             run_id, RunStatus.COMPLETED, completed_at=now
-        )
+        )  # current_stage not passed → preserved via COALESCE
 
     def fail_run(self, run_id: UUID, error: Dict[str, Any]) -> DiscoveryRun:
         """Mark a run as failed. Terminal state — no further transitions.

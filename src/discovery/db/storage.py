@@ -31,10 +31,18 @@ logger = logging.getLogger(__name__)
 
 
 class DiscoveryStorage:
-    """CRUD operations for discovery runs, stage executions, and agent invocations."""
+    """CRUD operations for discovery runs, stage executions, and agent invocations.
+
+    Requires a psycopg2 connection with RealDictCursor (all row mappers access by key).
+    The standard FeedForward get_db() dependency provides this automatically.
+    """
 
     def __init__(self, db_connection):
         self.db = db_connection
+
+    def _cursor(self):
+        """Get a cursor with RealDictCursor to ensure dict-style row access."""
+        return self.db.cursor(cursor_factory=RealDictCursor)
 
     # ========================================================================
     # Discovery Runs
@@ -42,7 +50,7 @@ class DiscoveryStorage:
 
     def create_run(self, run: DiscoveryRun) -> DiscoveryRun:
         """Create a new discovery run. Returns the created run with generated ID."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO discovery_runs (status, current_stage, config, metadata, errors, warnings)
@@ -64,7 +72,7 @@ class DiscoveryStorage:
 
     def get_run(self, run_id: UUID) -> Optional[DiscoveryRun]:
         """Get a discovery run by ID."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 SELECT id, status, current_stage, config, metadata,
@@ -79,32 +87,51 @@ class DiscoveryStorage:
                 return None
             return self._row_to_run(row)
 
+    _UNSET = object()
+
     def update_run_status(
         self,
         run_id: UUID,
         status: RunStatus,
-        current_stage: Optional[StageType] = None,
+        current_stage=_UNSET,
         completed_at: Optional[datetime] = None,
     ) -> Optional[DiscoveryRun]:
-        """Update run status and optionally current_stage and completed_at."""
-        with self.db.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE discovery_runs
-                SET status = %s,
-                    current_stage = %s,
-                    completed_at = %s
-                WHERE id = %s
-                RETURNING id, status, current_stage, config, metadata,
-                          started_at, completed_at, errors, warnings
-                """,
-                (
-                    status.value,
-                    current_stage.value if current_stage else None,
-                    completed_at,
-                    str(run_id),
-                ),
-            )
+        """Update run status. current_stage is preserved unless explicitly passed.
+
+        Pass current_stage=StageType.X to set it. Pass current_stage=None to clear it.
+        Omit current_stage to preserve the existing value.
+        """
+        with self._cursor() as cur:
+            if current_stage is self._UNSET:
+                # Preserve existing current_stage
+                cur.execute(
+                    """
+                    UPDATE discovery_runs
+                    SET status = %s, completed_at = COALESCE(%s, completed_at)
+                    WHERE id = %s
+                    RETURNING id, status, current_stage, config, metadata,
+                              started_at, completed_at, errors, warnings
+                    """,
+                    (status.value, completed_at, str(run_id)),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE discovery_runs
+                    SET status = %s,
+                        current_stage = %s,
+                        completed_at = COALESCE(%s, completed_at)
+                    WHERE id = %s
+                    RETURNING id, status, current_stage, config, metadata,
+                              started_at, completed_at, errors, warnings
+                    """,
+                    (
+                        status.value,
+                        current_stage.value if current_stage else None,
+                        completed_at,
+                        str(run_id),
+                    ),
+                )
             row = cur.fetchone()
             if not row:
                 return None
@@ -112,7 +139,7 @@ class DiscoveryStorage:
 
     def update_run_metadata(self, run_id: UUID, metadata: RunMetadata) -> Optional[DiscoveryRun]:
         """Update run metadata."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 UPDATE discovery_runs
@@ -130,7 +157,7 @@ class DiscoveryStorage:
 
     def append_run_error(self, run_id: UUID, error: Dict[str, Any]) -> None:
         """Append an error to the run's error list."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 UPDATE discovery_runs
@@ -144,7 +171,7 @@ class DiscoveryStorage:
         self, status: Optional[RunStatus] = None, limit: int = 50
     ) -> List[DiscoveryRun]:
         """List discovery runs, optionally filtered by status."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             if status:
                 cur.execute(
                     """
@@ -176,7 +203,7 @@ class DiscoveryStorage:
 
     def create_stage_execution(self, stage_exec: StageExecution) -> StageExecution:
         """Create a new stage execution record."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO stage_executions (
@@ -195,7 +222,7 @@ class DiscoveryStorage:
                     stage_exec.status.value,
                     stage_exec.attempt_number,
                     stage_exec.participating_agents,
-                    json.dumps(stage_exec.artifacts) if stage_exec.artifacts else None,
+                    json.dumps(stage_exec.artifacts) if stage_exec.artifacts is not None else None,
                     stage_exec.artifact_schema_version,
                     stage_exec.sent_back_from.value if stage_exec.sent_back_from else None,
                     stage_exec.send_back_reason,
@@ -207,7 +234,7 @@ class DiscoveryStorage:
 
     def get_stage_execution(self, execution_id: int) -> Optional[StageExecution]:
         """Get a stage execution by ID."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 SELECT id, run_id, stage, status, attempt_number,
@@ -227,7 +254,7 @@ class DiscoveryStorage:
         self, run_id: UUID, stage: Optional[StageType] = None
     ) -> List[StageExecution]:
         """Get all stage executions for a run, ordered by started_at with id as tie-breaker."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             if stage:
                 cur.execute(
                     """
@@ -256,7 +283,7 @@ class DiscoveryStorage:
 
     def get_active_stage(self, run_id: UUID) -> Optional[StageExecution]:
         """Get the currently active stage execution for a run (in_progress or checkpoint_reached)."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 SELECT id, run_id, stage, status, attempt_number,
@@ -281,7 +308,7 @@ class DiscoveryStorage:
         completed_at: Optional[datetime] = None,
     ) -> Optional[StageExecution]:
         """Update stage execution status and optionally artifacts/completed_at."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             if artifacts is not None:
                 cur.execute(
                     """
@@ -313,7 +340,7 @@ class DiscoveryStorage:
 
     def get_latest_attempt_number(self, run_id: UUID, stage: StageType) -> int:
         """Get the latest attempt number for a stage in a run. Returns 0 if no attempts."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 SELECT COALESCE(MAX(attempt_number), 0)
@@ -331,7 +358,7 @@ class DiscoveryStorage:
 
     def create_agent_invocation(self, invocation: AgentInvocation) -> AgentInvocation:
         """Create a new agent invocation record."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO agent_invocations (
@@ -349,7 +376,7 @@ class DiscoveryStorage:
                     invocation.agent_name,
                     invocation.status.value,
                     invocation.retry_count,
-                    json.dumps(invocation.output) if invocation.output else None,
+                    json.dumps(invocation.output) if invocation.output is not None else None,
                     invocation.error,
                     json.dumps(invocation.token_usage.model_dump())
                     if invocation.token_usage
@@ -362,7 +389,7 @@ class DiscoveryStorage:
 
     def get_agent_invocation(self, invocation_id: int) -> Optional[AgentInvocation]:
         """Get an agent invocation by ID."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 SELECT id, stage_execution_id, run_id, agent_name, status,
@@ -380,7 +407,7 @@ class DiscoveryStorage:
 
     def get_invocations_for_stage(self, stage_execution_id: int) -> List[AgentInvocation]:
         """Get all agent invocations for a stage execution."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 SELECT id, stage_execution_id, run_id, agent_name, status,
@@ -396,7 +423,7 @@ class DiscoveryStorage:
 
     def get_invocations_for_run(self, run_id: UUID) -> List[AgentInvocation]:
         """Get all agent invocations for a run (uses denormalized run_id)."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 SELECT id, stage_execution_id, run_id, agent_name, status,
@@ -420,7 +447,7 @@ class DiscoveryStorage:
         completed_at: Optional[datetime] = None,
     ) -> Optional[AgentInvocation]:
         """Update agent invocation status and results."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 UPDATE agent_invocations
@@ -436,9 +463,9 @@ class DiscoveryStorage:
                 """,
                 (
                     status.value,
-                    json.dumps(output) if output else None,
+                    json.dumps(output) if output is not None else None,
                     error,
-                    json.dumps(token_usage.model_dump()) if token_usage else None,
+                    json.dumps(token_usage.model_dump()) if token_usage is not None else None,
                     completed_at,
                     invocation_id,
                 ),
@@ -450,7 +477,7 @@ class DiscoveryStorage:
 
     def increment_agent_retry(self, invocation_id: int) -> Optional[AgentInvocation]:
         """Increment retry count and reset status to pending."""
-        with self.db.cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(
                 """
                 UPDATE agent_invocations
