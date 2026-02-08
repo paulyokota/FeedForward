@@ -124,7 +124,7 @@ class OpportunityPM:
             response_format={"type": "json_object"},
         )
 
-        usage = {}
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         if response.usage:
             usage = {
                 "prompt_tokens": response.usage.prompt_tokens,
@@ -177,12 +177,21 @@ class OpportunityPM:
     def build_checkpoint_artifacts(
         self,
         result: FramingResult,
+        valid_evidence_ids: Optional[set] = None,
     ) -> Dict[str, Any]:
         """Convert FramingResult into OpportunityFramingCheckpoint schema.
 
         Transforms raw LLM opportunities into typed OpportunityBrief structures
-        with EvidencePointers. Evidence pointers reference conversation IDs
-        from the explorer findings.
+        with EvidencePointers. Evidence IDs are validated against the set of
+        known IDs from explorer findings — unknown IDs are filtered out and
+        logged as warnings.
+
+        Args:
+            result: The FramingResult from frame_opportunities()
+            valid_evidence_ids: Set of conversation IDs known to exist in
+                explorer findings. If provided, any LLM-generated ID not in
+                this set is filtered out. If None, all IDs are accepted
+                (for backward compatibility / testing).
         """
         now = datetime.now(timezone.utc).isoformat()
         briefs = []
@@ -190,6 +199,14 @@ class OpportunityPM:
         for raw_opp in result.opportunities:
             evidence = []
             for conv_id in raw_opp.get("evidence_conversation_ids", []):
+                if valid_evidence_ids is not None and conv_id not in valid_evidence_ids:
+                    logger.warning(
+                        "Filtering unknown evidence ID '%s' from opportunity '%s' "
+                        "(not found in explorer findings)",
+                        conv_id,
+                        raw_opp.get("problem_statement", "?")[:50],
+                    )
+                    continue
                 evidence.append({
                     "source_type": SourceType.INTERCOM.value,
                     "source_id": conv_id,
@@ -217,7 +234,25 @@ class OpportunityPM:
                 "opportunities_identified": len(briefs),
                 "model": self.config.model,
             },
+            "framing_notes": result.framing_notes,
         }
+
+
+def extract_evidence_ids(explorer_checkpoint: Dict[str, Any]) -> set:
+    """Extract all conversation IDs referenced in explorer findings.
+
+    Returns a set of conversation IDs that can be used as valid_evidence_ids
+    when building checkpoint artifacts.
+    """
+    ids = set()
+    for finding in explorer_checkpoint.get("findings", []):
+        for ev in finding.get("evidence", []):
+            source_id = ev.get("source_id", "")
+            if source_id:
+                ids.add(source_id)
+        for conv_id in finding.get("evidence_conversation_ids", []):
+            ids.add(conv_id)
+    return ids
 
 
 def _map_confidence(raw) -> str:

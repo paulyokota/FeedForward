@@ -348,6 +348,45 @@ class TestCheckpointBuilding:
         for brief in checkpoint["briefs"]:
             assert "source_findings" in brief
 
+    def test_unknown_evidence_ids_filtered_when_valid_set_provided(self):
+        """Evidence IDs not in valid_evidence_ids are filtered out."""
+        pm = _make_pm(_make_opportunity_response())
+        checkpoint_input = _make_explorer_checkpoint()
+
+        result = pm.frame_opportunities(checkpoint_input)
+
+        # Only allow conv_001 — conv_002 etc should be filtered
+        valid_ids = {"conv_001"}
+        checkpoint = pm.build_checkpoint_artifacts(result, valid_evidence_ids=valid_ids)
+
+        for brief in checkpoint["briefs"]:
+            for ev in brief["evidence"]:
+                assert ev["source_id"] in valid_ids, (
+                    f"Unknown evidence ID '{ev['source_id']}' was not filtered"
+                )
+
+    def test_all_evidence_ids_pass_when_no_valid_set(self):
+        """Without valid_evidence_ids, all IDs are accepted (backward compat)."""
+        pm = _make_pm(_make_opportunity_response())
+        checkpoint_input = _make_explorer_checkpoint()
+
+        result = pm.frame_opportunities(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(result, valid_evidence_ids=None)
+
+        total_evidence = sum(len(b["evidence"]) for b in checkpoint["briefs"])
+        assert total_evidence > 0  # Nothing filtered
+
+    def test_framing_notes_preserved_in_checkpoint(self):
+        """framing_notes from the LLM is included in the checkpoint."""
+        pm = _make_pm(_make_opportunity_response())
+        checkpoint_input = _make_explorer_checkpoint()
+
+        result = pm.frame_opportunities(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(result)
+
+        assert "framing_notes" in checkpoint
+        assert checkpoint["framing_notes"] != ""
+
 
 # ============================================================================
 # Error handling
