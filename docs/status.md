@@ -24,9 +24,27 @@
 **30-Day Recency Gate (Issue #200): COMPLETE** ✅
 **Pipeline Checkpoint/Resumability (Issue #202): COMPLETE** ✅
 **Streaming Batch Resume (Issue #209): COMPLETE** ✅
-**Discovery Engine: ARCHITECTURE COMPLETE, IMPLEMENTATION PENDING** 🔄
+**Discovery Engine: PHASE 1 IN PROGRESS** 🔄
 
-## Latest: Discovery Engine Architecture (2026-02-07)
+## Latest: Discovery Engine Foundation Complete (2026-02-08)
+
+**Issue #213 COMPLETE** ✅ — Foundation: state machine, artifact contracts, run metadata (PR #232)
+**Issue #214 COMPLETE** ✅ — Conversation protocol for agent dialogue (PR #233)
+
+Infrastructure now in place:
+
+- Postgres state machine with 6-stage pipeline, transition matrices, send-back support
+- 4 Pydantic artifact contracts (EvidencePointer, OpportunityBrief, SolutionBrief, TechnicalSpec)
+- Conversation protocol: JSON envelope events, Agenterminal transport, per-stage artifact validation
+- ConversationService: create, post, read, checkpoint, complete with ownership guards
+- 143 discovery engine tests (all passing)
+- Codex-reviewed via Agenterminal (DISCOVERYENGREVIEW)
+
+**Next**: Issue #215 — Customer Voice Explorer Agent (GATE: capability thesis test)
+
+---
+
+## Previous: Discovery Engine Architecture (2026-02-07)
 
 **Issues #212-#231** — AI-Orchestrated Project Discovery Engine
 
@@ -41,8 +59,6 @@ Architecture designed and project set up for implementation:
 - Phase 1 (8-10 weeks): Prove capability thesis — do agents discover things humans miss?
 - Phase 2 (conditional): Add operational maturity — cost controls, evidence validation, variance bounding
 - Key decision gates: after Customer Voice Explorer (#215), after end-to-end test (#225)
-
-**Next**: Start implementation with #213 (Foundation: state machine, artifact contracts, run metadata)
 
 ---
 
