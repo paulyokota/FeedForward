@@ -26,7 +26,29 @@
 **Streaming Batch Resume (Issue #209): COMPLETE** ✅
 **Discovery Engine: PHASE 1 IN PROGRESS** 🔄
 
-## Latest: Discovery Engine Foundation Complete (2026-02-08)
+## Latest: Customer Voice Explorer — Capability Thesis Test (2026-02-08)
+
+**Issue #215 COMPLETE** ✅ — Customer Voice Explorer Agent (capability thesis PASS)
+
+First explorer agent and primary thesis test for the Discovery Engine:
+
+- Two-pass LLM strategy: per-batch analysis (10 batches of 20) + synthesis pass
+- Data access layer reads raw conversations from Postgres (COALESCE/NULLIF fallback)
+- ExplorerCheckpoint artifact model validates EXPLORATION stage output
+- Deterministic truncation: first message + last 3 + metadata, 2000 char budget
+- Per-batch error isolation (one LLM failure doesn't abort the run)
+- Comparison script for side-by-side analysis vs pipeline themes
+- Functional test: 200 real conversations, 5 findings, 1 novel pattern, ~$0.02 cost
+- 226 discovery tests passing (65 new for #215)
+- Codex-reviewed via Agenterminal (3QEL461: 2 rounds, REVIEW_APPROVED)
+
+**Thesis result**: Explorer operates at strategic abstraction level (product area patterns) vs pipeline's tactical level (specific bugs/features). Complementary, not competitive. 1 novel cross-cutting pattern surfaced.
+
+**Next**: Issue #65 (P1 SQL injection fix) or Issue #219 (Opportunity Framing agent)
+
+---
+
+## Previous: Discovery Engine Foundation (2026-02-08)
 
 **Issue #213 COMPLETE** ✅ — Foundation: state machine, artifact contracts, run metadata (PR #232)
 **Issue #214 COMPLETE** ✅ — Conversation protocol for agent dialogue (PR #233)
@@ -39,8 +61,6 @@ Infrastructure now in place:
 - ConversationService: create, post, read, checkpoint, complete with ownership guards
 - 143 discovery engine tests (all passing)
 - Codex-reviewed via Agenterminal (DISCOVERYENGREVIEW)
-
-**Next**: Issue #215 — Customer Voice Explorer Agent (GATE: capability thesis test)
 
 ---
 

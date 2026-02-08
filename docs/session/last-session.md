@@ -1,53 +1,61 @@
 # Last Session Summary
 
 **Date**: 2026-02-08
-**Branch**: main (after merging feature/214-conversation-protocol)
+**Branch**: main
 
 ## Goal
 
-Implement Discovery Engine issues #213 and #214, with Codex code review via Agenterminal.
+Implement Issue #215: Customer Voice Explorer Agent — the primary capability thesis test for the Discovery Engine.
 
 ## Completed
 
-### Issue #213 — Foundation: State Machine, Artifact Contracts, Run Metadata
+- Issue #215 implemented, reviewed, functional-tested, pushed, and closed
+- Customer Voice Explorer agent: two-pass LLM strategy (per-batch analysis + synthesis)
+- Data access layer with COALESCE/NULLIF fallback for null/empty handling
+- ExplorerCheckpoint artifact model registered in STAGE_ARTIFACT_MODELS (MF1)
+- Deterministic truncation: first message + last 3 + metadata, 2000 char budget (MF2)
+- DB null/empty handling with used_fallback tracking (MF3)
+- Per-batch error isolation (one LLM failure doesn't abort the run)
+- Comparison script for capability thesis evidence
+- Functional test: 200 real conversations, 5 findings, 1 novel pattern, 0 errors
+- Functional test evidence tightened per Codex review (acceptance criteria checklist, sample method, overlap rubric, reproducibility)
+- Backlog hygiene: filed #234 (flaky tests) and #235 (remaining artifact models)
 
-- PR #232 merged (squash)
-- Migration 023: 4 enums, 3 tables (discovery_runs, stage_executions, agent_invocations)
-- Pydantic models: EvidencePointer, OpportunityBrief, SolutionBrief, TechnicalSpec
-- DiscoveryStateMachine with transition matrices, send-back support
-- DiscoveryStorage with sentinel pattern for optional fields
-- 87 tests (36 artifacts + 51 state machine)
-- Codex review: 3 rounds, all blocking issues resolved
+## Commits
 
-### Issue #214 — Conversation Protocol for Agent Dialogue
+- `ca98a14` feat(discovery): Customer Voice Explorer agent (#215)
+- `759d492` fix(discovery): Aggregate pipeline themes in comparison script to fit context window
+- `f351dce` docs: Functional test evidence for Issue #215
 
-- PR #233 merged (squash)
-- Migration 024: conversation_id on stage_executions
-- ConversationTransport protocol (InMemory + Agenterminal backends)
-- JSON envelope event system (\_event field in turn text)
-- ConversationService: create, post, read, checkpoint, complete
-- Per-stage Pydantic artifact validation
-- Conversation ownership guards (conversation_id ↔ stage, execution ↔ run)
-- 143 tests (56 new for conversation protocol)
-- Codex review: 2 rounds, all blocking issues resolved
+## Tests
+
+- 226/226 discovery tests passing
+- 31 new explorer tests + 28 artifact tests + 6 integration tests
+
+## Code Reviews
+
+- Plan review: Agenterminal 4RPE405 (3 must-fixes) -> 5GNN090 (1 must-fix) -> 8KGG480 (approved)
+- Code review: Agenterminal 3QEL461 (1 must-fix + 2 suggestions -> fixed -> REVIEW_APPROVED)
+- Functional test evidence review: Codex feedback addressed (5 gaps tightened)
 
 ## Key Decisions
 
-- Agenterminal as canonical dialogue store (no Postgres duplication of turns)
-- JSON envelope with `_event` field for structured events (not text prefix)
-- Per-stage Pydantic validation in ConversationService (not state machine) — separation of concerns
-- `_UNSET = object()` sentinel pattern for optional parameter preservation in storage
-- `extra='allow'` on artifact models per #212 spec
+- Used Postgres instead of Intercom MCP for data access (pragmatic: same data, enables direct comparison)
+- gpt-4o-mini for exploration (cost-efficient, ~$0.02 per run)
+- Recency-biased sampling (ORDER BY created_at DESC) — acceptable for thesis test
+- Agenterminal code review instead of 5-personality review — substantive, caught real bug
+
+## Thesis Result
+
+The explorer operates at a different abstraction level than the pipeline. It found 1 novel cross-cutting pattern (support clarity as a meta-concern) that the pipeline taxonomy doesn't surface. The two approaches are complementary, not competitive. Thesis: cautious pass.
 
 ## What's Next
 
-- Issue #215: Customer Voice Explorer Agent (GATE — capability thesis test)
-  - First actual AI agent connecting to Intercom via MCP
-  - Must surface patterns existing pipeline misses, or discovery engine doesn't hold
-  - Issue read, plan not yet created
-- After #215 gate decision: #216/#217/#218 (parallel explorer agents)
+- Issue #65: SQL injection via f-string LIMIT (P1 security, open since Jan 21)
+- Issue #219: Stage 1 Opportunity Framing agent
+- Issue #234: Fix flaky tests in full suite
+- Consider stratified sampling for explorer (currently recency-biased)
 
-## Agenterminal Context
+---
 
-- Review conversation: DISCOVERYENGREVIEW
-- Used for both #213 and #214 plan review + code review
+_Session end: 2026-02-08_
