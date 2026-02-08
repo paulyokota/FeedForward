@@ -575,3 +575,169 @@ Respond as JSON:
   ]
 }}
 """
+
+
+# ============================================================================
+# Research Explorer: open-ended pattern recognition on internal documentation
+# (Issue #218)
+# ============================================================================
+
+RESEARCH_BATCH_ANALYSIS_SYSTEM = """\
+You are analyzing a batch of internal {bucket_name} documents from a software \
+project. Your job is to surface product-relevant signals that are easy to miss \
+when reading docs one-by-one.
+
+Focus on:
+1. **Unresolved decisions** — open questions, TODOs, debated approaches, repeated \
+"next steps" that never conclude
+2. **Gaps between documentation and reality** — docs that describe behavior, \
+process, or architecture that likely doesn't match the current product or codebase. \
+Note the doc claim and why it seems questionable.
+3. **Recurring blockers or pain points** — issues that show up across multiple \
+documents, suggesting systemic problems
+
+You are NOT classifying documents into predefined categories.
+You are NOT using any existing taxonomy or theme vocabulary.
+You are discovering patterns from scratch, naming them yourself.
+
+For each pattern you find:
+1. Give it a descriptive name (your own words, not a category label)
+2. Describe what you observed and why it matters
+3. List which document paths contain evidence for this pattern
+4. Assess your confidence: high (clear, repeated signal across docs), medium \
+(plausible but limited evidence), or low (single instance, ambiguous)
+5. Estimate severity: how much does this affect product development or user experience?
+6. Estimate scope: how much of the product or team is affected?
+
+Prefer cross-document patterns over single-document observations. A pattern \
+visible in 3 documents is a stronger signal than one confined to a single doc.
+
+It's fine to find zero patterns in a batch. Be honest about what you see.
+"""
+
+RESEARCH_BATCH_ANALYSIS_USER = """\
+Here are {batch_size} internal {bucket_name} documents.
+
+{formatted_docs}
+
+---
+
+Analyze these documents for patterns. Return your findings as JSON:
+
+{{
+  "findings": [
+    {{
+      "pattern_name": "your descriptive name for this pattern",
+      "description": "what you observed and why it matters",
+      "evidence_doc_paths": ["docs/foo.md", "docs/bar.md"],
+      "confidence": "high|medium|low",
+      "severity_assessment": "impact on product development or user experience",
+      "affected_users_estimate": "scope of product or team affected"
+    }}
+  ],
+  "batch_notes": "any observations about this batch that don't rise to a finding"
+}}
+
+If you find no patterns, return {{"findings": [], "batch_notes": "explanation"}}.
+"""
+
+
+# ============================================================================
+# Research synthesis: merge findings across document buckets
+# ============================================================================
+
+RESEARCH_SYNTHESIS_SYSTEM = """\
+You are synthesizing findings from analysis of internal documentation across \
+multiple document categories (strategy, architecture, process, session notes, \
+reference). Now you need to:
+
+1. Merge findings that describe the same underlying pattern (even if named \
+slightly differently across batches)
+2. Cross-reference — a pattern visible in both strategy docs AND architecture \
+docs is a stronger signal than one seen in only one category
+3. Emphasize contradictions between categories (e.g., strategy says one thing, \
+process docs say another)
+4. Reassess confidence given the full picture
+5. Drop findings that, in the full context, seem like noise rather than signal
+6. Keep the merged pattern names descriptive and specific
+
+If some findings likely overlap with what a codebase review or customer \
+conversation analysis would find, note this as an overlap_hypothesis.
+
+Do NOT invent new patterns that weren't in the batch findings.
+Do NOT drop patterns just because they're low-confidence — the point is to \
+surface what the docs show, including weak signals.
+"""
+
+RESEARCH_SYNTHESIS_USER = """\
+Here are findings from {num_buckets} categories of internal documentation \
+({total_docs} documents total):
+
+{batch_findings_json}
+
+---
+
+Synthesize these into a unified set of findings. Return as JSON:
+
+{{
+  "findings": [
+    {{
+      "pattern_name": "merged descriptive name",
+      "description": "synthesized description across categories",
+      "evidence_doc_paths": ["all", "supporting", "doc_paths"],
+      "confidence": "high|medium|low",
+      "severity_assessment": "synthesized severity",
+      "affected_users_estimate": "refined scope estimate",
+      "batch_sources": ["strategy", "architecture"]
+    }}
+  ],
+  "synthesis_notes": "what changed during synthesis — merges, drops, confidence changes",
+  "overlap_hypothesis": "if any findings likely overlap with other explorer types, note here"
+}}
+"""
+
+
+# ============================================================================
+# Research requery: follow-up analysis for explorer:request events
+# ============================================================================
+
+RESEARCH_REQUERY_SYSTEM = """\
+You are a researcher being asked a follow-up question about internal \
+documentation you previously analyzed. You have access to the original \
+documents and your previous findings.
+
+Answer the question directly. If you need to look at specific documents again, \
+reference them by path. If the question asks about something your previous \
+analysis didn't cover, say so — don't fabricate an answer.
+"""
+
+RESEARCH_REQUERY_USER = """\
+Previous findings:
+{previous_findings_json}
+
+Question from the orchestrator:
+{request_text}
+
+Relevant documents (if needed):
+{relevant_docs}
+
+---
+
+Respond as JSON:
+
+{{
+  "answer": "your response to the question",
+  "evidence_doc_paths": ["doc_paths", "if", "applicable"],
+  "confidence": "high|medium|low",
+  "additional_findings": [
+    {{
+      "pattern_name": "if the requery surfaces new patterns",
+      "description": "...",
+      "evidence_doc_paths": ["..."],
+      "confidence": "high|medium|low",
+      "severity_assessment": "...",
+      "affected_users_estimate": "..."
+    }}
+  ]
+}}
+"""
