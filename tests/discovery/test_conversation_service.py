@@ -214,11 +214,21 @@ def _valid_explorer_checkpoint():
 
 def _valid_opportunity_brief():
     return {
-        "problem_statement": "Users can't reset passwords",
-        "evidence": [_valid_evidence()],
-        "counterfactual": "If fixed, support tickets drop 20%",
-        "affected_area": "authentication",
-        "explorer_coverage": "Intercom last 14 days",
+        "schema_version": 1,
+        "briefs": [
+            {
+                "problem_statement": "Users can't reset passwords",
+                "evidence": [_valid_evidence()],
+                "counterfactual": "If fixed, support tickets drop 20%",
+                "affected_area": "authentication",
+                "explorer_coverage": "Intercom last 14 days",
+            },
+        ],
+        "framing_metadata": {
+            "explorer_findings_count": 1,
+            "opportunities_identified": 1,
+            "model": "gpt-4o-mini",
+        },
     }
 
 
