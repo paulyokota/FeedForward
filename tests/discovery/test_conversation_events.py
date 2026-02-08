@@ -283,7 +283,7 @@ class TestArtifactValidation:
             assert stage in STAGE_ARTIFACT_MODELS
 
     def test_opportunity_framing_valid(self):
-        """OpportunityBrief validation with valid data."""
+        """OpportunityFramingCheckpoint validation with valid data."""
         from src.discovery.services.conversation import ConversationService
         from src.discovery.services.transport import InMemoryTransport
 
@@ -293,11 +293,21 @@ class TestArtifactValidation:
             state_machine=None,
         )
         artifacts = {
-            "problem_statement": "Users can't reset passwords",
-            "evidence": [_valid_evidence()],
-            "counterfactual": "If we fix this, support tickets drop 20%",
-            "affected_area": "authentication",
-            "explorer_coverage": "Intercom last 14 days",
+            "schema_version": 1,
+            "briefs": [
+                {
+                    "problem_statement": "Users can't reset passwords",
+                    "evidence": [_valid_evidence()],
+                    "counterfactual": "If we fix this, support tickets drop 20%",
+                    "affected_area": "authentication",
+                    "explorer_coverage": "Intercom last 14 days",
+                },
+            ],
+            "framing_metadata": {
+                "explorer_findings_count": 1,
+                "opportunities_identified": 1,
+                "model": "gpt-4o-mini",
+            },
         }
         # Should not raise
         svc._validate_artifacts(StageType.OPPORTUNITY_FRAMING, artifacts)
@@ -402,12 +412,23 @@ class TestArtifactValidation:
             state_machine=None,
         )
         artifacts = {
-            "problem_statement": "Users can't reset passwords",
-            "evidence": [_valid_evidence()],
-            "counterfactual": "If we fix this, tickets drop 20%",
-            "affected_area": "authentication",
-            "explorer_coverage": "Intercom last 14 days",
-            "extra_field": "this should be allowed",
+            "schema_version": 1,
+            "briefs": [
+                {
+                    "problem_statement": "Users can't reset passwords",
+                    "evidence": [_valid_evidence()],
+                    "counterfactual": "If we fix this, tickets drop 20%",
+                    "affected_area": "authentication",
+                    "explorer_coverage": "Intercom last 14 days",
+                    "extra_field": "this should be allowed on brief",
+                },
+            ],
+            "framing_metadata": {
+                "explorer_findings_count": 1,
+                "opportunities_identified": 1,
+                "model": "gpt-4o-mini",
+            },
+            "extra_field": "this should be allowed on checkpoint",
             "another_extra": 42,
         }
         # Should not raise

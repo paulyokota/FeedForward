@@ -1,9 +1,9 @@
-"""LLM prompt templates for the Customer Voice Explorer agent.
+"""LLM prompt templates for Discovery Engine agents.
 
 Critical constraint: These prompts must NOT reference the existing classification
-taxonomy, theme vocabulary, or predefined categories. The explorer names its
-own patterns. This is the whole point — if it rediscovers the same categories,
-that's evidence; if it finds new ones, that's the capability thesis.
+taxonomy, theme vocabulary, or predefined categories. Agents name their own
+patterns. This is the whole point — if they rediscover the same categories,
+that's evidence; if they find new ones, that's the capability thesis.
 
 Templates use str.format() for variable substitution.
 """
@@ -150,6 +150,109 @@ Respond as JSON:
       "confidence": "high|medium|low",
       "severity_assessment": "...",
       "affected_users_estimate": "..."
+    }}
+  ]
+}}
+"""
+
+
+# ============================================================================
+# Opportunity Framing: Stage 1 — synthesize explorer findings into
+# problem-focused OpportunityBriefs (Issue #219)
+# ============================================================================
+
+OPPORTUNITY_FRAMING_SYSTEM = """\
+You are a product strategist reading findings from customer experience analysts.
+Your job is to identify distinct product or process OPPORTUNITIES hidden in the
+findings — problems worth solving, gaps worth filling, friction worth removing.
+
+CRITICAL RULES:
+1. You produce PROBLEM STATEMENTS, never solutions. Do not suggest what to build,
+   how to fix it, or what approach to take. That is someone else's job.
+2. Each opportunity must include a COUNTERFACTUAL: "If we addressed [problem],
+   we would expect [measurable change]." Be quantitative when the evidence
+   supports numbers. When it doesn't, describe what you'd expect to observe.
+3. Identify DISTINCT opportunities. Two findings about the same underlying
+   problem should become one opportunity with combined evidence. Two findings
+   about genuinely different problems should stay separate.
+4. Every opportunity must trace back to specific explorer findings. Include
+   the evidence_conversation_ids from those findings.
+5. Name each opportunity descriptively — what's the problem, not a category label.
+
+You are NOT proposing solutions.
+You are NOT prioritizing — that happens later.
+You are identifying what's broken and who it affects.
+"""
+
+OPPORTUNITY_FRAMING_USER = """\
+Explorer findings ({num_findings} total) from the last analysis window:
+
+{explorer_findings_json}
+
+Coverage: {coverage_summary}
+
+---
+
+Identify distinct opportunities from these findings. Return as JSON:
+
+{{
+  "opportunities": [
+    {{
+      "problem_statement": "what's wrong and who is affected — be specific",
+      "evidence_conversation_ids": ["conv_ids", "from", "the", "findings"],
+      "counterfactual": "if we addressed [this problem], we would expect [measurable change]",
+      "affected_area": "product surface or system component affected",
+      "confidence": "high|medium|low",
+      "source_findings": ["pattern_name_1", "pattern_name_2"]
+    }}
+  ],
+  "framing_notes": "how you grouped findings, what you merged, any weak signals you kept or dropped"
+}}
+
+If the findings contain no actionable opportunities, return:
+{{"opportunities": [], "framing_notes": "explanation of why no opportunities were identified"}}
+"""
+
+
+# ============================================================================
+# Opportunity re-query: follow-up questions from Opportunity PM to explorers
+# ============================================================================
+
+OPPORTUNITY_REQUERY_SYSTEM = """\
+You are a product strategist asking follow-up questions about customer experience
+findings. You've already identified potential opportunities but need more context
+to strengthen or refine your analysis.
+
+Frame your questions specifically. Instead of "tell me more about X," ask
+"how many customers mentioned X" or "did customers describe workarounds for X."
+"""
+
+OPPORTUNITY_REQUERY_USER = """\
+Current opportunity briefs (draft):
+{current_briefs_json}
+
+Original explorer findings:
+{explorer_findings_json}
+
+Your question:
+{request_text}
+
+---
+
+Respond as JSON:
+
+{{
+  "answer": "your response",
+  "evidence_conversation_ids": ["conv_ids", "if", "applicable"],
+  "confidence": "high|medium|low",
+  "revised_opportunities": [
+    {{
+      "problem_statement": "updated if the requery changes anything",
+      "evidence_conversation_ids": ["updated", "list"],
+      "counterfactual": "updated if needed",
+      "affected_area": "updated if needed",
+      "confidence": "high|medium|low",
+      "source_findings": ["pattern_names"]
     }}
   ]
 }}

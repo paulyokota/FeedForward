@@ -10,7 +10,7 @@ Phase 1 experience" and "agents can (and should) include more when relevant."
 
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -67,6 +67,40 @@ class OpportunityBrief(BaseModel):
         extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
         if extra_fields:
             logger.info("OpportunityBrief has extra fields: %s", extra_fields)
+
+
+class FramingMetadata(BaseModel):
+    """Stable metadata fields for OpportunityFramingCheckpoint.
+
+    Documents what the Opportunity PM reviewed and produced, so downstream
+    stages can assess coverage without parsing the briefs themselves.
+    """
+
+    model_config = {"extra": "allow"}
+
+    explorer_findings_count: int = Field(ge=0)
+    opportunities_identified: int = Field(ge=0)
+    model: str = Field(min_length=1)
+
+
+class OpportunityFramingCheckpoint(BaseModel):
+    """Stage 1 checkpoint artifact wrapping multiple OpportunityBriefs.
+
+    A single discovery run may identify multiple distinct opportunities.
+    Each proceeds independently through Stages 2-5. Empty briefs list
+    is valid when the explorer found nothing actionable.
+    """
+
+    model_config = {"extra": "allow"}
+
+    schema_version: int = 1
+    briefs: List[OpportunityBrief] = Field(default_factory=list)
+    framing_metadata: FramingMetadata
+
+    def model_post_init(self, __context) -> None:
+        extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
+        if extra_fields:
+            logger.info("OpportunityFramingCheckpoint has extra fields: %s", extra_fields)
 
 
 class SolutionBrief(BaseModel):
