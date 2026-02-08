@@ -538,6 +538,14 @@ class TestPostHogReader:
         assert "TRENDS" in points[0].result_summary
         assert "$pageview" in points[0].result_summary
 
+    def test_fetch_specific_empty_query_returns_empty(self):
+        """Empty or whitespace-only query returns empty list."""
+        reader = PostHogReader(
+            event_definitions=[_make_event_definition(name="user_signed_up")],
+        )
+        assert reader.fetch_specific("") == []
+        assert reader.fetch_specific("   ") == []
+
     def test_source_ref_sanitization(self):
         """Event names with spaces/slashes get sanitized in source_ref."""
         reader = PostHogReader(event_definitions=[
@@ -730,13 +738,54 @@ class TestBuildCheckpoint:
         for evidence in checkpoint["findings"][0]["evidence"]:
             assert evidence["source_type"] == "posthog"
 
-    def test_finding_without_evidence_refs(self):
-        """Finding with no evidence_refs should produce empty evidence."""
+    def test_finding_without_evidence_refs_is_dropped(self):
+        """Finding with no evidence_refs violates ExplorerFinding(min_length=1)
+        and should be dropped with a warning, not included."""
         result = ExplorerResult(
             findings=[
                 {
                     "pattern_name": "no_evidence_pattern",
                     "description": "pattern without refs",
+                    "confidence": "low",
+                    "severity_assessment": "low",
+                    "affected_users_estimate": "unknown",
+                },
+                {
+                    "pattern_name": "has_evidence",
+                    "description": "pattern with refs",
+                    "evidence_refs": ["event_user_signed_up"],
+                    "confidence": "high",
+                    "severity_assessment": "high",
+                    "affected_users_estimate": "many",
+                },
+            ],
+            coverage={
+                "time_window_days": 1,
+                "conversations_available": 5,
+                "conversations_reviewed": 5,
+                "conversations_skipped": 0,
+                "model": "gpt-4o-mini",
+                "findings_count": 2,
+                "items_type": "analytics_data_points",
+            },
+        )
+
+        explorer = AnalyticsExplorer(
+            reader=PostHogReader(), openai_client=MagicMock()
+        )
+        checkpoint = explorer.build_checkpoint_artifacts(result)
+
+        # Only the finding with evidence should survive
+        assert len(checkpoint["findings"]) == 1
+        assert checkpoint["findings"][0]["pattern_name"] == "has_evidence"
+
+    def test_all_findings_without_evidence_produces_empty_checkpoint(self):
+        """When ALL findings lack evidence_refs, checkpoint has zero findings."""
+        result = ExplorerResult(
+            findings=[
+                {
+                    "pattern_name": "no_evidence",
+                    "description": "nothing cited",
                     "confidence": "low",
                     "severity_assessment": "low",
                     "affected_users_estimate": "unknown",
@@ -758,7 +807,7 @@ class TestBuildCheckpoint:
         )
         checkpoint = explorer.build_checkpoint_artifacts(result)
 
-        assert checkpoint["findings"][0]["evidence"] == []
+        assert checkpoint["findings"] == []
 
 
 # ============================================================================

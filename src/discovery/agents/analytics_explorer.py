@@ -219,6 +219,14 @@ class AnalyticsExplorer:
                     ),
                 })
 
+            if not evidence:
+                logger.warning(
+                    "Dropping finding '%s' — no evidence_refs "
+                    "(ExplorerFinding requires min 1 evidence pointer)",
+                    raw_finding.get("pattern_name", "unnamed"),
+                )
+                continue
+
             findings.append({
                 "pattern_name": raw_finding.get("pattern_name", "unnamed"),
                 "description": raw_finding.get("description", ""),
@@ -278,14 +286,24 @@ class AnalyticsExplorer:
                 )
             formatted_points.append(summary)
 
-        formatted = "\n\n---\n\n".join(formatted_points)
+        # Safety valve: drop tail records if total exceeds batch budget
+        # (keeps record boundaries intact instead of cutting mid-record)
+        separator = "\n\n---\n\n"
+        total_chars = 0
+        included = []
+        for fp in formatted_points:
+            needed = len(fp) + (len(separator) if included else 0)
+            if total_chars + needed > self.config.max_chars_per_batch:
+                logger.info(
+                    "Batch %s: dropped %d/%d records due to size budget",
+                    data_type, len(formatted_points) - len(included),
+                    len(formatted_points),
+                )
+                break
+            included.append(fp)
+            total_chars += needed
 
-        # Safety valve: truncate if total exceeds batch budget
-        if len(formatted) > self.config.max_chars_per_batch:
-            formatted = (
-                formatted[:self.config.max_chars_per_batch]
-                + "\n\n[... batch truncated due to size ...]"
-            )
+        formatted = separator.join(included or formatted_points[:1])
 
         user_prompt = ANALYTICS_BATCH_ANALYSIS_USER.format(
             data_type=data_type,

@@ -68,16 +68,18 @@ class PostHogReader:
         points.extend(self._format_insights())
         points.extend(self._format_errors())
 
-        # Deterministic ordering: sort by data_type then name
-        points.sort(key=lambda p: (p.data_type, p.name.lower()))
+        # Deterministic ordering: sort by data_type then name (casefold for locale safety)
+        points.sort(key=lambda p: (p.data_type, p.name.casefold()))
         return points
 
     def fetch_specific(self, query: str) -> List[PostHogDataPoint]:
         """Case-insensitive substring search across name and result_summary.
 
         For requery: find data points matching a specific query.
-        Does NOT search raw_data.
+        Does NOT search raw_data. Returns empty list if query is blank.
         """
+        if not query or not query.strip():
+            return []
         all_points = self.fetch_overview()
         query_lower = query.lower()
         return [
