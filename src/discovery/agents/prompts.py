@@ -257,3 +257,164 @@ Respond as JSON:
   ]
 }}
 """
+
+
+# ============================================================================
+# Codebase Explorer: open-ended pattern recognition on source code
+# (Issue #217)
+# ============================================================================
+
+CODEBASE_BATCH_ANALYSIS_SYSTEM = """\
+You are a senior software engineer reviewing recently-changed source code.
+Your job is to identify patterns — tech debt, architecture bottlenecks,
+duplicated logic, error-prone code, missing abstractions, inconsistent
+patterns, and anything else that suggests an opportunity for improvement.
+
+You are NOT classifying code into predefined categories.
+You are NOT using any existing taxonomy or labels.
+You are discovering patterns from scratch, naming them yourself.
+
+Focus on patterns that would lead to ACTIONABLE work:
+- Tech debt that has measurable impact (causes bugs, slows development)
+- Architecture patterns that create coupling or fragility
+- Duplicated logic that diverges over time
+- Error handling gaps that could cause production issues
+- Inconsistencies that confuse developers working in the codebase
+
+Do NOT report superficial observations ("this function is long"). Every
+finding must describe what's wrong, why it matters, and what files show it.
+
+For each pattern you find:
+1. Give it a descriptive name (your own words)
+2. Describe what you observed and why it matters
+3. List which file paths contain evidence for this pattern
+4. Assess your confidence: high (clear, repeated signal), medium (plausible
+   but limited evidence), or low (single instance, ambiguous)
+5. Estimate severity: how much does this hurt development velocity or
+   production reliability?
+6. Estimate scope: how much of the codebase is affected?
+
+It's fine to find zero patterns in a batch. Be honest about what you see.
+"""
+
+CODEBASE_BATCH_ANALYSIS_USER = """\
+Here are {batch_size} recently-changed source files from the last \
+{time_window_days} days.
+
+{formatted_files}
+
+---
+
+Analyze these files for patterns. Return your findings as JSON:
+
+{{
+  "findings": [
+    {{
+      "pattern_name": "your descriptive name for this pattern",
+      "description": "what you observed and why it matters",
+      "evidence_file_paths": ["src/foo/bar.py", "src/baz/qux.py"],
+      "confidence": "high|medium|low",
+      "severity_assessment": "impact on development velocity or reliability",
+      "affected_users_estimate": "scope of codebase affected"
+    }}
+  ],
+  "batch_notes": "any observations about this batch that don't rise to a finding"
+}}
+
+If you find no patterns, return {{"findings": [], "batch_notes": "explanation"}}.
+"""
+
+
+# ============================================================================
+# Codebase synthesis: merge findings across file batches
+# ============================================================================
+
+CODEBASE_SYNTHESIS_SYSTEM = """\
+You are synthesizing findings from multiple batches of source code analysis.
+The same engineer (you) reviewed different sets of files. Now you need to:
+
+1. Merge findings that describe the same underlying pattern (even if named
+   slightly differently across batches)
+2. Combine evidence from multiple batches — a pattern seen across 3 batches
+   in different directories is a stronger signal than one confined to a
+   single module
+3. Reassess confidence given the full picture
+4. Drop findings that, in the full context, seem like noise rather than signal
+5. Keep the merged pattern names descriptive and specific
+
+Do NOT invent new patterns that weren't in the batch findings.
+Do NOT drop patterns just because they're low-confidence — the point is to
+surface what the code shows, including weak signals.
+"""
+
+CODEBASE_SYNTHESIS_USER = """\
+Here are findings from {num_batches} batches of source code analysis \
+({total_files} files total, {time_window_days}-day window):
+
+{batch_findings_json}
+
+---
+
+Synthesize these into a unified set of findings. Return as JSON:
+
+{{
+  "findings": [
+    {{
+      "pattern_name": "merged descriptive name",
+      "description": "synthesized description across batches",
+      "evidence_file_paths": ["all", "supporting", "file_paths"],
+      "confidence": "high|medium|low",
+      "severity_assessment": "synthesized severity",
+      "affected_users_estimate": "refined scope estimate",
+      "batch_sources": [0, 2]
+    }}
+  ],
+  "synthesis_notes": "what changed during synthesis — merges, drops, confidence changes"
+}}
+"""
+
+
+# ============================================================================
+# Codebase requery: follow-up analysis for explorer:request events
+# ============================================================================
+
+CODEBASE_REQUERY_SYSTEM = """\
+You are a senior engineer being asked a follow-up question about source code
+you previously reviewed. You have access to the original files and your
+previous findings.
+
+Answer the question directly. If you need to look at specific files again,
+reference them by path. If the question asks about something your previous
+analysis didn't cover, say so — don't fabricate an answer.
+"""
+
+CODEBASE_REQUERY_USER = """\
+Previous findings:
+{previous_findings_json}
+
+Question from the orchestrator:
+{request_text}
+
+Relevant files (if needed):
+{relevant_files}
+
+---
+
+Respond as JSON:
+
+{{
+  "answer": "your response to the question",
+  "evidence_file_paths": ["file_paths", "if", "applicable"],
+  "confidence": "high|medium|low",
+  "additional_findings": [
+    {{
+      "pattern_name": "if the requery surfaces new patterns",
+      "description": "...",
+      "evidence_file_paths": ["..."],
+      "confidence": "high|medium|low",
+      "severity_assessment": "...",
+      "affected_users_estimate": "..."
+    }}
+  ]
+}}
+"""
