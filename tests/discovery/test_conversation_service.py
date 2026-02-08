@@ -288,6 +288,19 @@ class TestConversationCreation:
         )
         assert retrieved == convo_id
 
+    def test_create_rejects_wrong_run_id(self, service, storage, state_machine):
+        """stage_execution_id must belong to the given run_id."""
+        run_a = state_machine.create_run()
+        run_a = state_machine.start_run(run_a.id)
+        run_b = state_machine.create_run()
+        run_b = state_machine.start_run(run_b.id)
+
+        active_a = storage.get_active_stage(run_a.id)
+
+        # Try to link run_a's stage execution to run_b
+        with pytest.raises(ValueError, match="does not belong to run"):
+            service.create_stage_conversation(run_b.id, active_a.id)
+
 
 # ============================================================================
 # Message posting and reading
@@ -483,14 +496,45 @@ class TestCheckpointSubmission:
 
     def test_no_active_stage_raises(self, service, storage, running_run):
         """submit_checkpoint with no active stage should raise."""
-        # Stop the run so there's no active stage
-        from src.discovery.services.state_machine import DiscoveryStateMachine
-
         service.state_machine.stop_run(running_run.id)
 
         with pytest.raises(ValueError, match="No active stage"):
             service.submit_checkpoint(
                 "some-convo", running_run.id, "agent", artifacts={"data": True}
+            )
+
+    def test_wrong_conversation_id_rejected(self, service, storage, running_run):
+        """submit_checkpoint with a stale/wrong conversation_id should raise."""
+        active = storage.get_active_stage(running_run.id)
+        real_convo = service.create_stage_conversation(running_run.id, active.id)
+
+        with pytest.raises(ValueError, match="does not match active stage"):
+            service.submit_checkpoint(
+                "wrong-convo-id",
+                running_run.id,
+                "agent",
+                artifacts={"data": True},
+            )
+
+    def test_stale_conversation_id_rejected_after_advance(
+        self, service, storage, running_run
+    ):
+        """After advancing, the old conversation can't submit checkpoints."""
+        active = storage.get_active_stage(running_run.id)
+        first_convo = service.create_stage_conversation(running_run.id, active.id)
+
+        # Advance to opportunity_framing
+        service.submit_checkpoint(
+            first_convo, running_run.id, "agent", artifacts={"data": True}
+        )
+
+        # Try to submit with the old conversation (now stale)
+        with pytest.raises(ValueError, match="does not match active stage"):
+            service.submit_checkpoint(
+                first_convo,
+                running_run.id,
+                "agent",
+                artifacts=_valid_opportunity_brief(),
             )
 
 
@@ -539,6 +583,26 @@ class TestCompleteWithCheckpoint:
         )
 
         assert completed.status == RunStatus.COMPLETED
+
+    def test_complete_rejects_wrong_conversation(self, service, storage, running_run):
+        """complete_with_checkpoint with wrong conversation_id should raise."""
+        self._advance_to_human_review(service, storage, running_run.id)
+
+        active = storage.get_active_stage(running_run.id)
+        assert active.stage == StageType.HUMAN_REVIEW
+
+        # Create the real conversation
+        real_convo = active.conversation_id or service.create_stage_conversation(
+            running_run.id, active.id
+        )
+
+        with pytest.raises(ValueError, match="does not match active stage"):
+            service.complete_with_checkpoint(
+                "wrong-convo",
+                running_run.id,
+                "reviewer",
+                artifacts={"decision": "approved"},
+            )
 
 
 # ============================================================================

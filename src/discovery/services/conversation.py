@@ -82,10 +82,32 @@ class ConversationService:
     ) -> str:
         """Create a conversation for a stage execution and link it.
 
+        Validates that stage_execution_id belongs to run_id before linking.
+        Retries ID generation on collision (up to 3 attempts).
+
         Returns the conversation_id.
         """
-        conversation_id = self.transport.generate_conversation_id()
-        self.transport.create_conversation(conversation_id)
+        # Verify stage_execution_id belongs to run_id
+        all_stages = self.storage.get_stage_executions_for_run(run_id)
+        if not any(se.id == stage_execution_id for se in all_stages):
+            raise ValueError(
+                f"Stage execution {stage_execution_id} does not belong to run {run_id}"
+            )
+
+        # Generate ID with collision retry
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            conversation_id = self.transport.generate_conversation_id()
+            try:
+                self.transport.create_conversation(conversation_id)
+                break
+            except Exception:
+                if attempt == max_attempts - 1:
+                    raise
+                logger.warning(
+                    "Conversation ID collision on %s, retrying (%d/%d)",
+                    conversation_id, attempt + 1, max_attempts,
+                )
 
         # Link conversation to stage execution in Postgres
         self.storage.update_stage_conversation_id(
@@ -107,6 +129,10 @@ class ConversationService:
         text: str,
     ) -> str:
         """Post a plain text message to a stage conversation.
+
+        agent_name is accepted for API consistency but not embedded in the turn.
+        Plain text messages use the transport's role field for attribution.
+        Structured events (post_event) include agent in the JSON payload.
 
         Returns the turn ID.
         """
@@ -186,6 +212,9 @@ class ConversationService:
         if not active_stage:
             raise ValueError(f"No active stage for run {run_id}")
 
+        # Verify conversation belongs to the active stage
+        self._verify_conversation_ownership(conversation_id, active_stage)
+
         # Validate artifacts against stage-specific model
         self._validate_artifacts(active_stage.stage, artifacts)
 
@@ -246,6 +275,9 @@ class ConversationService:
         if not active_stage:
             raise ValueError(f"No active stage for run {run_id}")
 
+        # Verify conversation belongs to the active stage
+        self._verify_conversation_ownership(conversation_id, active_stage)
+
         # Validate artifacts
         self._validate_artifacts(active_stage.stage, artifacts)
 
@@ -300,6 +332,22 @@ class ConversationService:
     # ========================================================================
     # Internal helpers
     # ========================================================================
+
+    def _verify_conversation_ownership(
+        self,
+        conversation_id: str,
+        active_stage: "StageExecution",
+    ) -> None:
+        """Verify that conversation_id matches the active stage's conversation.
+
+        Prevents a stale or wrong conversation from advancing the run.
+        """
+        if active_stage.conversation_id and active_stage.conversation_id != conversation_id:
+            raise ValueError(
+                f"Conversation {conversation_id} does not match active stage's "
+                f"conversation {active_stage.conversation_id} "
+                f"(stage: {active_stage.stage.value})"
+            )
 
     def _validate_artifacts(
         self,
