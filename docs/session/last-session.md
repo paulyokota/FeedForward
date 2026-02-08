@@ -1,54 +1,72 @@
-# Session Notes: 2026-02-01
+# Last Session Summary
 
-## Issue #209: Streaming Batch Resume for Intercom Backfill
+**Date**: 2026-02-07
+**Branch**: main
 
-### What Was Accomplished
+## Goal
 
-1. **Implementation** (PR #210):
-   - Transformed classification pipeline from fetch-all-then-classify to streaming batch
-   - Each batch: fetch → classify → store → checkpoint before moving to next
-   - Feature-flagged via `PIPELINE_STREAMING_BATCH` env var (default: off)
-   - Configurable batch size: `PIPELINE_STREAMING_BATCH_SIZE` (10-500, default 50)
+Design the AI-Orchestrated Project Discovery Engine architecture and set up the project structure for implementation.
 
-2. **5-Personality Code Review**:
-   - Round 1: Found critical checkpoint timing bug (checkpointing before storage)
-   - Fixed: Process batch FIRST, then checkpoint
-   - Round 2: Converged after schema parity fix (`filtered` field)
+## What Happened
 
-3. **Codex Review** (3 rounds):
-   - Round 1: Found 2 critical issues (cumulative stats, max_conversations)
-   - Round 2: Found checkpoint field name mismatch (`conversations_fetched` vs `counts.fetched`)
-   - Round 3: LGTM - approved for merge
+### Architecture Design (via Agenterminal conversations)
 
-4. **Bug Fix During Testing**:
-   - Missing `Json` import in pipeline.py caused crash
-   - Fixed with `from psycopg2.extras import Json` at correct scope
+**Conversation 9UUF048** — Pressure-tested Claude Code approach vs. Airflow/LangChain/Redis stack with Codex as devil's advocate. Outcome:
 
-5. **Documentation**:
-   - Added runbook: `docs/runbook/streaming-batch-pipeline.md`
-   - Documents counter semantics difference between streaming/legacy modes
+- Claude Code instances as agent engine (capability > operational maturity at this stage)
+- Conversation protocol as coordination layer (not DAGs)
+- Purpose-built Postgres state machine for orchestration
+- 9 hard requirements, phased across two stages
+- Two-phase roadmap: prove capability first, add governance second
 
-### Key Decisions
+**Conversation 8TRY089** — Identified the gap between "discovered opportunity" and "engineering-ready backlog." Codex pushed back on agent roster and stage structure. Outcome:
 
-| Decision                      | Rationale                                         |
-| ----------------------------- | ------------------------------------------------- |
-| Feature flag default OFF      | Safe rollout - legacy path unchanged              |
-| Batch size 50 default         | Balance between checkpoint frequency and overhead |
-| Stop only at batch boundaries | Avoids partial batch complexity                   |
-| Cursor = NEXT page            | Matches Intercom API semantics                    |
+- 6-stage pipeline: Exploration → Opportunity Framing → Solution + Validation → Feasibility + Risk → Prioritization → Human Review
+- Expanded agent roster with collapsed PM roles (Opportunity PM = synthesis + product)
+- Build/Experiment Decision gate with 4 states and Validation Agent authority
+- Counterfactual framing in Opportunity Briefs (no solution direction in Stage 1)
+- Explorer agents as batch + on-demand re-query
 
-### Test Results
+### Key Realizations
 
-- 37 checkpoint tests passing (15 new for streaming batch)
-- Dry run test: 10 conversations processed correctly
-- Full run test: 15 conversations → 6 themes extracted
+- FeedForward's existing pipeline is the extraction model the discovery engine moves past — not a foundation for the new agents
+- Issue #211's cross-signal schema approach was thinking too small
+- Structure belongs in workflow choreography (stage boundaries, checkpoints), not in agent cognition (predefined categories)
 
-### Commits
+### GitHub Issues & Project
 
-1. `8754d14` - feat(pipeline): Add streaming batch resume (#210)
-2. `ff1ed69` - docs: Add streaming batch pipeline runbook
-3. `18746eb` - fix(pipeline): Add missing Json import
+- Created Issue #212 (architecture spec) → iterated through 3 major revisions → closed as reference
+- Closed Issue #211 (superseded)
+- Created 19 issues (#213-#231) across 2 milestones
+- Created "Discovery Engine" GitHub Project with execution order, dependency gates, stage fields
+- Human Review Interface (#223) decided: FeedForward webapp as foundation (not Agenterminal)
 
-### Follow-up Items
+## Artifacts Created
 
-- None blocking - ready for production testing with feature flag
+| Artifact                                 | Location                                           |
+| ---------------------------------------- | -------------------------------------------------- |
+| Architecture reference                   | Issue #212 (closed)                                |
+| Phase 1 milestone                        | "Phase 1: Prove the Capability Thesis" (13 issues) |
+| Phase 2 milestone                        | "Phase 2: Operational Maturity" (6 issues)         |
+| GitHub Project                           | https://github.com/users/paulyokota/projects/2     |
+| Agenterminal conversation (architecture) | 9UUF048                                            |
+| Agenterminal conversation (stages)       | 8TRY089                                            |
+
+## Key Decisions
+
+1. **Claude Code over LangChain** — agent capability is the constraint that matters; operational controls can be added later
+2. **Conversation protocol over Airflow DAGs** — iterative dialogue with cycles, not fixed sequences
+3. **No solution direction in Stage 1** — prevent anchoring; counterfactual framing instead
+4. **Validation Agent has structural authority** — Build/Experiment Decision gate is mandatory, not advisory
+5. **FeedForward webapp for Stage 5 UI** — existing kanban/review patterns map directly to the discovery review workflow
+6. **Phase 1 proves capability before investing in governance** — if agents can't discover valuable things, nothing else matters
+
+## Next Steps
+
+1. Start implementation with #213 (Foundation: state machine, artifact contracts, run metadata)
+2. Then #214 (Conversation protocol integration)
+3. Then #215 (Customer Voice Explorer) — the capability thesis test
+
+---
+
+_Session focused entirely on architecture design and project setup. No code changes._
