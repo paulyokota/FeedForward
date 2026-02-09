@@ -347,10 +347,21 @@ class DiscoveryOrchestrator:
                 }
             )
 
-        ranking_result = tpm.rank_opportunities(packages)
-        artifacts = tpm.build_checkpoint_artifacts(
-            ranking_result["rankings"], ranking_result["token_usage"]
-        )
+        # Short-circuit when no feasible specs — emit empty rankings
+        if not packages:
+            logger.info(
+                "Run %s: no feasible specs — skipping TPM ranking", run_id
+            )
+            artifacts = tpm.build_checkpoint_artifacts([], {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            })
+        else:
+            ranking_result = tpm.rank_opportunities(packages)
+            artifacts = tpm.build_checkpoint_artifacts(
+                ranking_result["rankings"], ranking_result["token_usage"]
+            )
 
         logger.info(
             "Run %s: prioritization complete — %d opportunities ranked",
