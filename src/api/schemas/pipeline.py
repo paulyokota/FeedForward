@@ -24,7 +24,7 @@ class PipelineRunRequest(BaseModel):
     days: int = Field(
         default=7,
         ge=1,
-        le=90,
+        le=3650,  # 10 years - supports full historical backfill with streaming batch mode
         description="Number of days to look back for conversations"
     )
     max_conversations: Optional[int] = Field(
