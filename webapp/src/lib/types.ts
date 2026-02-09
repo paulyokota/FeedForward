@@ -553,3 +553,85 @@ export interface DryRunPreview {
   total_classified: number;
   timestamp: string;
 }
+
+// =============================================================================
+// Discovery Types (Issue #223)
+// =============================================================================
+
+export interface DiscoveryRun {
+  id: string;
+  status: string;
+  current_stage: string | null;
+  parent_run_id: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  opportunity_count: number;
+  stages_completed: number;
+}
+
+export interface DiscoveryRunDetail extends DiscoveryRun {
+  stages: DiscoveryStage[];
+}
+
+export interface DiscoveryStage {
+  id: number;
+  stage: string;
+  status: string;
+  attempt_number: number;
+  started_at: string | null;
+  completed_at: string | null;
+  sent_back_from: string | null;
+  send_back_reason: string | null;
+}
+
+export interface RankedOpportunity {
+  index: number;
+  opportunity_id: string;
+  problem_statement: string;
+  affected_area: string;
+  recommended_rank: number;
+  rationale: string;
+  effort_estimate: string;
+  build_experiment_decision: string;
+  evidence_count: number;
+  review_status: string | null;
+}
+
+export interface OpportunityDetail {
+  index: number;
+  opportunity_id: string;
+  exploration: Record<string, unknown> | null;
+  opportunity_brief: Record<string, unknown> | null;
+  solution_brief: Record<string, unknown> | null;
+  tech_spec: Record<string, unknown> | null;
+  priority_rationale: Record<string, unknown> | null;
+  review_decision: Record<string, unknown> | null;
+}
+
+export interface ReviewDecisionRequest {
+  decision: string;
+  reasoning: string;
+  adjusted_priority?: number;
+  send_back_to_stage?: string;
+}
+
+export type ReviewDecisionType =
+  | "accepted"
+  | "rejected"
+  | "deferred"
+  | "sent_back"
+  | "priority_adjusted";
+
+export const REVIEW_DECISION_CONFIG: Record<
+  ReviewDecisionType,
+  { label: string; color: string }
+> = {
+  accepted: { label: "Accepted", color: "var(--accent-green)" },
+  rejected: { label: "Rejected", color: "var(--accent-red)" },
+  deferred: { label: "Deferred", color: "var(--accent-amber)" },
+  sent_back: { label: "Sent Back", color: "var(--accent-purple, #a78bfa)" },
+  priority_adjusted: {
+    label: "Priority Adjusted",
+    color: "var(--accent-blue)",
+  },
+};

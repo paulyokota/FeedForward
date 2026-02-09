@@ -30,6 +30,11 @@ import type {
   PipelineStopResponse,
   PipelineActiveResponse,
   DryRunPreview,
+  DiscoveryRun,
+  DiscoveryRunDetail,
+  RankedOpportunity,
+  OpportunityDetail,
+  ReviewDecisionRequest,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -342,6 +347,50 @@ export const api = {
 
     preview: async (runId: number): Promise<DryRunPreview> => {
       return fetcher(`/api/pipeline/status/${runId}/preview`);
+    },
+  },
+
+  // Discovery endpoints (Issue #223)
+  discovery: {
+    listRuns: async (limit = 50): Promise<DiscoveryRun[]> => {
+      return fetcher(`/api/discovery/runs?limit=${limit}`);
+    },
+
+    getRun: async (runId: string): Promise<DiscoveryRunDetail> => {
+      return fetcher(`/api/discovery/runs/${runId}`);
+    },
+
+    getOpportunities: async (runId: string): Promise<RankedOpportunity[]> => {
+      return fetcher(`/api/discovery/runs/${runId}/opportunities`);
+    },
+
+    getOpportunityDetail: async (
+      runId: string,
+      idx: number,
+    ): Promise<OpportunityDetail> => {
+      return fetcher(`/api/discovery/runs/${runId}/opportunities/${idx}`);
+    },
+
+    submitDecision: async (
+      runId: string,
+      idx: number,
+      decision: ReviewDecisionRequest,
+    ): Promise<Record<string, unknown>> => {
+      return fetcher(
+        `/api/discovery/runs/${runId}/opportunities/${idx}/decide`,
+        {
+          method: "POST",
+          body: JSON.stringify(decision),
+        },
+      );
+    },
+
+    completeRun: async (
+      runId: string,
+    ): Promise<{ id: string; status: string; completed_at: string | null }> => {
+      return fetcher(`/api/discovery/runs/${runId}/complete`, {
+        method: "POST",
+      });
     },
   },
 };
