@@ -59,6 +59,9 @@ ralph/checkpoints/
 ralph_v2/progress.txt
 ralph_v2/checkpoints/
 
+# Report outputs (explorer runs, bulk ops, exports)
+reports/
+
 # Root-level npm (webapp has its own)
 /package.json
 /package-lock.json
