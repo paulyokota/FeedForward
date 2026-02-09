@@ -368,11 +368,31 @@ class TestArtifactValidation:
             state_machine=None,
         )
         artifacts = {
-            "approach": "Use existing auth module",
-            "effort_estimate": "2-3 sprints (medium confidence)",
-            "dependencies": "Requires auth-service v2.1+",
-            "risks": ["Rate limiting not implemented", "No rollback plan"],
-            "acceptance_criteria": "Password reset works for all user types",
+            "specs": [
+                {
+                    "opportunity_id": "opp_auth_reset",
+                    "approach": "Use existing auth module",
+                    "effort_estimate": "2-3 sprints (medium confidence)",
+                    "dependencies": "Requires auth-service v2.1+",
+                    "risks": [
+                        {
+                            "description": "Rate limiting not implemented",
+                            "severity": "high",
+                            "mitigation": "Add rate limiter before launch",
+                        },
+                    ],
+                    "acceptance_criteria": "Password reset works for all user types",
+                },
+            ],
+            "infeasible_solutions": [],
+            "feasibility_metadata": {
+                "solutions_assessed": 1,
+                "feasible_count": 1,
+                "infeasible_count": 0,
+                "total_dialogue_rounds": 2,
+                "total_token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                "model": "gpt-4o-mini",
+            },
         }
         svc._validate_artifacts(StageType.FEASIBILITY_RISK, artifacts)
 

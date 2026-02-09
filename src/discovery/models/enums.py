@@ -98,6 +98,14 @@ class BuildExperimentDecision(str, Enum):
     BUILD_DIRECT = "build_direct"
 
 
+class FeasibilityAssessment(str, Enum):
+    """Stage 3 feasibility assessment from Tech Lead Agent (#221)."""
+
+    FEASIBLE = "feasible"
+    INFEASIBLE = "infeasible"
+    NEEDS_REVISION = "needs_revision"
+
+
 class ReviewDecisionType(str, Enum):
     """Stage 5 Human Review decision types from #223."""
 

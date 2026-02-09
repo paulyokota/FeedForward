@@ -254,13 +254,33 @@ def _valid_solution_brief():
     }
 
 
-def _valid_technical_spec():
+def _valid_feasibility_risk_checkpoint():
     return {
-        "approach": "Add /reset-password endpoint with token-based flow",
-        "effort_estimate": "3-5 days, medium confidence",
-        "dependencies": "Email service must support transactional templates",
-        "risks": ["Token expiry race condition", "Email deliverability"],
-        "acceptance_criteria": "User can reset password within 2 clicks from login page",
+        "specs": [
+            {
+                "opportunity_id": "opp_auth_reset",
+                "approach": "Add /reset-password endpoint with token-based flow",
+                "effort_estimate": "3-5 days, medium confidence",
+                "dependencies": "Email service must support transactional templates",
+                "risks": [
+                    {
+                        "description": "Token expiry race condition",
+                        "severity": "medium",
+                        "mitigation": "Add mutex on token validation",
+                    },
+                ],
+                "acceptance_criteria": "User can reset password within 2 clicks from login page",
+            },
+        ],
+        "infeasible_solutions": [],
+        "feasibility_metadata": {
+            "solutions_assessed": 1,
+            "feasible_count": 1,
+            "infeasible_count": 0,
+            "total_dialogue_rounds": 2,
+            "total_token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "model": "gpt-4o-mini",
+        },
     }
 
 
@@ -587,7 +607,7 @@ class TestCompleteWithCheckpoint:
         StageType.EXPLORATION: _valid_explorer_checkpoint(),
         StageType.OPPORTUNITY_FRAMING: _valid_opportunity_brief(),
         StageType.SOLUTION_VALIDATION: _valid_solution_brief(),
-        StageType.FEASIBILITY_RISK: _valid_technical_spec(),
+        StageType.FEASIBILITY_RISK: _valid_feasibility_risk_checkpoint(),
         StageType.PRIORITIZATION: {
             "rankings": [
                 {
