@@ -4,7 +4,8 @@ Review interface for the discovery pipeline. Lists runs, shows ranked
 opportunities with full artifact chains, and accepts review decisions.
 """
 
-from typing import List, Optional
+import logging
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,6 +16,11 @@ from src.api.services.discovery_service import DiscoveryApiService
 from src.discovery.db.storage import DiscoveryStorage
 from src.discovery.models.artifacts import ReviewDecision
 from src.discovery.models.enums import ReviewDecisionType
+from src.discovery.models.run import RunConfig
+from src.discovery.orchestrator import DiscoveryOrchestrator
+from src.discovery.services.transport import AgenterminalTransport
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/discovery", tags=["discovery"])
 
@@ -31,6 +37,50 @@ class ReviewDecisionRequest(BaseModel):
     reasoning: str = Field(min_length=1)
     adjusted_priority: Optional[int] = Field(default=None, ge=1)
     send_back_to_stage: Optional[str] = Field(default=None, min_length=1)
+
+
+class RunConfigRequest(BaseModel):
+    """Request body for creating a new discovery run."""
+
+    target_domain: Optional[str] = None
+    time_window_days: int = Field(default=14, ge=1)
+    posthog_data: Optional[Dict[str, Any]] = None
+
+
+@router.post("/runs")
+def create_and_start_run(
+    body: Optional[RunConfigRequest] = None,
+    db=Depends(get_db),
+):
+    """Create and start a new discovery run.
+
+    Runs Stages 0-4 synchronously, then returns. Stage 5 awaits human
+    review via /runs/{id}/opportunities/{idx}/decide.
+
+    Warning: This endpoint blocks for several minutes while LLM calls
+    complete. Phase 1 only — background task pattern deferred.
+    """
+    body = body or RunConfigRequest()
+
+    config = RunConfig(
+        target_domain=body.target_domain,
+        time_window_days=body.time_window_days,
+    )
+
+    orchestrator = DiscoveryOrchestrator(
+        db_connection=db,
+        transport=AgenterminalTransport(),
+        posthog_data=body.posthog_data,
+    )
+
+    run = orchestrator.run(config=config)
+
+    return {
+        "run_id": str(run.id),
+        "status": run.status.value,
+        "current_stage": run.current_stage.value if run.current_stage else None,
+        "started_at": run.started_at.isoformat() if run.started_at else None,
+    }
 
 
 @router.get("/runs")
