@@ -120,7 +120,7 @@ class ExperienceAgent:
         return {
             "user_impact_level": raw["user_impact_level"],
             "experience_direction": raw.get("experience_direction", ""),
-            "engagement_depth": raw.get("engagement_depth", "moderate"),
+            "engagement_depth": raw.get("engagement_depth", "partial"),
             "notes": raw.get("notes", ""),
             "token_usage": usage,
         }

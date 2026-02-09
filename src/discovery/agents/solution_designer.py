@@ -254,6 +254,7 @@ class SolutionDesigner:
                     proposal=latest_proposal,
                     validation=latest_validation,
                     experience=latest_experience,
+                    opportunity_brief=opportunity_brief,
                     dialogue_rounds=round_num,
                     validation_challenges=validation_challenges,
                     convergence_forced=False,
@@ -283,6 +284,7 @@ class SolutionDesigner:
             proposal=latest_proposal,
             validation=latest_validation,
             experience=latest_experience,
+            opportunity_brief=opportunity_brief,
             dialogue_rounds=self.config.max_rounds,
             validation_challenges=validation_challenges,
             convergence_forced=True,
@@ -455,6 +457,7 @@ class SolutionDesigner:
         proposal: Dict[str, Any],
         validation: Dict[str, Any],
         experience: Dict[str, Any],
+        opportunity_brief: Dict[str, Any],
         dialogue_rounds: int,
         validation_challenges: List[Dict[str, Any]],
         convergence_forced: bool,
@@ -462,20 +465,52 @@ class SolutionDesigner:
         total_usage: Dict[str, int],
     ) -> SolutionDesignResult:
         """Build a SolutionDesignResult from the latest state."""
-        # Build evidence from proposal's evidence_ids
-        now = datetime.now(timezone.utc).isoformat()
+        # Build evidence by mapping proposal's evidence_ids back to the
+        # opportunity brief's typed evidence pointers. This preserves the
+        # original source_type, confidence, and retrieved_at instead of
+        # hardcoding values.
+        brief_evidence = opportunity_brief.get("evidence", [])
+        brief_evidence_by_id = {
+            ev.get("source_id"): ev for ev in brief_evidence
+        }
+
         evidence = []
-        for eid in proposal.get("evidence_ids", []):
-            evidence.append(
-                {
-                    "source_type": SourceType.INTERCOM.value,
-                    "source_id": eid,
-                    "retrieved_at": now,
-                    "confidence": ConfidenceLevel.from_raw(
-                        proposal.get("confidence", "medium")
-                    ),
-                }
-            )
+        evidence_ids = proposal.get("evidence_ids", [])
+        if evidence_ids:
+            now = datetime.now(timezone.utc).isoformat()
+            for eid in evidence_ids:
+                if eid in brief_evidence_by_id:
+                    src = brief_evidence_by_id[eid]
+                    evidence.append(
+                        {
+                            "source_type": src.get(
+                                "source_type", SourceType.INTERCOM.value
+                            ),
+                            "source_id": eid,
+                            "retrieved_at": src.get("retrieved_at", now),
+                            "confidence": ConfidenceLevel.from_raw(
+                                src.get("confidence", "medium")
+                            ),
+                        }
+                    )
+                else:
+                    # evidence_id not in brief — use proposal-level confidence
+                    evidence.append(
+                        {
+                            "source_type": SourceType.INTERCOM.value,
+                            "source_id": eid,
+                            "retrieved_at": now,
+                            "confidence": ConfidenceLevel.from_raw(
+                                proposal.get("confidence", "medium")
+                            ),
+                        }
+                    )
+
+        # Fallback: if no evidence was resolved (PM didn't return evidence_ids
+        # or none matched), use the brief's full evidence list to avoid empty
+        # arrays that would fail SolutionBrief validation (min_length=1).
+        if not evidence and brief_evidence:
+            evidence = list(brief_evidence)
 
         # Use experiment suggestion from validation if it provided one
         experiment_plan = proposal.get("experiment_plan", "")
@@ -484,10 +519,15 @@ class SolutionDesigner:
 
         success_metrics = proposal.get("success_metrics", "")
         if validation.get("success_criteria"):
-            success_metrics = (
-                f"{success_metrics} | Validation criteria: "
-                f"{validation['success_criteria']}"
-            )
+            if success_metrics:
+                success_metrics = (
+                    f"{success_metrics} | Validation criteria: "
+                    f"{validation['success_criteria']}"
+                )
+            else:
+                success_metrics = (
+                    f"Validation criteria: {validation['success_criteria']}"
+                )
 
         return SolutionDesignResult(
             proposed_solution=proposal.get("proposed_solution", ""),

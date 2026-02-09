@@ -596,3 +596,168 @@ class TestErrorHandling:
                 opportunity_brief=_make_opportunity_brief(),
                 prior_checkpoints=[],
             )
+
+
+# ============================================================================
+# Evidence mapping
+# ============================================================================
+
+
+class TestEvidenceMapping:
+    """Evidence is mapped from opportunity brief, not hardcoded."""
+
+    def test_evidence_preserves_brief_metadata(self):
+        """evidence_ids that match the brief carry over source_type/confidence."""
+        brief = _make_opportunity_brief()
+        brief["evidence"] = [
+            {
+                "source_type": "posthog",
+                "source_id": "conv_001",
+                "retrieved_at": "2026-01-15T00:00:00+00:00",
+                "confidence": "high",
+            },
+            {
+                "source_type": "github",
+                "source_id": "conv_002",
+                "retrieved_at": "2026-01-16T00:00:00+00:00",
+                "confidence": "low",
+            },
+        ]
+
+        designer = _make_designer(
+            pm_responses=[_make_pm_proposal(evidence_ids=["conv_001", "conv_002"])],
+            validation_responses=[_make_validation_response("approve")],
+            experience_responses=[_make_experience_response()],
+        )
+
+        result = designer.design_solution(
+            opportunity_brief=brief,
+            prior_checkpoints=[],
+        )
+
+        assert len(result.evidence) == 2
+        # First evidence should come from brief (posthog, high)
+        assert result.evidence[0]["source_type"] == "posthog"
+        assert result.evidence[0]["source_id"] == "conv_001"
+        assert result.evidence[0]["retrieved_at"] == "2026-01-15T00:00:00+00:00"
+        # Second evidence also from brief (github, low)
+        assert result.evidence[1]["source_type"] == "github"
+        assert result.evidence[1]["source_id"] == "conv_002"
+
+    def test_unmatched_evidence_id_falls_back_to_proposal_confidence(self):
+        """evidence_ids not in brief get INTERCOM source_type and proposal confidence."""
+        brief = _make_opportunity_brief()
+        # brief only has conv_001
+
+        designer = _make_designer(
+            pm_responses=[
+                _make_pm_proposal(
+                    evidence_ids=["conv_001", "conv_999"],
+                    confidence="low",
+                )
+            ],
+            validation_responses=[_make_validation_response("approve")],
+            experience_responses=[_make_experience_response()],
+        )
+
+        result = designer.design_solution(
+            opportunity_brief=brief,
+            prior_checkpoints=[],
+        )
+
+        assert len(result.evidence) == 2
+        # conv_001 matched → from brief
+        assert result.evidence[0]["source_type"] == "intercom"
+        assert result.evidence[0]["source_id"] == "conv_001"
+        # conv_999 unmatched → fallback
+        assert result.evidence[1]["source_type"] == "intercom"
+        assert result.evidence[1]["source_id"] == "conv_999"
+
+    def test_missing_evidence_ids_falls_back_to_brief(self):
+        """PM response without evidence_ids → use brief's full evidence list."""
+        brief = _make_opportunity_brief()
+
+        designer = _make_designer(
+            pm_responses=[_make_pm_proposal(evidence_ids=None)],
+            validation_responses=[_make_validation_response("approve")],
+            experience_responses=[_make_experience_response()],
+        )
+
+        result = designer.design_solution(
+            opportunity_brief=brief,
+            prior_checkpoints=[],
+        )
+
+        # Should fall back to the brief's evidence
+        assert len(result.evidence) == len(brief["evidence"])
+        assert result.evidence[0]["source_id"] == brief["evidence"][0]["source_id"]
+
+    def test_empty_evidence_ids_falls_back_to_brief(self):
+        """PM returns empty evidence_ids → use brief's full evidence list."""
+        brief = _make_opportunity_brief()
+
+        designer = _make_designer(
+            pm_responses=[_make_pm_proposal(evidence_ids=[])],
+            validation_responses=[_make_validation_response("approve")],
+            experience_responses=[_make_experience_response()],
+        )
+
+        result = designer.design_solution(
+            opportunity_brief=brief,
+            prior_checkpoints=[],
+        )
+
+        assert len(result.evidence) == len(brief["evidence"])
+
+
+# ============================================================================
+# Success metrics concatenation
+# ============================================================================
+
+
+class TestSuccessMetrics:
+    """Success metrics concatenation edge cases."""
+
+    def test_empty_success_metrics_with_criteria(self):
+        """Empty success_metrics + validation criteria → no leading separator."""
+        designer = _make_designer(
+            pm_responses=[_make_pm_proposal(success_metrics="")],
+            validation_responses=[
+                _make_validation_response(
+                    "approve", success_criteria="15% improvement"
+                )
+            ],
+            experience_responses=[_make_experience_response()],
+        )
+
+        result = designer.design_solution(
+            opportunity_brief=_make_opportunity_brief(),
+            prior_checkpoints=[],
+        )
+
+        # Should NOT start with " | "
+        assert not result.success_metrics.startswith(" | ")
+        assert "15% improvement" in result.success_metrics
+
+    def test_both_metrics_and_criteria_concatenated(self):
+        """Non-empty success_metrics + criteria → joined with separator."""
+        designer = _make_designer(
+            pm_responses=[
+                _make_pm_proposal(success_metrics="Completion rate +15%")
+            ],
+            validation_responses=[
+                _make_validation_response(
+                    "approve", success_criteria="Sustained for 2 weeks"
+                )
+            ],
+            experience_responses=[_make_experience_response()],
+        )
+
+        result = designer.design_solution(
+            opportunity_brief=_make_opportunity_brief(),
+            prior_checkpoints=[],
+        )
+
+        assert "Completion rate +15%" in result.success_metrics
+        assert "| Validation criteria:" in result.success_metrics
+        assert "Sustained for 2 weeks" in result.success_metrics
