@@ -26,7 +26,19 @@
 **Streaming Batch Resume (Issue #209): COMPLETE** ✅
 **Discovery Engine: PHASE 1 IN PROGRESS** 🔄
 
-## Latest: Opportunity PM Agent — Stage 1 Opportunity Framing (2026-02-08)
+## Latest: Codebase Explorer — Stage 0 Source Code Analysis (2026-02-08)
+
+**Issue #217 COMPLETE** ✅ — Codebase Explorer Agent (PR #237)
+
+Stage 0 explorer that discovers tech debt and architecture patterns from recently-changed source files:
+
+- CodebaseReader data access: git log + disk read, scoped to src/, extension allowlist
+- Two-pass LLM strategy (per-batch analysis + synthesis) matching CustomerVoiceExplorer pattern
+- Requery support for follow-up questions about specific source files
+- ExplorerCheckpoint integration with state machine (advances EXPLORATION → OPPORTUNITY_FRAMING)
+- 297 discovery tests passing (39 new: 33 unit + 6 integration)
+
+### Previous: Opportunity PM Agent (2026-02-08)
 
 **Issue #219 COMPLETE** ✅ — Opportunity PM Agent (PR #236)
 
