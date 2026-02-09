@@ -588,7 +588,19 @@ class TestCompleteWithCheckpoint:
         StageType.OPPORTUNITY_FRAMING: _valid_opportunity_brief(),
         StageType.SOLUTION_VALIDATION: _valid_solution_brief(),
         StageType.FEASIBILITY_RISK: _valid_technical_spec(),
-        StageType.PRIORITIZATION: {"ranking": [1, 2, 3], "rationale": "impact"},
+        StageType.PRIORITIZATION: {
+            "rankings": [
+                {
+                    "opportunity_id": "opp_1",
+                    "recommended_rank": 1,
+                    "rationale": "High impact, low effort",
+                },
+            ],
+            "prioritization_metadata": {
+                "opportunities_ranked": 1,
+                "model": "gpt-4o-mini",
+            },
+        },
     }
 
     def _advance_to_human_review(self, service, storage, run_id):
@@ -617,7 +629,19 @@ class TestCompleteWithCheckpoint:
             convo_id,
             running_run.id,
             "human_reviewer",
-            artifacts={"decision": "approved", "notes": "Ship it"},
+            artifacts={
+                "decisions": [
+                    {
+                        "opportunity_id": "opp_1",
+                        "decision": "accepted",
+                        "reasoning": "High confidence, team ready",
+                    },
+                ],
+                "review_metadata": {
+                    "reviewer": "paul",
+                    "opportunities_reviewed": 1,
+                },
+            },
         )
 
         assert completed.status == RunStatus.COMPLETED
@@ -639,7 +663,19 @@ class TestCompleteWithCheckpoint:
                 "wrong-convo",
                 running_run.id,
                 "reviewer",
-                artifacts={"decision": "approved"},
+                artifacts={
+                    "decisions": [
+                        {
+                            "opportunity_id": "opp_1",
+                            "decision": "accepted",
+                            "reasoning": "Ship it",
+                        },
+                    ],
+                    "review_metadata": {
+                        "reviewer": "paul",
+                        "opportunities_reviewed": 1,
+                    },
+                },
             )
 
 

@@ -96,3 +96,13 @@ class BuildExperimentDecision(str, Enum):
     BUILD_SLICE_AND_EXPERIMENT = "build_slice_and_experiment"
     BUILD_WITH_METRICS = "build_with_metrics"
     BUILD_DIRECT = "build_direct"
+
+
+class ReviewDecisionType(str, Enum):
+    """Stage 5 Human Review decision types from #223."""
+
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    DEFERRED = "deferred"
+    SENT_BACK = "sent_back"
+    PRIORITY_ADJUSTED = "priority_adjusted"

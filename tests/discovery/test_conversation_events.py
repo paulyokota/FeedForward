@@ -445,3 +445,77 @@ class TestArtifactValidation:
         }
         # Should not raise
         svc._validate_artifacts(StageType.OPPORTUNITY_FRAMING, artifacts)
+
+    def test_prioritization_valid(self):
+        from src.discovery.services.conversation import ConversationService
+        from src.discovery.services.transport import InMemoryTransport
+
+        svc = ConversationService(
+            transport=InMemoryTransport(),
+            storage=None,
+            state_machine=None,
+        )
+        artifacts = {
+            "rankings": [
+                {
+                    "opportunity_id": "opp_1",
+                    "recommended_rank": 1,
+                    "rationale": "High impact, low effort",
+                },
+            ],
+            "prioritization_metadata": {
+                "opportunities_ranked": 1,
+                "model": "gpt-4o-mini",
+            },
+        }
+        svc._validate_artifacts(StageType.PRIORITIZATION, artifacts)
+
+    def test_prioritization_rejects_invalid(self):
+        from src.discovery.services.conversation import ConversationService
+        from src.discovery.services.transport import InMemoryTransport
+
+        svc = ConversationService(
+            transport=InMemoryTransport(),
+            storage=None,
+            state_machine=None,
+        )
+        # Missing prioritization_metadata
+        with pytest.raises(ArtifactValidationError, match="Field required"):
+            svc._validate_artifacts(StageType.PRIORITIZATION, {"rankings": []})
+
+    def test_human_review_valid(self):
+        from src.discovery.services.conversation import ConversationService
+        from src.discovery.services.transport import InMemoryTransport
+
+        svc = ConversationService(
+            transport=InMemoryTransport(),
+            storage=None,
+            state_machine=None,
+        )
+        artifacts = {
+            "decisions": [
+                {
+                    "opportunity_id": "opp_1",
+                    "decision": "accepted",
+                    "reasoning": "High confidence, team ready",
+                },
+            ],
+            "review_metadata": {
+                "reviewer": "paul",
+                "opportunities_reviewed": 1,
+            },
+        }
+        svc._validate_artifacts(StageType.HUMAN_REVIEW, artifacts)
+
+    def test_human_review_rejects_invalid(self):
+        from src.discovery.services.conversation import ConversationService
+        from src.discovery.services.transport import InMemoryTransport
+
+        svc = ConversationService(
+            transport=InMemoryTransport(),
+            storage=None,
+            state_machine=None,
+        )
+        # Missing review_metadata
+        with pytest.raises(ArtifactValidationError, match="Field required"):
+            svc._validate_artifacts(StageType.HUMAN_REVIEW, {"decisions": []})
