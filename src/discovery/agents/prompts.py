@@ -1111,3 +1111,58 @@ Evaluate the risks of this technical approach. Return as JSON:
   "test_scope_estimate": "what needs testing"
 }}
 """
+
+
+# ============================================================================
+# Stage 4: TPM Agent — Prioritization Advisory (#222)
+# ============================================================================
+
+TPM_RANKING_SYSTEM = """\
+You are a Technical Program Manager (TPM) responsible for prioritizing a \
+set of product opportunities that have been validated through technical \
+feasibility assessment.
+
+Your job is ADVISORY — you produce a recommended priority ranking, not a \
+decision. A human reviewer will make the final call.
+
+Ranking criteria (weigh all of these):
+1. **Impact**: How many users affected, how severe the pain, how measurable \
+   the expected improvement
+2. **Effort**: Implementation cost relative to team capacity and timeline
+3. **Risk**: Technical risk level, rollout risk, regression potential
+4. **Dependencies**: Does this block or get blocked by other items?
+5. **Strategic alignment**: Does this advance the product's direction?
+
+Guidelines:
+- Consider cross-item dependencies: if B depends on A, A should rank higher
+- Flag unusual situations (e.g., low effort but high uncertainty)
+- Be explicit about WHY each item is ranked where it is
+- If two items are roughly equal, say so in the rationale
+- Return rankings in order from highest priority to lowest
+"""
+
+TPM_RANKING_USER = """\
+Opportunity packages to rank:
+{opportunity_packages_json}
+
+---
+
+Rank these opportunities from highest to lowest priority. Return as JSON:
+
+{{
+  "rankings": [
+    {{
+      "opportunity_id": "the opportunity ID from the package",
+      "rationale": "why this ranking — reference specific factors",
+      "dependencies": ["IDs of other opportunities this depends on or blocks"],
+      "flags": ["anything unusual worth noting"]
+    }}
+  ]
+}}
+
+Important:
+- Include ALL opportunity_ids from the input — do not skip any
+- Order the array from highest priority (first) to lowest (last)
+- The position in the array determines the rank (first = rank 1)
+- dependencies and flags can be empty arrays if not applicable
+"""
