@@ -262,6 +262,60 @@ class TestDialogueLoop:
         assert result.is_feasible is False
         assert result.total_rounds == 2
 
+    def test_needs_revision_with_low_risk_does_not_converge(self):
+        """needs_revision + low risk should NOT converge — loop continues.
+
+        The Tech Lead must produce a "feasible" assessment (with filled fields)
+        for convergence. A "needs_revision" with empty approach/effort would
+        fail TechnicalSpec validation if we built a spec from it.
+        """
+        designer = FeasibilityDesigner(
+            tech_lead=MockTechLead([
+                _feasible_approach(feasibility_assessment="needs_revision"),  # Round 1: not feasible yet
+                _feasible_approach(),  # Round 2: now feasible
+            ]),
+            risk_agent=MockRiskAgent([
+                _low_risk(),   # Round 1: risk is low, but assessment isn't feasible
+                _low_risk(),   # Round 2: risk still low, assessment now feasible → converge
+            ]),
+            config=FeasibilityDesignerConfig(max_rounds=3),
+        )
+
+        result = designer.assess_feasibility(
+            solution_brief=_make_solution_brief(),
+            opportunity_brief=_make_opportunity_brief(),
+            prior_checkpoints=[],
+        )
+
+        assert result.is_feasible is True
+        assert result.total_rounds == 2  # Did NOT converge in round 1
+
+    def test_needs_revision_forced_convergence_is_infeasible(self):
+        """If needs_revision persists through all rounds, forced convergence
+        marks it infeasible rather than producing a broken TechnicalSpec."""
+        designer = FeasibilityDesigner(
+            tech_lead=MockTechLead([
+                _feasible_approach(feasibility_assessment="needs_revision"),
+                _feasible_approach(feasibility_assessment="needs_revision"),
+                _feasible_approach(feasibility_assessment="needs_revision"),
+            ]),
+            risk_agent=MockRiskAgent([
+                _low_risk(),
+                _low_risk(),
+                _low_risk(),
+            ]),
+            config=FeasibilityDesignerConfig(max_rounds=3),
+        )
+
+        result = designer.assess_feasibility(
+            solution_brief=_make_solution_brief(),
+            opportunity_brief=_make_opportunity_brief(),
+            prior_checkpoints=[],
+        )
+
+        assert result.is_feasible is False
+        assert result.total_rounds == 3
+
 
 # ============================================================================
 # Token tracking

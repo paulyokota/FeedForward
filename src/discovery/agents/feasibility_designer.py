@@ -189,7 +189,14 @@ class FeasibilityDesigner:
             latest_risk = risk_eval
 
             # --- Convergence check ---
-            if risk_eval["overall_risk_level"] in ("low", "medium"):
+            # Both conditions required: Tech Lead says "feasible" AND Risk Agent
+            # says risk <= medium. A "needs_revision" assessment with low risk
+            # should NOT converge — the loop continues so the Tech Lead can
+            # produce a proper feasible assessment with filled-in fields.
+            is_risk_acceptable = risk_eval["overall_risk_level"] in ("low", "medium")
+            is_assessment_feasible = approach["feasibility_assessment"] == "feasible"
+
+            if is_risk_acceptable and is_assessment_feasible:
                 logger.info(
                     "Feasibility converged for %s in round %d (risk: %s)",
                     opportunity_id,
@@ -207,6 +214,29 @@ class FeasibilityDesigner:
                 )
 
         # --- Forced convergence: max rounds reached ---
+        # If the final assessment is still "needs_revision" (not "feasible"),
+        # treat as infeasible — building a TechnicalSpec from empty fields
+        # would fail validation.
+        final_assessment = latest_approach["feasibility_assessment"] if latest_approach else "unknown"
+        if final_assessment != "feasible":
+            logger.warning(
+                "Feasibility forced infeasible for %s after %d rounds "
+                "(assessment: %s, risk: %s)",
+                opportunity_id,
+                self.config.max_rounds,
+                final_assessment,
+                latest_risk["overall_risk_level"] if latest_risk else "unknown",
+            )
+            return FeasibilityResult(
+                opportunity_id=opportunity_id,
+                is_feasible=False,
+                assessment=latest_approach,
+                risk_evaluation=latest_risk,
+                dialogue_history=dialogue_history,
+                total_rounds=self.config.max_rounds,
+                token_usage=total_usage,
+            )
+
         logger.warning(
             "Feasibility forced convergence for %s after %d rounds (risk: %s)",
             opportunity_id,
@@ -270,6 +300,16 @@ class FeasibilityDesigner:
         """Build a TechnicalSpec dict from a feasible result."""
         assessment = result.assessment
         risk_eval = result.risk_evaluation or {}
+
+        # Guard: warn if required TechnicalSpec fields are empty
+        for field in ("approach", "effort_estimate", "dependencies", "acceptance_criteria"):
+            if not assessment.get(field):
+                logger.warning(
+                    "Building TechnicalSpec for %s with empty '%s' — "
+                    "this may fail validation",
+                    result.opportunity_id,
+                    field,
+                )
 
         # Build structured risks from Risk Agent output
         risks = []
