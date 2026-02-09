@@ -12,11 +12,12 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from src.discovery.models.enums import (
     BuildExperimentDecision,
     ConfidenceLevel,
+    ReviewDecisionType,
     SourceType,
 )
 
@@ -249,3 +250,134 @@ class ExplorerCheckpoint(BaseModel):
     agent_name: str = Field(min_length=1)
     findings: List[ExplorerFinding] = Field(default_factory=list)
     coverage: CoverageMetadata
+
+
+# ============================================================================
+# Stage 4: Prioritization artifacts (Issue #235)
+# ============================================================================
+
+
+class PrioritizedOpportunity(BaseModel):
+    """A single opportunity with its recommended priority ranking.
+
+    The TPM Agent produces one of these per opportunity that made it
+    through Stages 1-3.
+    """
+
+    model_config = {"extra": "allow"}
+
+    opportunity_id: str = Field(min_length=1, description="Links back to OpportunityBrief")
+    recommended_rank: int = Field(ge=1, description="1 = highest priority")
+    rationale: str = Field(min_length=1, description="Why this ranking")
+    dependencies: List[str] = Field(
+        default_factory=list,
+        description="Cross-item dependency notes",
+    )
+    flags: List[str] = Field(
+        default_factory=list,
+        description="Unusual items, warnings",
+    )
+
+    def model_post_init(self, __context) -> None:
+        extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
+        if extra_fields:
+            logger.info("PrioritizedOpportunity has extra fields: %s", extra_fields)
+
+
+class PrioritizationMetadata(BaseModel):
+    """Stable metadata fields for PrioritizationCheckpoint."""
+
+    model_config = {"extra": "allow"}
+
+    opportunities_ranked: int = Field(ge=0)
+    model: str = Field(min_length=1)
+
+
+class PrioritizationCheckpoint(BaseModel):
+    """Stage 4 checkpoint artifact wrapping ranked opportunities.
+
+    Empty rankings list is valid when earlier stages yielded nothing
+    to prioritize. Mirrors Stage 1/2 empty-list pattern.
+    """
+
+    model_config = {"extra": "allow"}
+
+    schema_version: int = 1
+    rankings: List[PrioritizedOpportunity] = Field(default_factory=list)
+    prioritization_metadata: PrioritizationMetadata
+
+    def model_post_init(self, __context) -> None:
+        extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
+        if extra_fields:
+            logger.info("PrioritizationCheckpoint has extra fields: %s", extra_fields)
+
+
+# ============================================================================
+# Stage 5: Human Review artifacts (Issue #235)
+# ============================================================================
+
+
+class ReviewDecision(BaseModel):
+    """A single review decision for one opportunity.
+
+    Conditional fields: adjusted_priority is required IFF decision is
+    PRIORITY_ADJUSTED, send_back_to_stage is required IFF decision is
+    SENT_BACK.
+    """
+
+    model_config = {"extra": "allow"}
+
+    opportunity_id: str = Field(min_length=1)
+    decision: ReviewDecisionType
+    reasoning: str = Field(min_length=1, description="Required for all decisions")
+    adjusted_priority: Optional[int] = Field(
+        default=None, ge=1, description="Required when decision is priority_adjusted"
+    )
+    send_back_to_stage: Optional[str] = Field(
+        default=None, min_length=1, description="Required when decision is sent_back"
+    )
+
+    @model_validator(mode="after")
+    def validate_conditional_fields(self) -> "ReviewDecision":
+        if self.decision == ReviewDecisionType.PRIORITY_ADJUSTED and self.adjusted_priority is None:
+            raise ValueError("adjusted_priority is required when decision is priority_adjusted")
+        if self.decision == ReviewDecisionType.SENT_BACK and not self.send_back_to_stage:
+            raise ValueError("send_back_to_stage is required when decision is sent_back")
+        if self.decision != ReviewDecisionType.PRIORITY_ADJUSTED and self.adjusted_priority is not None:
+            raise ValueError("adjusted_priority should only be set when decision is priority_adjusted")
+        if self.decision != ReviewDecisionType.SENT_BACK and self.send_back_to_stage is not None:
+            raise ValueError("send_back_to_stage should only be set when decision is sent_back")
+        return self
+
+    def model_post_init(self, __context) -> None:
+        extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
+        if extra_fields:
+            logger.info("ReviewDecision has extra fields: %s", extra_fields)
+
+
+class ReviewMetadata(BaseModel):
+    """Stable metadata fields for HumanReviewCheckpoint."""
+
+    model_config = {"extra": "allow"}
+
+    reviewer: str = Field(min_length=1, description="Who made the decisions")
+    opportunities_reviewed: int = Field(ge=0)
+
+
+class HumanReviewCheckpoint(BaseModel):
+    """Stage 5 checkpoint artifact wrapping review decisions.
+
+    Empty decisions list is valid when no opportunities reached review.
+    This is the terminal stage — completing this completes the run.
+    """
+
+    model_config = {"extra": "allow"}
+
+    schema_version: int = 1
+    decisions: List[ReviewDecision] = Field(default_factory=list)
+    review_metadata: ReviewMetadata
+
+    def model_post_init(self, __context) -> None:
+        extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
+        if extra_fields:
+            logger.info("HumanReviewCheckpoint has extra fields: %s", extra_fields)

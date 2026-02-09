@@ -14,13 +14,18 @@ from src.discovery.models.artifacts import (
     EvidencePointer,
     ExplorerCheckpoint,
     ExplorerFinding,
+    HumanReviewCheckpoint,
     OpportunityBrief,
+    PrioritizationCheckpoint,
+    PrioritizedOpportunity,
+    ReviewDecision,
     SolutionBrief,
     TechnicalSpec,
 )
 from src.discovery.models.enums import (
     BuildExperimentDecision,
     ConfidenceLevel,
+    ReviewDecisionType,
     SourceType,
 )
 
@@ -567,3 +572,393 @@ class TestExplorerCheckpoint:
         )
         cp = ExplorerCheckpoint(**data)
         assert len(cp.findings) == 3
+
+
+# ============================================================================
+# Stage 4: Prioritization artifact helpers
+# ============================================================================
+
+
+def _make_prioritized_opportunity(**overrides) -> dict:
+    """Create a valid prioritized opportunity dict."""
+    base = {
+        "opportunity_id": "opp_billing_friction",
+        "recommended_rank": 1,
+        "rationale": "High impact, low effort, addresses top support driver",
+        "dependencies": ["opp_payment_module"],
+        "flags": ["touches payment system with known fragilities"],
+    }
+    base.update(overrides)
+    return base
+
+
+def _make_prioritization_metadata(**overrides) -> dict:
+    """Create a valid prioritization metadata dict."""
+    base = {
+        "opportunities_ranked": 3,
+        "model": "gpt-4o-mini",
+    }
+    base.update(overrides)
+    return base
+
+
+def _make_prioritization_checkpoint(**overrides) -> dict:
+    """Create a valid prioritization checkpoint dict."""
+    base = {
+        "rankings": [_make_prioritized_opportunity()],
+        "prioritization_metadata": _make_prioritization_metadata(),
+    }
+    base.update(overrides)
+    return base
+
+
+# ============================================================================
+# PrioritizedOpportunity tests
+# ============================================================================
+
+
+class TestPrioritizedOpportunity:
+    def test_valid_prioritized_opportunity(self):
+        po = PrioritizedOpportunity(**_make_prioritized_opportunity())
+        assert po.opportunity_id == "opp_billing_friction"
+        assert po.recommended_rank == 1
+        assert len(po.dependencies) == 1
+        assert len(po.flags) == 1
+
+    def test_missing_opportunity_id_rejected(self):
+        data = _make_prioritized_opportunity()
+        del data["opportunity_id"]
+        with pytest.raises(ValidationError):
+            PrioritizedOpportunity(**data)
+
+    def test_empty_opportunity_id_rejected(self):
+        with pytest.raises(ValidationError):
+            PrioritizedOpportunity(**_make_prioritized_opportunity(opportunity_id=""))
+
+    def test_missing_recommended_rank_rejected(self):
+        data = _make_prioritized_opportunity()
+        del data["recommended_rank"]
+        with pytest.raises(ValidationError):
+            PrioritizedOpportunity(**data)
+
+    def test_zero_rank_rejected(self):
+        with pytest.raises(ValidationError):
+            PrioritizedOpportunity(**_make_prioritized_opportunity(recommended_rank=0))
+
+    def test_negative_rank_rejected(self):
+        with pytest.raises(ValidationError):
+            PrioritizedOpportunity(**_make_prioritized_opportunity(recommended_rank=-1))
+
+    def test_missing_rationale_rejected(self):
+        data = _make_prioritized_opportunity()
+        del data["rationale"]
+        with pytest.raises(ValidationError):
+            PrioritizedOpportunity(**data)
+
+    def test_empty_rationale_rejected(self):
+        with pytest.raises(ValidationError):
+            PrioritizedOpportunity(**_make_prioritized_opportunity(rationale=""))
+
+    def test_dependencies_default_empty(self):
+        data = _make_prioritized_opportunity()
+        del data["dependencies"]
+        po = PrioritizedOpportunity(**data)
+        assert po.dependencies == []
+
+    def test_flags_default_empty(self):
+        data = _make_prioritized_opportunity()
+        del data["flags"]
+        po = PrioritizedOpportunity(**data)
+        assert po.flags == []
+
+    def test_extra_fields_allowed(self):
+        po = PrioritizedOpportunity(
+            **_make_prioritized_opportunity(),
+            strategic_alignment="high",
+        )
+        assert po.strategic_alignment == "high"  # type: ignore[attr-defined]
+
+
+# ============================================================================
+# PrioritizationCheckpoint tests
+# ============================================================================
+
+
+class TestPrioritizationCheckpoint:
+    def test_valid_checkpoint(self):
+        cp = PrioritizationCheckpoint(**_make_prioritization_checkpoint())
+        assert cp.schema_version == 1
+        assert len(cp.rankings) == 1
+        assert cp.prioritization_metadata.opportunities_ranked == 3
+
+    def test_empty_rankings_allowed(self):
+        """Nothing to rank if earlier stages yielded no opportunities."""
+        cp = PrioritizationCheckpoint(**_make_prioritization_checkpoint(rankings=[]))
+        assert len(cp.rankings) == 0
+
+    def test_default_rankings_is_empty(self):
+        data = _make_prioritization_checkpoint()
+        del data["rankings"]
+        cp = PrioritizationCheckpoint(**data)
+        assert cp.rankings == []
+
+    def test_missing_metadata_rejected(self):
+        data = _make_prioritization_checkpoint()
+        del data["prioritization_metadata"]
+        with pytest.raises(ValidationError):
+            PrioritizationCheckpoint(**data)
+
+    def test_invalid_ranking_inside_checkpoint_rejected(self):
+        data = _make_prioritization_checkpoint(
+            rankings=[{"opportunity_id": ""}]  # Empty opportunity_id
+        )
+        with pytest.raises(ValidationError):
+            PrioritizationCheckpoint(**data)
+
+    def test_invalid_metadata_rejected(self):
+        data = _make_prioritization_checkpoint(
+            prioritization_metadata={"opportunities_ranked": -1, "model": "gpt-4o-mini"}
+        )
+        with pytest.raises(ValidationError):
+            PrioritizationCheckpoint(**data)
+
+    def test_empty_model_in_metadata_rejected(self):
+        data = _make_prioritization_checkpoint(
+            prioritization_metadata={"opportunities_ranked": 0, "model": ""}
+        )
+        with pytest.raises(ValidationError):
+            PrioritizationCheckpoint(**data)
+
+    def test_multiple_rankings(self):
+        data = _make_prioritization_checkpoint(
+            rankings=[
+                _make_prioritized_opportunity(opportunity_id="opp_1", recommended_rank=1),
+                _make_prioritized_opportunity(opportunity_id="opp_2", recommended_rank=2),
+                _make_prioritized_opportunity(opportunity_id="opp_3", recommended_rank=3),
+            ]
+        )
+        cp = PrioritizationCheckpoint(**data)
+        assert len(cp.rankings) == 3
+
+    def test_extra_fields_allowed(self):
+        cp = PrioritizationCheckpoint(
+            **_make_prioritization_checkpoint(),
+            ranking_algorithm="weighted_multi_factor",
+        )
+        assert cp.ranking_algorithm == "weighted_multi_factor"  # type: ignore[attr-defined]
+
+    def test_schema_version_defaults_to_1(self):
+        cp = PrioritizationCheckpoint(**_make_prioritization_checkpoint())
+        assert cp.schema_version == 1
+
+
+# ============================================================================
+# Stage 5: Human Review artifact helpers
+# ============================================================================
+
+
+def _make_review_decision(**overrides) -> dict:
+    """Create a valid review decision dict."""
+    base = {
+        "opportunity_id": "opp_billing_friction",
+        "decision": "accepted",
+        "reasoning": "High confidence in impact, team has bandwidth",
+    }
+    base.update(overrides)
+    return base
+
+
+def _make_review_metadata(**overrides) -> dict:
+    """Create a valid review metadata dict."""
+    base = {
+        "reviewer": "paul",
+        "opportunities_reviewed": 3,
+    }
+    base.update(overrides)
+    return base
+
+
+def _make_human_review_checkpoint(**overrides) -> dict:
+    """Create a valid human review checkpoint dict."""
+    base = {
+        "decisions": [_make_review_decision()],
+        "review_metadata": _make_review_metadata(),
+    }
+    base.update(overrides)
+    return base
+
+
+# ============================================================================
+# ReviewDecision tests
+# ============================================================================
+
+
+class TestReviewDecision:
+    def test_valid_accepted_decision(self):
+        rd = ReviewDecision(**_make_review_decision())
+        assert rd.decision == ReviewDecisionType.ACCEPTED
+        assert rd.adjusted_priority is None
+        assert rd.send_back_to_stage is None
+
+    def test_all_simple_decision_types(self):
+        """ACCEPTED, REJECTED, DEFERRED don't need conditional fields."""
+        for decision_type in ["accepted", "rejected", "deferred"]:
+            rd = ReviewDecision(**_make_review_decision(decision=decision_type))
+            assert rd.decision == ReviewDecisionType(decision_type)
+
+    def test_valid_priority_adjusted(self):
+        rd = ReviewDecision(**_make_review_decision(
+            decision="priority_adjusted",
+            adjusted_priority=5,
+        ))
+        assert rd.decision == ReviewDecisionType.PRIORITY_ADJUSTED
+        assert rd.adjusted_priority == 5
+
+    def test_valid_sent_back(self):
+        rd = ReviewDecision(**_make_review_decision(
+            decision="sent_back",
+            send_back_to_stage="solution_validation",
+        ))
+        assert rd.decision == ReviewDecisionType.SENT_BACK
+        assert rd.send_back_to_stage == "solution_validation"
+
+    def test_missing_opportunity_id_rejected(self):
+        data = _make_review_decision()
+        del data["opportunity_id"]
+        with pytest.raises(ValidationError):
+            ReviewDecision(**data)
+
+    def test_empty_opportunity_id_rejected(self):
+        with pytest.raises(ValidationError):
+            ReviewDecision(**_make_review_decision(opportunity_id=""))
+
+    def test_missing_decision_rejected(self):
+        data = _make_review_decision()
+        del data["decision"]
+        with pytest.raises(ValidationError):
+            ReviewDecision(**data)
+
+    def test_invalid_decision_rejected(self):
+        with pytest.raises(ValidationError):
+            ReviewDecision(**_make_review_decision(decision="maybe_later"))
+
+    def test_missing_reasoning_rejected(self):
+        data = _make_review_decision()
+        del data["reasoning"]
+        with pytest.raises(ValidationError):
+            ReviewDecision(**data)
+
+    def test_empty_reasoning_rejected(self):
+        with pytest.raises(ValidationError):
+            ReviewDecision(**_make_review_decision(reasoning=""))
+
+    # -- Conditional validation tests --
+
+    def test_priority_adjusted_without_priority_rejected(self):
+        with pytest.raises(ValidationError, match="adjusted_priority is required"):
+            ReviewDecision(**_make_review_decision(decision="priority_adjusted"))
+
+    def test_sent_back_without_stage_rejected(self):
+        with pytest.raises(ValidationError, match="send_back_to_stage is required"):
+            ReviewDecision(**_make_review_decision(decision="sent_back"))
+
+    def test_accepted_with_adjusted_priority_rejected(self):
+        with pytest.raises(ValidationError, match="adjusted_priority should only be set"):
+            ReviewDecision(**_make_review_decision(
+                decision="accepted",
+                adjusted_priority=3,
+            ))
+
+    def test_rejected_with_send_back_to_stage_rejected(self):
+        with pytest.raises(ValidationError, match="send_back_to_stage should only be set"):
+            ReviewDecision(**_make_review_decision(
+                decision="rejected",
+                send_back_to_stage="exploration",
+            ))
+
+    def test_adjusted_priority_zero_rejected(self):
+        with pytest.raises(ValidationError):
+            ReviewDecision(**_make_review_decision(
+                decision="priority_adjusted",
+                adjusted_priority=0,
+            ))
+
+    def test_extra_fields_allowed(self):
+        rd = ReviewDecision(
+            **_make_review_decision(),
+            reviewer_notes="Discussed with team",
+        )
+        assert rd.reviewer_notes == "Discussed with team"  # type: ignore[attr-defined]
+
+
+# ============================================================================
+# HumanReviewCheckpoint tests
+# ============================================================================
+
+
+class TestHumanReviewCheckpoint:
+    def test_valid_checkpoint(self):
+        cp = HumanReviewCheckpoint(**_make_human_review_checkpoint())
+        assert cp.schema_version == 1
+        assert len(cp.decisions) == 1
+        assert cp.review_metadata.reviewer == "paul"
+
+    def test_empty_decisions_allowed(self):
+        """No opportunities reached review."""
+        cp = HumanReviewCheckpoint(**_make_human_review_checkpoint(decisions=[]))
+        assert len(cp.decisions) == 0
+
+    def test_default_decisions_is_empty(self):
+        data = _make_human_review_checkpoint()
+        del data["decisions"]
+        cp = HumanReviewCheckpoint(**data)
+        assert cp.decisions == []
+
+    def test_missing_metadata_rejected(self):
+        data = _make_human_review_checkpoint()
+        del data["review_metadata"]
+        with pytest.raises(ValidationError):
+            HumanReviewCheckpoint(**data)
+
+    def test_invalid_decision_inside_checkpoint_rejected(self):
+        data = _make_human_review_checkpoint(
+            decisions=[{"opportunity_id": ""}]  # Empty opportunity_id
+        )
+        with pytest.raises(ValidationError):
+            HumanReviewCheckpoint(**data)
+
+    def test_empty_reviewer_rejected(self):
+        data = _make_human_review_checkpoint(
+            review_metadata={"reviewer": "", "opportunities_reviewed": 0}
+        )
+        with pytest.raises(ValidationError):
+            HumanReviewCheckpoint(**data)
+
+    def test_negative_opportunities_reviewed_rejected(self):
+        data = _make_human_review_checkpoint(
+            review_metadata={"reviewer": "paul", "opportunities_reviewed": -1}
+        )
+        with pytest.raises(ValidationError):
+            HumanReviewCheckpoint(**data)
+
+    def test_multiple_decisions(self):
+        data = _make_human_review_checkpoint(
+            decisions=[
+                _make_review_decision(opportunity_id="opp_1", decision="accepted"),
+                _make_review_decision(opportunity_id="opp_2", decision="rejected"),
+                _make_review_decision(opportunity_id="opp_3", decision="deferred"),
+            ]
+        )
+        cp = HumanReviewCheckpoint(**data)
+        assert len(cp.decisions) == 3
+
+    def test_extra_fields_allowed(self):
+        cp = HumanReviewCheckpoint(
+            **_make_human_review_checkpoint(),
+            review_session_duration_minutes=45,
+        )
+        assert cp.review_session_duration_minutes == 45  # type: ignore[attr-defined]
+
+    def test_schema_version_defaults_to_1(self):
+        cp = HumanReviewCheckpoint(**_make_human_review_checkpoint())
+        assert cp.schema_version == 1

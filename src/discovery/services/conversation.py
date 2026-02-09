@@ -17,7 +17,9 @@ from pydantic import BaseModel, ValidationError
 from src.discovery.db.storage import DiscoveryStorage
 from src.discovery.models.artifacts import (
     ExplorerCheckpoint,
+    HumanReviewCheckpoint,
     OpportunityFramingCheckpoint,
+    PrioritizationCheckpoint,
     SolutionValidationCheckpoint,
     TechnicalSpec,
 )
@@ -43,8 +45,8 @@ STAGE_ARTIFACT_MODELS: Dict[StageType, Optional[Type[BaseModel]]] = {
     StageType.OPPORTUNITY_FRAMING: OpportunityFramingCheckpoint,  # Issue #219: wrapper for multiple briefs
     StageType.SOLUTION_VALIDATION: SolutionValidationCheckpoint,
     StageType.FEASIBILITY_RISK: TechnicalSpec,
-    StageType.PRIORITIZATION: None,  # Phase 1: no formal schema yet
-    StageType.HUMAN_REVIEW: None,  # Human decisions, no fixed schema
+    StageType.PRIORITIZATION: PrioritizationCheckpoint,  # Issue #235
+    StageType.HUMAN_REVIEW: HumanReviewCheckpoint,  # Issue #235
 }
 
 
@@ -357,8 +359,8 @@ class ConversationService:
     ) -> None:
         """Validate artifacts against the stage-specific Pydantic model.
 
-        Stages without a specific model (exploration, prioritization,
-        human_review) accept any non-empty dict.
+        All stages now have artifact models registered in STAGE_ARTIFACT_MODELS.
+        If a stage were mapped to None, it would accept any non-empty dict.
 
         Raises ArtifactValidationError on validation failure.
         """
