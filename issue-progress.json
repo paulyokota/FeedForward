@@ -121,18 +121,28 @@
       "error": "phase2_deferred — evaluation issue requiring Phase 1 operational experience"
     },
     "190": {
-      "phase": "tested",
+      "phase": "complete",
       "branch": "fix/190-speed-up-default-test-suite-introduce-fa",
-      "pr": null,
-      "reviewConversationId": null,
-      "attempts": { "plan": 0, "test": 1, "review": 0 },
+      "pr": 249,
+      "reviewConversationId": "8QLY327",
+      "attempts": { "plan": 0, "test": 1, "review": 1 },
       "startedAt": "2026-02-09T18:00:00Z",
-      "updatedAt": "2026-02-09T18:30:00Z",
+      "updatedAt": "2026-02-09T19:00:00Z",
+      "error": null
+    },
+    "250": {
+      "phase": "implemented",
+      "branch": "fix/250-readme-update",
+      "pr": null,
+      "reviewConversationId": "7LOL791",
+      "attempts": { "plan": 1, "test": 1, "review": 0 },
+      "startedAt": "2026-02-09T20:00:00Z",
+      "updatedAt": "2026-02-09T21:42:00Z",
       "error": null
     }
   },
   "runConversationId": "issue-runner-1770607532",
-  "currentIssue": "190",
-  "completedCount": 6,
+  "currentIssue": 250,
+  "completedCount": 7,
   "skippedCount": 6
 }
