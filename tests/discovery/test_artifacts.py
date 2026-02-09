@@ -14,17 +14,21 @@ from src.discovery.models.artifacts import (
     EvidencePointer,
     ExplorerCheckpoint,
     ExplorerFinding,
+    FeasibilityRiskCheckpoint,
     HumanReviewCheckpoint,
+    InfeasibleSolution,
     OpportunityBrief,
     PrioritizationCheckpoint,
     PrioritizedOpportunity,
     ReviewDecision,
+    RiskItem,
     SolutionBrief,
     TechnicalSpec,
 )
 from src.discovery.models.enums import (
     BuildExperimentDecision,
     ConfidenceLevel,
+    FeasibilityAssessment,
     ReviewDecisionType,
     SourceType,
 )
@@ -73,13 +77,25 @@ def _make_solution_brief(**overrides) -> dict:
     return base
 
 
+def _make_risk_item(**overrides) -> dict:
+    """Create a valid risk item dict."""
+    base = {
+        "description": "Stripe webhook handling differs across implementations",
+        "severity": "medium",
+        "mitigation": "Add integration tests for all webhook paths before migration",
+    }
+    base.update(overrides)
+    return base
+
+
 def _make_technical_spec(**overrides) -> dict:
     """Create a valid technical spec dict."""
     base = {
+        "opportunity_id": "opp_billing_friction",
         "approach": "Consolidate three billing form implementations into shared component",
         "effort_estimate": "2 weeks +/- 3 days",
         "dependencies": "Payment module test coverage must be added first",
-        "risks": ["Stripe webhook handling differs across implementations"],
+        "risks": [_make_risk_item()],
         "acceptance_criteria": "All billing flows use single implementation, payment tests pass",
     }
     base.update(overrides)
@@ -278,11 +294,67 @@ class TestSolutionBrief:
 # ============================================================================
 
 
+class TestRiskItem:
+    def test_valid_risk_item(self):
+        ri = RiskItem(**_make_risk_item())
+        assert ri.description == "Stripe webhook handling differs across implementations"
+        assert ri.severity == "medium"
+        assert ri.mitigation.startswith("Add integration")
+
+    def test_missing_description_rejected(self):
+        data = _make_risk_item()
+        del data["description"]
+        with pytest.raises(ValidationError):
+            RiskItem(**data)
+
+    def test_empty_description_rejected(self):
+        with pytest.raises(ValidationError):
+            RiskItem(**_make_risk_item(description=""))
+
+    def test_missing_severity_rejected(self):
+        data = _make_risk_item()
+        del data["severity"]
+        with pytest.raises(ValidationError):
+            RiskItem(**data)
+
+    def test_empty_severity_rejected(self):
+        with pytest.raises(ValidationError):
+            RiskItem(**_make_risk_item(severity=""))
+
+    def test_missing_mitigation_rejected(self):
+        data = _make_risk_item()
+        del data["mitigation"]
+        with pytest.raises(ValidationError):
+            RiskItem(**data)
+
+    def test_empty_mitigation_rejected(self):
+        with pytest.raises(ValidationError):
+            RiskItem(**_make_risk_item(mitigation=""))
+
+    def test_extra_fields_allowed(self):
+        ri = RiskItem(
+            **_make_risk_item(),
+            likelihood="high",
+        )
+        assert ri.likelihood == "high"  # type: ignore[attr-defined]
+
+
 class TestTechnicalSpec:
     def test_valid_technical_spec(self):
         ts = TechnicalSpec(**_make_technical_spec())
         assert len(ts.risks) == 1
         assert ts.schema_version == 1
+        assert ts.opportunity_id == "opp_billing_friction"
+
+    def test_missing_opportunity_id_rejected(self):
+        data = _make_technical_spec()
+        del data["opportunity_id"]
+        with pytest.raises(ValidationError):
+            TechnicalSpec(**data)
+
+    def test_empty_opportunity_id_rejected(self):
+        with pytest.raises(ValidationError):
+            TechnicalSpec(**_make_technical_spec(opportunity_id=""))
 
     def test_missing_approach_rejected(self):
         data = _make_technical_spec()
@@ -316,13 +388,20 @@ class TestTechnicalSpec:
         ts = TechnicalSpec(
             **_make_technical_spec(
                 risks=[
-                    "Stripe webhook handling differs",
-                    "No test coverage on payment module",
-                    "Migration requires downtime window",
+                    _make_risk_item(description="Stripe webhook handling differs"),
+                    _make_risk_item(description="No test coverage on payment module"),
+                    _make_risk_item(description="Migration requires downtime window"),
                 ]
             )
         )
         assert len(ts.risks) == 3
+
+    def test_invalid_risk_item_rejected(self):
+        """RiskItem with empty description inside TechnicalSpec is rejected."""
+        with pytest.raises(ValidationError):
+            TechnicalSpec(**_make_technical_spec(
+                risks=[{"description": "", "severity": "high", "mitigation": "Fix it"}]
+            ))
 
     def test_extra_fields_allowed(self):
         ts = TechnicalSpec(
@@ -331,6 +410,181 @@ class TestTechnicalSpec:
             estimated_lines_changed=500,
         )
         assert ts.suggested_reviewers == ["backend-team"]  # type: ignore[attr-defined]
+
+
+# ============================================================================
+# Stage 3: InfeasibleSolution helpers
+# ============================================================================
+
+
+def _make_infeasible_solution(**overrides) -> dict:
+    """Create a valid infeasible solution dict."""
+    base = {
+        "opportunity_id": "opp_billing_friction",
+        "solution_summary": "Rebuild billing system from scratch",
+        "feasibility_assessment": "infeasible",
+        "infeasibility_reason": "Would require 6+ months and full team reallocation",
+        "constraints_identified": ["Team capacity", "Migration risk too high"],
+    }
+    base.update(overrides)
+    return base
+
+
+def _make_feasibility_risk_metadata(**overrides) -> dict:
+    """Create a valid feasibility risk metadata dict."""
+    base = {
+        "solutions_assessed": 2,
+        "feasible_count": 1,
+        "infeasible_count": 1,
+        "total_dialogue_rounds": 4,
+        "total_token_usage": {"prompt_tokens": 500, "completion_tokens": 300, "total_tokens": 800},
+        "model": "gpt-4o-mini",
+    }
+    base.update(overrides)
+    return base
+
+
+def _make_feasibility_risk_checkpoint(**overrides) -> dict:
+    """Create a valid feasibility risk checkpoint dict."""
+    base = {
+        "specs": [_make_technical_spec()],
+        "infeasible_solutions": [_make_infeasible_solution()],
+        "feasibility_metadata": _make_feasibility_risk_metadata(),
+    }
+    base.update(overrides)
+    return base
+
+
+# ============================================================================
+# InfeasibleSolution tests
+# ============================================================================
+
+
+class TestInfeasibleSolution:
+    def test_valid_infeasible_solution(self):
+        inf = InfeasibleSolution(**_make_infeasible_solution())
+        assert inf.opportunity_id == "opp_billing_friction"
+        assert inf.feasibility_assessment == FeasibilityAssessment.INFEASIBLE
+        assert len(inf.constraints_identified) == 2
+
+    def test_missing_opportunity_id_rejected(self):
+        data = _make_infeasible_solution()
+        del data["opportunity_id"]
+        with pytest.raises(ValidationError):
+            InfeasibleSolution(**data)
+
+    def test_empty_opportunity_id_rejected(self):
+        with pytest.raises(ValidationError):
+            InfeasibleSolution(**_make_infeasible_solution(opportunity_id=""))
+
+    def test_missing_solution_summary_rejected(self):
+        data = _make_infeasible_solution()
+        del data["solution_summary"]
+        with pytest.raises(ValidationError):
+            InfeasibleSolution(**data)
+
+    def test_empty_solution_summary_rejected(self):
+        with pytest.raises(ValidationError):
+            InfeasibleSolution(**_make_infeasible_solution(solution_summary=""))
+
+    def test_missing_infeasibility_reason_rejected(self):
+        data = _make_infeasible_solution()
+        del data["infeasibility_reason"]
+        with pytest.raises(ValidationError):
+            InfeasibleSolution(**data)
+
+    def test_empty_infeasibility_reason_rejected(self):
+        with pytest.raises(ValidationError):
+            InfeasibleSolution(**_make_infeasible_solution(infeasibility_reason=""))
+
+    def test_constraints_default_empty(self):
+        data = _make_infeasible_solution()
+        del data["constraints_identified"]
+        inf = InfeasibleSolution(**data)
+        assert inf.constraints_identified == []
+
+    def test_extra_fields_allowed(self):
+        inf = InfeasibleSolution(
+            **_make_infeasible_solution(),
+            alternative_suggestions=["Try incremental migration"],
+        )
+        assert inf.alternative_suggestions == ["Try incremental migration"]  # type: ignore[attr-defined]
+
+
+# ============================================================================
+# FeasibilityRiskCheckpoint tests
+# ============================================================================
+
+
+class TestFeasibilityRiskCheckpoint:
+    def test_valid_checkpoint(self):
+        cp = FeasibilityRiskCheckpoint(**_make_feasibility_risk_checkpoint())
+        assert cp.schema_version == 1
+        assert len(cp.specs) == 1
+        assert len(cp.infeasible_solutions) == 1
+        assert cp.feasibility_metadata.solutions_assessed == 2
+
+    def test_empty_specs_allowed(self):
+        """All solutions infeasible — no specs."""
+        cp = FeasibilityRiskCheckpoint(**_make_feasibility_risk_checkpoint(specs=[]))
+        assert len(cp.specs) == 0
+
+    def test_empty_infeasible_allowed(self):
+        """All solutions feasible — no infeasible records."""
+        cp = FeasibilityRiskCheckpoint(**_make_feasibility_risk_checkpoint(
+            infeasible_solutions=[]
+        ))
+        assert len(cp.infeasible_solutions) == 0
+
+    def test_default_specs_is_empty(self):
+        data = _make_feasibility_risk_checkpoint()
+        del data["specs"]
+        cp = FeasibilityRiskCheckpoint(**data)
+        assert cp.specs == []
+
+    def test_default_infeasible_is_empty(self):
+        data = _make_feasibility_risk_checkpoint()
+        del data["infeasible_solutions"]
+        cp = FeasibilityRiskCheckpoint(**data)
+        assert cp.infeasible_solutions == []
+
+    def test_missing_metadata_rejected(self):
+        data = _make_feasibility_risk_checkpoint()
+        del data["feasibility_metadata"]
+        with pytest.raises(ValidationError):
+            FeasibilityRiskCheckpoint(**data)
+
+    def test_invalid_spec_inside_checkpoint_rejected(self):
+        data = _make_feasibility_risk_checkpoint(
+            specs=[{"opportunity_id": ""}]  # Empty opportunity_id
+        )
+        with pytest.raises(ValidationError):
+            FeasibilityRiskCheckpoint(**data)
+
+    def test_invalid_metadata_rejected(self):
+        data = _make_feasibility_risk_checkpoint(
+            feasibility_metadata={"solutions_assessed": -1, "feasible_count": 0, "infeasible_count": 0, "total_dialogue_rounds": 0, "model": "gpt-4o-mini"}
+        )
+        with pytest.raises(ValidationError):
+            FeasibilityRiskCheckpoint(**data)
+
+    def test_empty_model_in_metadata_rejected(self):
+        data = _make_feasibility_risk_checkpoint(
+            feasibility_metadata={"solutions_assessed": 0, "feasible_count": 0, "infeasible_count": 0, "total_dialogue_rounds": 0, "model": ""}
+        )
+        with pytest.raises(ValidationError):
+            FeasibilityRiskCheckpoint(**data)
+
+    def test_extra_fields_allowed(self):
+        cp = FeasibilityRiskCheckpoint(
+            **_make_feasibility_risk_checkpoint(),
+            backward_flow_triggered=True,
+        )
+        assert cp.backward_flow_triggered is True  # type: ignore[attr-defined]
+
+    def test_schema_version_defaults_to_1(self):
+        cp = FeasibilityRiskCheckpoint(**_make_feasibility_risk_checkpoint())
+        assert cp.schema_version == 1
 
 
 # ============================================================================

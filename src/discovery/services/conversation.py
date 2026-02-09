@@ -17,11 +17,11 @@ from pydantic import BaseModel, ValidationError
 from src.discovery.db.storage import DiscoveryStorage
 from src.discovery.models.artifacts import (
     ExplorerCheckpoint,
+    FeasibilityRiskCheckpoint,
     HumanReviewCheckpoint,
     OpportunityFramingCheckpoint,
     PrioritizationCheckpoint,
     SolutionValidationCheckpoint,
-    TechnicalSpec,
 )
 from src.discovery.models.conversation import (
     CheckpointSubmission,
@@ -44,7 +44,7 @@ STAGE_ARTIFACT_MODELS: Dict[StageType, Optional[Type[BaseModel]]] = {
     StageType.EXPLORATION: ExplorerCheckpoint,  # Issue #215: formal schema (MF1)
     StageType.OPPORTUNITY_FRAMING: OpportunityFramingCheckpoint,  # Issue #219: wrapper for multiple briefs
     StageType.SOLUTION_VALIDATION: SolutionValidationCheckpoint,
-    StageType.FEASIBILITY_RISK: TechnicalSpec,
+    StageType.FEASIBILITY_RISK: FeasibilityRiskCheckpoint,  # Issue #221: wrapper for specs + infeasible
     StageType.PRIORITIZATION: PrioritizationCheckpoint,  # Issue #235
     StageType.HUMAN_REVIEW: HumanReviewCheckpoint,  # Issue #235
 }

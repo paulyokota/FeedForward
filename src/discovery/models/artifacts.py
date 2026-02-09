@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, model_validator
 from src.discovery.models.enums import (
     BuildExperimentDecision,
     ConfidenceLevel,
+    FeasibilityAssessment,
     ReviewDecisionType,
     SourceType,
 )
@@ -171,8 +172,22 @@ class SolutionValidationCheckpoint(BaseModel):
             logger.info("SolutionValidationCheckpoint has extra fields: %s", extra_fields)
 
 
+class RiskItem(BaseModel):
+    """A single identified risk with severity and mitigation.
+
+    Used by TechnicalSpec to capture structured risk information
+    from the Risk/QA Agent.
+    """
+
+    model_config = {"extra": "allow"}
+
+    description: str = Field(min_length=1, description="What the risk is")
+    severity: str = Field(min_length=1, description="e.g. high, medium, low, critical")
+    mitigation: str = Field(min_length=1, description="How to address or reduce this risk")
+
+
 class TechnicalSpec(BaseModel):
-    """Stage 3 checkpoint artifact.
+    """Stage 3 inner artifact — one per feasible solution.
 
     Technical approach + effort + dependencies + risks + acceptance criteria.
     """
@@ -180,16 +195,81 @@ class TechnicalSpec(BaseModel):
     model_config = {"extra": "allow"}
 
     schema_version: int = 1
+    opportunity_id: str = Field(min_length=1, description="Links back to OpportunityBrief")
     approach: str = Field(min_length=1, description="How to implement")
     effort_estimate: str = Field(min_length=1, description="With confidence range")
     dependencies: str = Field(min_length=1, description="What this blocks or is blocked by")
-    risks: List[str] = Field(min_length=1, description="Identified risks with severity")
+    risks: List[RiskItem] = Field(min_length=1, description="Identified risks with severity and mitigation")
     acceptance_criteria: str = Field(min_length=1, description="How to verify completion")
 
     def model_post_init(self, __context) -> None:
         extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
         if extra_fields:
             logger.info("TechnicalSpec has extra fields: %s", extra_fields)
+
+
+class InfeasibleSolution(BaseModel):
+    """Records a solution that was assessed as technically infeasible.
+
+    Preserved in the checkpoint so Stage 2 can design around the constraint
+    when the backward flow triggers.
+    """
+
+    model_config = {"extra": "allow"}
+
+    opportunity_id: str = Field(min_length=1)
+    solution_summary: str = Field(min_length=1, description="What was proposed")
+    feasibility_assessment: FeasibilityAssessment
+    infeasibility_reason: str = Field(min_length=1, description="Why it's not feasible")
+    constraints_identified: List[str] = Field(
+        default_factory=list,
+        description="Specific technical constraints that prevent implementation",
+    )
+
+    def model_post_init(self, __context) -> None:
+        extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
+        if extra_fields:
+            logger.info("InfeasibleSolution has extra fields: %s", extra_fields)
+
+
+class FeasibilityRiskMetadata(BaseModel):
+    """Stable metadata fields for FeasibilityRiskCheckpoint."""
+
+    model_config = {"extra": "allow"}
+
+    solutions_assessed: int = Field(ge=0)
+    feasible_count: int = Field(ge=0)
+    infeasible_count: int = Field(ge=0)
+    total_dialogue_rounds: int = Field(ge=0)
+    total_token_usage: Dict[str, int] = Field(
+        default_factory=lambda: {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
+    )
+    model: str = Field(min_length=1)
+
+
+class FeasibilityRiskCheckpoint(BaseModel):
+    """Stage 3 checkpoint artifact wrapping feasible specs and infeasible records.
+
+    Feasible solutions become TechnicalSpecs in `specs`. Infeasible solutions
+    are recorded in `infeasible_solutions` with rationale for backward flow.
+    Both lists can be empty (no solutions to assess, or all feasible/infeasible).
+    """
+
+    model_config = {"extra": "allow"}
+
+    schema_version: int = 1
+    specs: List[TechnicalSpec] = Field(default_factory=list)
+    infeasible_solutions: List[InfeasibleSolution] = Field(default_factory=list)
+    feasibility_metadata: FeasibilityRiskMetadata
+
+    def model_post_init(self, __context) -> None:
+        extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
+        if extra_fields:
+            logger.info("FeasibilityRiskCheckpoint has extra fields: %s", extra_fields)
 
 
 # ============================================================================
