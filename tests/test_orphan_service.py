@@ -16,6 +16,8 @@ import sys
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+pytestmark = pytest.mark.medium
+
 from story_tracking.models import (
     MIN_GROUP_SIZE,
     Orphan,

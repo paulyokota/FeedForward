@@ -19,6 +19,8 @@ import pytest
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "codebase-search-vdd"))
 
+pytestmark = pytest.mark.medium
+
 from fetch_conversations import (
     ConversationFetcher,
     FetchedConversation,

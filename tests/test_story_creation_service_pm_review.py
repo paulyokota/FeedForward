@@ -23,6 +23,8 @@ from story_tracking.models import (
     Story,
     StoryCreate,
 )
+pytestmark = pytest.mark.medium
+
 from story_tracking.services import (
     OrphanService,
     StoryCreationService,

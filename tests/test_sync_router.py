@@ -21,6 +21,9 @@ from fastapi.testclient import TestClient
 from src.api.main import app
 from src.api.routers.sync import get_sync_service, get_shortcut_client
 from src.api.deps import get_db
+
+pytestmark = pytest.mark.medium
+
 from story_tracking.models import (
     SyncMetadata,
     SyncResult,

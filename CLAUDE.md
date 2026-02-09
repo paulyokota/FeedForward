@@ -10,14 +10,14 @@ LLM-powered Intercom conversation analysis pipeline for extracting product insig
 
 **Quick routing (decision friction reducer)**:
 
-| If you're doing... | Then... |
-| --- | --- |
-| Starting a feature | Check skill scope and decide if you need an architect first. See [Quick Decision Tree](#quick-decision-tree). |
-| Writing new code | Ensure tests exist before review. See [Critical Path Checklist](#critical-path-checklist-every-pr). |
-| Running the pipeline | Use the dev-mode script only. See [Pipeline Execution](#pipeline-execution-dev-mode). |
-| Creating a PR | Full suite passes + 5-personality review. See [Critical Path Checklist](#critical-path-checklist-every-pr) and [Code Review Protocol](#code-review-protocol). |
-| Fixing review feedback | Original dev fixes their own code. See [Key Process Gates](#key-process-gates). |
-| Ending a session | Check for BACKLOG_FLAGs and TODOs. See [Backlog Hygiene](#backlog-hygiene-session-end). |
+| If you're doing...     | Then...                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Starting a feature     | Check skill scope and decide if you need an architect first. See [Quick Decision Tree](#quick-decision-tree).                                                 |
+| Writing new code       | Ensure tests exist before review. See [Critical Path Checklist](#critical-path-checklist-every-pr).                                                           |
+| Running the pipeline   | Use the dev-mode script only. See [Pipeline Execution](#pipeline-execution-dev-mode).                                                                         |
+| Creating a PR          | Full suite passes + 5-personality review. See [Critical Path Checklist](#critical-path-checklist-every-pr) and [Code Review Protocol](#code-review-protocol). |
+| Fixing review feedback | Original dev fixes their own code. See [Key Process Gates](#key-process-gates).                                                                               |
+| Ending a session       | Check for BACKLOG_FLAGs and TODOs. See [Backlog Hygiene](#backlog-hygiene-session-end).                                                                       |
 
 ## Tech Stack
 
@@ -25,8 +25,11 @@ LLM-powered Intercom conversation analysis pipeline for extracting product insig
 - **LLM**: OpenAI (gpt-4o-mini for cost efficiency)
 - **Database**: PostgreSQL for data, **pytest** for testing
 - Key commands:
-  - **Quick verification**: `pytest -m "not slow"` (1,196 tests, ~2 min)
-  - **Full suite**: `pytest tests/ -v` (1,400 tests, ~10 min)
+  - **Fast gate**: `pytest -m "fast"` (~1,726 pure unit tests)
+  - **Pre-merge**: `pytest -m "fast or medium"` (~2,200 tests)
+  - **Full local**: `pytest -m "not slow"` (~2,200 tests — same as pre-merge)
+  - **Full suite**: `pytest tests/ -v` (~2,492 tests including slow)
+  - **Parallel**: `pytest -m "fast" -n auto` (xdist, use for CI quick gate)
   - **API server**: `uvicorn src.api.main:app --reload --port 8000`
 
 ## Project Structure
@@ -67,8 +70,9 @@ PM Review uses `diagnostic_summary` for story validation (previously used `sourc
 
 ```
 [ ] Tests exist (see docs/process-playbook/gates/test-gate.md)
-[ ] Quick check passes: pytest -m "not slow" (use during development)
-[ ] Full suite passes: pytest tests/ -v (required before PR)
+[ ] Fast gate passes: pytest -m "fast" (use during development)
+[ ] Pre-merge passes: pytest -m "fast or medium" (required before PR)
+[ ] Full suite passes: pytest tests/ -v (required before merge, includes slow)
 [ ] Cross-component PRs: Integration test verifies full data path (see docs/process-playbook/gates/integration-testing-gate.md)
 [ ] Pipeline PRs: Functional test evidence attached (see docs/process-playbook/gates/functional-testing-gate.md)
 [ ] Review converged: 5-personality, 2+ rounds
@@ -301,10 +305,13 @@ python src/cli.py themes           # List all themes
 python src/cli.py trending         # Trending themes
 python src/cli.py pending          # Preview pending tickets
 
-# Tests
-pytest -m "not slow"           # Fast unit tests (~1,200 tests, ~2 min) - use during development
-pytest tests/ -v               # Full suite (~1,400 tests, ~10 min) - required before PR
-pytest -m "slow"               # Integration tests only (~200 tests)
+# Tests — tiered markers (fast / medium / slow)
+pytest -m "fast"               # Pure unit tests (~1,726 tests) - CI quick gate
+pytest -m "fast" -n auto       # Same, parallelized via xdist
+pytest -m "fast or medium"     # Pre-merge gate (~2,200 tests)
+pytest -m "not slow"           # Same as "fast or medium" - full local dev
+pytest tests/ -v               # Full suite (~2,492 tests) - includes slow
+pytest -m "slow"               # Integration/pipeline tests only (~292 tests)
 ```
 
 ---
@@ -422,10 +429,12 @@ HTTP-type MCP servers (like Intercom) need tokens in the `env` block of `.mcp.js
 After updating `.mcp.json`, restart Claude Code for changes to take effect.
 
 <!-- agenterminal:start -->
+
 ## AgenTerminal Headless Mode
 
 This project is configured for AgenTerminal headless agent sessions.
 The agenterminal MCP server provides tools for conversation, code review,
-plan review, and user interaction. Use the agenterminal-* skills for
+plan review, and user interaction. Use the agenterminal-\* skills for
 structured workflows.
+
 <!-- agenterminal:end -->

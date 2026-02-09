@@ -24,6 +24,8 @@ import sys
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+pytestmark = pytest.mark.medium
+
 from story_tracking.services.orphan_integration import (
     OrphanIntegrationService,
     INTERCOM_APP_ID,
