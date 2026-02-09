@@ -18,7 +18,7 @@ from src.discovery.db.storage import DiscoveryStorage
 from src.discovery.models.artifacts import (
     ExplorerCheckpoint,
     OpportunityFramingCheckpoint,
-    SolutionBrief,
+    SolutionValidationCheckpoint,
     TechnicalSpec,
 )
 from src.discovery.models.conversation import (
@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 STAGE_ARTIFACT_MODELS: Dict[StageType, Optional[Type[BaseModel]]] = {
     StageType.EXPLORATION: ExplorerCheckpoint,  # Issue #215: formal schema (MF1)
     StageType.OPPORTUNITY_FRAMING: OpportunityFramingCheckpoint,  # Issue #219: wrapper for multiple briefs
-    StageType.SOLUTION_VALIDATION: SolutionBrief,
+    StageType.SOLUTION_VALIDATION: SolutionValidationCheckpoint,
     StageType.FEASIBILITY_RISK: TechnicalSpec,
     StageType.PRIORITIZATION: None,  # Phase 1: no formal schema yet
     StageType.HUMAN_REVIEW: None,  # Human decisions, no fixed schema

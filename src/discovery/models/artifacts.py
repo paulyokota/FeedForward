@@ -107,6 +107,8 @@ class SolutionBrief(BaseModel):
     """Stage 2 checkpoint artifact.
 
     Solution hypothesis + experiment plan + Build/Experiment Decision.
+    Extra fields (decision_rationale, validation_challenges, experience_direction,
+    convergence_forced, convergence_note) are stored via extra='allow'.
     """
 
     model_config = {"extra": "allow"}
@@ -125,6 +127,47 @@ class SolutionBrief(BaseModel):
         extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
         if extra_fields:
             logger.info("SolutionBrief has extra fields: %s", extra_fields)
+
+
+class SolutionDesignMetadata(BaseModel):
+    """Stable metadata fields for SolutionValidationCheckpoint.
+
+    Documents what the SolutionDesigner reviewed and produced, so downstream
+    stages can assess coverage without parsing the solutions themselves.
+    """
+
+    model_config = {"extra": "allow"}
+
+    opportunity_briefs_processed: int = Field(ge=0)
+    solutions_produced: int = Field(ge=0)
+    total_dialogue_rounds: int = Field(ge=0)
+    total_token_usage: Dict[str, int] = Field(
+        default_factory=lambda: {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
+    )
+    model: str = Field(min_length=1)
+
+
+class SolutionValidationCheckpoint(BaseModel):
+    """Stage 2 checkpoint artifact wrapping multiple SolutionBriefs.
+
+    One SolutionBrief per OpportunityBrief from Stage 1. Empty solutions
+    list is valid when all opportunity briefs were dropped or none existed.
+    """
+
+    model_config = {"extra": "allow"}
+
+    schema_version: int = 1
+    solutions: List[SolutionBrief] = Field(default_factory=list)
+    design_metadata: SolutionDesignMetadata
+
+    def model_post_init(self, __context) -> None:
+        extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
+        if extra_fields:
+            logger.info("SolutionValidationCheckpoint has extra fields: %s", extra_fields)
 
 
 class TechnicalSpec(BaseModel):
