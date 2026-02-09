@@ -114,3 +114,21 @@ class ReviewDecisionType(str, Enum):
     DEFERRED = "deferred"
     SENT_BACK = "sent_back"
     PRIORITY_ADJUSTED = "priority_adjusted"
+
+
+class ExperimentOutcome(str, Enum):
+    """Experiment results vs. success criteria comparison (#224)."""
+
+    MET = "met"
+    PARTIALLY_MET = "partially_met"
+    NOT_MET = "not_met"
+    INCONCLUSIVE = "inconclusive"
+
+
+class ExperimentRecommendation(str, Enum):
+    """Human submitter's recommendation after experiment results (#224)."""
+
+    SCALE_UP = "scale_up"
+    REVISE = "revise"
+    ABANDON = "abandon"
+    EXPERIMENT_AGAIN = "experiment_again"

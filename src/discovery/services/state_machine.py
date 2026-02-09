@@ -17,7 +17,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+from pydantic import ValidationError
+
 from src.discovery.db.storage import DiscoveryStorage
+from src.discovery.models.artifacts import ExperimentResult
 from src.discovery.models.enums import (
     RunStatus,
     StageStatus,
@@ -387,6 +390,76 @@ class DiscoveryStateMachine:
     def get_stage_progression(self, run_id: UUID) -> List[StageExecution]:
         """Get the stage progression for a run (derived from stage_executions)."""
         return self.storage.get_stage_executions_for_run(run_id)
+
+    def create_reentry_run(
+        self,
+        parent_run_id: UUID,
+        experiment_results: Dict[str, Any],
+        start_stage: StageType = StageType.SOLUTION_VALIDATION,
+    ) -> DiscoveryRun:
+        """Create a re-entry run after experiment results are available.
+
+        The re-entry run is linked to the parent run and starts at the given
+        stage (default: SOLUTION_VALIDATION). Experiment results are stored
+        in the run's metadata.
+
+        Args:
+            parent_run_id: UUID of the completed parent run.
+            experiment_results: Dict matching ExperimentResult schema.
+            start_stage: Stage to start at (default SOLUTION_VALIDATION).
+
+        Returns:
+            The created DiscoveryRun in RUNNING state.
+
+        Raises:
+            ValueError: If parent run not found.
+            InvalidTransitionError: If parent run is not COMPLETED.
+            ValidationError: If experiment_results fail ExperimentResult validation.
+        """
+        parent = self._get_run_or_raise(parent_run_id)
+
+        if parent.status != RunStatus.COMPLETED:
+            raise InvalidTransitionError(
+                f"Cannot create re-entry run: parent {parent_run_id} is "
+                f"{parent.status.value}, not completed"
+            )
+
+        # Validate experiment results against the model
+        ExperimentResult(**experiment_results)
+
+        now = datetime.now(timezone.utc)
+
+        # Build metadata with experiment results
+        metadata = RunMetadata(experiment_results=experiment_results)
+
+        run = DiscoveryRun(
+            parent_run_id=parent_run_id,
+            status=RunStatus.RUNNING,
+            current_stage=start_stage,
+            config=parent.config,
+            metadata=metadata,
+        )
+        created_run = self.storage.create_run(run)
+
+        # Create first stage execution at start_stage
+        self.storage.create_stage_execution(
+            StageExecution(
+                run_id=created_run.id,
+                stage=start_stage,
+                status=StageStatus.IN_PROGRESS,
+                attempt_number=1,
+                started_at=now,
+            )
+        )
+
+        logger.info(
+            "Created re-entry run %s (parent: %s) starting at %s",
+            created_run.id,
+            parent_run_id,
+            start_stage.value,
+        )
+
+        return created_run
 
     # ========================================================================
     # Internal helpers

@@ -53,12 +53,13 @@ class DiscoveryStorage:
         with self._cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO discovery_runs (status, current_stage, config, metadata, errors, warnings)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                RETURNING id, status, current_stage, config, metadata,
+                INSERT INTO discovery_runs (parent_run_id, status, current_stage, config, metadata, errors, warnings)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, parent_run_id, status, current_stage, config, metadata,
                           started_at, completed_at, errors, warnings
                 """,
                 (
+                    str(run.parent_run_id) if run.parent_run_id else None,
                     run.status.value,
                     run.current_stage.value if run.current_stage else None,
                     json.dumps(run.config.model_dump()),
@@ -75,7 +76,7 @@ class DiscoveryStorage:
         with self._cursor() as cur:
             cur.execute(
                 """
-                SELECT id, status, current_stage, config, metadata,
+                SELECT id, parent_run_id, status, current_stage, config, metadata,
                        started_at, completed_at, errors, warnings
                 FROM discovery_runs
                 WHERE id = %s
@@ -109,7 +110,7 @@ class DiscoveryStorage:
                     UPDATE discovery_runs
                     SET status = %s, completed_at = COALESCE(%s, completed_at)
                     WHERE id = %s
-                    RETURNING id, status, current_stage, config, metadata,
+                    RETURNING id, parent_run_id, status, current_stage, config, metadata,
                               started_at, completed_at, errors, warnings
                     """,
                     (status.value, completed_at, str(run_id)),
@@ -122,7 +123,7 @@ class DiscoveryStorage:
                         current_stage = %s,
                         completed_at = COALESCE(%s, completed_at)
                     WHERE id = %s
-                    RETURNING id, status, current_stage, config, metadata,
+                    RETURNING id, parent_run_id, status, current_stage, config, metadata,
                               started_at, completed_at, errors, warnings
                     """,
                     (
@@ -175,7 +176,7 @@ class DiscoveryStorage:
             if status:
                 cur.execute(
                     """
-                    SELECT id, status, current_stage, config, metadata,
+                    SELECT id, parent_run_id, status, current_stage, config, metadata,
                            started_at, completed_at, errors, warnings
                     FROM discovery_runs
                     WHERE status = %s
@@ -187,7 +188,7 @@ class DiscoveryStorage:
             else:
                 cur.execute(
                     """
-                    SELECT id, status, current_stage, config, metadata,
+                    SELECT id, parent_run_id, status, current_stage, config, metadata,
                            started_at, completed_at, errors, warnings
                     FROM discovery_runs
                     ORDER BY started_at DESC
@@ -195,6 +196,21 @@ class DiscoveryStorage:
                     """,
                     (limit,),
                 )
+            return [self._row_to_run(row) for row in cur.fetchall()]
+
+    def get_child_runs(self, parent_run_id: UUID) -> List[DiscoveryRun]:
+        """Get all re-entry runs that have the given run as their parent."""
+        with self._cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, parent_run_id, status, current_stage, config, metadata,
+                       started_at, completed_at, errors, warnings
+                FROM discovery_runs
+                WHERE parent_run_id = %s
+                ORDER BY started_at ASC NULLS LAST
+                """,
+                (str(parent_run_id),),
+            )
             return [self._row_to_run(row) for row in cur.fetchall()]
 
     # ========================================================================
@@ -554,9 +570,11 @@ class DiscoveryStorage:
         """Convert a database row to a DiscoveryRun model."""
         config_data = row["config"] if isinstance(row["config"], dict) else {}
         metadata_data = row["metadata"] if isinstance(row["metadata"], dict) else {}
+        parent_run_id = UUID(str(row["parent_run_id"])) if row.get("parent_run_id") else None
 
         return DiscoveryRun(
             id=UUID(str(row["id"])),
+            parent_run_id=parent_run_id,
             status=RunStatus(row["status"]),
             current_stage=StageType(row["current_stage"]) if row["current_stage"] else None,
             config=RunConfig(**config_data),

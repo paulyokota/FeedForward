@@ -17,6 +17,8 @@ from pydantic import BaseModel, Field, model_validator
 from src.discovery.models.enums import (
     BuildExperimentDecision,
     ConfidenceLevel,
+    ExperimentOutcome,
+    ExperimentRecommendation,
     FeasibilityAssessment,
     ReviewDecisionType,
     SourceType,
@@ -390,6 +392,35 @@ class PrioritizationCheckpoint(BaseModel):
         extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
         if extra_fields:
             logger.info("PrioritizationCheckpoint has extra fields: %s", extra_fields)
+
+
+# ============================================================================
+# Experiment Re-entry artifacts (Issue #224)
+# ============================================================================
+
+
+class ExperimentResult(BaseModel):
+    """Structured experiment outcome for re-entry into Stage 2.
+
+    Submitted by a human after an experiment_first or build_slice_and_experiment
+    decision completes outside the discovery engine. Stored in the re-entry
+    run's metadata.
+    """
+
+    model_config = {"extra": "allow"}
+
+    opportunity_id: str = Field(min_length=1, description="Links back to original OpportunityBrief")
+    experiment_plan_executed: str = Field(min_length=1, description="What was actually tested")
+    success_criteria: str = Field(min_length=1, description="From the original SolutionBrief")
+    measured_outcome: str = Field(min_length=1, description="What was observed")
+    outcome_vs_criteria: ExperimentOutcome
+    observations: str = Field(min_length=1, description="Qualitative learnings")
+    recommendation: ExperimentRecommendation
+
+    def model_post_init(self, __context) -> None:
+        extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
+        if extra_fields:
+            logger.info("ExperimentResult has extra fields: %s", extra_fields)
 
 
 # ============================================================================
