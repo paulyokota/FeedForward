@@ -8,6 +8,17 @@ LLM-powered Intercom conversation analysis pipeline for extracting product insig
 
 **Start here**: Read `PLAN.md` for full project context, methodology, and phased implementation plan.
 
+**Quick routing (decision friction reducer)**:
+
+| If you're doing... | Then... |
+| --- | --- |
+| Starting a feature | Check skill scope and decide if you need an architect first. See [Quick Decision Tree](#quick-decision-tree). |
+| Writing new code | Ensure tests exist before review. See [Critical Path Checklist](#critical-path-checklist-every-pr). |
+| Running the pipeline | Use the dev-mode script only. See [Pipeline Execution](#pipeline-execution-dev-mode). |
+| Creating a PR | Full suite passes + 5-personality review. See [Critical Path Checklist](#critical-path-checklist-every-pr) and [Code Review Protocol](#code-review-protocol). |
+| Fixing review feedback | Original dev fixes their own code. See [Key Process Gates](#key-process-gates). |
+| Ending a session | Check for BACKLOG_FLAGs and TODOs. See [Backlog Hygiene](#backlog-hygiene-session-end). |
+
 ## Tech Stack
 
 - **Language**: Python 3.11, **Framework**: FastAPI + Next.js
@@ -409,3 +420,12 @@ HTTP-type MCP servers (like Intercom) need tokens in the `env` block of `.mcp.js
 ```
 
 After updating `.mcp.json`, restart Claude Code for changes to take effect.
+
+<!-- agenterminal:start -->
+## AgenTerminal Headless Mode
+
+This project is configured for AgenTerminal headless agent sessions.
+The agenterminal MCP server provides tools for conversation, code review,
+plan review, and user interaction. Use the agenterminal-* skills for
+structured workflows.
+<!-- agenterminal:end -->
