@@ -234,11 +234,23 @@ def _valid_opportunity_brief():
 
 def _valid_solution_brief():
     return {
-        "proposed_solution": "Add password reset via email link",
-        "experiment_plan": "A/B test reset flow with 10% of users",
-        "success_metrics": "Reduce password tickets from 50/week to 10/week",
-        "build_experiment_decision": "experiment_first",
-        "evidence": [_valid_evidence()],
+        "schema_version": 1,
+        "solutions": [
+            {
+                "proposed_solution": "Add password reset via email link",
+                "experiment_plan": "A/B test reset flow with 10% of users",
+                "success_metrics": "Reduce password tickets from 50/week to 10/week",
+                "build_experiment_decision": "experiment_first",
+                "evidence": [_valid_evidence()],
+            },
+        ],
+        "design_metadata": {
+            "opportunity_briefs_processed": 1,
+            "solutions_produced": 1,
+            "total_dialogue_rounds": 1,
+            "total_token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "model": "gpt-4o-mini",
+        },
     }
 
 
