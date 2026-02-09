@@ -26,6 +26,8 @@ from src.discovery.agents.experience_agent import ExperienceAgent
 from src.discovery.agents.prompts import (
     SOLUTION_PROPOSAL_SYSTEM,
     SOLUTION_PROPOSAL_USER,
+    SOLUTION_REENTRY_SYSTEM,
+    SOLUTION_REENTRY_USER,
     SOLUTION_REVISION_SYSTEM,
     SOLUTION_REVISION_USER,
 )
@@ -111,11 +113,18 @@ class SolutionDesigner:
         self,
         opportunity_brief: Dict[str, Any],
         prior_checkpoints: List[Dict[str, Any]],
+        experiment_results: Optional[Dict[str, Any]] = None,
+        original_solution_brief: Optional[Dict[str, Any]] = None,
     ) -> SolutionDesignResult:
         """Run the multi-agent dialogue to design a solution.
 
         Processes a single OpportunityBrief. The caller iterates over
         multiple briefs and collects results.
+
+        For re-entry runs (experiment_results provided), round 1 uses
+        SOLUTION_REENTRY prompts instead of SOLUTION_PROPOSAL prompts.
+        The PM sees the original SolutionBrief + experiment results and
+        decides whether to scale up, revise, or abandon.
 
         Flow per round:
         1. PM proposes/revises solution direction
@@ -149,7 +158,15 @@ class SolutionDesigner:
             ]
 
             # Step 1: PM proposes or revises
-            if round_num == 1:
+            if round_num == 1 and experiment_results is not None:
+                proposal = self._call_pm_reentry(
+                    opportunity_brief,
+                    original_solution_brief or {},
+                    experiment_results,
+                    prior_checkpoints,
+                    history_dicts,
+                )
+            elif round_num == 1:
                 proposal = self._call_pm_solution(
                     opportunity_brief, prior_checkpoints, history_dicts
                 )
@@ -443,6 +460,51 @@ class SolutionDesigner:
         if "proposed_solution" not in raw:
             raise ValueError(
                 "PM revision response missing required 'proposed_solution' key"
+            )
+
+        raw["token_usage"] = usage
+        return raw
+
+    def _call_pm_reentry(
+        self,
+        opportunity_brief: Dict[str, Any],
+        original_solution_brief: Dict[str, Any],
+        experiment_results: Dict[str, Any],
+        prior_checkpoints: List[Dict[str, Any]],
+        dialogue_history: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Call the PM in re-entry mode (round 1 after experiment results)."""
+        user_prompt = SOLUTION_REENTRY_USER.format(
+            original_solution_brief_json=json.dumps(original_solution_brief, indent=2),
+            experiment_results_json=json.dumps(experiment_results, indent=2),
+            opportunity_brief_json=json.dumps(opportunity_brief, indent=2),
+            prior_context_json=json.dumps(prior_checkpoints, indent=2),
+            dialogue_history_json=json.dumps(dialogue_history, indent=2),
+        )
+
+        response = self.client.chat.completions.create(
+            model=self.config.model,
+            messages=[
+                {"role": "system", "content": SOLUTION_REENTRY_SYSTEM},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=self.config.temperature,
+            response_format={"type": "json_object"},
+        )
+
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
+
+        raw = json.loads(response.choices[0].message.content)
+
+        if "proposed_solution" not in raw:
+            raise ValueError(
+                "PM re-entry response missing required 'proposed_solution' key"
             )
 
         raw["token_usage"] = usage

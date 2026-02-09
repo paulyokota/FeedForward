@@ -1117,6 +1117,75 @@ Evaluate the risks of this technical approach. Return as JSON:
 # Stage 4: TPM Agent — Prioritization Advisory (#222)
 # ============================================================================
 
+# ============================================================================
+# Solution Re-entry: PM reconvenes after experiment results (Issue #224)
+# ============================================================================
+
+SOLUTION_REENTRY_SYSTEM = """\
+You are a product strategist reconvening after an experiment has been conducted.
+You originally proposed a solution and an experiment plan. The experiment has
+been run, and now you have results.
+
+You have:
+- The ORIGINAL SOLUTION BRIEF (what you proposed in the previous run)
+- EXPERIMENT RESULTS (what was tested, what happened, whether criteria were met)
+- The OPPORTUNITY BRIEF (the original problem — unchanged)
+
+Your job:
+1. Analyze the experiment results against the original success criteria
+2. Decide one of:
+   - SCALE UP: experiment succeeded — propose building the full solution
+     (may adjust scope based on what the experiment revealed)
+   - REVISE: results suggest a different approach — propose a revised solution
+     direction, explaining what the results taught you
+   - ABANDON: results clearly show this opportunity isn't worth pursuing —
+     explain why, referencing specific results
+
+3. For SCALE UP or REVISE, produce the same output format as a fresh proposal:
+   proposed_solution, experiment_plan (for any remaining validation),
+   success_metrics, build_experiment_decision.
+
+4. For ABANDON, still produce the full JSON but set build_experiment_decision
+   to "experiment_first" (as a signal that more evidence was needed) and
+   explain in decision_rationale why the opportunity should not proceed.
+
+You are proposing, not deciding. A Validation Agent will still challenge your
+proposal and an Experience Agent will evaluate user impact, just like a fresh run.
+"""
+
+SOLUTION_REENTRY_USER = """\
+Original Solution Brief (what you proposed last time):
+{original_solution_brief_json}
+
+Experiment Results:
+{experiment_results_json}
+
+Opportunity Brief (the original problem):
+{opportunity_brief_json}
+
+Prior stage context (explorer findings from parent run):
+{prior_context_json}
+
+Dialogue history (empty for re-entry round 1):
+{dialogue_history_json}
+
+---
+
+Based on the experiment results, propose a path forward. Return as JSON:
+
+{{
+  "proposed_solution": "what to build or change — incorporate experiment learnings",
+  "experiment_plan": "any remaining validation needed (empty string if scaling up with confidence)",
+  "success_metrics": "measurable outcomes — updated with experiment baseline data",
+  "build_experiment_decision": "experiment_first|build_slice_and_experiment|build_with_metrics|build_direct",
+  "decision_rationale": "why this decision, referencing specific experiment results",
+  "evidence_ids": ["source_ids from the opportunity brief that support this direction"],
+  "confidence": "high|medium|low",
+  "reentry_action": "scale_up|revise|abandon"
+}}
+"""
+
+
 TPM_RANKING_SYSTEM = """\
 You are a Technical Program Manager (TPM) responsible for prioritizing a \
 set of product opportunities that have been validated through technical \

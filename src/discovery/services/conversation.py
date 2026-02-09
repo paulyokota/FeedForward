@@ -332,6 +332,80 @@ class ConversationService:
         """Get the conversation_id for a specific stage of a run."""
         return self.storage.get_stage_conversation_id(run_id, stage)
 
+    def get_reentry_context(
+        self,
+        run_id: UUID,
+        opportunity_index: int,
+    ) -> Dict[str, Any]:
+        """Get context needed for a re-entry run's Stage 2 reconvening.
+
+        Fetches parent run's checkpoints, experiment results from metadata,
+        and selects the specific OpportunityBrief and SolutionBrief by index.
+
+        Args:
+            run_id: UUID of the re-entry run (not the parent).
+            opportunity_index: Position of the opportunity in the parent's
+                briefs list. Selects both OpportunityBrief and SolutionBrief.
+
+        Returns:
+            Dict with parent_checkpoints, experiment_results,
+            original_opportunity_brief, and original_solution_brief.
+
+        Raises:
+            ValueError: If run has no parent_run_id (not a re-entry run).
+            IndexError: If opportunity_index is out of bounds.
+        """
+        run = self.storage.get_run(run_id)
+        if not run:
+            raise ValueError(f"Run {run_id} not found")
+
+        if not run.parent_run_id:
+            raise ValueError(
+                f"Run {run_id} is not a re-entry run (no parent_run_id)"
+            )
+
+        # Get parent's checkpoints
+        parent_checkpoints = self.get_prior_checkpoints(run.parent_run_id)
+
+        # Get experiment results from metadata
+        metadata_dict = run.metadata.model_dump()
+        experiment_results = metadata_dict.get("experiment_results", {})
+
+        # Select OpportunityBrief from parent's Stage 1 checkpoint
+        opportunity_brief = None
+        for cp in parent_checkpoints:
+            if cp["stage"] == StageType.OPPORTUNITY_FRAMING.value:
+                briefs = cp["artifacts"].get("briefs", [])
+                if opportunity_index < 0 or opportunity_index >= len(briefs):
+                    raise IndexError(
+                        f"opportunity_index {opportunity_index} out of bounds "
+                        f"(parent has {len(briefs)} briefs)"
+                    )
+                opportunity_brief = briefs[opportunity_index]
+                break
+
+        if opportunity_brief is None:
+            raise ValueError(
+                f"No opportunity_framing checkpoint found for parent run "
+                f"{run.parent_run_id}"
+            )
+
+        # Select SolutionBrief from parent's Stage 2 checkpoint
+        solution_brief = None
+        for cp in parent_checkpoints:
+            if cp["stage"] == StageType.SOLUTION_VALIDATION.value:
+                solutions = cp["artifacts"].get("solutions", [])
+                if opportunity_index < len(solutions):
+                    solution_brief = solutions[opportunity_index]
+                break
+
+        return {
+            "parent_checkpoints": parent_checkpoints,
+            "experiment_results": experiment_results,
+            "original_opportunity_brief": opportunity_brief,
+            "original_solution_brief": solution_brief,
+        }
+
     # ========================================================================
     # Internal helpers
     # ========================================================================

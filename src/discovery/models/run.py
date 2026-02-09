@@ -27,7 +27,10 @@ class RunMetadata(BaseModel):
     """Run metadata captured per discovery cycle for auditability.
 
     Phase 1: recorded for auditability, not used for replay.
+    extra='allow' supports experiment_results for re-entry runs (#224).
     """
+
+    model_config = {"extra": "allow"}
 
     agent_versions: Dict[str, str] = Field(
         default_factory=dict,
@@ -99,6 +102,7 @@ class DiscoveryRun(BaseModel):
     """Top-level discovery cycle run."""
 
     id: Optional[UUID] = None
+    parent_run_id: Optional[UUID] = None  # Links re-entry runs to parent (#224)
     status: RunStatus = RunStatus.PENDING
     current_stage: Optional[StageType] = None
     config: RunConfig = Field(default_factory=RunConfig)
