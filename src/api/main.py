@@ -61,7 +61,7 @@ logging.getLogger("aiohttp").setLevel(logging.WARNING)
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.routers import analytics, health, labels, pipeline, research, stories, sync, themes
+from src.api.routers import analytics, discovery, health, labels, pipeline, research, stories, sync, themes
 from src.db.connection import get_connection
 
 logger = logging.getLogger(__name__)
@@ -165,6 +165,7 @@ app.include_router(stories.router)
 app.include_router(sync.router)
 app.include_router(labels.router)
 app.include_router(research.router)
+app.include_router(discovery.router)
 
 
 @app.get("/")
