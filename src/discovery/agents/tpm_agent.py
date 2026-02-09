@@ -191,6 +191,11 @@ class TPMAgent:
                     "flags": ["Auto-appended \u2014 missing from LLM output"],
                 })
 
+        # Ensure every entry has a non-empty rationale (PrioritizedOpportunity requires min_length=1)
+        for entry in deduped:
+            if not entry.get("rationale"):
+                entry["rationale"] = "No rationale provided by agent"
+
         # Re-rank sequentially
         for i, entry in enumerate(deduped, start=1):
             entry["recommended_rank"] = i

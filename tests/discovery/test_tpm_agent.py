@@ -265,6 +265,23 @@ class TestNormalizeRankings:
         assert result["rankings"][0]["recommended_rank"] == 1
         assert result["rankings"][1]["recommended_rank"] == 2
 
+    def test_missing_rationale_gets_default(self):
+        """LLM may omit rationale — normalization fills it for Pydantic min_length=1."""
+        agent = _make_agent({
+            "rankings": [
+                {"opportunity_id": "opp_a", "rationale": ""},
+                {"opportunity_id": "opp_b"},
+            ]
+        })
+
+        result = agent.rank_opportunities([
+            _make_package("opp_a"),
+            _make_package("opp_b"),
+        ])
+
+        assert result["rankings"][0]["rationale"] == "No rationale provided by agent"
+        assert result["rankings"][1]["rationale"] == "No rationale provided by agent"
+
 
 # ============================================================================
 # build_checkpoint_artifacts
