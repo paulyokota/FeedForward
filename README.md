@@ -60,7 +60,7 @@ Intercom Conversations
 
 | Layer       | Technology                                          |
 | ----------- | --------------------------------------------------- |
-| Language    | Python 3.11                                         |
+| Language    | Python 3.10+                                        |
 | API         | FastAPI                                             |
 | Frontend    | Next.js (React, TypeScript, Tailwind CSS)           |
 | LLM         | OpenAI gpt-4o-mini                                  |
@@ -108,7 +108,7 @@ FeedForward/
 ### Prerequisites
 
 - Python 3.10+
-- PostgreSQL 14+ with the [pgvector](https://github.com/pgvector/pgvector) extension
+- PostgreSQL 14+ with the [pgvector](https://github.com/pgvector/pgvector) extension (`CREATE EXTENSION vector;`)
 - Node.js 18+
 - API keys: `INTERCOM_ACCESS_TOKEN`, `OPENAI_API_KEY`
 
