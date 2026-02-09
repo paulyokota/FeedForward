@@ -587,6 +587,81 @@ class TestGetReentryContext:
         with pytest.raises(IndexError, match="out of bounds"):
             svc.get_reentry_context(reentry.id, opportunity_index=5)
 
+    def test_solution_index_out_of_bounds_raises(self):
+        """Stage 2 solutions shorter than opportunity_index raises IndexError."""
+        svc, storage = self._make_service()
+        now = datetime.now(timezone.utc)
+
+        # Create parent with 2 briefs but only 1 solution
+        parent = storage.create_run(
+            DiscoveryRun(
+                status=RunStatus.COMPLETED,
+                current_stage=StageType.HUMAN_REVIEW,
+                completed_at=now,
+            )
+        )
+        storage.runs[parent.id].status = RunStatus.COMPLETED
+        storage.runs[parent.id].completed_at = now
+
+        # Stage 1 with 2 briefs
+        storage.create_stage_execution(
+            StageExecution(
+                run_id=parent.id,
+                stage=StageType.OPPORTUNITY_FRAMING,
+                status=StageStatus.COMPLETED,
+                attempt_number=1,
+                started_at=now,
+                completed_at=now,
+                artifacts={
+                    "schema_version": 1,
+                    "briefs": [_make_opportunity_brief(), _make_opportunity_brief()],
+                    "framing_metadata": {"findings_processed": 5},
+                },
+            )
+        )
+
+        # Stage 2 with only 1 solution
+        storage.create_stage_execution(
+            StageExecution(
+                run_id=parent.id,
+                stage=StageType.SOLUTION_VALIDATION,
+                status=StageStatus.COMPLETED,
+                attempt_number=1,
+                started_at=now,
+                completed_at=now,
+                artifacts={
+                    "schema_version": 1,
+                    "solutions": [_make_solution_brief()],
+                    "design_metadata": {
+                        "opportunity_briefs_processed": 1,
+                        "solutions_produced": 1,
+                        "total_dialogue_rounds": 1,
+                        "total_token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                        "model": "gpt-4o-mini",
+                    },
+                },
+            )
+        )
+
+        reentry = storage.create_run(
+            DiscoveryRun(
+                parent_run_id=parent.id,
+                status=RunStatus.RUNNING,
+                metadata=RunMetadata(
+                    experiment_results=_valid_experiment_results()
+                ),
+            )
+        )
+        storage.runs[reentry.id].parent_run_id = parent.id
+
+        # Index 0 should work (1 solution exists)
+        ctx = svc.get_reentry_context(reentry.id, opportunity_index=0)
+        assert ctx["original_solution_brief"] is not None
+
+        # Index 1 should fail (only 1 solution)
+        with pytest.raises(IndexError, match="out of bounds"):
+            svc.get_reentry_context(reentry.id, opportunity_index=1)
+
     def test_run_not_found_raises(self):
         svc, storage = self._make_service()
 

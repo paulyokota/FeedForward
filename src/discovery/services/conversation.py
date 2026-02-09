@@ -395,9 +395,19 @@ class ConversationService:
         for cp in parent_checkpoints:
             if cp["stage"] == StageType.SOLUTION_VALIDATION.value:
                 solutions = cp["artifacts"].get("solutions", [])
-                if opportunity_index < len(solutions):
-                    solution_brief = solutions[opportunity_index]
+                if opportunity_index < 0 or opportunity_index >= len(solutions):
+                    raise IndexError(
+                        f"opportunity_index {opportunity_index} out of bounds "
+                        f"(parent has {len(solutions)} solutions)"
+                    )
+                solution_brief = solutions[opportunity_index]
                 break
+
+        if solution_brief is None:
+            raise ValueError(
+                f"No solution_validation checkpoint found for parent run "
+                f"{run.parent_run_id}"
+            )
 
         return {
             "parent_checkpoints": parent_checkpoints,
