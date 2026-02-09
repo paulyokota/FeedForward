@@ -26,16 +26,26 @@
 **Streaming Batch Resume (Issue #209): COMPLETE** ✅
 **Discovery Engine: PHASE 1 IN PROGRESS** 🔄
 
-## Latest: Codebase Explorer — Stage 0 Source Code Analysis (2026-02-08)
+## Latest: Research Explorer — Stage 0 Internal Doc Analysis (2026-02-08)
+
+**Issue #218 COMPLETE** ✅ — Research Explorer Agent (PR #239)
+
+Fourth and final Stage 0 explorer. Reads internal markdown docs and surfaces latent product signals:
+
+- ResearchReader data access: filesystem walk of docs/ and reference/, bucket-based classification
+- Bucket-based batching (strategy, architecture, process, session_notes, reference, general)
+- Two-pass LLM strategy (per-bucket batch analysis + cross-bucket synthesis)
+- Evidence via doc paths → EvidencePointer(RESEARCH, path), empty evidence filtering
+- 387 discovery tests passing (42 new: 35 unit + 7 integration)
+
+**All Stage 0 explorers now complete**: Customer Voice (#215), Codebase (#217), Analytics (#216), Research (#218)
+
+### Previous: Codebase Explorer (2026-02-08)
 
 **Issue #217 COMPLETE** ✅ — Codebase Explorer Agent (PR #237)
 
-Stage 0 explorer that discovers tech debt and architecture patterns from recently-changed source files:
-
-- CodebaseReader data access: git log + disk read, scoped to src/, extension allowlist
-- Two-pass LLM strategy (per-batch analysis + synthesis) matching CustomerVoiceExplorer pattern
-- Requery support for follow-up questions about specific source files
-- ExplorerCheckpoint integration with state machine (advances EXPLORATION → OPPORTUNITY_FRAMING)
+- CodebaseReader: git log + disk read, scoped to src/, extension allowlist
+- Two-pass LLM strategy matching CustomerVoiceExplorer pattern
 - 297 discovery tests passing (39 new: 33 unit + 6 integration)
 
 ### Previous: Opportunity PM Agent (2026-02-08)
