@@ -200,7 +200,7 @@ SAMPLE_SOLUTION = {
 
 SAMPLE_SPEC = {
     "schema_version": 1,
-    "opportunity_id": "opp_nav_settings",
+    "opportunity_id": "navigation",
     "approach": "Add sidebar link with icon",
     "effort_estimate": "2-3 days",
     "dependencies": "Sidebar component refactor",
@@ -209,7 +209,7 @@ SAMPLE_SPEC = {
 }
 
 SAMPLE_RANKING = {
-    "opportunity_id": "opp_nav_settings",
+    "opportunity_id": "navigation",
     "recommended_rank": 1,
     "rationale": "High impact, low effort",
     "dependencies": [],
@@ -383,7 +383,7 @@ class TestDiscoveryApiServiceOpportunities:
 
         opp = result[0]
         assert opp["index"] == 0
-        assert opp["opportunity_id"] == "opp_nav_settings"
+        assert opp["opportunity_id"] == "navigation"
         assert opp["problem_statement"] == "Users can't find the settings page"
         assert opp["recommended_rank"] == 1
         assert opp["build_experiment_decision"] == "experiment_first"
@@ -402,6 +402,67 @@ class TestDiscoveryApiServiceOpportunities:
         service = DiscoveryApiService(storage)
         assert service.get_opportunities(run.id) == []
 
+    def test_get_opportunities_reordered_rankings(self):
+        """Rankings in different order from briefs still map correctly."""
+        storage = InMemoryStorage()
+        run = storage.create_run(DiscoveryRun(
+            status=RunStatus.RUNNING,
+            current_stage=StageType.HUMAN_REVIEW,
+        ))
+        run_id = run.id
+
+        brief_a = {**SAMPLE_BRIEF, "affected_area": "checkout", "problem_statement": "Checkout is slow"}
+        brief_b = {**SAMPLE_BRIEF, "affected_area": "navigation", "problem_statement": "Users can't find the settings page"}
+
+        solution_a = {**SAMPLE_SOLUTION, "proposed_solution": "Optimize checkout API"}
+        solution_b = {**SAMPLE_SOLUTION, "proposed_solution": "Add settings link to sidebar"}
+
+        # Stage 1: briefs in order [checkout, navigation]
+        storage.create_stage_execution(StageExecution(
+            run_id=run_id, stage=StageType.OPPORTUNITY_FRAMING,
+            status=StageStatus.COMPLETED, attempt_number=1, started_at=NOW,
+            artifacts={"schema_version": 1, "briefs": [brief_a, brief_b],
+                       "framing_metadata": {"explorer_findings_count": 5, "opportunities_identified": 2, "model": "gpt-4o-mini"}},
+        ))
+
+        # Stage 2: solutions in same order [checkout, navigation]
+        storage.create_stage_execution(StageExecution(
+            run_id=run_id, stage=StageType.SOLUTION_VALIDATION,
+            status=StageStatus.COMPLETED, attempt_number=1, started_at=NOW,
+            artifacts={"schema_version": 1, "solutions": [solution_a, solution_b],
+                       "design_metadata": {"opportunity_briefs_processed": 2, "solutions_produced": 2,
+                                           "total_dialogue_rounds": 3, "total_token_usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150}, "model": "gpt-4o-mini"}},
+        ))
+
+        # Stage 4: rankings REORDERED — navigation first, checkout second
+        storage.create_stage_execution(StageExecution(
+            run_id=run_id, stage=StageType.PRIORITIZATION,
+            status=StageStatus.COMPLETED, attempt_number=1, started_at=NOW,
+            artifacts={"schema_version": 1, "rankings": [
+                {"opportunity_id": "navigation", "recommended_rank": 1, "rationale": "Higher impact", "dependencies": [], "flags": []},
+                {"opportunity_id": "checkout", "recommended_rank": 2, "rationale": "Lower priority", "dependencies": [], "flags": []},
+            ], "prioritization_metadata": {"opportunities_ranked": 2, "model": "gpt-4o-mini"}},
+        ))
+
+        # Stage 5: human review
+        storage.create_stage_execution(StageExecution(
+            run_id=run_id, stage=StageType.HUMAN_REVIEW,
+            status=StageStatus.IN_PROGRESS, attempt_number=1, started_at=NOW,
+        ))
+
+        service = DiscoveryApiService(storage)
+        result = service.get_opportunities(run_id)
+        assert len(result) == 2
+
+        # Rank 1 (index 0) should be navigation, not checkout
+        assert result[0]["opportunity_id"] == "navigation"
+        assert result[0]["problem_statement"] == "Users can't find the settings page"
+        assert result[0]["build_experiment_decision"] == "experiment_first"  # from solution_b
+
+        # Rank 2 (index 1) should be checkout
+        assert result[1]["opportunity_id"] == "checkout"
+        assert result[1]["problem_statement"] == "Checkout is slow"
+
     def test_get_opportunities_with_review_status(self):
         """Opportunities that have been reviewed show the decision type."""
         storage = InMemoryStorage()
@@ -413,7 +474,7 @@ class TestDiscoveryApiServiceOpportunities:
                 se.artifacts = {
                     "schema_version": 1,
                     "decisions": [{
-                        "opportunity_id": "opp_nav_settings",
+                        "opportunity_id": "navigation",
                         "decision": "accepted",
                         "reasoning": "Good opportunity",
                     }],
@@ -471,7 +532,7 @@ class TestDiscoveryApiServiceSubmitDecision:
             "reasoning": "Looks good",
         })
         assert result is not None
-        assert result["opportunity_id"] == "opp_nav_settings"
+        assert result["opportunity_id"] == "navigation"
         assert result["decision"] == "accepted"
 
     def test_submit_decision_replaces_existing(self):

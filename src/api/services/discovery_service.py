@@ -131,28 +131,36 @@ class DiscoveryApiService:
         # Build decision lookup by opportunity_id
         decision_map = {d["opportunity_id"]: d for d in decisions if "opportunity_id" in d}
 
+        # Build brief lookup by affected_area (which becomes opportunity_id in Stage 3+)
+        brief_map: Dict[str, Dict[str, Any]] = {}
+        for brief in briefs:
+            area = brief.get("affected_area", "")
+            if area:
+                brief_map[area] = brief
+
+        # Build solution lookup — solutions are positional with briefs,
+        # so map using the same affected_area key from the corresponding brief
+        solution_map: Dict[str, Dict[str, Any]] = {}
+        for i, solution in enumerate(solutions):
+            if i < len(briefs):
+                area = briefs[i].get("affected_area", "")
+                if area:
+                    solution_map[area] = solution
+
         result = []
         for idx, ranking in enumerate(rankings):
             opp_id = ranking.get("opportunity_id", "")
 
-            # Find matching brief
-            problem_statement = ""
-            affected_area = ""
-            evidence_count = 0
-            for brief in briefs:
-                # Match by position or by opportunity_id if the brief has one
-                if idx < len(briefs):
-                    problem_statement = briefs[idx].get("problem_statement", "")
-                    affected_area = briefs[idx].get("affected_area", "")
-                    evidence_count = len(briefs[idx].get("evidence", []))
-                break
+            # Find matching brief by opportunity_id
+            brief = brief_map.get(opp_id, {})
+            problem_statement = brief.get("problem_statement", "")
+            affected_area = brief.get("affected_area", "")
+            evidence_count = len(brief.get("evidence", []))
 
-            # Find matching solution
-            build_experiment_decision = ""
-            effort_estimate = ""
-            if idx < len(solutions):
-                build_experiment_decision = solutions[idx].get("build_experiment_decision", "")
-                effort_estimate = solutions[idx].get("effort_estimate", "")
+            # Find matching solution by opportunity_id
+            solution = solution_map.get(opp_id, {})
+            build_experiment_decision = solution.get("build_experiment_decision", "")
+            effort_estimate = solution.get("effort_estimate", "")
 
             # Check review status
             decision = decision_map.get(opp_id)
@@ -211,38 +219,40 @@ class DiscoveryApiService:
                 exploration = s.artifacts
                 break
 
-        # Stage 1 opportunity brief
+        # Stage 1 opportunity brief — match by affected_area == opportunity_id
         opportunity_brief = None
         briefs = []
         for s in stages:
             if s.stage == StageType.OPPORTUNITY_FRAMING and s.artifacts:
                 briefs = s.artifacts.get("briefs", [])
                 break
-        if idx < len(briefs):
-            opportunity_brief = briefs[idx]
+        for brief in briefs:
+            if brief.get("affected_area") == opp_id:
+                opportunity_brief = brief
+                break
 
-        # Stage 2 solution brief
+        # Stage 2 solution brief — solutions are positional with briefs,
+        # so find the brief's index and use it
         solution_brief = None
         solutions = []
         for s in stages:
             if s.stage == StageType.SOLUTION_VALIDATION and s.artifacts:
                 solutions = s.artifacts.get("solutions", [])
                 break
-        if idx < len(solutions):
-            solution_brief = solutions[idx]
+        for i, brief in enumerate(briefs):
+            if brief.get("affected_area") == opp_id and i < len(solutions):
+                solution_brief = solutions[i]
+                break
 
-        # Stage 3 tech spec
+        # Stage 3 tech spec — match by opportunity_id
         tech_spec = None
         for s in stages:
             if s.stage == StageType.FEASIBILITY_RISK and s.artifacts:
                 specs = s.artifacts.get("specs", [])
-                # Match by opportunity_id or by index
                 for spec in specs:
                     if spec.get("opportunity_id") == opp_id:
                         tech_spec = spec
                         break
-                if tech_spec is None and idx < len(specs):
-                    tech_spec = specs[idx]
                 break
 
         # Stage 5 review decision
