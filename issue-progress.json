@@ -1,0 +1,138 @@
+{
+  "issues": {
+    "235": {
+      "phase": "complete",
+      "branch": "fix/235-artifact-models-remaining-stages",
+      "pr": 241,
+      "reviewConversationId": "6RTO332",
+      "attempts": { "plan": 1, "test": 0, "review": 1 },
+      "startedAt": "2026-02-09T03:25:00Z",
+      "updatedAt": "2026-02-09T03:37:00Z",
+      "error": null
+    },
+    "221": {
+      "phase": "complete",
+      "branch": "fix/221-stage3-feasibility-risk",
+      "pr": 242,
+      "reviewConversationId": "3BEK370",
+      "attempts": { "plan": 1, "test": 1, "review": 1 },
+      "startedAt": "2026-02-09T03:38:00Z",
+      "updatedAt": "2026-02-09T04:01:00Z",
+      "error": null
+    },
+    "222": {
+      "phase": "complete",
+      "branch": "fix/222-stage4-prioritization-tpm",
+      "pr": 243,
+      "reviewConversationId": "2RYQ338",
+      "attempts": { "plan": 1, "test": 1, "review": 1 },
+      "startedAt": "2026-02-09T04:02:00Z",
+      "updatedAt": "2026-02-09T04:13:00Z",
+      "error": null
+    },
+    "223": {
+      "phase": "complete",
+      "branch": "fix/223-stage5-human-review",
+      "pr": 245,
+      "reviewConversationId": "9LJQ705",
+      "attempts": { "plan": 1, "test": 1, "review": 1 },
+      "startedAt": "2026-02-09T04:37:00Z",
+      "updatedAt": "2026-02-09T05:03:00Z",
+      "error": null
+    },
+    "224": {
+      "phase": "complete",
+      "branch": "fix/224-experiment-results-intake",
+      "pr": 244,
+      "reviewConversationId": "4AEM629",
+      "attempts": { "plan": 1, "test": 1, "review": 1 },
+      "startedAt": "2026-02-09T04:14:00Z",
+      "updatedAt": "2026-02-09T04:36:00Z",
+      "error": null
+    },
+    "225": {
+      "phase": "complete",
+      "branch": "fix/225-e2e-integration-test",
+      "pr": 246,
+      "reviewConversationId": "2CJS977",
+      "attempts": { "plan": 1, "test": 1, "review": 1 },
+      "startedAt": "2026-02-09T05:10:00Z",
+      "updatedAt": "2026-02-09T09:40:00Z",
+      "error": null
+    },
+    "226": {
+      "phase": "skipped",
+      "branch": null,
+      "pr": null,
+      "reviewConversationId": null,
+      "attempts": { "plan": 0, "test": 0, "review": 0 },
+      "startedAt": "2026-02-09T09:45:00Z",
+      "updatedAt": "2026-02-09T09:45:00Z",
+      "error": "phase2_deferred — requires Phase 1 cost data"
+    },
+    "227": {
+      "phase": "skipped",
+      "branch": null,
+      "pr": null,
+      "reviewConversationId": null,
+      "attempts": { "plan": 0, "test": 0, "review": 0 },
+      "startedAt": "2026-02-09T09:45:00Z",
+      "updatedAt": "2026-02-09T09:45:00Z",
+      "error": "phase2_deferred — requires Phase 1 evidence validation data"
+    },
+    "228": {
+      "phase": "skipped",
+      "branch": null,
+      "pr": null,
+      "reviewConversationId": null,
+      "attempts": { "plan": 0, "test": 0, "review": 0 },
+      "startedAt": "2026-02-09T09:45:00Z",
+      "updatedAt": "2026-02-09T09:45:00Z",
+      "error": "phase2_deferred — requires multiple Phase 1 runs for variance comparison"
+    },
+    "229": {
+      "phase": "skipped",
+      "branch": null,
+      "pr": null,
+      "reviewConversationId": null,
+      "attempts": { "plan": 0, "test": 0, "review": 0 },
+      "startedAt": "2026-02-09T09:45:00Z",
+      "updatedAt": "2026-02-09T09:45:00Z",
+      "error": "phase2_deferred — extends #224, requires PostHog experiment monitoring"
+    },
+    "230": {
+      "phase": "skipped",
+      "branch": null,
+      "pr": null,
+      "reviewConversationId": null,
+      "attempts": { "plan": 0, "test": 0, "review": 0 },
+      "startedAt": "2026-02-09T09:45:00Z",
+      "updatedAt": "2026-02-09T09:45:00Z",
+      "error": "phase2_deferred — requires multiple runs with human adjustments to calibrate"
+    },
+    "231": {
+      "phase": "skipped",
+      "branch": null,
+      "pr": null,
+      "reviewConversationId": null,
+      "attempts": { "plan": 0, "test": 0, "review": 0 },
+      "startedAt": "2026-02-09T09:45:00Z",
+      "updatedAt": "2026-02-09T09:45:00Z",
+      "error": "phase2_deferred — evaluation issue requiring Phase 1 operational experience"
+    },
+    "190": {
+      "phase": "tested",
+      "branch": "fix/190-speed-up-default-test-suite-introduce-fa",
+      "pr": null,
+      "reviewConversationId": null,
+      "attempts": { "plan": 0, "test": 1, "review": 0 },
+      "startedAt": "2026-02-09T18:00:00Z",
+      "updatedAt": "2026-02-09T18:30:00Z",
+      "error": null
+    }
+  },
+  "runConversationId": "issue-runner-1770607532",
+  "currentIssue": "190",
+  "completedCount": 6,
+  "skippedCount": 6
+}

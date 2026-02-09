@@ -21,6 +21,8 @@ from story_tracking.services.orphan_integration import (
     OrphanIntegrationService,
 )
 
+pytestmark = pytest.mark.medium
+
 
 # -----------------------------------------------------------------------------
 # OrphanIntegrationResult Tests

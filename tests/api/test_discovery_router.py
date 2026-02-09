@@ -25,6 +25,8 @@ from src.discovery.models.enums import (
 )
 from src.discovery.models.run import DiscoveryRun, RunConfig, RunMetadata, StageExecution
 
+pytestmark = pytest.mark.medium
+
 
 # =============================================================================
 # InMemoryStorage for service-layer tests

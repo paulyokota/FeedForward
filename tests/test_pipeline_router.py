@@ -21,6 +21,8 @@ from src.api.main import app
 from src.api.deps import get_db
 import src.api.routers.pipeline as pipeline_module
 
+pytestmark = pytest.mark.medium
+
 
 # -----------------------------------------------------------------------------
 # Fixtures

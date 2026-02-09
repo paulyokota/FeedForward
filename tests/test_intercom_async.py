@@ -15,6 +15,8 @@ import aiohttp
 
 from src.intercom_client import IntercomClient, IntercomConversation
 
+pytestmark = pytest.mark.medium
+
 
 class TestSearchByDateRangeAsync:
     """Tests for search_by_date_range_async method."""

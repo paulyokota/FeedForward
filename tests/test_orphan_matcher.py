@@ -18,6 +18,9 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from orphan_matcher import ExtractedTheme, MatchResult, OrphanMatcher
 from signature_utils import SignatureRegistry
+
+pytestmark = pytest.mark.medium
+
 from story_tracking.models import (
     MIN_GROUP_SIZE,
     Orphan,

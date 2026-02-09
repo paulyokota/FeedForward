@@ -8,6 +8,8 @@ Issue: #106 - Pipeline step: embedding generation for conversations
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+pytestmark = pytest.mark.medium
+
 from src.services.embedding_service import (
     EmbeddingService,
     EmbeddingResult,

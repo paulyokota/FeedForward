@@ -26,6 +26,8 @@ from src.api.deps import get_db
 from src.api.schemas.pipeline import DryRunPreview, DryRunSample, DryRunClassificationBreakdown
 import src.api.routers.pipeline as pipeline_module
 
+pytestmark = pytest.mark.medium
+
 
 # -----------------------------------------------------------------------------
 # Fixtures

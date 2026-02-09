@@ -29,6 +29,8 @@ from src.story_tracking.services.story_content_generator import (
 )
 from src.prompts.story_content import StoryContentInput
 
+pytestmark = pytest.mark.medium
+
 
 # -----------------------------------------------------------------------------
 # Fixtures
