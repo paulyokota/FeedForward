@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from src.discovery.agents.base import coerce_str
 from src.discovery.agents.experience_agent import ExperienceAgent
 from src.discovery.agents.prompts import (
     SOLUTION_PROPOSAL_SYSTEM,
@@ -592,19 +593,10 @@ class SolutionDesigner:
                 )
 
         # LLM sometimes returns structured dicts for string fields — coerce.
-        raw_solution = proposal.get("proposed_solution", "")
-        if not isinstance(raw_solution, str):
-            raw_solution = json.dumps(raw_solution, indent=2)
-
-        raw_rationale = proposal.get("decision_rationale", "")
-        if not isinstance(raw_rationale, str):
-            raw_rationale = json.dumps(raw_rationale, indent=2)
-
-        if not isinstance(experiment_plan, str):
-            experiment_plan = json.dumps(experiment_plan, indent=2)
-
-        if not isinstance(success_metrics, str):
-            success_metrics = json.dumps(success_metrics, indent=2)
+        raw_solution = coerce_str(proposal.get("proposed_solution"))
+        raw_rationale = coerce_str(proposal.get("decision_rationale"))
+        experiment_plan = coerce_str(experiment_plan)
+        success_metrics = coerce_str(success_metrics)
 
         return SolutionDesignResult(
             proposed_solution=raw_solution,

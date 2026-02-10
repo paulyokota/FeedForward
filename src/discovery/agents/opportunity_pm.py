@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 
+from src.discovery.agents.base import coerce_str
 from src.discovery.agents.prompts import (
     OPPORTUNITY_FRAMING_SYSTEM,
     OPPORTUNITY_FRAMING_USER,
@@ -218,10 +219,10 @@ class OpportunityPM:
 
             briefs.append({
                 "schema_version": 1,
-                "problem_statement": raw_opp.get("problem_statement", ""),
+                "problem_statement": coerce_str(raw_opp.get("problem_statement"), fallback=""),
                 "evidence": evidence,
-                "counterfactual": raw_opp.get("counterfactual", ""),
-                "affected_area": raw_opp.get("affected_area", ""),
+                "counterfactual": coerce_str(raw_opp.get("counterfactual"), fallback=""),
+                "affected_area": coerce_str(raw_opp.get("affected_area"), fallback=""),
                 "explorer_coverage": result.coverage_summary,
                 "source_findings": raw_opp.get("source_findings", []),
             })
