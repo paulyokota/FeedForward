@@ -131,18 +131,28 @@
       "error": null
     },
     "250": {
-      "phase": "implemented",
+      "phase": "complete",
       "branch": "fix/250-readme-update",
-      "pr": null,
-      "reviewConversationId": "7LOL791",
-      "attempts": { "plan": 1, "test": 1, "review": 0 },
+      "pr": 251,
+      "reviewConversationId": "7FXE950",
+      "attempts": { "plan": 1, "test": 1, "review": 1 },
       "startedAt": "2026-02-09T20:00:00Z",
-      "updatedAt": "2026-02-09T21:42:00Z",
+      "updatedAt": "2026-02-09T21:45:00Z",
+      "error": null
+    },
+    "252": {
+      "phase": "implementing",
+      "branch": "fix/252-get-experimental-with-the-readme",
+      "pr": null,
+      "reviewConversationId": "9KHT832",
+      "attempts": { "plan": 1, "test": 0, "review": 0 },
+      "startedAt": "2026-02-09T22:00:00Z",
+      "updatedAt": "2026-02-09T22:03:00Z",
       "error": null
     }
   },
   "runConversationId": "issue-runner-1770607532",
-  "currentIssue": 250,
-  "completedCount": 7,
+  "currentIssue": 252,
+  "completedCount": 8,
   "skippedCount": 6
 }
