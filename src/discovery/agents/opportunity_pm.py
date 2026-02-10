@@ -183,6 +183,7 @@ class OpportunityPM:
         self,
         result: FramingResult,
         valid_evidence_ids: Optional[set] = None,
+        evidence_source_map: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Convert FramingResult into OpportunityFramingCheckpoint schema.
 
@@ -212,8 +213,20 @@ class OpportunityPM:
                         raw_opp.get("problem_statement", "?")[:50],
                     )
                     continue
+                source_type = None
+                if evidence_source_map is not None:
+                    source_type = evidence_source_map.get(conv_id)
+                    if source_type is None:
+                        logger.warning(
+                            "Unknown source_type for evidence ID '%s' in opportunity '%s' "
+                            "(defaulting to SourceType.OTHER)",
+                            conv_id,
+                            raw_opp.get("problem_statement", "?")[:50],
+                        )
+                if not source_type:
+                    source_type = SourceType.OTHER.value
                 evidence.append({
-                    "source_type": SourceType.INTERCOM.value,
+                    "source_type": source_type,
                     "source_id": conv_id,
                     "retrieved_at": now,
                     "confidence": ConfidenceLevel.from_raw(
@@ -272,20 +285,31 @@ class OpportunityPM:
         }
 
 
-def extract_evidence_ids(explorer_checkpoint: Dict[str, Any]) -> set:
-    """Extract all conversation IDs referenced in explorer findings.
+def extract_evidence_source_map(explorer_checkpoint: Dict[str, Any]) -> Dict[str, str]:
+    """Extract evidence source types keyed by source_id from explorer findings."""
+    source_map: Dict[str, str] = {}
+    for finding in explorer_checkpoint.get("findings", []):
+        for ev in finding.get("evidence", []):
+            source_id = ev.get("source_id") or ev.get("id")
+            source_type = ev.get("source_type")
+            if source_id and source_type and source_id not in source_map:
+                source_map[source_id] = source_type
+        for conv_id in finding.get("evidence_conversation_ids", []):
+            if conv_id and conv_id not in source_map:
+                source_map[conv_id] = SourceType.OTHER.value
+    return source_map
 
-    Returns a set of conversation IDs that can be used as valid_evidence_ids
-    when building checkpoint artifacts.
-    """
+
+def extract_evidence_ids(explorer_checkpoint: Dict[str, Any]) -> set:
+    """Extract all conversation IDs referenced in explorer findings."""
     ids = set()
     for finding in explorer_checkpoint.get("findings", []):
         for ev in finding.get("evidence", []):
-            source_id = ev.get("source_id", "")
+            source_id = ev.get("source_id") or ev.get("id")
             if source_id:
                 ids.add(source_id)
         for conv_id in finding.get("evidence_conversation_ids", []):
-            ids.add(conv_id)
+            if conv_id:
+                ids.add(conv_id)
     return ids
-
 

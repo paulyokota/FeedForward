@@ -448,6 +448,20 @@ class DiscoveryStorage:
                 return None
             return row["conversation_id"]
 
+    def update_participating_agents(
+        self, execution_id: int, agents: List[str]
+    ) -> None:
+        """Set the participating_agents list on a stage execution."""
+        with self._cursor() as cur:
+            cur.execute(
+                """
+                UPDATE stage_executions
+                SET participating_agents = %s
+                WHERE id = %s
+                """,
+                (agents, execution_id),
+            )
+
     # ========================================================================
     # Agent Invocations
     # ========================================================================

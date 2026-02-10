@@ -111,6 +111,7 @@ def _mock_solution_design_result():
         experience_direction={"engagement_depth": "medium", "friction_reduction": "high"},
         convergence_forced=False,
         convergence_note="",
+        token_usage={"prompt_tokens": 300, "completion_tokens": 200, "total_tokens": 500},
     )
 
 
@@ -135,6 +136,7 @@ def _mock_feasibility_result():
             "risks": [{"risk": "Browser compat", "severity": "low", "mitigation": "Polyfills"}],
         },
         total_rounds=1,
+        token_usage={"prompt_tokens": 250, "completion_tokens": 150, "total_tokens": 400},
     )
 
 
@@ -474,3 +476,195 @@ class TestDiscoveryOrchestrator:
         # Run was created (then failed), but config should be stored
         assert run.config.target_domain == "billing"
         assert run.config.time_window_days == 7
+
+    @patch("src.discovery.orchestrator.CustomerVoiceExplorer")
+    @patch("src.discovery.orchestrator.AnalyticsExplorer")
+    @patch("src.discovery.orchestrator.CodebaseExplorer")
+    @patch("src.discovery.orchestrator.ResearchExplorer")
+    @patch("src.discovery.orchestrator.OpportunityPM")
+    @patch("src.discovery.orchestrator.SolutionDesigner")
+    @patch("src.discovery.orchestrator.FeasibilityDesigner")
+    @patch("src.discovery.orchestrator.TPMAgent")
+    @patch("src.discovery.orchestrator.ConversationReader")
+    @patch("src.discovery.orchestrator.CodebaseReader")
+    @patch("src.discovery.orchestrator.ResearchReader")
+    @patch("src.discovery.orchestrator.PostHogReader")
+    def test_agent_invocations_recorded(
+        self,
+        mock_posthog_reader_cls,
+        mock_research_reader_cls,
+        mock_codebase_reader_cls,
+        mock_conversation_reader_cls,
+        mock_tpm_cls,
+        mock_feasibility_cls,
+        mock_solution_cls,
+        mock_opp_pm_cls,
+        mock_research_cls,
+        mock_codebase_cls,
+        mock_analytics_cls,
+        mock_customer_cls,
+    ):
+        """Agent invocations are recorded with token usage for all stages."""
+        orchestrator, storage, mock_client = self._create_orchestrator()
+
+        # Stage 0: Mock all explorers
+        for mock_cls, source, pattern, sid in [
+            (mock_customer_cls, SourceType.INTERCOM, "customer_pain", "conv-1"),
+            (mock_analytics_cls, SourceType.POSTHOG, "drop_off", "event-1"),
+            (mock_codebase_cls, SourceType.CODEBASE, "tech_debt", "file-1"),
+            (mock_research_cls, SourceType.RESEARCH, "industry_trend", "doc-1"),
+        ]:
+            instance = mock_cls.return_value
+            instance.explore.return_value = _mock_explorer_result(source, pattern, sid)
+            instance.build_checkpoint_artifacts.return_value = {
+                "schema_version": 1,
+                "agent_name": "mock_explorer",
+                "findings": [_explorer_finding(source, pattern, sid)],
+                "coverage": {
+                    "time_window_days": 14,
+                    "conversations_available": 10,
+                    "conversations_reviewed": 10,
+                    "conversations_skipped": 0,
+                    "model": "gpt-4o-mini",
+                    "findings_count": 1,
+                },
+            }
+
+        # Stage 1
+        pm_instance = mock_opp_pm_cls.return_value
+        pm_instance.frame_opportunities.return_value = _mock_framing_result()
+        pm_instance.build_checkpoint_artifacts.return_value = {
+            "schema_version": 1,
+            "briefs": [
+                {
+                    "affected_area": "checkout",
+                    "problem_statement": "Checkout flow has friction",
+                    "evidence": [_evidence(SourceType.INTERCOM, "conv-1")],
+                    "counterfactual": "Users would complete purchases faster",
+                    "explorer_coverage": "Reviewed conversations",
+                }
+            ],
+            "framing_metadata": {
+                "model": "gpt-4o-mini",
+                "explorer_findings_count": 4,
+                "opportunities_identified": 1,
+            },
+        }
+
+        # Stage 2
+        sol_instance = mock_solution_cls.return_value
+        sol_instance.design_solution.return_value = _mock_solution_design_result()
+        sol_instance.build_checkpoint_artifacts.return_value = {
+            "schema_version": 1,
+            "solutions": [
+                {
+                    "proposed_solution": "Simplify checkout",
+                    "experiment_plan": "A/B test",
+                    "success_metrics": "20% increase",
+                    "build_experiment_decision": BuildExperimentDecision.EXPERIMENT_FIRST.value,
+                    "decision_rationale": "Low risk",
+                    "evidence": [_evidence(SourceType.INTERCOM, "conv-1")],
+                }
+            ],
+            "design_metadata": {
+                "model": "gpt-4o-mini",
+                "opportunity_briefs_processed": 1,
+                "solutions_produced": 1,
+                "total_dialogue_rounds": 2,
+                "total_token_usage": {"prompt_tokens": 300, "completion_tokens": 200, "total_tokens": 500},
+            },
+        }
+
+        # Stage 3
+        feas_instance = mock_feasibility_cls.return_value
+        feas_instance.assess_feasibility.return_value = _mock_feasibility_result()
+        feas_instance.build_checkpoint_artifacts.return_value = {
+            "schema_version": 1,
+            "specs": [
+                {
+                    "opportunity_id": "checkout",
+                    "approach": "React refactor",
+                    "effort_estimate": "2 weeks",
+                    "dependencies": "None",
+                    "risks": [{"description": "Browser compat", "severity": "low", "mitigation": "Polyfills"}],
+                    "acceptance_criteria": "Checkout > 80%",
+                }
+            ],
+            "infeasible_solutions": [],
+            "feasibility_metadata": {
+                "model": "gpt-4o-mini",
+                "solutions_assessed": 1,
+                "feasible_count": 1,
+                "infeasible_count": 0,
+                "total_dialogue_rounds": 1,
+                "total_token_usage": {"prompt_tokens": 250, "completion_tokens": 150, "total_tokens": 400},
+            },
+        }
+
+        # Stage 4
+        tpm_instance = mock_tpm_cls.return_value
+        tpm_instance.rank_opportunities.return_value = _mock_ranking_result()
+        tpm_instance.build_checkpoint_artifacts.return_value = {
+            "schema_version": 1,
+            "rankings": [
+                {
+                    "opportunity_id": "checkout",
+                    "recommended_rank": 1,
+                    "rationale": "High impact",
+                    "impact_score": 0.9,
+                    "effort_score": 0.3,
+                    "risk_score": 0.2,
+                    "strategic_alignment_score": 0.8,
+                    "composite_score": 0.85,
+                }
+            ],
+            "prioritization_metadata": {
+                "model": "gpt-4o-mini",
+                "opportunities_ranked": 1,
+            },
+        }
+
+        run = orchestrator.run(config=RunConfig(time_window_days=7))
+
+        # Verify agent invocations were recorded
+        invocations = storage.agent_invocations
+        agent_names = [inv.agent_name for inv in invocations]
+
+        # 4 explorers + opportunity_pm + solution_designer + feasibility_designer + tpm_agent = 8
+        assert len(invocations) == 8, f"Expected 8 invocations, got {len(invocations)}: {agent_names}"
+
+        # Check explorer invocations
+        assert "customer_voice" in agent_names
+        assert "analytics" in agent_names
+        assert "codebase" in agent_names
+        assert "research" in agent_names
+
+        # Check stage agent invocations
+        assert "opportunity_pm" in agent_names
+        assert "solution_designer" in agent_names
+        assert "feasibility_designer" in agent_names
+        assert "tpm_agent" in agent_names
+
+        # Verify token_usage is populated
+        for inv in invocations:
+            assert inv.token_usage is not None
+            assert inv.token_usage.total_tokens > 0
+
+        # Verify participating_agents set on stage executions
+        stages = storage.get_stage_executions_for_run(run.id)
+        exploration_stage = [s for s in stages if s.stage == StageType.EXPLORATION][0]
+        assert set(exploration_stage.participating_agents) == {
+            "customer_voice", "analytics", "codebase", "research"
+        }
+
+        opp_stage = [s for s in stages if s.stage == StageType.OPPORTUNITY_FRAMING][0]
+        assert "opportunity_pm" in opp_stage.participating_agents
+
+        sol_stage = [s for s in stages if s.stage == StageType.SOLUTION_VALIDATION][0]
+        assert "solution_designer" in sol_stage.participating_agents
+
+        feas_stage = [s for s in stages if s.stage == StageType.FEASIBILITY_RISK][0]
+        assert "feasibility_designer" in feas_stage.participating_agents
+
+        pri_stage = [s for s in stages if s.stage == StageType.PRIORITIZATION][0]
+        assert "tpm_agent" in pri_stage.participating_agents

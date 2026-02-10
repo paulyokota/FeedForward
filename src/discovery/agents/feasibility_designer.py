@@ -145,6 +145,15 @@ class FeasibilityDesigner:
 
             # --- Early exit: infeasible ---
             if approach["feasibility_assessment"] == "infeasible":
+                reason = coerce_str(approach.get("infeasibility_reason"), fallback="").strip()
+                if not reason:
+                    logger.error(
+                        "Infeasible assessment for %s missing infeasibility_reason; "
+                        "injecting placeholder",
+                        opportunity_id,
+                    )
+                    reason = "Missing infeasibility_reason: follow-up required"
+                    approach["infeasibility_reason"] = reason
                 logger.info(
                     "Solution for %s assessed as infeasible in round %d",
                     opportunity_id,
@@ -375,7 +384,7 @@ class FeasibilityDesigner:
             "feasibility_assessment": FeasibilityAssessment.INFEASIBLE.value,
             "infeasibility_reason": coerce_str(
                 assessment.get("infeasibility_reason"),
-                fallback="Assessed as infeasible (no specific reason provided)",
+                fallback="Missing infeasibility_reason: follow-up required",
             ),
             "constraints_identified": assessment.get("constraints_identified", []),
         }

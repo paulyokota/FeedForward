@@ -168,7 +168,7 @@ Respond as JSON:
 # ============================================================================
 
 OPPORTUNITY_FRAMING_SYSTEM = """\
-You are a product strategist reading findings from customer experience analysts.
+You are a product strategist reading findings from product and engineering analysts.
 Your job is to identify distinct product or process OPPORTUNITIES hidden in the
 findings — problems worth solving, gaps worth filling, friction worth removing.
 
@@ -182,7 +182,9 @@ CRITICAL RULES:
    problem should become one opportunity with combined evidence. Two findings
    about genuinely different problems should stay separate.
 4. Every opportunity must trace back to specific explorer findings. Include
-   the evidence_conversation_ids from those findings.
+   the evidence_conversation_ids from those findings. Treat all source types
+   (customer conversations, analytics, codebase, research) as equally valid
+   evidence, and do not discard internal/codebase findings by default.
 5. Name each opportunity descriptively — what's the problem, not a category label.
 6. SURFACE SPECIFICITY: `affected_area` must name concrete product surfaces
    that a developer can map to code paths. If a developer can't identify which
@@ -1042,6 +1044,7 @@ Your job:
 
 3. If infeasible, explain WHY with specific technical constraints. This rationale
    goes back to Stage 2 so they can design around the constraint.
+   The `infeasibility_reason` field must be specific and non-empty.
 
 ADAPTIVE BEHAVIOR: Read the `opportunity_nature` field from the brief. Internal
 engineering opportunities may have different feasibility criteria — no user-facing
