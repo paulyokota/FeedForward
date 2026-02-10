@@ -360,6 +360,38 @@ class DiscoveryStorage:
                 return None
             return self._row_to_stage_execution(row)
 
+    def save_stage_artifacts(
+        self,
+        run_id: UUID,
+        stage_execution_id: int,
+        artifacts: Dict[str, Any],
+    ) -> None:
+        """Persist stage artifacts to the stage_executions JSONB column.
+
+        Overwrites the entire artifacts JSONB (not a merge). This is an
+        explicit persistence call, separate from update_stage_status().
+        Used by ConversationService.submit_checkpoint() to ensure artifacts
+        are persisted alongside the transport write.
+
+        Logs a warning if no row was updated (stage_execution_id/run_id mismatch).
+        """
+        with self._cursor() as cur:
+            cur.execute(
+                """
+                UPDATE stage_executions
+                SET artifacts = %s
+                WHERE id = %s AND run_id = %s
+                """,
+                (json.dumps(artifacts), stage_execution_id, str(run_id)),
+            )
+            if cur.rowcount == 0:
+                logger.warning(
+                    "save_stage_artifacts: no row updated for "
+                    "stage_execution_id=%d, run_id=%s",
+                    stage_execution_id,
+                    run_id,
+                )
+
     def get_latest_attempt_number(self, run_id: UUID, stage: StageType) -> int:
         """Get the latest attempt number for a stage in a run. Returns 0 if no attempts."""
         with self._cursor() as cur:

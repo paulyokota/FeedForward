@@ -161,6 +161,16 @@ class InMemoryStorage:
             se.completed_at = completed_at
         return se
 
+    def save_stage_artifacts(
+        self,
+        run_id: UUID,
+        stage_execution_id: int,
+        artifacts: Dict[str, Any],
+    ) -> None:
+        se = self.stage_executions.get(stage_execution_id)
+        if se and se.run_id == run_id:
+            se.artifacts = artifacts
+
     def get_latest_attempt_number(self, run_id: UUID, stage: StageType) -> int:
         attempts = [
             se.attempt_number

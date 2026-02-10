@@ -149,21 +149,30 @@
       "startedAt": "2026-02-09T22:00:00Z",
       "updatedAt": "2026-02-09T23:30:00Z",
       "error": null
-    }
-  },
-  "255": {
-      "phase": "implemented",
+    },
+    "255": {
+      "phase": "complete",
       "branch": "fix/255-coerce-str-utility",
+      "pr": 257,
+      "reviewConversationId": null,
+      "attempts": { "plan": 1, "test": 1, "review": 1 },
+      "startedAt": "2026-02-10T12:00:00Z",
+      "updatedAt": "2026-02-10T12:45:00Z",
+      "error": null
+    },
+    "256": {
+      "phase": "implemented",
+      "branch": "fix/256-db-persistence-for-discovery-runs",
       "pr": null,
       "reviewConversationId": null,
-      "attempts": { "plan": 1, "test": 1, "review": 0 },
-      "startedAt": "2026-02-10T12:00:00Z",
-      "updatedAt": "2026-02-10T12:30:00Z",
+      "attempts": { "plan": 3, "test": 1, "review": 0 },
+      "startedAt": "2026-02-10T13:00:00Z",
+      "updatedAt": "2026-02-10T14:00:00Z",
       "error": null
     }
   },
   "runConversationId": "issue-runner-1770607532",
-  "currentIssue": 255,
-  "completedCount": 9,
+  "currentIssue": 256,
+  "completedCount": 10,
   "skippedCount": 6
 }

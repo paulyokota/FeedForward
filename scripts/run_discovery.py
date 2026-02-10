@@ -166,11 +166,15 @@ def main():
     config = RunConfig(time_window_days=args.days)
 
     start_time = time.time()
+    run = None
     try:
         run = orchestrator.run(config=config)
+        conn.commit()
+        print("Committed discovery run data to Postgres.")
     except Exception as e:
         elapsed = time.time() - start_time
-        print(f"\nRun FAILED after {elapsed:.1f}s: {e}")
+        conn.rollback()
+        print(f"\nRun FAILED after {elapsed:.1f}s (rolled back): {e}")
         import traceback
         traceback.print_exc()
         conn.close()
@@ -187,7 +191,7 @@ def main():
     print(f"Current stage: {run.current_stage}")
     print(f"Elapsed:       {elapsed:.1f}s")
 
-    # Fetch stage details
+    # Fetch stage details (data is now committed)
     with conn.cursor() as cur:
         cur.execute("""
             SELECT stage, status,
