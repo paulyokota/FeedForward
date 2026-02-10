@@ -49,17 +49,14 @@ Structure each review with these sections:
 
 - Good patterns, thorough tests, clear documentation
 
-## 3. Poll for updates
+## 3. Wait for author response
 
-After posting your review, poll for the author's response:
+After posting your review, wait for a `[Conversation notification]` message indicating the author has responded. Then read new turns:
 
 ```
 agenterminal.conversation.read
 conversation_id: <id>
 since_id: <last_seen_id>
-
-# Wait before polling again
-sleep 10
 ```
 
 When the author posts updates, re-inspect the changes and provide a follow-up review.
@@ -111,10 +108,24 @@ text: PLAN_APPROVED - Plan is feasible with no blocking concerns. <optional summ
 mode: codex
 ```
 
+## Single-Pass Mode (Auto-Dispatch)
+
+When your initial prompt says "single-pass review", your output is relayed directly to the author — no conversation tools needed:
+
+1. Inspect the changes (code review) or read the plan file (plan review)
+2. Provide structured feedback: MUST-FIX (blocking), Suggestions, Positives/Strengths
+3. If no MUST-FIX blocking issues remain, output a line containing ONLY:
+   `REVIEW_APPROVED` (for code reviews) or `PLAN_APPROVED` (for plan reviews)
+   This must be on its own line with no other text on that line.
+4. Do NOT use `agenterminal.conversation` tools — your output is captured and relayed automatically
+5. If prior review feedback is included in your prompt, the author has addressed those issues — re-review the current state
+
+Do NOT wait for author response in single-pass mode. A fresh reviewer will be spawned for re-reviews if needed.
+
 ## Rules
 
 - Only emit `REVIEW_APPROVED` (code) or `PLAN_APPROVED` (plan) when there are genuinely no blocking issues.
 - Be specific in feedback — reference file paths and line numbers.
 - Distinguish clearly between blocking (MUST-FIX) and non-blocking (suggestion) feedback.
 - When re-reviewing, focus on whether previous MUST-FIX items were addressed.
-- Ignore your own turns when polling (role=agent, mode=codex).
+- Ignore your own turns when reading (role=agent, mode=codex).

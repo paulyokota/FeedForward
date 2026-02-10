@@ -1,6 +1,6 @@
 ---
 name: agenterminal-code-review
-description: Use when you want to request a code review through AgenTerminal. Submits a review request, waits for approval, then participates in a review conversation loop until the reviewer approves.
+description: Use when you want to request a code review through AgenTerminal. Submits a review request, waits for the user to accept, then participates in a review conversation until the reviewer approves.
 ---
 
 # Agenterminal Code Review (Requester)
@@ -15,53 +15,83 @@ Call the `agenterminal.request` MCP tool with your change details:
 agenterminal.request
 type: code_review
 description: <brief description of what changed and why>
-ref: <git reference, e.g. "HEAD~1..HEAD", a branch name, or commit SHA>
+ref: <git reference, e.g. "main..HEAD", a branch name, or commit SHA>
+auto_dispatch: true
 ```
 
-The tool blocks until the user approves or rejects (up to 5 minutes).
+The tool blocks until the user accepts or auto-dispatches (up to 5 minutes).
 
-- If **approved**, the tool returns `{ approved: true, conversation_id: "<id>" }`.
-- If **rejected** or timed out, it returns `{ approved: false }`. Stop here.
+- If **accepted**, returns `{ accepted: true, conversation_id: "<id>" }`. This means the review process started — it does NOT mean the code review passed.
+- If **declined** or timed out, it returns `{ accepted: false }`. Stop here.
 
-## 2. Join the review conversation
+## 2. Wait for reviewer feedback
 
-Once approved, use the conversation ID from the response to poll for reviewer feedback.
+A fresh Codex reviewer will be spawned to analyze your code. Wait for the `[Conversation notification]` or `[Review completed]` message.
 
-Track `last_seen_id` (the most recent turn id you have processed).
-
-### Poll loop
+When notified, read the conversation:
 
 ```
-# Read new turns
 agenterminal.conversation.read
 conversation_id: <id>
 since_id: <last_seen_id or omit on first read>
+```
 
-# Check for REVIEW_APPROVED token — if any agent turn contains
-# "REVIEW_APPROVED", the review is complete. Proceed with your task.
+Check for `REVIEW_APPROVED` in a turn from the reviewer (mode: codex) — this means the review passed with no blocking concerns. Proceed with your task.
 
-# If there is reviewer feedback, incorporate it:
-# 1. Make the requested code changes
-# 2. Post an update to the conversation:
+## 3. Handle reviewer feedback (re-review cycle)
 
+If the reviewer has MUST-FIX items (no `REVIEW_APPROVED`):
+
+1. Make the requested code changes and commit them
+2. Post an update to the conversation summarizing your fixes:
+
+```
 agenterminal.conversation
 event: turn
 conversation_id: <id>
 role: agent
 text: <summary of changes made in response to feedback>
 mode: claude
-
-# Wait before polling again
-sleep 10
 ```
 
-## 3. Completion
+3. **Submit a NEW `agenterminal.request`** to spawn a fresh reviewer for re-review:
 
-When you see a turn containing `REVIEW_APPROVED` from the reviewer, the review is complete. Announce completion in the conversation and proceed with your original task.
+```
+agenterminal.request
+type: code_review
+description: Re-review after addressing feedback for <original description>
+ref: main..HEAD
+conversation_id: <same conversation_id>
+auto_dispatch: true
+```
+
+**IMPORTANT: Do NOT poll or wait for the original reviewer to respond. The reviewer has already exited. You MUST submit a new `agenterminal.request` to get a fresh reviewer.**
+
+4. Wait for the new `[Conversation notification]` and repeat from step 2.
+
+The conversation ID persists across all review rounds so each fresh reviewer reads the full history.
+
+## 4. Completion
+
+When you see a turn containing `REVIEW_APPROVED` from the reviewer, the review is complete. Proceed with your original task.
+
+## Auto-Dispatch (Synchronous)
+
+When using `auto_dispatch: true`, the `agenterminal.request` tool **blocks** until the reviewer completes and returns the result inline:
+
+```json
+{ "review_approved": true, "feedback": "..." }
+```
+
+- If `review_approved` is `true`: proceed with your task.
+- If `review_approved` is `false`: read the `feedback`, fix the MUST-FIX items, then submit a **NEW** `agenterminal.request` with the same `conversation_id` for re-review.
+- Max 3 review rounds.
+- Do NOT use `agenterminal.conversation` tools for auto-dispatch reviews — results are inline.
 
 ## Tips
 
 - Keep your review description concise but informative.
 - Include a meaningful git ref so the reviewer can inspect the exact changes.
 - When incorporating feedback, commit your changes before posting the update so the reviewer can see a clean diff.
-- Only respond to new turns from the reviewer (role=agent, mode=codex). Ignore your own turns.
+- For manual reviews (no auto_dispatch): use conversation tools as described above.
+- For auto-dispatch reviews: the tool blocks and returns results inline — no conversation needed.
