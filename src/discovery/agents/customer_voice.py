@@ -230,6 +230,14 @@ class CustomerVoiceExplorer:
                     ),
                 })
 
+            if not evidence:
+                logger.warning(
+                    "Dropping finding '%s' — no evidence_conversation_ids "
+                    "(ExplorerFinding requires min 1 evidence pointer)",
+                    raw_finding.get("pattern_name", "unnamed"),
+                )
+                continue
+
             findings.append({
                 "pattern_name": raw_finding.get("pattern_name", "unnamed"),
                 "description": raw_finding.get("description", ""),

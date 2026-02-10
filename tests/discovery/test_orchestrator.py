@@ -217,7 +217,7 @@ class TestDiscoveryOrchestrator:
         """Full pipeline: Stages 0-4 run, result is RUNNING at human_review."""
         orchestrator, storage, mock_client = self._create_orchestrator()
 
-        # Stage 0: Mock all explorers to return findings
+        # Stage 0: Mock all explorers to return findings + checkpoint dicts
         for mock_cls, source, pattern, sid in [
             (mock_customer_cls, SourceType.INTERCOM, "customer_pain", "conv-1"),
             (mock_analytics_cls, SourceType.POSTHOG, "drop_off", "event-1"),
@@ -226,6 +226,19 @@ class TestDiscoveryOrchestrator:
         ]:
             instance = mock_cls.return_value
             instance.explore.return_value = _mock_explorer_result(source, pattern, sid)
+            instance.build_checkpoint_artifacts.return_value = {
+                "schema_version": 1,
+                "agent_name": mock_cls.__name__ if hasattr(mock_cls, '__name__') else "mock_explorer",
+                "findings": [_explorer_finding(source, pattern, sid)],
+                "coverage": {
+                    "time_window_days": 14,
+                    "conversations_available": 10,
+                    "conversations_reviewed": 10,
+                    "conversations_skipped": 0,
+                    "model": "gpt-4o-mini",
+                    "findings_count": 1,
+                },
+            }
 
         # Stage 1: Mock OpportunityPM
         pm_instance = mock_opp_pm_cls.return_value
@@ -414,6 +427,19 @@ class TestDiscoveryOrchestrator:
             mock_cls.return_value.explore.return_value = _mock_explorer_result(
                 source, pattern, sid
             )
+            mock_cls.return_value.build_checkpoint_artifacts.return_value = {
+                "schema_version": 1,
+                "agent_name": "mock_explorer",
+                "findings": [_explorer_finding(source, pattern, sid)],
+                "coverage": {
+                    "time_window_days": 14,
+                    "conversations_available": 10,
+                    "conversations_reviewed": 10,
+                    "conversations_skipped": 0,
+                    "model": "gpt-4o-mini",
+                    "findings_count": 1,
+                },
+            }
 
         # OpportunityPM raises
         mock_opp_pm_cls.return_value.frame_opportunities.side_effect = ValueError(

@@ -8,6 +8,7 @@ Pattern mirrors SolutionDesigner (Stage 2): per-brief assessment with
 multi-round dialogue, convergence check, and forced convergence.
 """
 
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -335,14 +336,20 @@ class FeasibilityDesigner:
                 "mitigation": "Standard testing and review process",
             })
 
+        # LLM sometimes returns structured dicts for string fields — coerce.
+        def _coerce_str(val):
+            if isinstance(val, str):
+                return val
+            return json.dumps(val, indent=2)
+
         spec = {
             "schema_version": 1,
             "opportunity_id": result.opportunity_id,
-            "approach": assessment.get("approach", ""),
-            "effort_estimate": assessment.get("effort_estimate", ""),
-            "dependencies": assessment.get("dependencies", ""),
+            "approach": _coerce_str(assessment.get("approach", "")),
+            "effort_estimate": _coerce_str(assessment.get("effort_estimate", "")),
+            "dependencies": _coerce_str(assessment.get("dependencies", "")),
             "risks": risks,
-            "acceptance_criteria": assessment.get("acceptance_criteria", ""),
+            "acceptance_criteria": _coerce_str(assessment.get("acceptance_criteria", "")),
         }
 
         # Add extra fields from assessment
@@ -368,7 +375,7 @@ class FeasibilityDesigner:
             "solution_summary": assessment.get("approach", "")
             or "Solution assessed as infeasible before approach was developed",
             "feasibility_assessment": FeasibilityAssessment.INFEASIBLE.value,
-            "infeasibility_reason": assessment.get("infeasibility_reason", "Unknown"),
+            "infeasibility_reason": assessment.get("infeasibility_reason", "") or "Assessed as infeasible (no specific reason provided)",
             "constraints_identified": assessment.get("constraints_identified", []),
         }
 

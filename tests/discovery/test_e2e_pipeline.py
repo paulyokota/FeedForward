@@ -98,6 +98,26 @@ def _make_explorer_result(
     )
 
 
+def _make_explorer_checkpoint(
+    agent_name: str,
+    source_type: SourceType,
+    pattern_name: str,
+    source_id: str,
+) -> Dict[str, Any]:
+    """Build an ExplorerCheckpoint dict (as produced by build_checkpoint_artifacts)."""
+    return {
+        "schema_version": 1,
+        "agent_name": agent_name,
+        "findings": [_explorer_finding(source_type, pattern_name, source_id)],
+        "coverage": {
+            "time_window_days": 14,
+            "conversations_available": 50,
+            "conversations_reviewed": 45,
+            "conversations_skipped": 5,
+        },
+    }
+
+
 # ============================================================================
 # E2E Pipeline Test
 # ============================================================================
@@ -139,23 +159,23 @@ class TestE2EPipeline:
 
         convo_0 = service.create_stage_conversation(run_id, active.id)
 
-        # Build 4 explorer results (one per explorer)
-        results = [
-            ("customer_voice", _make_explorer_result(
+        # Build 4 explorer checkpoint dicts (as produced by build_checkpoint_artifacts)
+        checkpoints = [
+            _make_explorer_checkpoint(
                 "customer_voice", SourceType.INTERCOM, "checkout_confusion", "conv_101"
-            )),
-            ("codebase_explorer", _make_explorer_result(
+            ),
+            _make_explorer_checkpoint(
                 "codebase_explorer", SourceType.CODEBASE, "nav_dead_code", "src/nav.py:42"
-            )),
-            ("analytics_explorer", _make_explorer_result(
+            ),
+            _make_explorer_checkpoint(
                 "analytics_explorer", SourceType.POSTHOG, "funnel_drop", "funnel_checkout_v2"
-            )),
-            ("research_explorer", _make_explorer_result(
+            ),
+            _make_explorer_checkpoint(
                 "research_explorer", SourceType.RESEARCH, "competitor_feature", "doc_ux_study_2024"
-            )),
+            ),
         ]
 
-        merged = merge_explorer_results(results)
+        merged = merge_explorer_results(checkpoints)
 
         # Validate merged checkpoint passes Pydantic
         ExplorerCheckpoint(**merged)
@@ -608,10 +628,10 @@ class TestMergeExplorerResults:
     """Unit tests for the merge helper itself."""
 
     def test_merge_combines_findings(self):
-        r1 = _make_explorer_result("a", SourceType.INTERCOM, "pattern_a", "conv_1")
-        r2 = _make_explorer_result("b", SourceType.CODEBASE, "pattern_b", "src/foo.py:10")
+        c1 = _make_explorer_checkpoint("agent_a", SourceType.INTERCOM, "pattern_a", "conv_1")
+        c2 = _make_explorer_checkpoint("agent_b", SourceType.CODEBASE, "pattern_b", "src/foo.py:10")
 
-        merged = merge_explorer_results([("agent_a", r1), ("agent_b", r2)])
+        merged = merge_explorer_results([c1, c2])
 
         assert len(merged["findings"]) == 2
         assert merged["agent_name"] == "agent_a,agent_b"
@@ -629,14 +649,14 @@ class TestMergeExplorerResults:
         assert merged["coverage"]["conversations_reviewed"] == 0
 
     def test_merge_preserves_source_types(self):
-        results = [
-            ("cv", _make_explorer_result("cv", SourceType.INTERCOM, "p1", "conv_1")),
-            ("ce", _make_explorer_result("ce", SourceType.CODEBASE, "p2", "src/x.py:1")),
-            ("ae", _make_explorer_result("ae", SourceType.POSTHOG, "p3", "funnel_1")),
-            ("re", _make_explorer_result("re", SourceType.RESEARCH, "p4", "doc_1")),
+        checkpoints = [
+            _make_explorer_checkpoint("cv", SourceType.INTERCOM, "p1", "conv_1"),
+            _make_explorer_checkpoint("ce", SourceType.CODEBASE, "p2", "src/x.py:1"),
+            _make_explorer_checkpoint("ae", SourceType.POSTHOG, "p3", "funnel_1"),
+            _make_explorer_checkpoint("re", SourceType.RESEARCH, "p4", "doc_1"),
         ]
 
-        merged = merge_explorer_results(results)
+        merged = merge_explorer_results(checkpoints)
 
         source_types = {
             f["evidence"][0]["source_type"] for f in merged["findings"]
@@ -648,11 +668,10 @@ class TestMergeExplorerResults:
             SourceType.RESEARCH.value,
         }
 
-    def test_merge_aggregates_tokens(self):
-        r1 = _make_explorer_result("a", SourceType.INTERCOM, "p1", "c1")
-        r2 = _make_explorer_result("b", SourceType.CODEBASE, "p2", "s1")
+    def test_merge_aggregates_findings_count(self):
+        c1 = _make_explorer_checkpoint("a", SourceType.INTERCOM, "p1", "c1")
+        c2 = _make_explorer_checkpoint("b", SourceType.CODEBASE, "p2", "s1")
 
-        merged = merge_explorer_results([("a", r1), ("b", r2)])
+        merged = merge_explorer_results([c1, c2])
 
-        # Each result has 100 prompt, 50 completion, 150 total
         assert merged["coverage"]["findings_count"] == 2

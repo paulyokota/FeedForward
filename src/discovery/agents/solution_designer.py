@@ -591,14 +591,29 @@ class SolutionDesigner:
                     f"Validation criteria: {validation['success_criteria']}"
                 )
 
+        # LLM sometimes returns structured dicts for string fields — coerce.
+        raw_solution = proposal.get("proposed_solution", "")
+        if not isinstance(raw_solution, str):
+            raw_solution = json.dumps(raw_solution, indent=2)
+
+        raw_rationale = proposal.get("decision_rationale", "")
+        if not isinstance(raw_rationale, str):
+            raw_rationale = json.dumps(raw_rationale, indent=2)
+
+        if not isinstance(experiment_plan, str):
+            experiment_plan = json.dumps(experiment_plan, indent=2)
+
+        if not isinstance(success_metrics, str):
+            success_metrics = json.dumps(success_metrics, indent=2)
+
         return SolutionDesignResult(
-            proposed_solution=proposal.get("proposed_solution", ""),
+            proposed_solution=raw_solution,
             experiment_plan=experiment_plan,
             success_metrics=success_metrics,
             build_experiment_decision=proposal.get(
                 "build_experiment_decision", "experiment_first"
             ),
-            decision_rationale=proposal.get("decision_rationale", ""),
+            decision_rationale=raw_rationale,
             evidence=evidence,
             dialogue_rounds=dialogue_rounds,
             validation_challenges=validation_challenges,

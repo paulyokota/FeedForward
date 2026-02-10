@@ -612,7 +612,8 @@ class TestBuildCheckpoint:
         )
         checkpoint = explorer.build_checkpoint_artifacts(result)
 
-        assert checkpoint["findings"][0]["evidence"] == []
+        # Finding with no evidence is dropped (ExplorerFinding requires min 1)
+        assert checkpoint["findings"] == []
 
 
 # ============================================================================

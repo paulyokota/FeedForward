@@ -6,6 +6,7 @@ the state machine to Stage 5 then returns. Humans use the existing
 /api/discovery/runs/{id}/opportunities/{idx}/decide endpoints.
 """
 
+import json
 import logging
 import os
 import traceback
@@ -177,19 +178,20 @@ class DiscoveryOrchestrator:
             ),
         ]
 
-        results = []
+        checkpoints = []
         for name, explorer in explorers:
             logger.info("Run %s: running %s explorer", run_id, name)
             result = explorer.explore()
-            results.append((name, result))
+            checkpoint = explorer.build_checkpoint_artifacts(result)
+            checkpoints.append(checkpoint)
 
-        merged = merge_explorer_results(results)
+        merged = merge_explorer_results(checkpoints)
 
         logger.info(
             "Run %s: exploration complete — %d findings from %d explorers",
             run_id,
             len(merged.get("findings", [])),
-            len(results),
+            len(checkpoints),
         )
 
         return self.service.submit_checkpoint(
@@ -250,8 +252,19 @@ class DiscoveryOrchestrator:
                 len(briefs),
                 brief.get("affected_area", "?"),
             )
-            result = designer.design_solution(brief, prior)
-            results.append(result)
+            try:
+                result = designer.design_solution(brief, prior)
+                results.append(result)
+            except (json.JSONDecodeError, ValueError) as exc:
+                logger.warning(
+                    "Run %s: skipping solution %d/%d (%s) — %s: %s",
+                    run_id,
+                    i + 1,
+                    len(briefs),
+                    brief.get("affected_area", "?"),
+                    type(exc).__name__,
+                    str(exc)[:200],
+                )
 
         artifacts = designer.build_checkpoint_artifacts(results)
 
@@ -291,8 +304,19 @@ class DiscoveryOrchestrator:
                 len(briefs),
                 brief.get("affected_area", "?"),
             )
-            result = designer.assess_feasibility(solution, brief, prior)
-            results.append(result)
+            try:
+                result = designer.assess_feasibility(solution, brief, prior)
+                results.append(result)
+            except (json.JSONDecodeError, ValueError) as exc:
+                logger.warning(
+                    "Run %s: skipping feasibility %d/%d (%s) — %s: %s",
+                    run_id,
+                    i + 1,
+                    len(briefs),
+                    brief.get("affected_area", "?"),
+                    type(exc).__name__,
+                    str(exc)[:200],
+                )
 
         artifacts = designer.build_checkpoint_artifacts(results)
 
