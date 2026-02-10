@@ -201,8 +201,25 @@ class OpportunityPM:
         """
         now = datetime.now(timezone.utc).isoformat()
         briefs = []
+        decomposition_requests = []
 
         for raw_opp in result.opportunities:
+            # Handle decomposition requests (Issue #270)
+            if raw_opp.get("needs_decomposition"):
+                decomposition_requests.append({
+                    "original_finding": coerce_str(
+                        raw_opp.get("original_finding"), fallback=""
+                    ),
+                    "suggested_splits": raw_opp.get("suggested_splits", []),
+                    "reason": coerce_str(raw_opp.get("reason"), fallback=""),
+                })
+                logger.warning(
+                    "Decomposition requested for finding: %s — reason: %s",
+                    str(raw_opp.get("original_finding", "?"))[:80],
+                    str(raw_opp.get("reason", "?"))[:120],
+                )
+                continue
+
             evidence = []
             for conv_id in raw_opp.get("evidence_conversation_ids", []):
                 if valid_evidence_ids is not None and conv_id not in valid_evidence_ids:
@@ -273,16 +290,27 @@ class OpportunityPM:
 
             briefs.append(brief)
 
-        return {
+        quality_flags = {
+            "briefs_produced": len(briefs),
+            "decomposition_requests": len(decomposition_requests),
+        }
+
+        checkpoint: Dict[str, Any] = {
             "schema_version": 1,
             "briefs": briefs,
             "framing_metadata": {
                 "explorer_findings_count": result.explorer_findings_count,
                 "opportunities_identified": len(briefs),
                 "model": self.config.model,
+                "quality_flags": quality_flags,
             },
             "framing_notes": result.framing_notes,
         }
+
+        if decomposition_requests:
+            checkpoint["decomposition_requests"] = decomposition_requests
+
+        return checkpoint
 
 
 def extract_evidence_source_map(explorer_checkpoint: Dict[str, Any]) -> Dict[str, str]:

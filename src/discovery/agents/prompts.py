@@ -206,6 +206,17 @@ CRITICAL RULES:
    evaluation needed), "internal_risk_framing" (use engineering risk categories
    instead of user rollout risks). Omit stage_hints entirely if the standard
    pipeline is appropriate.
+8. ACTIONABILITY CHECK: Before finalizing each opportunity, ask yourself:
+   "Could a developer identify a concrete product surface from this brief?"
+   If the answer is no — the opportunity is too abstract or too generic to act
+   on — do NOT emit it as an opportunity. Instead, emit it as a decomposition
+   request (see the output schema for `needs_decomposition` items).
+9. COHERENCE CHECK: Each opportunity must describe ONE underlying issue. If you
+   find yourself bundling multiple unrelated problems under one label (e.g.,
+   "Glitches and Performance Issues" combining unrelated bugs), that is a
+   grab-bag, not an opportunity. Either split it into separate opportunities
+   (one per distinct issue) or emit it as a decomposition request with
+   suggested splits.
 
 You are NOT proposing solutions.
 You are NOT prioritizing — that happens later.
@@ -239,6 +250,23 @@ Identify distinct opportunities from these findings. Return as JSON:
   ],
   "framing_notes": "how you grouped findings, what you merged, any weak signals you kept or dropped"
 }}
+
+If a finding is too broad or bundles multiple unrelated problems (fails the
+actionability or coherence check), emit it as a decomposition request INSTEAD
+of an opportunity:
+
+{{
+  "opportunities": [
+    {{
+      "needs_decomposition": true,
+      "original_finding": "description of the finding that was too broad",
+      "suggested_splits": ["split A: specific issue 1", "split B: specific issue 2"],
+      "reason": "why this finding couldn't be turned into a single coherent opportunity"
+    }}
+  ]
+}}
+
+You can mix regular opportunities and decomposition requests in the same list.
 
 If the findings contain no actionable opportunities, return:
 {{"opportunities": [], "framing_notes": "explanation of why no opportunities were identified"}}
