@@ -50,6 +50,9 @@ class OpportunityBrief(BaseModel):
 
     Contains problem + evidence + impact hypothesis + counterfactual.
     No solution direction — that emerges in Stage 2.
+
+    Issue #261: Added opportunity_nature, recommended_response, stage_hints
+    for adaptive pipeline routing. All Optional for backward compatibility.
     """
 
     model_config = {"extra": "allow"}
@@ -65,6 +68,18 @@ class OpportunityBrief(BaseModel):
     explorer_coverage: str = Field(
         min_length=1,
         description="What data the explorers reviewed (from Stage 0 coverage metadata)",
+    )
+    opportunity_nature: Optional[str] = Field(
+        default=None,
+        description="Free-text description of opportunity type (e.g., 'internal engineering: instrumentation gap', 'user-facing: checkout friction')",
+    )
+    recommended_response: Optional[str] = Field(
+        default=None,
+        description="Agent's recommendation for appropriate response (e.g., 'internal task, no user experiment needed')",
+    )
+    stage_hints: Optional[List[str]] = Field(
+        default=None,
+        description="Hints for downstream stages (e.g., ['skip_experience', 'internal_risk_framing'])",
     )
 
     def model_post_init(self, __context) -> None:
@@ -111,21 +126,36 @@ class SolutionBrief(BaseModel):
     """Stage 2 checkpoint artifact.
 
     Solution hypothesis + experiment plan + Build/Experiment Decision.
-    Extra fields (decision_rationale, validation_challenges, experience_direction,
+    Extra fields (decision_rationale, validation_challenges,
     convergence_forced, convergence_note) are stored via extra='allow'.
+
+    Issue #261: experiment_plan, build_experiment_decision, and
+    experience_direction are now Optional. Internal engineering
+    opportunities may skip experiment planning and UX evaluation.
+    When fields are omitted, skip_rationale explains why.
     """
 
     model_config = {"extra": "allow"}
 
     schema_version: int = 1
     proposed_solution: str = Field(min_length=1, description="What to build or change")
-    experiment_plan: str = Field(min_length=1, description="What to test and how")
+    experiment_plan: Optional[str] = Field(
+        default=None, description="What to test and how (None for internal engineering with no experiment)"
+    )
     success_metrics: str = Field(
         min_length=1,
         description="Measurable outcomes with baseline and target",
     )
-    build_experiment_decision: BuildExperimentDecision
+    build_experiment_decision: Optional[BuildExperimentDecision] = Field(
+        default=None, description="Build/experiment gate decision (None when not applicable)"
+    )
     evidence: List[EvidencePointer] = Field(min_length=1)
+    experience_direction: Optional[Dict[str, Any]] = Field(
+        default=None, description="UX direction from Experience Agent (None when experience was skipped)"
+    )
+    skip_rationale: Optional[str] = Field(
+        default=None, description="Why Optional fields were omitted (populated when experiment_plan, build_experiment_decision, or experience_direction is None)"
+    )
 
     def model_post_init(self, __context) -> None:
         extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())

@@ -181,8 +181,19 @@
       "error": null
     }
   },
+  "261": {
+      "phase": "planned",
+      "branch": "fix/261-discovery-adaptive-pipeline-routing-with",
+      "pr": null,
+      "reviewConversationId": null,
+      "attempts": { "plan": 1, "test": 0, "review": 0 },
+      "startedAt": "2026-02-10T20:00:00Z",
+      "updatedAt": "2026-02-10T20:00:00Z",
+      "error": null
+    }
+  },
   "runConversationId": "issue-runner-1770607532",
-  "currentIssue": 260,
+  "currentIssue": 261,
   "completedCount": 12,
   "skippedCount": 6
 }

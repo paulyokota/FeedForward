@@ -36,6 +36,10 @@ if env_path.exists():
 
 logger = logging.getLogger(__name__)
 
+# Known stage hints for adaptive routing (Issue #261).
+# Unknown hints from LLM output are filtered out with a warning.
+KNOWN_STAGE_HINTS = {"skip_experience", "internal_risk_framing"}
+
 
 @dataclass
 class OpportunityPMConfig:
@@ -217,7 +221,24 @@ class OpportunityPM:
                     ),
                 })
 
-            briefs.append({
+            # Validate and filter stage_hints (Issue #261)
+            raw_hints = raw_opp.get("stage_hints") or []
+            if not isinstance(raw_hints, list):
+                raw_hints = []
+            validated_hints = []
+            for hint in raw_hints:
+                if not isinstance(hint, str):
+                    continue
+                if hint in KNOWN_STAGE_HINTS:
+                    validated_hints.append(hint)
+                else:
+                    logger.warning(
+                        "Filtering unknown stage_hint '%s' from opportunity '%s'",
+                        hint,
+                        raw_opp.get("problem_statement", "?")[:50],
+                    )
+
+            brief = {
                 "schema_version": 1,
                 "problem_statement": coerce_str(raw_opp.get("problem_statement"), fallback=""),
                 "evidence": evidence,
@@ -225,7 +246,19 @@ class OpportunityPM:
                 "affected_area": coerce_str(raw_opp.get("affected_area"), fallback=""),
                 "explorer_coverage": result.coverage_summary,
                 "source_findings": raw_opp.get("source_findings", []),
-            })
+            }
+
+            # Adaptive routing fields (Issue #261)
+            nature = raw_opp.get("opportunity_nature")
+            if nature is not None:
+                brief["opportunity_nature"] = coerce_str(nature)
+            response = raw_opp.get("recommended_response")
+            if response is not None:
+                brief["recommended_response"] = coerce_str(response)
+            if validated_hints:
+                brief["stage_hints"] = validated_hints
+
+            briefs.append(brief)
 
         return {
             "schema_version": 1,

@@ -259,11 +259,12 @@ class TestSolutionBrief:
         with pytest.raises(ValidationError):
             SolutionBrief(**data)
 
-    def test_missing_experiment_plan_rejected(self):
+    def test_missing_experiment_plan_allowed(self):
+        """experiment_plan is Optional (Issue #261: internal engineering may skip experiments)."""
         data = _make_solution_brief()
         del data["experiment_plan"]
-        with pytest.raises(ValidationError):
-            SolutionBrief(**data)
+        brief = SolutionBrief(**data)
+        assert brief.experiment_plan is None
 
     def test_missing_success_metrics_rejected(self):
         data = _make_solution_brief()
@@ -271,11 +272,12 @@ class TestSolutionBrief:
         with pytest.raises(ValidationError):
             SolutionBrief(**data)
 
-    def test_missing_decision_rejected(self):
+    def test_missing_decision_allowed(self):
+        """build_experiment_decision is Optional (Issue #261: internal engineering may skip)."""
         data = _make_solution_brief()
         del data["build_experiment_decision"]
-        with pytest.raises(ValidationError):
-            SolutionBrief(**data)
+        brief = SolutionBrief(**data)
+        assert brief.build_experiment_decision is None
 
     def test_invalid_decision_rejected(self):
         with pytest.raises(ValidationError):

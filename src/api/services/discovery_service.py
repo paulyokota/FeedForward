@@ -159,7 +159,7 @@ class DiscoveryApiService:
 
             # Find matching solution by opportunity_id
             solution = solution_map.get(opp_id, {})
-            build_experiment_decision = solution.get("build_experiment_decision", "")
+            build_experiment_decision = solution.get("build_experiment_decision") or ""
             effort_estimate = solution.get("effort_estimate", "")
 
             # Check review status
