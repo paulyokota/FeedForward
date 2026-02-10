@@ -151,6 +151,16 @@ class InMemoryStorage:
             se.completed_at = completed_at
         return se
 
+    def save_stage_artifacts(
+        self,
+        run_id: UUID,
+        stage_execution_id: int,
+        artifacts: Dict[str, Any],
+    ) -> None:
+        se = self.stage_executions.get(stage_execution_id)
+        if se and se.run_id == run_id:
+            se.artifacts = artifacts
+
     def get_latest_attempt_number(self, run_id: UUID, stage: StageType) -> int:
         attempts = [
             se.attempt_number
@@ -748,3 +758,142 @@ class TestTransportIsolation:
         assert len(turns) == 1
         assert turns[0]["text"] == "hello"
         assert turns[0]["id"] == turn_id
+
+
+# ============================================================================
+# Artifact persistence (Issue #256)
+# ============================================================================
+
+
+class TestArtifactPersistence:
+    """Tests for save_stage_artifacts and its integration with submit_checkpoint."""
+
+    def test_save_stage_artifacts_writes_correctly(self, storage, state_machine):
+        """save_stage_artifacts stores artifacts on the correct stage execution."""
+        run = state_machine.create_run()
+        run = state_machine.start_run(run.id)
+        active = storage.get_active_stage(run.id)
+
+        artifacts = {"findings": [{"pattern": "test_pattern"}], "schema_version": 1}
+        storage.save_stage_artifacts(run.id, active.id, artifacts)
+
+        updated = storage.stage_executions[active.id]
+        assert updated.artifacts == artifacts
+
+    def test_save_stage_artifacts_wrong_run_id_no_op(self, storage, state_machine):
+        """save_stage_artifacts with wrong run_id does not store artifacts."""
+        run = state_machine.create_run()
+        run = state_machine.start_run(run.id)
+        active = storage.get_active_stage(run.id)
+
+        wrong_run_id = uuid4()
+        artifacts = {"findings": [], "schema_version": 1}
+        storage.save_stage_artifacts(wrong_run_id, active.id, artifacts)
+
+        updated = storage.stage_executions[active.id]
+        assert updated.artifacts is None  # unchanged from initial None
+
+    def test_submit_checkpoint_persists_artifacts(self, service, storage, running_run):
+        """submit_checkpoint persists artifacts via save_stage_artifacts before advancing."""
+        active = storage.get_active_stage(running_run.id)
+        convo_id = service.create_stage_conversation(running_run.id, active.id)
+        stage_id = active.id
+
+        artifacts = _valid_explorer_checkpoint()
+        service.submit_checkpoint(
+            convo_id, running_run.id, "agent", artifacts=artifacts
+        )
+
+        # The old stage should have artifacts persisted (both via save_stage_artifacts
+        # and via advance_stage → update_stage_status)
+        old_stage = storage.stage_executions[stage_id]
+        assert old_stage.artifacts == artifacts
+
+    def test_complete_with_checkpoint_persists_artifacts(
+        self, service, storage, state_machine
+    ):
+        """complete_with_checkpoint persists artifacts on the final stage."""
+        run = state_machine.create_run()
+        run = state_machine.start_run(run.id)
+
+        # Advance through all stages to human_review
+        stage_artifacts = [
+            _valid_explorer_checkpoint(),
+            _valid_opportunity_brief(),
+            _valid_solution_brief(),
+            _valid_feasibility_risk_checkpoint(),
+            {
+                "schema_version": 1,
+                "rankings": [
+                    {
+                        "opportunity_id": "opp_auth_reset",
+                        "recommended_rank": 1,
+                        "rationale": "High impact",
+                        "impact_score": 0.9,
+                        "effort_score": 0.3,
+                        "risk_score": 0.2,
+                        "strategic_alignment_score": 0.8,
+                        "composite_score": 0.85,
+                    }
+                ],
+                "prioritization_metadata": {
+                    "model": "gpt-4o-mini",
+                    "opportunities_ranked": 1,
+                },
+            },
+        ]
+        for i, arts in enumerate(stage_artifacts):
+            active = storage.get_active_stage(run.id)
+            convo_id = service.create_stage_conversation(run.id, active.id)
+            service.submit_checkpoint(convo_id, run.id, "agent", artifacts=arts)
+
+        # Now at human_review — complete with checkpoint
+        active = storage.get_active_stage(run.id)
+        assert active.stage == StageType.HUMAN_REVIEW
+        convo_id = service.create_stage_conversation(run.id, active.id)
+        hr_stage_id = active.id
+
+        hr_artifacts = {
+            "schema_version": 1,
+            "decisions": [
+                {
+                    "opportunity_id": "opp_auth_reset",
+                    "decision": "accepted",
+                    "reasoning": "Ship it",
+                },
+            ],
+            "review_metadata": {
+                "reviewer": "paul",
+                "opportunities_reviewed": 1,
+            },
+        }
+        service.complete_with_checkpoint(
+            convo_id, run.id, "reviewer", artifacts=hr_artifacts
+        )
+
+        # Verify artifacts persisted on the human_review stage
+        hr_stage = storage.stage_executions[hr_stage_id]
+        assert hr_stage.artifacts == hr_artifacts
+
+    def test_two_runs_isolated(self, storage, state_machine):
+        """save_stage_artifacts for one run does not affect another run's stages."""
+        run_a = state_machine.create_run()
+        run_a = state_machine.start_run(run_a.id)
+        active_a = storage.get_active_stage(run_a.id)
+
+        run_b = state_machine.create_run()
+        run_b = state_machine.start_run(run_b.id)
+        active_b = storage.get_active_stage(run_b.id)
+
+        artifacts_a = {"run": "a", "findings": []}
+        artifacts_b = {"run": "b", "findings": []}
+
+        storage.save_stage_artifacts(run_a.id, active_a.id, artifacts_a)
+        storage.save_stage_artifacts(run_b.id, active_b.id, artifacts_b)
+
+        assert storage.stage_executions[active_a.id].artifacts == artifacts_a
+        assert storage.stage_executions[active_b.id].artifacts == artifacts_b
+
+        # Cross-contamination check: saving to run_a's stage with run_b's ID does nothing
+        storage.save_stage_artifacts(run_b.id, active_a.id, {"should": "not appear"})
+        assert storage.stage_executions[active_a.id].artifacts == artifacts_a

@@ -221,6 +221,9 @@ class ConversationService:
         # Validate artifacts against stage-specific model
         self._validate_artifacts(active_stage.stage, artifacts)
 
+        # Persist artifacts to storage before advancing state machine
+        self.storage.save_stage_artifacts(run_id, active_stage.id, artifacts)
+
         # Post checkpoint event to conversation
         self.post_event(
             conversation_id,
@@ -283,6 +286,9 @@ class ConversationService:
 
         # Validate artifacts
         self._validate_artifacts(active_stage.stage, artifacts)
+
+        # Persist artifacts to storage before completing the run
+        self.storage.save_stage_artifacts(run_id, active_stage.id, artifacts)
 
         # Post checkpoint event
         self.post_event(
