@@ -26,7 +26,34 @@
 **Streaming Batch Resume (Issue #209): COMPLETE** ✅
 **Discovery Engine: PHASE 1 COMPLETE — FIRST REAL RUN SUCCESSFUL** ✅
 
-## Latest: First Real Run + Pipeline Hardening (2026-02-10)
+## Latest: Second Real Run (Aero) + Quality Evaluation + Architecture Direction (2026-02-10)
+
+**Second discovery run against external product repo (aero). Human review revealed two systemic pipeline issues.**
+
+- Run ID: `2a9d5cb3-7477-4375-8854-86dceca4ae82` (aero product repo)
+- Target repo support: `--target-repo ../aero --scope-dirs packages/ --doc-paths tmp/`
+- Auto-pull with stash/restore, RepoSyncer service added
+- ArtifactChain.tsx rewritten with structured views per stage (evidence chips, risk teasers, solution components)
+
+**Quality evaluation findings (opportunities #1, #6):**
+
+- Over-grouping: findings from unrelated areas merged into single broad opportunities
+- Forced user-facing framing: internal engineering tasks shoehorned into product opportunity molds (e.g., proposing user feedback on internal event tracking)
+- source_type mislabeling: research documents labeled as "intercom" in OpportunityPM evidence
+
+**Architecture direction decided (3-way discussion: Paul, Claude, Codex):**
+
+- Key thesis: pipeline over-constrains agents, forcing nonsensical conforming output
+- Direction: descriptive schemas + adaptive routing (more agent freedom, not more guardrails)
+- Filed #260 (surface-specificity constraint) and #261 (adaptive routing with descriptive schemas)
+
+**Next steps tracked in GitHub Issues:**
+
+- #260: Surface-specificity constraint (surgical prompt fix, do first)
+- #261: Adaptive pipeline routing with descriptive schemas (fundamental architecture change)
+- #226-231: Phase 2 issues (most blocked by #256, now resolved)
+
+### Previous: First Real Run + Pipeline Hardening (2026-02-10)
 
 **Discovery Engine Phase 1 validated against real data.**
 
@@ -46,11 +73,10 @@ Hardening fixes committed:
 - Explorer merge now accepts checkpoint dicts (not raw ExplorerResult tuples)
 - Standalone run script: `scripts/run_discovery.py`
 
-**Next steps tracked in GitHub Issues:**
+**Completed this session:**
 
-- #255: Shared coercion utility (consolidate ad-hoc fixes)
-- #256: DB persistence for discovery runs (keystone blocker for Phase 2)
-- #226-231: Phase 2 issues (most blocked by #256)
+- #255: Shared coercion utility ✅ (PR #257)
+- #256: DB persistence for discovery runs ✅ (PR #258)
 
 ### Previous: Phase 1 Pipeline Infrastructure (2026-02-09)
 

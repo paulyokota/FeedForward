@@ -161,18 +161,18 @@
       "error": null
     },
     "256": {
-      "phase": "implemented",
+      "phase": "complete",
       "branch": "fix/256-db-persistence-for-discovery-runs",
-      "pr": null,
+      "pr": 258,
       "reviewConversationId": null,
-      "attempts": { "plan": 3, "test": 1, "review": 0 },
+      "attempts": { "plan": 3, "test": 1, "review": 2 },
       "startedAt": "2026-02-10T13:00:00Z",
-      "updatedAt": "2026-02-10T14:00:00Z",
+      "updatedAt": "2026-02-10T14:15:00Z",
       "error": null
     }
   },
   "runConversationId": "issue-runner-1770607532",
   "currentIssue": 256,
-  "completedCount": 10,
+  "completedCount": 11,
   "skippedCount": 6
 }

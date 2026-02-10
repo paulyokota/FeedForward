@@ -1,36 +1,53 @@
 # Last Session Summary
 
-**Date**: 2026-02-10
+**Date**: 2026-02-10 17:15
 **Branch**: main
 
 ## Goal
 
-Evaluate AgenTerminal's issue-authoring guidelines and reformat discovery engine issues #255 and #256 for issue-runner compatibility.
+Second discovery run against aero product repo, human review of opportunity quality, architecture direction for pipeline flexibility.
 
 ## What Happened
 
-- Reviewed `/docs/issue-authoring.md` from AgenTerminal repo (issue-runner format spec)
-- Analyzed all remaining discovery engine issues (#255, #256, #226-231) against the format
-- Identified #255 and #256 as the two actionable issues worth reformatting; #226-231 are planning artifacts that don't need runner format yet
-- Discussed the "telephone game" mechanism: issue → runner plan → plan reviewer. Acceptance criteria in the issue anchor the chain.
-- Got inside context from AgenTerminal's Claude on how the plan reviewer consumes issues (indirectly — through the runner's plan file, not the issue body directly)
-- Drafted and applied reformatted bodies for both issues on GitHub
+### Second Real Run (Aero Product Repo)
 
-## Changes Made
+- Run ID: `2a9d5cb3-7477-4375-8854-86dceca4ae82`
+- Added target repo support: `--target-repo`, `--scope-dirs`, `--doc-paths`, `--no-auto-pull`
+- RepoSyncer service: auto-pull with stash/restore for dirty working trees
+- ArtifactChain.tsx rewritten with structured stage views (evidence chips, risk teasers, solution components)
 
-No code changes. Two GitHub issues updated remotely:
+### Quality Evaluation (Agenterminal: session-210-disc)
 
-- **#255** (Shared coercion utility): Added Summary, Acceptance Criteria (checkboxes), Tests section, File/Module Hints, Guardrails, Non-Goals, Sizing, Dependencies. Trimmed narrative context.
-- **#256** (DB persistence): Committed to Option A in scope. Converted verification criteria to AC checkboxes. Added File/Module Hints, Guardrails, Non-Goals, Sizing. Made second-run test explicit. Kept architecture diagram in Context section.
+- Reviewed opportunities #1 and #6 in detail via UI
+- #1: Over-grouping — 8 unrelated findings bundled into single "User Experience" opportunity
+- #6: Forced user-facing framing — internal instrumentation work got user feedback mechanisms bolted on
+- source_type mislabeling bug: research documents labeled as "intercom" in OpportunityPM evidence
+
+### Architecture Direction (3-way: Paul, Claude, Codex)
+
+- Paul's thesis: pipeline over-constrains agents, forcing conforming-but-nonsensical output
+- Direction: descriptive schemas + adaptive routing (more agent freedom)
+- Rejected: prescriptive enums, more guardrails, problem-type routing
+- Filed #260 (surface-specificity) and #261 (adaptive routing)
+
+## Issues Filed
+
+- #260: Surface-specificity constraint for explorer and OpportunityPM prompts
+- #261: Adaptive pipeline routing with descriptive opportunity schemas
 
 ## Key Decisions
 
-- Issue-runner format only for actionable issues (#255, #256), not Phase 2 planning issues (#226-231)
-- Phase 2 issues get new runner-formatted implementation issues when the time comes, referencing the planning issues for context
-- Context sections kept at bottom of issue bodies — runner uses them during plan phase, but they're background not instruction
+- "Descriptive over prescriptive" — let agents describe what they found, pipeline adapts
+- #260 first (surgical), #261 second (fundamental)
+- Pause opportunity evaluation until both land
 
-## Next Steps
+## Agenterminal Conversations
 
-- Run #255 through issue runner in AgenTerminal (simpler, good first test case)
-- Run #256 through issue runner (more complex, cross-layer wiring)
-- Phase 2 issues remain as-is until #256 unblocks them
+- `session-210-disc`: Discovery run review and architecture discussion
+
+## Next
+
+1. #260 — Surface-specificity constraint
+2. #261 — Adaptive pipeline routing with descriptive schemas
+3. Re-run discovery against aero with improved pipeline
+4. source_type mislabeling bug (file as separate issue)
