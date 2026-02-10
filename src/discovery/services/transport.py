@@ -60,8 +60,9 @@ class InMemoryTransport:
         self._next_id = 1
 
     def create_conversation(self, conversation_id: str) -> None:
-        if conversation_id not in self.conversations:
-            self.conversations[conversation_id] = []
+        if conversation_id in self.conversations:
+            raise ValueError(f"Conversation {conversation_id} already exists")
+        self.conversations[conversation_id] = []
 
     def post_turn(
         self,
@@ -106,8 +107,8 @@ class InMemoryTransport:
         return turns
 
     def generate_conversation_id(self) -> str:
-        cid = f"test-{self._next_id:04d}"
-        self._next_id += 1
+        suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        cid = f"test-{suffix}"
         return cid
 
 

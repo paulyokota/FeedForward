@@ -36,6 +36,7 @@ from src.discovery.models.enums import StageType
 from src.discovery.models.run import DiscoveryRun, RunConfig
 from src.discovery.services.conversation import ConversationService
 from src.discovery.services.explorer_merge import merge_explorer_results
+from src.discovery.services.repo_syncer import RepoSyncer
 from src.discovery.services.state_machine import DiscoveryStateMachine
 from src.discovery.services.transport import ConversationTransport
 
@@ -144,10 +145,50 @@ class DiscoveryOrchestrator:
         run_config: RunConfig,
     ):
         """Stage 0: Run all 4 explorers, merge results, submit checkpoint."""
+        # Determine target repo for codebase/research exploration
+        target_repo = run_config.target_repo_path or self.repo_root
+        scope_dirs = run_config.scope_dirs or ["src/"]
+        doc_paths = run_config.doc_paths or ["docs/", "reference/"]
+
+        # Auto-pull target repo if configured and it's not the FeedForward repo
+        if run_config.target_repo_path and run_config.auto_pull:
+            syncer = RepoSyncer(target_repo, run_id=str(run_id))
+            sync_result = syncer.sync()
+            if not sync_result.success:
+                raise RuntimeError(
+                    f"Failed to sync target repo {target_repo}: "
+                    f"{sync_result.error}"
+                )
+            if sync_result.stash_created:
+                logger.warning(
+                    "Run %s: stashed %d files in %s (was on branch %s, "
+                    "stash ref: %s). Files: %s",
+                    run_id,
+                    len(sync_result.stashed_files),
+                    sync_result.repo_path,
+                    sync_result.previous_branch,
+                    sync_result.stash_ref,
+                    ", ".join(sync_result.stashed_files[:10]),
+                )
+            if sync_result.commits_pulled > 0:
+                logger.info(
+                    "Run %s: pulled %d commits in %s (%s)",
+                    run_id,
+                    sync_result.commits_pulled,
+                    sync_result.repo_path,
+                    sync_result.default_branch,
+                )
+            elif sync_result.already_up_to_date:
+                logger.info(
+                    "Run %s: target repo %s already up to date",
+                    run_id,
+                    sync_result.repo_path,
+                )
+
         conversation_reader = ConversationReader(self.db)
-        codebase_reader = CodebaseReader(self.repo_root, scope_dirs=["src/"])
+        codebase_reader = CodebaseReader(target_repo, scope_dirs=scope_dirs)
         research_reader = ResearchReader(
-            doc_paths=["docs/", "reference/"], repo_root=self.repo_root
+            doc_paths=doc_paths, repo_root=target_repo
         )
         posthog_reader = PostHogReader(**self.posthog_data)
 

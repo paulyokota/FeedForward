@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """Run the Discovery Engine against real data.
 
-Standalone script for the first real (non-mocked) discovery run.
-Uses InMemoryTransport (no Agenterminal needed) and loads PostHog
-data from a pre-fetched JSON snapshot.
+Standalone script for discovery runs. Uses InMemoryTransport
+(no Agenterminal needed) and loads PostHog data from a
+pre-fetched JSON snapshot.
 
 Usage:
-    python scripts/run_discovery.py --days 14 --posthog-data data/posthog_snapshot.json
+    # Run against a target product repo (recommended):
+    python scripts/run_discovery.py --target-repo ../aero --scope-dirs packages/ --doc-paths tmp/
+
+    # Run against FeedForward itself (default):
+    python scripts/run_discovery.py --days 14
+
+    # Other options:
     python scripts/run_discovery.py --days 7   # smaller window, faster/cheaper
     python scripts/run_discovery.py --dry-run   # validate config without running
+    python scripts/run_discovery.py --target-repo ../aero --no-auto-pull  # skip git pull
 """
 
 import argparse
@@ -77,6 +84,25 @@ def main():
         help="Validate config and connections without running",
     )
     parser.add_argument(
+        "--target-repo", type=str, default=None,
+        help="Path to the product repo for codebase/research exploration. "
+        "If not set, explorers scan the FeedForward repo itself.",
+    )
+    parser.add_argument(
+        "--scope-dirs", type=str, nargs="+", default=None,
+        help="Codebase explorer scope directories (relative to target repo). "
+        "e.g. --scope-dirs packages/ src/",
+    )
+    parser.add_argument(
+        "--doc-paths", type=str, nargs="+", default=None,
+        help="Research explorer doc directories (relative to target repo). "
+        "e.g. --doc-paths docs/ tmp/",
+    )
+    parser.add_argument(
+        "--no-auto-pull", action="store_true",
+        help="Skip auto-pull of target repo before exploration",
+    )
+    parser.add_argument(
         "--verbose", "-v", action="store_true",
         help="Enable debug logging",
     )
@@ -93,11 +119,26 @@ def main():
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.WARNING)
 
+    # Resolve target repo path
+    target_repo = None
+    if args.target_repo:
+        target_repo = str(Path(args.target_repo).resolve())
+        if not Path(target_repo).is_dir():
+            print(f"ERROR: Target repo not found: {target_repo}")
+            sys.exit(1)
+
     print("=" * 60)
-    print("Discovery Engine — First Real Run")
+    print("Discovery Engine Run")
     print("=" * 60)
     print(f"Time window:  {args.days} days")
     print(f"PostHog data: {args.posthog_data}")
+    if target_repo:
+        print(f"Target repo:  {target_repo}")
+        print(f"Scope dirs:   {args.scope_dirs or ['(auto)']}")
+        print(f"Doc paths:    {args.doc_paths or ['(auto)']}")
+        print(f"Auto-pull:    {not args.no_auto_pull}")
+    else:
+        print(f"Target repo:  (self — FeedForward)")
     print()
 
     # Load PostHog data
@@ -163,7 +204,13 @@ def main():
         repo_root=project_root,
     )
 
-    config = RunConfig(time_window_days=args.days)
+    config = RunConfig(
+        time_window_days=args.days,
+        target_repo_path=target_repo,
+        scope_dirs=args.scope_dirs,
+        doc_paths=args.doc_paths,
+        auto_pull=not args.no_auto_pull,
+    )
 
     start_time = time.time()
     run = None

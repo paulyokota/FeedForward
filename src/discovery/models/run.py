@@ -62,6 +62,26 @@ class RunConfig(BaseModel):
         default=None,
         description="Resource ceiling for Stage 0 exploration",
     )
+    target_repo_path: Optional[str] = Field(
+        default=None,
+        description="Path to the product repo for codebase/research exploration. "
+        "If set, codebase and research explorers scan this repo instead of the "
+        "FeedForward project root.",
+    )
+    scope_dirs: Optional[List[str]] = Field(
+        default=None,
+        description="Override codebase explorer scope directories "
+        "(relative to target_repo_path). e.g. ['packages/', 'src/']",
+    )
+    doc_paths: Optional[List[str]] = Field(
+        default=None,
+        description="Override research explorer doc directories "
+        "(relative to target_repo_path). e.g. ['docs/', 'tmp/']",
+    )
+    auto_pull: bool = Field(
+        default=True,
+        description="Auto-pull target repo to latest default branch before exploration",
+    )
 
 
 class AgentInvocation(BaseModel):
