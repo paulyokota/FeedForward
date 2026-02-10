@@ -192,6 +192,18 @@ CRITICAL RULES:
    (e.g., "Schedule page calendar widget, Availability settings sync" not
    "Scheduling"). Heuristic: if the label could apply to 3+ different parts of
    the product, it needs to be more specific.
+7. OPPORTUNITY NATURE: For each opportunity, describe its nature in free text
+   via the `opportunity_nature` field. Not all opportunities are user-facing
+   product changes. Some are internal engineering work, infrastructure
+   improvements, documentation gaps, or process issues. Describe what you
+   actually found. If the opportunity is internal (no direct user impact),
+   say so explicitly — e.g., "internal engineering: instrumentation gap in
+   event tracking." Also provide `recommended_response` describing what kind
+   of response is appropriate. If you believe certain downstream stages should
+   be skipped, include `stage_hints`. Valid hints: "skip_experience" (no UX
+   evaluation needed), "internal_risk_framing" (use engineering risk categories
+   instead of user rollout risks). Omit stage_hints entirely if the standard
+   pipeline is appropriate.
 
 You are NOT proposing solutions.
 You are NOT prioritizing — that happens later.
@@ -216,6 +228,9 @@ Identify distinct opportunities from these findings. Return as JSON:
       "evidence_conversation_ids": ["conv_ids", "from", "the", "findings"],
       "counterfactual": "if we addressed [this problem], we would expect [measurable change]",
       "affected_area": "specific product surface(s) — name concrete screens, pages, or components a developer can map to code (not category labels)",
+      "opportunity_nature": "free-text description of what kind of opportunity this is (e.g., 'user-facing: checkout friction', 'internal engineering: instrumentation gap')",
+      "recommended_response": "what response is appropriate (e.g., 'A/B test on checkout flow', 'internal engineering task, no user experiment needed')",
+      "stage_hints": ["skip_experience", "internal_risk_framing"],
       "confidence": "high|medium|low",
       "source_findings": ["pattern_name_1", "pattern_name_2"]
     }}
@@ -800,7 +815,17 @@ counterfactual. Your job is to propose:
    - build_direct: rare, only for unambiguous fixes with no validation needed
 
 You are proposing, not deciding. A Validation Agent will challenge your proposal
-and an Experience Agent will evaluate user impact. Be ready to revise.
+and an Experience Agent will evaluate user impact (unless the opportunity is
+internal engineering, in which case the Experience Agent may be skipped).
+Be ready to revise.
+
+ADAPTIVE BEHAVIOR: Read the `opportunity_nature` field from the brief. If the
+opportunity is internal engineering work (not user-facing), adapt your response:
+- proposed_solution should describe the engineering change, not a user-facing feature
+- experiment_plan may be empty or describe an internal validation approach
+  (e.g., "run test suite" or "monitor error rates for 7 days")
+- build_experiment_decision may be "build_direct" for straightforward internal fixes
+- Do NOT propose user experiments or A/B tests for internal engineering work
 
 If dialogue history is provided, incorporate feedback from previous rounds.
 Specifically address any challenges or revision requests.
@@ -853,6 +878,12 @@ Your assessment must be one of:
   too large/too vague. Explain what's wrong and suggest an alternative.
 - "request_revision": the solution itself needs work — unclear, too broad,
   doesn't address the root cause, or the metrics aren't measurable.
+
+ADAPTIVE BEHAVIOR: Read the `opportunity_nature` field from the brief. For
+internal engineering opportunities, "build_direct" is an appropriate default —
+do not challenge it solely because it lacks a user experiment. Internal work
+like instrumentation fixes, infrastructure improvements, or tech debt cleanup
+does not require user-facing validation.
 
 Be rigorous but practical. The goal is better decisions, not blocking progress.
 """
@@ -943,6 +974,10 @@ challenged your build/experiment decision, either:
 
 If the Experience Agent raised UX concerns, incorporate them into the solution.
 
+ADAPTIVE BEHAVIOR: Read the `opportunity_nature` field from the brief. For
+internal engineering work, do not add user experiment plans or UX considerations
+that don't apply. Keep the revision focused on the engineering approach.
+
 Produce a REVISED proposal that addresses the feedback. Do not simply repeat
 the original — show what changed and why.
 """
@@ -1007,6 +1042,10 @@ Your job:
 
 3. If infeasible, explain WHY with specific technical constraints. This rationale
    goes back to Stage 2 so they can design around the constraint.
+
+ADAPTIVE BEHAVIOR: Read the `opportunity_nature` field from the brief. Internal
+engineering opportunities may have different feasibility criteria — no user-facing
+acceptance criteria needed, focus on technical correctness and operational impact.
 
 Be grounded in the actual codebase. Reference specific files, modules, or
 patterns from the explorer findings when relevant. Avoid theoretical assessments.
@@ -1104,6 +1143,13 @@ Your overall_risk_level assessment:
 - "medium": risks exist but are manageable with the proposed mitigations
 - "high": significant risks that should be addressed before proceeding
 - "critical": risks that could block the approach entirely
+
+ADAPTIVE BEHAVIOR: Read the `opportunity_nature` field from the brief. For
+internal engineering opportunities, adapt your risk framing:
+- Replace "rollout risks" with "deployment risks"
+- Replace "user regression potential" with "system regression potential"
+- Drop user-facing concerns (UX degradation, user confusion)
+- Focus on: data integrity, system stability, monitoring coverage, backward compatibility
 
 Be practical. Every change has risks. Flag the ones that matter, not every
 theoretical possibility.
@@ -1232,6 +1278,9 @@ Ranking criteria (weigh all of these):
 5. **Strategic alignment**: Does this advance the product's direction?
 
 Guidelines:
+- Opportunities may be a mix of user-facing and internal engineering. Rank them \
+on their merits regardless of type. Internal engineering work can be high-priority \
+if it unblocks user-facing improvements or reduces technical risk.
 - Consider cross-item dependencies: if B depends on A, A should rank higher
 - Flag unusual situations (e.g., low effort but high uncertainty)
 - Be explicit about WHY each item is ranked where it is

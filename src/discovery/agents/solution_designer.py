@@ -41,6 +41,27 @@ from src.discovery.models.enums import (
 
 logger = logging.getLogger(__name__)
 
+# Keywords in opportunity_nature that indicate internal engineering work.
+_INTERNAL_KEYWORDS = {"internal", "engineering", "infrastructure", "instrumentation"}
+
+
+def should_skip_experience(opportunity_brief: Dict[str, Any]) -> bool:
+    """Decide whether to skip the Experience Agent for this opportunity.
+
+    This is the single canonical place that determines internal-vs-user-facing
+    for routing purposes (Issue #261).
+
+    Returns True if:
+    - stage_hints contains "skip_experience", OR
+    - opportunity_nature contains internal-engineering keywords
+    """
+    hints = opportunity_brief.get("stage_hints") or []
+    if "skip_experience" in hints:
+        return True
+
+    nature = (opportunity_brief.get("opportunity_nature") or "").lower()
+    return bool(nature and _INTERNAL_KEYWORDS & set(nature.split()))
+
 
 @dataclass
 class DialogueTurn:
@@ -66,16 +87,17 @@ class SolutionDesignResult:
     """Result of a multi-agent solution design dialogue."""
 
     proposed_solution: str
-    experiment_plan: str
+    experiment_plan: Optional[str]  # None for internal engineering opportunities
     success_metrics: str
-    build_experiment_decision: str  # BuildExperimentDecision value
+    build_experiment_decision: Optional[str]  # None when not applicable
     decision_rationale: str
     evidence: List[Dict[str, Any]]
     dialogue_rounds: int
     validation_challenges: List[Dict[str, Any]]
-    experience_direction: Dict[str, Any]
+    experience_direction: Optional[Dict[str, Any]]  # None when experience was skipped
     convergence_forced: bool
     convergence_note: str
+    skip_rationale: Optional[str] = None  # Why Optional fields were omitted
     token_usage: Dict[str, int] = field(
         default_factory=lambda: {
             "prompt_tokens": 0,
@@ -146,6 +168,18 @@ class SolutionDesigner:
         latest_proposal = None
         latest_validation = None
         latest_experience = None
+
+        # Issue #261: check if Experience Agent should be skipped
+        skip_experience = should_skip_experience(opportunity_brief)
+        if skip_experience:
+            hints = opportunity_brief.get("stage_hints") or []
+            nature = opportunity_brief.get("opportunity_nature") or "not specified"
+            logger.info(
+                "Skipping Experience Agent for brief: %s (nature: %s, hints: %s)",
+                opportunity_brief.get("problem_statement", "?")[:50],
+                nature,
+                hints,
+            )
 
         for round_num in range(1, self.config.max_rounds + 1):
             history_dicts = [
@@ -242,14 +276,22 @@ class SolutionDesigner:
                 for t in dialogue_history
             ]
 
-            # Step 3: Experience Agent evaluates
-            experience = self.experience_agent.evaluate_experience(
-                proposed_solution=proposal,
-                opportunity_brief=opportunity_brief,
-                dialogue_history=history_dicts,
-                validation_feedback=validation,
-            )
-            self._accumulate_usage(total_usage, experience.pop("token_usage", {}))
+            # Step 3: Experience Agent evaluates (conditionally skipped per #261)
+            if skip_experience:
+                experience = {
+                    "user_impact_level": "transparent",
+                    "experience_direction": None,
+                    "engagement_depth": "minimal",
+                    "notes": "Skipped: opportunity is not user-facing per stage_hints/opportunity_nature",
+                }
+            else:
+                experience = self.experience_agent.evaluate_experience(
+                    proposed_solution=proposal,
+                    opportunity_brief=opportunity_brief,
+                    dialogue_history=history_dicts,
+                    validation_feedback=validation,
+                )
+                self._accumulate_usage(total_usage, experience.pop("token_usage", {}))
             latest_experience = experience
 
             dialogue_history.append(
@@ -278,6 +320,7 @@ class SolutionDesigner:
                     convergence_forced=False,
                     convergence_note="",
                     total_usage=total_usage,
+                    experience_skipped=skip_experience,
                 )
 
         # Max rounds hit — forced convergence
@@ -308,6 +351,7 @@ class SolutionDesigner:
             convergence_forced=True,
             convergence_note=convergence_note,
             total_usage=total_usage,
+            experience_skipped=skip_experience,
         )
 
     def build_checkpoint_artifacts(
@@ -355,10 +399,12 @@ class SolutionDesigner:
                 "success_metrics": result.success_metrics,
                 "build_experiment_decision": result.build_experiment_decision,
                 "evidence": evidence,
+                # Explicit Optional fields (Issue #261)
+                "experience_direction": result.experience_direction,
+                "skip_rationale": result.skip_rationale,
                 # Extra fields (stored via extra='allow')
                 "decision_rationale": result.decision_rationale,
                 "validation_challenges": result.validation_challenges,
-                "experience_direction": result.experience_direction,
                 "convergence_forced": result.convergence_forced,
                 "convergence_note": result.convergence_note,
             }
@@ -526,6 +572,7 @@ class SolutionDesigner:
         convergence_forced: bool,
         convergence_note: str,
         total_usage: Dict[str, int],
+        experience_skipped: bool = False,
     ) -> SolutionDesignResult:
         """Build a SolutionDesignResult from the latest state."""
         # Build evidence by mapping proposal's evidence_ids back to the
@@ -595,28 +642,52 @@ class SolutionDesigner:
         # LLM sometimes returns structured dicts for string fields — coerce.
         raw_solution = coerce_str(proposal.get("proposed_solution"))
         raw_rationale = coerce_str(proposal.get("decision_rationale"))
-        experiment_plan = coerce_str(experiment_plan)
+        experiment_plan = coerce_str(experiment_plan) if experiment_plan else None
         success_metrics = coerce_str(success_metrics)
+
+        # Build/experiment decision — None if not provided or empty
+        raw_decision = proposal.get("build_experiment_decision")
+        build_decision = raw_decision if raw_decision else None
+
+        # Experience direction — None when experience was skipped (Issue #261)
+        if experience_skipped:
+            exp_direction = None
+        else:
+            exp_direction = {
+                "user_impact_level": experience.get("user_impact_level", ""),
+                "experience_direction": experience.get("experience_direction", ""),
+                "engagement_depth": experience.get("engagement_depth", ""),
+                "notes": experience.get("notes", ""),
+            }
+
+        # Build skip_rationale when Optional fields are omitted (Issue #261)
+        skip_reasons = []
+        if experience_skipped:
+            hints = opportunity_brief.get("stage_hints") or []
+            nature = opportunity_brief.get("opportunity_nature") or "not specified"
+            skip_reasons.append(
+                f"Experience Agent skipped: opportunity is internal "
+                f"(nature: {nature}, hints: {hints})"
+            )
+        if experiment_plan is None:
+            skip_reasons.append("No experiment plan: internal engineering opportunity")
+        if build_decision is None:
+            skip_reasons.append("No build/experiment decision: not applicable for this opportunity type")
+        skip_rationale = "; ".join(skip_reasons) if skip_reasons else None
 
         return SolutionDesignResult(
             proposed_solution=raw_solution,
             experiment_plan=experiment_plan,
             success_metrics=success_metrics,
-            build_experiment_decision=proposal.get(
-                "build_experiment_decision", "experiment_first"
-            ),
+            build_experiment_decision=build_decision,
             decision_rationale=raw_rationale,
             evidence=evidence,
             dialogue_rounds=dialogue_rounds,
             validation_challenges=validation_challenges,
-            experience_direction={
-                "user_impact_level": experience.get("user_impact_level", ""),
-                "experience_direction": experience.get("experience_direction", ""),
-                "engagement_depth": experience.get("engagement_depth", ""),
-                "notes": experience.get("notes", ""),
-            },
+            experience_direction=exp_direction,
             convergence_forced=convergence_forced,
             convergence_note=convergence_note,
+            skip_rationale=skip_rationale,
             token_usage=total_usage,
         )
 
