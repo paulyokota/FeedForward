@@ -171,8 +171,19 @@
       "error": null
     }
   },
+  "260": {
+      "phase": "planned",
+      "branch": "fix/260-discovery-add-surface-specificity-constr",
+      "pr": null,
+      "reviewConversationId": null,
+      "attempts": { "plan": 1, "test": 0, "review": 0 },
+      "startedAt": "2026-02-10T17:00:00Z",
+      "updatedAt": "2026-02-10T17:05:00Z",
+      "error": null
+    }
+  },
   "runConversationId": "issue-runner-1770607532",
-  "currentIssue": 256,
+  "currentIssue": 260,
   "completedCount": 11,
   "skippedCount": 6
 }
