@@ -139,7 +139,7 @@ def main():
     with conn.cursor() as cur:
         cur.execute("""
             SELECT COUNT(*) FROM conversations
-            WHERE created_at >= NOW() - INTERVAL '%s days'
+            WHERE created_at >= NOW() - make_interval(days => %s)
         """, (args.days,))
         conv_count = cur.fetchone()[0]
         print(f"Conversations in last {args.days} days: {conv_count}")
