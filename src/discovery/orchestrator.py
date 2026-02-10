@@ -22,7 +22,11 @@ from src.discovery.agents.customer_voice import CustomerVoiceExplorer
 from src.discovery.agents.data_access import ConversationReader
 from src.discovery.agents.experience_agent import ExperienceAgent
 from src.discovery.agents.feasibility_designer import FeasibilityDesigner
-from src.discovery.agents.opportunity_pm import OpportunityPM
+from src.discovery.agents.opportunity_pm import (
+    OpportunityPM,
+    extract_evidence_ids,
+    extract_evidence_source_map,
+)
 from src.discovery.agents.posthog_data_access import PostHogReader
 from src.discovery.agents.research_data_access import ResearchReader
 from src.discovery.agents.research_explorer import ResearchExplorer
@@ -32,8 +36,8 @@ from src.discovery.agents.tech_lead_agent import TechLeadAgent
 from src.discovery.agents.tpm_agent import TPMAgent
 from src.discovery.agents.validation_agent import ValidationAgent
 from src.discovery.db.storage import DiscoveryStorage
-from src.discovery.models.enums import StageType
-from src.discovery.models.run import DiscoveryRun, RunConfig
+from src.discovery.models.enums import AgentStatus, StageType
+from src.discovery.models.run import AgentInvocation, DiscoveryRun, RunConfig, TokenUsage
 from src.discovery.services.conversation import ConversationService
 from src.discovery.services.explorer_merge import merge_explorer_results
 from src.discovery.services.repo_syncer import RepoSyncer
@@ -219,14 +223,24 @@ class DiscoveryOrchestrator:
             ),
         ]
 
+        stage_exec = self.storage.get_active_stage(run_id)
+        agent_names = []
+
         checkpoints = []
         for name, explorer in explorers:
             logger.info("Run %s: running %s explorer", run_id, name)
+            started_at = datetime.now(timezone.utc)
             result = explorer.explore()
             checkpoint = explorer.build_checkpoint_artifacts(result)
             checkpoints.append(checkpoint)
+            agent_names.append(name)
+            self._record_invocation(
+                run_id, stage_exec.id, name, result.token_usage, started_at
+            )
 
         merged = merge_explorer_results(checkpoints)
+
+        self.storage.update_participating_agents(stage_exec.id, agent_names)
 
         logger.info(
             "Run %s: exploration complete — %d findings from %d explorers",
@@ -242,22 +256,29 @@ class DiscoveryOrchestrator:
     def _run_opportunity_framing(self, run_id: UUID, convo_id: str):
         """Stage 1: OpportunityPM synthesizes explorer findings into briefs."""
         pm = OpportunityPM(openai_client=self.client)
+        stage_exec = self.storage.get_active_stage(run_id)
 
         explorer_checkpoint = self._get_stage_artifacts(
             run_id, StageType.EXPLORATION
         )
 
+        started_at = datetime.now(timezone.utc)
         result = pm.frame_opportunities(explorer_checkpoint)
 
-        # Extract valid evidence IDs for filtering
-        valid_ids = set()
-        for finding in explorer_checkpoint.get("findings", []):
-            for ev in finding.get("evidence", []):
-                if "id" in ev:
-                    valid_ids.add(ev["id"])
-
+        evidence_source_map = extract_evidence_source_map(explorer_checkpoint)
+        valid_ids = extract_evidence_ids(explorer_checkpoint)
         artifacts = pm.build_checkpoint_artifacts(
-            result, valid_evidence_ids=valid_ids if valid_ids else None
+            result,
+            valid_evidence_ids=valid_ids if valid_ids else None,
+            evidence_source_map=evidence_source_map if evidence_source_map else None,
+        )
+
+        self._record_invocation(
+            run_id, stage_exec.id, "opportunity_pm",
+            result.token_usage, started_at,
+        )
+        self.storage.update_participating_agents(
+            stage_exec.id, ["opportunity_pm"]
         )
 
         logger.info(
@@ -277,6 +298,7 @@ class DiscoveryOrchestrator:
         designer = SolutionDesigner(
             validation_agent, experience_agent, openai_client=self.client
         )
+        stage_exec = self.storage.get_active_stage(run_id)
 
         prior = self.service.get_prior_checkpoints(run_id)
         opp_artifacts = self._get_stage_artifacts(
@@ -293,9 +315,14 @@ class DiscoveryOrchestrator:
                 len(briefs),
                 brief.get("affected_area", "?"),
             )
+            started_at = datetime.now(timezone.utc)
             try:
                 result = designer.design_solution(brief, prior)
                 results.append(result)
+                self._record_invocation(
+                    run_id, stage_exec.id, "solution_designer",
+                    result.token_usage, started_at,
+                )
             except (json.JSONDecodeError, ValueError) as exc:
                 logger.warning(
                     "Run %s: skipping solution %d/%d (%s) — %s: %s",
@@ -308,6 +335,11 @@ class DiscoveryOrchestrator:
                 )
 
         artifacts = designer.build_checkpoint_artifacts(results)
+
+        self.storage.update_participating_agents(
+            stage_exec.id,
+            ["solution_designer", "validation_agent", "experience_agent"],
+        )
 
         logger.info(
             "Run %s: solution validation complete — %d solutions",
@@ -324,6 +356,7 @@ class DiscoveryOrchestrator:
         tech_lead = TechLeadAgent(openai_client=self.client)
         risk_agent = RiskAgent(openai_client=self.client)
         designer = FeasibilityDesigner(tech_lead, risk_agent)
+        stage_exec = self.storage.get_active_stage(run_id)
 
         prior = self.service.get_prior_checkpoints(run_id)
         opp_artifacts = self._get_stage_artifacts(
@@ -345,9 +378,14 @@ class DiscoveryOrchestrator:
                 len(briefs),
                 brief.get("affected_area", "?"),
             )
+            started_at = datetime.now(timezone.utc)
             try:
                 result = designer.assess_feasibility(solution, brief, prior)
                 results.append(result)
+                self._record_invocation(
+                    run_id, stage_exec.id, "feasibility_designer",
+                    result.token_usage, started_at,
+                )
             except (json.JSONDecodeError, ValueError) as exc:
                 logger.warning(
                     "Run %s: skipping feasibility %d/%d (%s) — %s: %s",
@@ -360,6 +398,11 @@ class DiscoveryOrchestrator:
                 )
 
         artifacts = designer.build_checkpoint_artifacts(results)
+
+        self.storage.update_participating_agents(
+            stage_exec.id,
+            ["feasibility_designer", "tech_lead", "risk_agent"],
+        )
 
         feasible_count = len(artifacts.get("specs", []))
         infeasible_count = len(artifacts.get("infeasible_solutions", []))
@@ -377,6 +420,7 @@ class DiscoveryOrchestrator:
     def _run_prioritization(self, run_id: UUID, convo_id: str):
         """Stage 4: TPMAgent ranks feasible opportunities."""
         tpm = TPMAgent(openai_client=self.client)
+        stage_exec = self.storage.get_active_stage(run_id)
 
         feas_artifacts = self._get_stage_artifacts(
             run_id, StageType.FEASIBILITY_RISK
@@ -413,20 +457,30 @@ class DiscoveryOrchestrator:
             )
 
         # Short-circuit when no feasible specs — emit empty rankings
+        started_at = datetime.now(timezone.utc)
         if not packages:
             logger.info(
                 "Run %s: no feasible specs — skipping TPM ranking", run_id
             )
-            artifacts = tpm.build_checkpoint_artifacts([], {
+            token_usage = {
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "total_tokens": 0,
-            })
+            }
+            artifacts = tpm.build_checkpoint_artifacts([], token_usage)
         else:
             ranking_result = tpm.rank_opportunities(packages)
+            token_usage = ranking_result["token_usage"]
             artifacts = tpm.build_checkpoint_artifacts(
-                ranking_result["rankings"], ranking_result["token_usage"]
+                ranking_result["rankings"], token_usage
             )
+
+        self._record_invocation(
+            run_id, stage_exec.id, "tpm_agent", token_usage, started_at
+        )
+        self.storage.update_participating_agents(
+            stage_exec.id, ["tpm_agent"]
+        )
 
         logger.info(
             "Run %s: prioritization complete — %d opportunities ranked",
@@ -450,6 +504,39 @@ class DiscoveryOrchestrator:
             if checkpoint.get("stage") == stage.value:
                 return checkpoint.get("artifacts", {})
         return {}
+
+    def _record_invocation(
+        self,
+        run_id: UUID,
+        stage_execution_id: int,
+        agent_name: str,
+        token_usage: Dict[str, int],
+        started_at: datetime,
+    ) -> None:
+        """Record a completed agent invocation to the database."""
+        completed_at = datetime.now(timezone.utc)
+        invocation = AgentInvocation(
+            stage_execution_id=stage_execution_id,
+            run_id=run_id,
+            agent_name=agent_name,
+            status=AgentStatus.COMPLETED,
+            token_usage=TokenUsage(
+                prompt_tokens=token_usage.get("prompt_tokens", 0),
+                completion_tokens=token_usage.get("completion_tokens", 0),
+                total_tokens=token_usage.get("total_tokens", 0),
+            ),
+            started_at=started_at,
+            completed_at=completed_at,
+        )
+        try:
+            self.storage.create_agent_invocation(invocation)
+        except Exception:
+            logger.warning(
+                "Failed to record invocation for %s in run %s",
+                agent_name,
+                run_id,
+                exc_info=True,
+            )
 
     def _fail_run(
         self, run_id: UUID, stage_name: str, error: Exception

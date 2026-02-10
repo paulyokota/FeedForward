@@ -15,6 +15,8 @@ from src.discovery.agents.opportunity_pm import (
     FramingResult,
     OpportunityPM,
     OpportunityPMConfig,
+    extract_evidence_ids,
+    extract_evidence_source_map,
 )
 from src.discovery.models.artifacts import (
     OpportunityBrief,
@@ -269,7 +271,13 @@ class TestCheckpointBuilding:
         checkpoint_input = _make_explorer_checkpoint()
 
         result = pm.frame_opportunities(checkpoint_input)
-        checkpoint = pm.build_checkpoint_artifacts(result)
+        source_map = extract_evidence_source_map(checkpoint_input)
+        valid_ids = extract_evidence_ids(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(
+            result,
+            valid_evidence_ids=valid_ids if valid_ids else None,
+            evidence_source_map=source_map if source_map else None,
+        )
 
         # Should validate without error
         validated = OpportunityFramingCheckpoint(**checkpoint)
@@ -283,7 +291,13 @@ class TestCheckpointBuilding:
         checkpoint_input = _make_explorer_checkpoint()
 
         result = pm.frame_opportunities(checkpoint_input)
-        checkpoint = pm.build_checkpoint_artifacts(result)
+        source_map = extract_evidence_source_map(checkpoint_input)
+        valid_ids = extract_evidence_ids(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(
+            result,
+            valid_evidence_ids=valid_ids if valid_ids else None,
+            evidence_source_map=source_map if source_map else None,
+        )
 
         for brief_dict in checkpoint["briefs"]:
             validated = OpportunityBrief(**brief_dict)
@@ -297,11 +311,20 @@ class TestCheckpointBuilding:
         checkpoint_input = _make_explorer_checkpoint()
 
         result = pm.frame_opportunities(checkpoint_input)
-        checkpoint = pm.build_checkpoint_artifacts(result)
+        source_map = extract_evidence_source_map(checkpoint_input)
+        valid_ids = extract_evidence_ids(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(
+            result,
+            valid_evidence_ids=valid_ids if valid_ids else None,
+            evidence_source_map=source_map if source_map else None,
+        )
 
         for brief in checkpoint["briefs"]:
             for ev in brief["evidence"]:
-                assert ev["source_type"] == SourceType.INTERCOM.value
+                assert ev["source_type"] in {
+                    SourceType.INTERCOM.value,
+                    SourceType.OTHER.value,
+                }
                 assert ev["source_id"] != ""
                 assert "retrieved_at" in ev
                 assert ev["confidence"] in [
@@ -330,7 +353,13 @@ class TestCheckpointBuilding:
         checkpoint_input = _make_explorer_checkpoint()
 
         result = pm.frame_opportunities(checkpoint_input)
-        checkpoint = pm.build_checkpoint_artifacts(result)
+        source_map = extract_evidence_source_map(checkpoint_input)
+        valid_ids = extract_evidence_ids(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(
+            result,
+            valid_evidence_ids=valid_ids if valid_ids else None,
+            evidence_source_map=source_map if source_map else None,
+        )
 
         assert checkpoint["framing_metadata"]["opportunities_identified"] == len(
             checkpoint["briefs"]
@@ -343,7 +372,13 @@ class TestCheckpointBuilding:
         checkpoint_input = _make_explorer_checkpoint()
 
         result = pm.frame_opportunities(checkpoint_input)
-        checkpoint = pm.build_checkpoint_artifacts(result)
+        source_map = extract_evidence_source_map(checkpoint_input)
+        valid_ids = extract_evidence_ids(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(
+            result,
+            valid_evidence_ids=valid_ids if valid_ids else None,
+            evidence_source_map=source_map if source_map else None,
+        )
 
         for brief in checkpoint["briefs"]:
             assert "source_findings" in brief
@@ -357,7 +392,12 @@ class TestCheckpointBuilding:
 
         # Only allow conv_001 — conv_002 etc should be filtered
         valid_ids = {"conv_001"}
-        checkpoint = pm.build_checkpoint_artifacts(result, valid_evidence_ids=valid_ids)
+        source_map = extract_evidence_source_map(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(
+            result,
+            valid_evidence_ids=valid_ids,
+            evidence_source_map=source_map if source_map else None,
+        )
 
         for brief in checkpoint["briefs"]:
             for ev in brief["evidence"]:
@@ -371,7 +411,12 @@ class TestCheckpointBuilding:
         checkpoint_input = _make_explorer_checkpoint()
 
         result = pm.frame_opportunities(checkpoint_input)
-        checkpoint = pm.build_checkpoint_artifacts(result, valid_evidence_ids=None)
+        source_map = extract_evidence_source_map(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(
+            result,
+            valid_evidence_ids=None,
+            evidence_source_map=source_map if source_map else None,
+        )
 
         total_evidence = sum(len(b["evidence"]) for b in checkpoint["briefs"])
         assert total_evidence > 0  # Nothing filtered
@@ -382,7 +427,13 @@ class TestCheckpointBuilding:
         checkpoint_input = _make_explorer_checkpoint()
 
         result = pm.frame_opportunities(checkpoint_input)
-        checkpoint = pm.build_checkpoint_artifacts(result)
+        source_map = extract_evidence_source_map(checkpoint_input)
+        valid_ids = extract_evidence_ids(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(
+            result,
+            valid_evidence_ids=valid_ids if valid_ids else None,
+            evidence_source_map=source_map if source_map else None,
+        )
 
         assert "framing_notes" in checkpoint
         assert checkpoint["framing_notes"] != ""

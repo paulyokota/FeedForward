@@ -191,6 +191,19 @@ class InMemoryStorage:
         execs.sort(key=lambda se: se.attempt_number, reverse=True)
         return execs[0].conversation_id
 
+    def update_participating_agents(
+        self, execution_id: int, agents: List[str]
+    ) -> None:
+        se = self.stage_executions.get(execution_id)
+        if se:
+            se.participating_agents = agents
+
+    def create_agent_invocation(self, invocation):
+        if not hasattr(self, "agent_invocations"):
+            self.agent_invocations = []
+        self.agent_invocations.append(invocation)
+        return invocation
+
 
 # ============================================================================
 # Fixtures
