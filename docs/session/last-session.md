@@ -1,37 +1,52 @@
 # Last Session Summary
 
-**Date**: 2026-02-08
-**Branch**: feature/218-research-explorer → merged to main (PR #239)
+**Date**: 2026-02-10
+**Branch**: main
 
 ## Goal
 
-Implement Issue #218 — Research Explorer, the fourth and final Stage 0 explorer for the Discovery Engine.
+Complete first real Discovery Engine run and lock in hardening fixes.
 
-## Progress
+## What Happened
 
-- Context built from codebase + Codex consultation (conversation `218-research-explorer`)
-- Plan written, reviewed via Agenterminal (1QCH045: PLAN_APPROVED)
-- Implementation: reader, agent, prompts, unit tests, integration tests
-- Code review via Agenterminal (8AFU670: REVIEW_APPROVED after batch budget coverage fix)
-- 387 discovery tests passing (42 new: 35 unit + 7 integration)
-- Housekeeping: 5 accumulated commits pushed (doc updates, agenterminal setup, archive reorg, pipeline schema, gitignore)
+1. **First real run completed** (run ID `6548f72d`, ~43 min, $1-2 estimated)
+   - 5 attempts required — each uncovered a new LLM→Pydantic validation mismatch
+   - Final: 18 findings → 18 briefs → 18 solutions → 17 specs → 17 rankings → human_review
+   - Thesis validated: 11+ findings from sources the conversation pipeline would never surface
+
+2. **Hardening fixes committed and pushed** (commits `5972d3d`, `a2fe978`)
+   - Dict→string coercion in solution_designer and feasibility_designer
+   - Per-solution error resilience in orchestrator (skip and warn)
+   - Empty evidence filtering in codebase_explorer and customer_voice
+   - Explorer merge signature changed to accept checkpoint dicts
+   - Standalone run script (`scripts/run_discovery.py`)
+   - Interval query fix (Codex review catch)
+   - 642 discovery tests passing
+
+3. **Issue tracker updated as source of truth for next steps**
+   - #255 updated: scoped down to shared coercion utility extraction
+   - #256 created: DB persistence for discovery runs (keystone Phase 2 blocker)
+   - #226, #228, #229, #230: dependency comments added (blocked by #256)
+   - #227: noted as only Phase 2 issue not blocked by #256
+   - #231: deferred until custom state machine shows friction
 
 ## Key Decisions
 
-- Bucket-based batching by doc purpose (not directory) — Codex recommendation
-- `evidence_doc_paths` as evidence key (consistent with codebase explorer)
-- No time filtering (would miss long-standing unresolved decisions)
-- Empty evidence filtering (analytics explorer pattern, not yet backported to codebase/customer_voice)
+- Ad-hoc coercion fixes stay as-is (battle-tested). #255 is DRY cleanup, not a rewrite.
+- Pydantic validators and Union[str, dict] types explicitly out of scope for #255.
+- DB persistence (#256) is the keystone blocker — most Phase 2 issues depend on persisted run data.
+- InMemoryTransport results are lost on exit. No re-run until persistence is implemented.
 
-## Files Changed
+## Priority Order (for next session)
 
-- `src/discovery/agents/research_data_access.py` (new)
-- `src/discovery/agents/research_explorer.py` (new)
-- `src/discovery/agents/prompts.py` (6 RESEARCH\_\* constants added)
-- `tests/discovery/test_research_explorer.py` (new, 35 tests)
-- `tests/discovery/test_research_explorer_integration.py` (new, 7 tests)
+1. #255 — Shared coercion utility (small, consolidation)
+2. #256 — DB persistence (unblocks Phase 2)
+3. #227 — Evidence validation (only unblocked Phase 2 issue)
+4. #226, #228, #229, #230 — Blocked by #256
+5. #231 — Defer (orchestration framework decision)
 
-## Next
+## Uncommitted Changes (not part of this work)
 
-- #225: Multi-explorer checkpoint merge / orchestration
-- Backlog: Empty evidence bug in codebase_explorer.py and customer_voice.py
+- `.claude/skills/agenterminal-*` — skill tweaks from other sessions
+- `plan-issue-*.md` files — stale plan artifacts
+- `issue-progress.json`, `docs/session/last-session.md` — metadata

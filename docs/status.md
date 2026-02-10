@@ -24,9 +24,43 @@
 **30-Day Recency Gate (Issue #200): COMPLETE** ✅
 **Pipeline Checkpoint/Resumability (Issue #202): COMPLETE** ✅
 **Streaming Batch Resume (Issue #209): COMPLETE** ✅
-**Discovery Engine: PHASE 1 IN PROGRESS** 🔄
+**Discovery Engine: PHASE 1 COMPLETE — FIRST REAL RUN SUCCESSFUL** ✅
 
-## Latest: Research Explorer — Stage 0 Internal Doc Analysis (2026-02-08)
+## Latest: First Real Run + Pipeline Hardening (2026-02-10)
+
+**Discovery Engine Phase 1 validated against real data.**
+
+First end-to-end run against 500+ Intercom conversations, PostHog analytics, codebase, and internal docs:
+
+- Run ID: `6548f72d-553e-4a1e-9c4e-d93e70fe5807`
+- 18 findings → 18 briefs → 18 solutions → 17 specs (1 infeasible) → 17 rankings → human_review
+- ~43 min elapsed, estimated $1-2 (gpt-4o-mini)
+- 5 attempts required — each uncovered LLM→Pydantic validation mismatches
+- 642 discovery tests passing
+
+Hardening fixes committed:
+
+- Dict→string coercion for LLM fields that return structured dicts (~30% of the time)
+- Per-solution error resilience (skip and warn instead of failing entire run)
+- Empty evidence filtering in codebase and customer voice explorers
+- Explorer merge now accepts checkpoint dicts (not raw ExplorerResult tuples)
+- Standalone run script: `scripts/run_discovery.py`
+
+**Next steps tracked in GitHub Issues:**
+
+- #255: Shared coercion utility (consolidate ad-hoc fixes)
+- #256: DB persistence for discovery runs (keystone blocker for Phase 2)
+- #226-231: Phase 2 issues (most blocked by #256)
+
+### Previous: Phase 1 Pipeline Infrastructure (2026-02-09)
+
+All implementable Phase 1 issues complete: #235, #221, #222, #223, #224, #225 (PRs #241-#246)
+
+- 638 discovery tests passing
+- E2E test exercises full Stage 0→5 pipeline with checkpoint validation
+- Issues #226-#231 deferred to Phase 2
+
+### Previous: Research Explorer — Stage 0 Internal Doc Analysis (2026-02-08)
 
 **Issue #218 COMPLETE** ✅ — Research Explorer Agent (PR #239)
 
