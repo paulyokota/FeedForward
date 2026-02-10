@@ -5,7 +5,7 @@
 
 ## Goal
 
-Complete first real Discovery Engine run and lock in hardening fixes.
+Complete first real Discovery Engine run, commit hardening fixes, and establish issue tracker as source of truth for Phase 2 work.
 
 ## What Happened
 
@@ -14,7 +14,7 @@ Complete first real Discovery Engine run and lock in hardening fixes.
    - Final: 18 findings → 18 briefs → 18 solutions → 17 specs → 17 rankings → human_review
    - Thesis validated: 11+ findings from sources the conversation pipeline would never surface
 
-2. **Hardening fixes committed and pushed** (commits `5972d3d`, `a2fe978`)
+2. **Hardening fixes committed and pushed** (commits `5972d3d`, `a2fe978`, `ea4654b`)
    - Dict→string coercion in solution_designer and feasibility_designer
    - Per-solution error resilience in orchestrator (skip and warn)
    - Empty evidence filtering in codebase_explorer and customer_voice
@@ -48,5 +48,5 @@ Complete first real Discovery Engine run and lock in hardening fixes.
 ## Uncommitted Changes (not part of this work)
 
 - `.claude/skills/agenterminal-*` — skill tweaks from other sessions
-- `plan-issue-*.md` files — stale plan artifacts
-- `issue-progress.json`, `docs/session/last-session.md` — metadata
+- `plan-issue-*.md` files — stale plan artifacts from prior sessions
+- `issue-progress.json` — metadata

@@ -10,6 +10,34 @@ Format: [ISO Date] - Summary of changes
 
 ### Added
 
+**Discovery Engine — First Real Run + Pipeline Hardening (2026-02-10)**:
+
+- **First successful end-to-end discovery run** against real data:
+  - 500+ Intercom conversations, PostHog analytics, codebase, internal docs
+  - 18 findings → 18 briefs → 18 solutions → 17 specs → 17 rankings → human_review
+  - ~43 min elapsed, ~$1-2 on gpt-4o-mini
+- **LLM→Pydantic hardening** from 5 iterative attempts:
+  - Dict→string coercion in solution_designer and feasibility_designer
+  - Per-solution error resilience (JSONDecodeError/ValueError skip-and-warn)
+  - Empty evidence filtering in codebase_explorer and customer_voice
+- **Explorer merge refactor**: accepts checkpoint dicts instead of ExplorerResult tuples
+- **Standalone run script**: `scripts/run_discovery.py` with --days, --dry-run, --verbose
+
+**Discovery Engine — Phase 1 Pipeline Infrastructure (2026-02-09)** - Issues #235, #221-#225, PRs #241-#246:
+
+- **Full Stage 0→5 pipeline**: Exploration → Opportunity Framing → Solution Validation → Feasibility/Risk → Prioritization → Human Review
+- **E2E test**: Exercises all 6 stages with checkpoint validation
+- **Stage 2 (Solution Validation)**: Multi-agent iterative dialogue (PM → Validation → Experience)
+- **Stage 3 (Feasibility/Risk)**: TechLead + Risk agent convergence loop
+- **Stage 4 (Prioritization)**: TPM Agent composite scoring and ranking
+- **638 → 642 discovery tests**
+
+**Discovery Engine — Stage 0 Explorers (2026-02-08)** - Issues #215-#218, PRs #236-#239:
+
+- **4 explorer agents**: Customer Voice (Intercom), Codebase (git + disk), Analytics (PostHog), Research (internal docs)
+- **Stage 1 (Opportunity PM)**: Synthesizes explorer findings into problem-focused OpportunityBriefs
+- **Shared refactors**: ExplorerResult base, ConfidenceLevel.from_raw(), evidence validation
+
 **Streaming Batch Resume (2026-02-01)** - Issue #209, PR #210:
 
 - **Streaming batch architecture**: Transform from fetch-all to streaming batch
