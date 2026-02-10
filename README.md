@@ -1,28 +1,42 @@
 <img width="1408" height="768" alt="Gemini_Generated_Image_la61xcla61xcla61" src="https://github.com/user-attachments/assets/18e19f80-b903-4401-9d9f-4a74ba5909c2" />
 
-```
-╔════════════════════════════════════════════════════════════╗
-║  CLASSIFICATION: OPEN SOURCE // DISTRIBUTION: UNLIMITED  ║
-║  SUBJECT: FEEDFORWARD — Product Intelligence Pipeline    ║
-║  STATUS: OPERATIONAL                                     ║
-╚════════════════════════════════════════════════════════════╝
-```
+<p align="center">
+  <a href="#situation-report">
+    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=22&duration=3000&pause=1000&color=00FF41&center=true&vCenter=true&width=500&lines=Extracting+product+intelligence...;Mining+your+support+queue...;Converting+noise+into+signal..." alt="FeedForward — Product Intelligence Pipeline" />
+  </a>
+</p>
 
-**Your support team knows things your product team doesn't. FeedForward extracts those things.**
+<p align="center">
+  <img src="https://img.shields.io/badge/CLASSIFICATION-OPEN_SOURCE-00FF41?style=flat-square&labelColor=000000" alt="Classification: Open Source" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/tests-2,400+-00FF41?style=flat-square&labelColor=000000" alt="Tests: 2,400+" />
+</p>
 
 ---
 
-## SITUATION REPORT
+**Your support team talks to customers all day. Your product team reads dashboards.** One group knows what's actually wrong. The other decides what to build. FeedForward is the wire between them.
 
-> _aka: What problem does this solve?_
+It reads your Intercom conversations. Classifies them. Extracts the specific product theme — not "product issue" but `pinterest_pin_scheduling_failure`. Scores confidence. Runs PM-style review. Produces sprint-ready stories with evidence bundles.
 
-Your support queue is an intelligence goldmine that nobody's mining. Every day, customers describe bugs your team hasn't filed, request features your roadmap doesn't have, and churn for reasons your dashboards can't show. It's all there — buried in thousands of Intercom conversations, in natural language, mixed in with password resets and billing questions.
+**The support queue goes in. Sprint-ready stories come out.**
 
-Manual triage doesn't scale. Reading conversations doesn't scale. Tagging doesn't scale.
+---
 
-FeedForward is an LLM-powered pipeline that reads your Intercom conversations, classifies them, extracts specific product themes, scores confidence, runs PM-style review, and produces stories ready for your next sprint. Automatically. Continuously.
+## INTERCEPT LOG
 
-The support queue goes in. Sprint-ready stories come out.
+> _Fictional example — no real user data. Demonstrates pipeline output format._
+
+| INCOMING SIGNAL                                                                                                                                                     | EXTRACTED INTELLIGENCE                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **Customer:** "Every time I try to schedule a pin for next week it just spins and then says 'something went wrong.' I've tried three browsers. My team is blocked." | **Classification:** `product_issue` (confidence: 0.94)  |
+| **Agent:** "Thanks for reporting. I've escalated this to engineering — we're seeing this on accounts with 50+ scheduled pins."                                      | **Theme:** `pinterest_pin_scheduling_failure`           |
+| **Customer:** "This has been happening since Tuesday. We had to manually post everything."                                                                          | **Confidence:** 0.87 (semantic + facet)                 |
+|                                                                                                                                                                     | **Story:** _Pin scheduling fails above queue threshold_ |
+|                                                                                                                                                                     | **Evidence:** 3 conversations, 2 affected accounts      |
+
+One conversation becomes one data point. Twenty data points become one story. The story lands in your sprint with evidence attached.
 
 ---
 
@@ -53,6 +67,28 @@ $ feedforward run --days 7
   ✓ Board synced to Shortcut
 ```
 
+> _Conceptual overview — simplified for readability. Omits error paths, orphan routing, and internal substages. See [Technical Specifications](#technical-specifications) for the full architecture._
+
+```mermaid
+graph LR
+    A["🎧 Intercom"] --> B["Stage 1\nFast Classify"]
+    B --> C["Stage 2\nDeep Classify"]
+    C --> D["🔍 Extract\nThemes"]
+    D --> E["📊 Score\nConfidence"]
+    E --> F["🧑‍💼 PM\nReview"]
+    F --> G["📋 Create\nStories"]
+    G --> H["🚀 Sprint\nBoard"]
+
+    style A fill:#1a1a2e,stroke:#00ff41,color:#00ff41
+    style B fill:#16213e,stroke:#0f3460,color:#e0e0e0
+    style C fill:#16213e,stroke:#0f3460,color:#e0e0e0
+    style D fill:#1a1a2e,stroke:#00ff41,color:#00ff41
+    style E fill:#16213e,stroke:#0f3460,color:#e0e0e0
+    style F fill:#1a1a2e,stroke:#00ff41,color:#00ff41
+    style G fill:#16213e,stroke:#0f3460,color:#e0e0e0
+    style H fill:#1a1a2e,stroke:#00ff41,color:#00ff41
+```
+
 **Classification** routes conversations by type using a two-stage approach — Stage 1 classifies from the customer message alone for fast routing, Stage 2 re-analyzes with the full support thread for accuracy.
 
 **Theme Extraction** identifies the _specific_ issue — not just "product issue" but `pinterest_pin_scheduling_failure`. Uses a managed vocabulary, URL-based product area hints, and generates diagnostic summaries with verbatim customer excerpts.
@@ -65,9 +101,14 @@ $ feedforward run --days 7
 
 ---
 
-## SIGNALS INTELLIGENCE
+## ██████ SIGNALS INTELLIGENCE ██████
 
-> _aka: The Discovery Engine_
+> _AI-orchestrated 6-stage discovery pipeline — finds what customers haven't told you yet._
+
+<details>
+<summary><b>[ CLICK TO DECLASSIFY ]</b></summary>
+
+<br />
 
 The extraction pipeline processes what customers _tell_ you. The Discovery Engine finds what they _haven't told you yet_.
 
@@ -84,15 +125,17 @@ Beyond reactive theme extraction, FeedForward includes an AI-orchestrated system
 
 Phase 1 infrastructure is complete with full orchestration accessible via `POST /api/discovery/runs`.
 
+</details>
+
 ---
 
 ## FIELD ASSESSMENT
 
 > _aka: The numbers_
 
-<!-- verified 2026-02-09: pytest --co -q | tail -1 → 2492 -->
+<!-- verified 2026-02-09: pytest --co -q | tail -1 → "2492 tests collected" -->
 <!-- verified 2026-02-09: grep -r "@router\." src/api/routers/ | wc -l → 63 -->
-<!-- verified 2026-02-09: ls src/discovery/agents/*.py | wc -l → 19 (4 explorers + support) -->
+<!-- verified 2026-02-09: discovery explorers: analytics_explorer.py, codebase_explorer.py, customer_voice.py, research_explorer.py → 4 -->
 
 | Metric              | Count                                        | As of      |
 | ------------------- | -------------------------------------------- | ---------- |
@@ -290,5 +333,8 @@ FeedForward/
 ║                                                          ║
 ║  Built because product teams deserve better              ║
 ║  intelligence than spreadsheets and gut feelings.        ║
+║                                                          ║
+║  This README will self-destruct in... just kidding.      ║
+║  It's open source. It lives forever.                     ║
 ╚════════════════════════════════════════════════════════════╝
 ```
