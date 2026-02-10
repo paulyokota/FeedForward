@@ -564,3 +564,179 @@ class TestConfig:
         pm = OpportunityPM(openai_client=MagicMock(), config=config)
         assert pm.config.model == "gpt-4o"
         assert pm.config.temperature == 0.3
+
+
+# ============================================================================
+# Specificity gate: decomposition + quality_flags (Issue #270)
+# ============================================================================
+
+
+class TestSpecificityGate:
+    """Actionability/coherence self-check and needs_decomposition handling."""
+
+    def test_decomposition_items_filtered_from_briefs(self):
+        """Items with needs_decomposition=true are excluded from briefs list."""
+        response = {
+            "opportunities": [
+                {
+                    "problem_statement": "Good specific opportunity",
+                    "evidence_conversation_ids": ["conv_001"],
+                    "counterfactual": "If fixed, 10% improvement",
+                    "affected_area": "checkout_page",
+                    "confidence": "high",
+                    "source_findings": ["finding_1"],
+                },
+                {
+                    "needs_decomposition": True,
+                    "original_finding": "Glitches and Performance Issues",
+                    "suggested_splits": [
+                        "Image loading failures on product gallery",
+                        "Slow API response on search results page",
+                    ],
+                    "reason": "Bundles unrelated UI bugs with backend perf issues",
+                },
+            ],
+            "framing_notes": "One opportunity, one decomposition request",
+        }
+
+        pm = _make_pm(response)
+        checkpoint_input = _make_explorer_checkpoint()
+        result = pm.frame_opportunities(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(result)
+
+        assert len(checkpoint["briefs"]) == 1
+        assert checkpoint["briefs"][0]["problem_statement"] == "Good specific opportunity"
+
+    def test_quality_flags_populated_in_metadata(self):
+        """quality_flags tracks briefs_produced and decomposition_requests."""
+        response = {
+            "opportunities": [
+                {
+                    "problem_statement": "Opportunity A",
+                    "evidence_conversation_ids": ["conv_001"],
+                    "counterfactual": "improvement",
+                    "affected_area": "area_a",
+                    "confidence": "high",
+                    "source_findings": ["f1"],
+                },
+                {
+                    "problem_statement": "Opportunity B",
+                    "evidence_conversation_ids": ["conv_003"],
+                    "counterfactual": "improvement",
+                    "affected_area": "area_b",
+                    "confidence": "medium",
+                    "source_findings": ["f2"],
+                },
+                {
+                    "needs_decomposition": True,
+                    "original_finding": "Broad finding",
+                    "suggested_splits": ["split_a", "split_b"],
+                    "reason": "too broad",
+                },
+            ],
+            "framing_notes": "Two good, one decomposed",
+        }
+
+        pm = _make_pm(response)
+        checkpoint_input = _make_explorer_checkpoint()
+        result = pm.frame_opportunities(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(result)
+
+        flags = checkpoint["framing_metadata"]["quality_flags"]
+        assert flags["briefs_produced"] == 2
+        assert flags["decomposition_requests"] == 1
+
+    def test_decomposition_requests_stored_in_checkpoint(self):
+        """Decomposition requests are available in the checkpoint for logging."""
+        response = {
+            "opportunities": [
+                {
+                    "needs_decomposition": True,
+                    "original_finding": "Mixed grab-bag",
+                    "suggested_splits": ["issue_a", "issue_b", "issue_c"],
+                    "reason": "Three unrelated problems bundled",
+                },
+            ],
+            "framing_notes": "All findings needed decomposition",
+        }
+
+        pm = _make_pm(response)
+        checkpoint_input = _make_explorer_checkpoint()
+        result = pm.frame_opportunities(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(result)
+
+        assert checkpoint["briefs"] == []
+        assert len(checkpoint["decomposition_requests"]) == 1
+        assert checkpoint["decomposition_requests"][0]["reason"] == "Three unrelated problems bundled"
+        assert len(checkpoint["decomposition_requests"][0]["suggested_splits"]) == 3
+
+    def test_no_decomposition_requests_omits_key(self):
+        """When there are no decomposition requests, the key is absent."""
+        response = _make_opportunity_response(num_opportunities=2)
+
+        pm = _make_pm(response)
+        checkpoint_input = _make_explorer_checkpoint()
+        result = pm.frame_opportunities(checkpoint_input)
+        source_map = extract_evidence_source_map(checkpoint_input)
+        valid_ids = extract_evidence_ids(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(
+            result,
+            valid_evidence_ids=valid_ids if valid_ids else None,
+            evidence_source_map=source_map if source_map else None,
+        )
+
+        assert "decomposition_requests" not in checkpoint
+        flags = checkpoint["framing_metadata"]["quality_flags"]
+        assert flags["briefs_produced"] == 2
+        assert flags["decomposition_requests"] == 0
+
+    def test_quality_flags_zero_when_all_pass(self):
+        """quality_flags shows zero decomposition when all opportunities are valid."""
+        response = _make_opportunity_response(num_opportunities=3)
+
+        pm = _make_pm(response)
+        checkpoint_input = _make_explorer_checkpoint()
+        result = pm.frame_opportunities(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(result)
+
+        flags = checkpoint["framing_metadata"]["quality_flags"]
+        assert flags["briefs_produced"] == 3
+        assert flags["decomposition_requests"] == 0
+
+    def test_checkpoint_with_decomposition_validates_against_schema(self):
+        """Checkpoint with quality_flags still passes schema validation."""
+        response = {
+            "opportunities": [
+                {
+                    "problem_statement": "Valid opportunity",
+                    "evidence_conversation_ids": ["conv_001"],
+                    "counterfactual": "improvement expected",
+                    "affected_area": "settings_page",
+                    "confidence": "high",
+                    "source_findings": ["f1"],
+                },
+                {
+                    "needs_decomposition": True,
+                    "original_finding": "Broad thing",
+                    "suggested_splits": ["a", "b"],
+                    "reason": "too broad",
+                },
+            ],
+            "framing_notes": "Mixed result",
+        }
+
+        pm = _make_pm(response)
+        checkpoint_input = _make_explorer_checkpoint()
+        result = pm.frame_opportunities(checkpoint_input)
+        source_map = extract_evidence_source_map(checkpoint_input)
+        valid_ids = extract_evidence_ids(checkpoint_input)
+        checkpoint = pm.build_checkpoint_artifacts(
+            result,
+            valid_evidence_ids=valid_ids if valid_ids else None,
+            evidence_source_map=source_map if source_map else None,
+        )
+
+        validated = OpportunityFramingCheckpoint(**checkpoint)
+        assert len(validated.briefs) == 1
+        assert validated.framing_metadata.quality_flags["briefs_produced"] == 1
+        assert validated.framing_metadata.quality_flags["decomposition_requests"] == 1
