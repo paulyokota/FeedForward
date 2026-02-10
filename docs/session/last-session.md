@@ -5,48 +5,32 @@
 
 ## Goal
 
-Complete first real Discovery Engine run, commit hardening fixes, and establish issue tracker as source of truth for Phase 2 work.
+Evaluate AgenTerminal's issue-authoring guidelines and reformat discovery engine issues #255 and #256 for issue-runner compatibility.
 
 ## What Happened
 
-1. **First real run completed** (run ID `6548f72d`, ~43 min, $1-2 estimated)
-   - 5 attempts required — each uncovered a new LLM→Pydantic validation mismatch
-   - Final: 18 findings → 18 briefs → 18 solutions → 17 specs → 17 rankings → human_review
-   - Thesis validated: 11+ findings from sources the conversation pipeline would never surface
+- Reviewed `/docs/issue-authoring.md` from AgenTerminal repo (issue-runner format spec)
+- Analyzed all remaining discovery engine issues (#255, #256, #226-231) against the format
+- Identified #255 and #256 as the two actionable issues worth reformatting; #226-231 are planning artifacts that don't need runner format yet
+- Discussed the "telephone game" mechanism: issue → runner plan → plan reviewer. Acceptance criteria in the issue anchor the chain.
+- Got inside context from AgenTerminal's Claude on how the plan reviewer consumes issues (indirectly — through the runner's plan file, not the issue body directly)
+- Drafted and applied reformatted bodies for both issues on GitHub
 
-2. **Hardening fixes committed and pushed** (commits `5972d3d`, `a2fe978`, `ea4654b`)
-   - Dict→string coercion in solution_designer and feasibility_designer
-   - Per-solution error resilience in orchestrator (skip and warn)
-   - Empty evidence filtering in codebase_explorer and customer_voice
-   - Explorer merge signature changed to accept checkpoint dicts
-   - Standalone run script (`scripts/run_discovery.py`)
-   - Interval query fix (Codex review catch)
-   - 642 discovery tests passing
+## Changes Made
 
-3. **Issue tracker updated as source of truth for next steps**
-   - #255 updated: scoped down to shared coercion utility extraction
-   - #256 created: DB persistence for discovery runs (keystone Phase 2 blocker)
-   - #226, #228, #229, #230: dependency comments added (blocked by #256)
-   - #227: noted as only Phase 2 issue not blocked by #256
-   - #231: deferred until custom state machine shows friction
+No code changes. Two GitHub issues updated remotely:
+
+- **#255** (Shared coercion utility): Added Summary, Acceptance Criteria (checkboxes), Tests section, File/Module Hints, Guardrails, Non-Goals, Sizing, Dependencies. Trimmed narrative context.
+- **#256** (DB persistence): Committed to Option A in scope. Converted verification criteria to AC checkboxes. Added File/Module Hints, Guardrails, Non-Goals, Sizing. Made second-run test explicit. Kept architecture diagram in Context section.
 
 ## Key Decisions
 
-- Ad-hoc coercion fixes stay as-is (battle-tested). #255 is DRY cleanup, not a rewrite.
-- Pydantic validators and Union[str, dict] types explicitly out of scope for #255.
-- DB persistence (#256) is the keystone blocker — most Phase 2 issues depend on persisted run data.
-- InMemoryTransport results are lost on exit. No re-run until persistence is implemented.
+- Issue-runner format only for actionable issues (#255, #256), not Phase 2 planning issues (#226-231)
+- Phase 2 issues get new runner-formatted implementation issues when the time comes, referencing the planning issues for context
+- Context sections kept at bottom of issue bodies — runner uses them during plan phase, but they're background not instruction
 
-## Priority Order (for next session)
+## Next Steps
 
-1. #255 — Shared coercion utility (small, consolidation)
-2. #256 — DB persistence (unblocks Phase 2)
-3. #227 — Evidence validation (only unblocked Phase 2 issue)
-4. #226, #228, #229, #230 — Blocked by #256
-5. #231 — Defer (orchestration framework decision)
-
-## Uncommitted Changes (not part of this work)
-
-- `.claude/skills/agenterminal-*` — skill tweaks from other sessions
-- `plan-issue-*.md` files — stale plan artifacts from prior sessions
-- `issue-progress.json` — metadata
+- Run #255 through issue runner in AgenTerminal (simpler, good first test case)
+- Run #256 through issue runner (more complex, cross-layer wiring)
+- Phase 2 issues remain as-is until #256 unblocks them
