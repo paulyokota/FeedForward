@@ -23,7 +23,13 @@ You are NOT using any existing taxonomy or theme vocabulary.
 You are discovering patterns from scratch, naming them yourself.
 
 For each pattern you find:
-1. Give it a descriptive name (your own words, not a category label)
+1. Give it a descriptive name (your own words, not a category label).
+   Name the **specific product surface or screen** where the problem occurs —
+   e.g. "Booking confirmation page shows stale availability" not "Booking issues."
+   If a pattern spans multiple surfaces, list each one explicitly —
+   e.g. "Calendar widget on Schedule page and Availability settings page both
+   fail to sync." Avoid abstract category labels like "dashboards," "settings,"
+   or "notifications" without specifying which ones.
 2. Describe what you observed
 3. List which conversation IDs contain evidence for this pattern
 4. Assess your confidence: high (clear, repeated signal), medium (plausible but
@@ -178,6 +184,14 @@ CRITICAL RULES:
 4. Every opportunity must trace back to specific explorer findings. Include
    the evidence_conversation_ids from those findings.
 5. Name each opportunity descriptively — what's the problem, not a category label.
+6. SURFACE SPECIFICITY: `affected_area` must name concrete product surfaces
+   that a developer can map to code paths. If a developer can't identify which
+   screens, pages, or components are involved from `affected_area` alone, it's
+   too abstract. If the opportunity spans multiple distinct surfaces, either
+   split into separate opportunities per surface or list all surfaces explicitly
+   (e.g., "Schedule page calendar widget, Availability settings sync" not
+   "Scheduling"). Heuristic: if the label could apply to 3+ different parts of
+   the product, it needs to be more specific.
 
 You are NOT proposing solutions.
 You are NOT prioritizing — that happens later.
@@ -201,7 +215,7 @@ Identify distinct opportunities from these findings. Return as JSON:
       "problem_statement": "what's wrong and who is affected — be specific",
       "evidence_conversation_ids": ["conv_ids", "from", "the", "findings"],
       "counterfactual": "if we addressed [this problem], we would expect [measurable change]",
-      "affected_area": "product surface or system component affected",
+      "affected_area": "specific product surface(s) — name concrete screens, pages, or components a developer can map to code (not category labels)",
       "confidence": "high|medium|low",
       "source_findings": ["pattern_name_1", "pattern_name_2"]
     }}
@@ -285,7 +299,12 @@ Do NOT report superficial observations ("this function is long"). Every
 finding must describe what's wrong, why it matters, and what files show it.
 
 For each pattern you find:
-1. Give it a descriptive name (your own words)
+1. Give it a descriptive name (your own words).
+   Name the **specific module, component, or file group** where the pattern
+   occurs — e.g. "Duplicated date-parsing logic in booking/ and calendar/
+   services" not "Date handling issues." If a pattern spans multiple areas,
+   list each one explicitly. Avoid abstract labels like "error handling" or
+   "validation" without specifying which modules.
 2. Describe what you observed and why it matters
 3. List which file paths contain evidence for this pattern
 4. Assess your confidence: high (clear, repeated signal), medium (plausible
@@ -445,7 +464,12 @@ insights, or errors). Look for:
 - Mismatches between what's measured and what matters
 
 For each pattern you find:
-1. Give it a descriptive name (your own words)
+1. Give it a descriptive name (your own words).
+   Name the **specific product surface, feature, or metric** where the pattern
+   occurs — e.g. "Low adoption of bulk-edit on Inventory management page" not
+   "Feature adoption issues." If a pattern spans multiple surfaces, list each
+   one explicitly. Avoid abstract labels like "engagement" or "conversion"
+   without specifying which feature or page.
 2. Describe what you observed and why it matters
 3. List which specific data points (by their source_ref) support this pattern
 4. Assess your confidence: high (clear signal in the data), medium (plausible
@@ -601,7 +625,12 @@ You are NOT using any existing taxonomy or theme vocabulary.
 You are discovering patterns from scratch, naming them yourself.
 
 For each pattern you find:
-1. Give it a descriptive name (your own words, not a category label)
+1. Give it a descriptive name (your own words, not a category label).
+   Name the **specific product surface, system, or workflow** where the issue
+   occurs — e.g. "Unresolved migration plan for Settings page permission model"
+   not "Permission issues." If a pattern spans multiple areas, list each one
+   explicitly. Avoid abstract labels like "architecture" or "process" without
+   specifying which system or workflow.
 2. Describe what you observed and why it matters
 3. List which document paths contain evidence for this pattern
 4. Assess your confidence: high (clear, repeated signal across docs), medium \
