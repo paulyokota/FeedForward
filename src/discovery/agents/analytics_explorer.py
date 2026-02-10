@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 
-from src.discovery.agents.base import ExplorerResult
+from src.discovery.agents.base import ExplorerResult, coerce_str
 from src.discovery.agents.posthog_data_access import PostHogDataPoint, PostHogReader
 from src.discovery.agents.prompts import (
     ANALYTICS_BATCH_ANALYSIS_SYSTEM,
@@ -228,17 +228,17 @@ class AnalyticsExplorer:
                 continue
 
             findings.append({
-                "pattern_name": raw_finding.get("pattern_name", "unnamed"),
-                "description": raw_finding.get("description", ""),
+                "pattern_name": coerce_str(raw_finding.get("pattern_name"), fallback="unnamed"),
+                "description": coerce_str(raw_finding.get("description"), fallback=""),
                 "evidence": evidence,
                 "confidence": ConfidenceLevel.from_raw(
                     raw_finding.get("confidence", "medium")
                 ),
-                "severity_assessment": raw_finding.get(
-                    "severity_assessment", "unknown"
+                "severity_assessment": coerce_str(
+                    raw_finding.get("severity_assessment"), fallback="unknown"
                 ),
-                "affected_users_estimate": raw_finding.get(
-                    "affected_users_estimate", "unknown"
+                "affected_users_estimate": coerce_str(
+                    raw_finding.get("affected_users_estimate"), fallback="unknown"
                 ),
             })
 

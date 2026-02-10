@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from src.discovery.agents.base import coerce_str
 from src.discovery.agents.risk_agent import RiskAgent
 from src.discovery.agents.tech_lead_agent import TechLeadAgent
 from src.discovery.models.enums import ConfidenceLevel, FeasibilityAssessment, SourceType
@@ -337,19 +338,14 @@ class FeasibilityDesigner:
             })
 
         # LLM sometimes returns structured dicts for string fields — coerce.
-        def _coerce_str(val):
-            if isinstance(val, str):
-                return val
-            return json.dumps(val, indent=2)
-
         spec = {
             "schema_version": 1,
             "opportunity_id": result.opportunity_id,
-            "approach": _coerce_str(assessment.get("approach", "")),
-            "effort_estimate": _coerce_str(assessment.get("effort_estimate", "")),
-            "dependencies": _coerce_str(assessment.get("dependencies", "")),
+            "approach": coerce_str(assessment.get("approach")),
+            "effort_estimate": coerce_str(assessment.get("effort_estimate")),
+            "dependencies": coerce_str(assessment.get("dependencies")),
             "risks": risks,
-            "acceptance_criteria": _coerce_str(assessment.get("acceptance_criteria", "")),
+            "acceptance_criteria": coerce_str(assessment.get("acceptance_criteria")),
         }
 
         # Add extra fields from assessment
@@ -372,10 +368,15 @@ class FeasibilityDesigner:
         assessment = result.assessment
         return {
             "opportunity_id": result.opportunity_id,
-            "solution_summary": assessment.get("approach", "")
-            or "Solution assessed as infeasible before approach was developed",
+            "solution_summary": coerce_str(
+                assessment.get("approach"),
+                fallback="Solution assessed as infeasible before approach was developed",
+            ),
             "feasibility_assessment": FeasibilityAssessment.INFEASIBLE.value,
-            "infeasibility_reason": assessment.get("infeasibility_reason", "") or "Assessed as infeasible (no specific reason provided)",
+            "infeasibility_reason": coerce_str(
+                assessment.get("infeasibility_reason"),
+                fallback="Assessed as infeasible (no specific reason provided)",
+            ),
             "constraints_identified": assessment.get("constraints_identified", []),
         }
 
