@@ -281,7 +281,7 @@ Intercom Conversations
 ```
 FeedForward/
 ├── src/                        # Core pipeline code
-│   ├── api/                    # FastAPI backend (25+ endpoints)
+│   ├── api/                    # FastAPI backend (60+ endpoints)
 │   │   ├── main.py             # App entry point
 │   │   ├── routers/            # Route handlers
 │   │   └── schemas/            # Request/response models
