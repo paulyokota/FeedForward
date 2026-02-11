@@ -18,6 +18,7 @@ from src.discovery.agents.solution_designer import (
 )
 from src.discovery.agents.validation_agent import ValidationAgent
 from src.discovery.models.artifacts import (
+    InputRejection,
     SolutionBrief,
     SolutionValidationCheckpoint,
 )
@@ -1133,3 +1134,159 @@ class TestSolutionDesignerValidateInput:
 
         # Unmentioned → accepted with fallback ID
         assert "brief_0" in result.accepted_items
+
+
+# ============================================================================
+# revise_rejected — SolutionDesigner (Issue #277)
+# ============================================================================
+
+
+def _make_sd_rejection(item_id="scheduling", reason="Vague solution", improvement="Be more specific"):
+    """Build an InputRejection for SolutionDesigner tests."""
+    return InputRejection(
+        item_id=item_id,
+        rejection_reason=reason,
+        rejecting_agent="tech_lead",
+        suggested_improvement=improvement,
+    )
+
+
+def _make_revised_solution(suffix=""):
+    """Build a revised solution dict as the LLM would return."""
+    return {
+        "proposed_solution": f"Revised concrete solution{suffix}",
+        "experiment_plan": "A/B test with 10% of users",
+        "success_metrics": "Completion rate +15%",
+        "build_experiment_decision": "experiment_first",
+        "decision_rationale": "Addressing rejection feedback",
+        "evidence_ids": ["conv_001"],
+        "confidence": "high",
+    }
+
+
+def _make_revise_designer(llm_response_dicts):
+    """Create a SolutionDesigner for revise_rejected tests."""
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = [
+        _make_llm_response(d) for d in llm_response_dicts
+    ]
+    return SolutionDesigner(
+        validation_agent=ValidationAgent(openai_client=MagicMock()),
+        experience_agent=ExperienceAgent(openai_client=MagicMock()),
+        openai_client=mock_client,
+    ), mock_client
+
+
+class TestReviseRejected:
+    """SolutionDesigner.revise_rejected() — Issue #277."""
+
+    def test_revise_single_rejected_solution(self):
+        """One rejected solution → one revised SolutionDesignResult."""
+        designer, _ = _make_revise_designer([_make_revised_solution()])
+
+        solutions = [_make_pm_proposal()]
+        rejections = [_make_sd_rejection()]
+        briefs = [_make_opportunity_brief()]
+
+        results = designer.revise_rejected(solutions, rejections, briefs)
+
+        assert len(results) == 1
+        assert "Revised concrete solution" in results[0].proposed_solution
+        assert results[0].dialogue_rounds == 0
+        assert results[0].convergence_forced is False
+
+    def test_revise_multiple_rejected_solutions(self):
+        """Two rejected solutions → two results."""
+        designer, _ = _make_revise_designer([
+            _make_revised_solution("_a"),
+            _make_revised_solution("_b"),
+        ])
+
+        solutions = [_make_pm_proposal(), _make_pm_proposal()]
+        rejections = [_make_sd_rejection(item_id="a"), _make_sd_rejection(item_id="b")]
+        briefs = [_make_opportunity_brief(), _make_opportunity_brief()]
+
+        results = designer.revise_rejected(solutions, rejections, briefs)
+
+        assert len(results) == 2
+
+    def test_revise_empty_rejections(self):
+        """Empty inputs → empty list, no LLM call."""
+        designer, mock_client = _make_revise_designer([])
+
+        results = designer.revise_rejected([], [], [])
+
+        assert results == []
+        mock_client.chat.completions.create.assert_not_called()
+
+    def test_revise_json_decode_error_skips_item(self):
+        """Malformed LLM response → item skipped, warning logged with wasted token count."""
+        mock_client = MagicMock()
+        bad_response = MagicMock()
+        bad_response.choices = [MagicMock()]
+        bad_response.choices[0].message.content = "not json"
+        bad_response.usage = MagicMock()
+        bad_response.usage.prompt_tokens = 100
+        bad_response.usage.completion_tokens = 50
+        bad_response.usage.total_tokens = 150
+        good_response = _make_llm_response(_make_revised_solution())
+        mock_client.chat.completions.create.side_effect = [bad_response, good_response]
+
+        designer = SolutionDesigner(
+            validation_agent=ValidationAgent(openai_client=MagicMock()),
+            experience_agent=ExperienceAgent(openai_client=MagicMock()),
+            openai_client=mock_client,
+        )
+
+        solutions = [_make_pm_proposal(), _make_pm_proposal()]
+        rejections = [_make_sd_rejection(item_id="a"), _make_sd_rejection(item_id="b")]
+        briefs = [_make_opportunity_brief(), _make_opportunity_brief()]
+
+        results = designer.revise_rejected(solutions, rejections, briefs)
+
+        assert len(results) == 1
+        assert "Revised concrete solution" in results[0].proposed_solution
+
+    def test_revise_uses_correct_prompts(self):
+        """Verifies SOLUTION_REVISE_REJECTED_SYSTEM is used."""
+        from src.discovery.agents.prompts import SOLUTION_REVISE_REJECTED_SYSTEM
+
+        designer, mock_client = _make_revise_designer([_make_revised_solution()])
+
+        solutions = [_make_pm_proposal()]
+        rejections = [_make_sd_rejection()]
+        briefs = [_make_opportunity_brief()]
+
+        designer.revise_rejected(solutions, rejections, briefs)
+
+        call_args = mock_client.chat.completions.create.call_args
+        messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
+        assert messages[0]["content"] == SOLUTION_REVISE_REJECTED_SYSTEM
+
+    def test_revise_token_usage_tracked(self):
+        """Token usage accumulated per result."""
+        designer, _ = _make_revise_designer([
+            _make_revised_solution("_a"),
+            _make_revised_solution("_b"),
+        ])
+
+        solutions = [_make_pm_proposal(), _make_pm_proposal()]
+        rejections = [_make_sd_rejection(item_id="a"), _make_sd_rejection(item_id="b")]
+        briefs = [_make_opportunity_brief(), _make_opportunity_brief()]
+
+        results = designer.revise_rejected(solutions, rejections, briefs)
+
+        # Each result has its own token_usage (180 each from _make_llm_response)
+        assert results[0].token_usage["total_tokens"] == 180
+        assert results[1].token_usage["total_tokens"] == 180
+
+    def test_revise_length_mismatch_raises(self):
+        """Different list lengths → ValueError."""
+        designer, _ = _make_revise_designer([])
+
+        with pytest.raises(ValueError, match="same length"):
+            designer.revise_rejected(
+                [_make_pm_proposal()],
+                [],
+                [_make_opportunity_brief()],
+            )

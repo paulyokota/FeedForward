@@ -19,6 +19,7 @@ from src.discovery.agents.opportunity_pm import (
     extract_evidence_source_map,
 )
 from src.discovery.models.artifacts import (
+    InputRejection,
     OpportunityBrief,
     OpportunityFramingCheckpoint,
 )
@@ -572,10 +573,10 @@ class TestConfig:
 
 
 class TestSpecificityGate:
-    """Actionability/coherence self-check and needs_decomposition handling."""
+    """Actionability/coherence self-check and quality_flags handling."""
 
-    def test_decomposition_items_filtered_from_briefs(self):
-        """Items with needs_decomposition=true are excluded from briefs list."""
+    def test_decomposition_items_now_processed_as_regular_briefs(self):
+        """Items with needs_decomposition are no longer filtered — processed as regular briefs."""
         response = {
             "opportunities": [
                 {
@@ -587,16 +588,16 @@ class TestSpecificityGate:
                     "source_findings": ["finding_1"],
                 },
                 {
+                    "problem_statement": "Formerly decomposed opportunity",
+                    "evidence_conversation_ids": ["conv_003"],
+                    "counterfactual": "If fixed, 5% improvement",
+                    "affected_area": "gallery_page",
+                    "confidence": "medium",
+                    "source_findings": ["finding_2"],
                     "needs_decomposition": True,
-                    "original_finding": "Glitches and Performance Issues",
-                    "suggested_splits": [
-                        "Image loading failures on product gallery",
-                        "Slow API response on search results page",
-                    ],
-                    "reason": "Bundles unrelated UI bugs with backend perf issues",
                 },
             ],
-            "framing_notes": "One opportunity, one decomposition request",
+            "framing_notes": "Two opportunities",
         }
 
         pm = _make_pm(response)
@@ -604,38 +605,12 @@ class TestSpecificityGate:
         result = pm.frame_opportunities(checkpoint_input)
         checkpoint = pm.build_checkpoint_artifacts(result)
 
-        assert len(checkpoint["briefs"]) == 1
-        assert checkpoint["briefs"][0]["problem_statement"] == "Good specific opportunity"
+        # Both items are now included (decomposition no longer filters)
+        assert len(checkpoint["briefs"]) == 2
 
     def test_quality_flags_populated_in_metadata(self):
-        """quality_flags tracks briefs_produced and decomposition_requests."""
-        response = {
-            "opportunities": [
-                {
-                    "problem_statement": "Opportunity A",
-                    "evidence_conversation_ids": ["conv_001"],
-                    "counterfactual": "improvement",
-                    "affected_area": "area_a",
-                    "confidence": "high",
-                    "source_findings": ["f1"],
-                },
-                {
-                    "problem_statement": "Opportunity B",
-                    "evidence_conversation_ids": ["conv_003"],
-                    "counterfactual": "improvement",
-                    "affected_area": "area_b",
-                    "confidence": "medium",
-                    "source_findings": ["f2"],
-                },
-                {
-                    "needs_decomposition": True,
-                    "original_finding": "Broad finding",
-                    "suggested_splits": ["split_a", "split_b"],
-                    "reason": "too broad",
-                },
-            ],
-            "framing_notes": "Two good, one decomposed",
-        }
+        """quality_flags tracks briefs_produced, validation_rejections, and validation_retries."""
+        response = _make_opportunity_response(num_opportunities=2)
 
         pm = _make_pm(response)
         checkpoint_input = _make_explorer_checkpoint()
@@ -644,34 +619,11 @@ class TestSpecificityGate:
 
         flags = checkpoint["framing_metadata"]["quality_flags"]
         assert flags["briefs_produced"] == 2
-        assert flags["decomposition_requests"] == 1
+        assert flags["validation_rejections"] == 0
+        assert flags["validation_retries"] == 0
 
-    def test_decomposition_requests_stored_in_checkpoint(self):
-        """Decomposition requests are available in the checkpoint for logging."""
-        response = {
-            "opportunities": [
-                {
-                    "needs_decomposition": True,
-                    "original_finding": "Mixed grab-bag",
-                    "suggested_splits": ["issue_a", "issue_b", "issue_c"],
-                    "reason": "Three unrelated problems bundled",
-                },
-            ],
-            "framing_notes": "All findings needed decomposition",
-        }
-
-        pm = _make_pm(response)
-        checkpoint_input = _make_explorer_checkpoint()
-        result = pm.frame_opportunities(checkpoint_input)
-        checkpoint = pm.build_checkpoint_artifacts(result)
-
-        assert checkpoint["briefs"] == []
-        assert len(checkpoint["decomposition_requests"]) == 1
-        assert checkpoint["decomposition_requests"][0]["reason"] == "Three unrelated problems bundled"
-        assert len(checkpoint["decomposition_requests"][0]["suggested_splits"]) == 3
-
-    def test_no_decomposition_requests_omits_key(self):
-        """When there are no decomposition requests, the key is absent."""
+    def test_no_decomposition_requests_key_in_checkpoint(self):
+        """decomposition_requests key is no longer present in checkpoint."""
         response = _make_opportunity_response(num_opportunities=2)
 
         pm = _make_pm(response)
@@ -688,10 +640,11 @@ class TestSpecificityGate:
         assert "decomposition_requests" not in checkpoint
         flags = checkpoint["framing_metadata"]["quality_flags"]
         assert flags["briefs_produced"] == 2
-        assert flags["decomposition_requests"] == 0
+        assert flags["validation_rejections"] == 0
+        assert flags["validation_retries"] == 0
 
     def test_quality_flags_zero_when_all_pass(self):
-        """quality_flags shows zero decomposition when all opportunities are valid."""
+        """quality_flags shows zero validation counts when all opportunities are valid."""
         response = _make_opportunity_response(num_opportunities=3)
 
         pm = _make_pm(response)
@@ -701,10 +654,11 @@ class TestSpecificityGate:
 
         flags = checkpoint["framing_metadata"]["quality_flags"]
         assert flags["briefs_produced"] == 3
-        assert flags["decomposition_requests"] == 0
+        assert flags["validation_rejections"] == 0
+        assert flags["validation_retries"] == 0
 
-    def test_checkpoint_with_decomposition_validates_against_schema(self):
-        """Checkpoint with quality_flags still passes schema validation."""
+    def test_checkpoint_with_quality_flags_validates_against_schema(self):
+        """Checkpoint with new quality_flags still passes schema validation."""
         response = {
             "opportunities": [
                 {
@@ -715,14 +669,8 @@ class TestSpecificityGate:
                     "confidence": "high",
                     "source_findings": ["f1"],
                 },
-                {
-                    "needs_decomposition": True,
-                    "original_finding": "Broad thing",
-                    "suggested_splits": ["a", "b"],
-                    "reason": "too broad",
-                },
             ],
-            "framing_notes": "Mixed result",
+            "framing_notes": "Single result",
         }
 
         pm = _make_pm(response)
@@ -739,4 +687,174 @@ class TestSpecificityGate:
         validated = OpportunityFramingCheckpoint(**checkpoint)
         assert len(validated.briefs) == 1
         assert validated.framing_metadata.quality_flags["briefs_produced"] == 1
-        assert validated.framing_metadata.quality_flags["decomposition_requests"] == 1
+        assert validated.framing_metadata.quality_flags["validation_rejections"] == 0
+        assert validated.framing_metadata.quality_flags["validation_retries"] == 0
+
+
+# ============================================================================
+# reframe_rejected (Issue #277)
+# ============================================================================
+
+
+def _make_rejection(item_id="area_1", reason="Too abstract", improvement="Be more specific"):
+    """Build an InputRejection for testing."""
+    return InputRejection(
+        item_id=item_id,
+        rejection_reason=reason,
+        rejecting_agent="solution_designer",
+        suggested_improvement=improvement,
+    )
+
+
+def _make_reframe_pm(llm_response_dicts):
+    """Create an OpportunityPM with a mock client returning multiple responses."""
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = [
+        _make_llm_response(d) for d in llm_response_dicts
+    ]
+    return OpportunityPM(openai_client=mock_client), mock_client
+
+
+def _make_revised_opportunity(suffix=""):
+    """Build a revised opportunity dict as the LLM would return."""
+    return {
+        "problem_statement": f"Revised problem{suffix}",
+        "evidence_conversation_ids": ["conv_001"],
+        "counterfactual": "Measurable improvement expected",
+        "affected_area": f"specific_area{suffix}",
+        "confidence": "high",
+        "source_findings": ["finding_1"],
+    }
+
+
+class TestReframeRejected:
+    """OpportunityPM.reframe_rejected() — Issue #277."""
+
+    def test_reframe_single_rejected_brief(self):
+        """One rejected brief → one revised opportunity in FramingResult."""
+        pm, _ = _make_reframe_pm([_make_revised_opportunity()])
+        checkpoint = _make_explorer_checkpoint()
+
+        brief = {"problem_statement": "Vague problem", "affected_area": "area_1"}
+        rejection = _make_rejection()
+
+        result = pm.reframe_rejected([brief], [rejection], checkpoint)
+
+        assert len(result.opportunities) == 1
+        assert result.opportunities[0]["problem_statement"] == "Revised problem"
+
+    def test_reframe_multiple_rejected_briefs(self):
+        """Two rejected briefs → two revised opportunities."""
+        pm, _ = _make_reframe_pm([
+            _make_revised_opportunity("_a"),
+            _make_revised_opportunity("_b"),
+        ])
+        checkpoint = _make_explorer_checkpoint()
+
+        briefs = [
+            {"problem_statement": "Vague A", "affected_area": "area_a"},
+            {"problem_statement": "Vague B", "affected_area": "area_b"},
+        ]
+        rejections = [
+            _make_rejection(item_id="area_a"),
+            _make_rejection(item_id="area_b"),
+        ]
+
+        result = pm.reframe_rejected(briefs, rejections, checkpoint)
+
+        assert len(result.opportunities) == 2
+
+    def test_reframe_empty_rejections(self):
+        """Empty inputs → empty FramingResult, no LLM call."""
+        pm, mock_client = _make_reframe_pm([])
+        checkpoint = _make_explorer_checkpoint()
+
+        result = pm.reframe_rejected([], [], checkpoint)
+
+        assert result.opportunities == []
+        assert result.token_usage["total_tokens"] == 0
+        mock_client.chat.completions.create.assert_not_called()
+
+    def test_reframe_json_decode_error_skips_item(self):
+        """Malformed LLM response → item skipped, warning logged with wasted token count."""
+        mock_client = MagicMock()
+        # First response: malformed JSON
+        bad_response = MagicMock()
+        bad_response.choices = [MagicMock()]
+        bad_response.choices[0].message.content = "not valid json{{"
+        bad_response.usage = MagicMock()
+        bad_response.usage.prompt_tokens = 100
+        bad_response.usage.completion_tokens = 50
+        bad_response.usage.total_tokens = 150
+        # Second response: valid
+        good_response = _make_llm_response(_make_revised_opportunity())
+        mock_client.chat.completions.create.side_effect = [bad_response, good_response]
+
+        pm = OpportunityPM(openai_client=mock_client)
+        checkpoint = _make_explorer_checkpoint()
+
+        briefs = [
+            {"problem_statement": "Bad", "affected_area": "area_a"},
+            {"problem_statement": "Good", "affected_area": "area_b"},
+        ]
+        rejections = [
+            _make_rejection(item_id="area_a"),
+            _make_rejection(item_id="area_b"),
+        ]
+
+        result = pm.reframe_rejected(briefs, rejections, checkpoint)
+
+        # Only the second (valid) item should appear
+        assert len(result.opportunities) == 1
+        assert result.opportunities[0]["problem_statement"] == "Revised problem"
+        # Token usage includes both calls
+        assert result.token_usage["total_tokens"] == 500  # 150 + 350
+
+    def test_reframe_uses_correct_prompts(self):
+        """Verifies OPPORTUNITY_REFRAME_SYSTEM is used in the LLM call."""
+        from src.discovery.agents.prompts import OPPORTUNITY_REFRAME_SYSTEM
+
+        pm, mock_client = _make_reframe_pm([_make_revised_opportunity()])
+        checkpoint = _make_explorer_checkpoint()
+
+        brief = {"problem_statement": "Vague", "affected_area": "area_1"}
+        rejection = _make_rejection()
+
+        pm.reframe_rejected([brief], [rejection], checkpoint)
+
+        call_args = mock_client.chat.completions.create.call_args
+        messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
+        assert messages[0]["content"] == OPPORTUNITY_REFRAME_SYSTEM
+
+    def test_reframe_token_usage_tracked(self):
+        """Token usage accumulated across calls."""
+        pm, _ = _make_reframe_pm([
+            _make_revised_opportunity("_a"),
+            _make_revised_opportunity("_b"),
+        ])
+        checkpoint = _make_explorer_checkpoint()
+
+        briefs = [
+            {"problem_statement": "A", "affected_area": "a"},
+            {"problem_statement": "B", "affected_area": "b"},
+        ]
+        rejections = [_make_rejection(item_id="a"), _make_rejection(item_id="b")]
+
+        result = pm.reframe_rejected(briefs, rejections, checkpoint)
+
+        # 2 calls × 350 tokens each = 700
+        assert result.token_usage["total_tokens"] == 700
+        assert result.token_usage["prompt_tokens"] == 400  # 2 × 200
+        assert result.token_usage["completion_tokens"] == 300  # 2 × 150
+
+    def test_reframe_length_mismatch_raises(self):
+        """Different list lengths → ValueError."""
+        pm, _ = _make_reframe_pm([])
+        checkpoint = _make_explorer_checkpoint()
+
+        with pytest.raises(ValueError, match="same length"):
+            pm.reframe_rejected(
+                [{"problem_statement": "A"}],
+                [],
+                checkpoint,
+            )

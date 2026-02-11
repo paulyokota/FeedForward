@@ -14,6 +14,7 @@ from src.discovery.agents.feasibility_designer import (
 )
 from src.discovery.agents.risk_agent import RiskAgent
 from src.discovery.agents.tech_lead_agent import TechLeadAgent
+from src.discovery.models.artifacts import InputRejection
 from src.discovery.models.enums import FeasibilityAssessment
 
 
@@ -1060,3 +1061,182 @@ class TestFeasibilityDesignerValidateInput:
 
         assert result.accepted_items == []
         assert len(result.rejected_items) == 2
+
+
+# ============================================================================
+# revise_rejected — FeasibilityDesigner (Issue #277)
+# ============================================================================
+
+
+def _make_fd_rejection(item_id="opp_billing", reason="Incomplete approach", improvement="Add implementation details"):
+    """Build an InputRejection for FeasibilityDesigner tests."""
+    return InputRejection(
+        item_id=item_id,
+        rejection_reason=reason,
+        rejecting_agent="tpm",
+        suggested_improvement=improvement,
+    )
+
+
+def _make_fd_llm_response(content_dict, prompt_tokens=120, completion_tokens=80):
+    """Create mock OpenAI response for revise_rejected tests."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = json.dumps(content_dict)
+    mock_response.usage = MagicMock()
+    mock_response.usage.prompt_tokens = prompt_tokens
+    mock_response.usage.completion_tokens = completion_tokens
+    mock_response.usage.total_tokens = prompt_tokens + completion_tokens
+    return mock_response
+
+
+def _make_revised_spec(suffix=""):
+    """Build a revised TechnicalSpec dict as the LLM would return."""
+    return {
+        "opportunity_id": f"opp_billing{suffix}",
+        "approach": f"Revised approach with details{suffix}",
+        "effort_estimate": "2-3 weeks (medium confidence)",
+        "dependencies": "Payment service, auth module",
+        "risks": [
+            {"description": "Migration complexity", "severity": "medium", "mitigation": "Feature flags"},
+        ],
+        "acceptance_criteria": "All billing flows pass e2e tests",
+    }
+
+
+def _make_revise_feasibility_designer(llm_response_dicts):
+    """Create a FeasibilityDesigner for revise_rejected tests."""
+    mock_openai = MagicMock()
+    mock_openai.chat.completions.create.side_effect = [
+        _make_fd_llm_response(d) for d in llm_response_dicts
+    ]
+    return FeasibilityDesigner(
+        tech_lead=MockTechLead([]),
+        risk_agent=MockRiskAgent([]),
+        openai_client=mock_openai,
+    ), mock_openai
+
+
+class TestReviseRejected:
+    """FeasibilityDesigner.revise_rejected() — Issue #277."""
+
+    def test_revise_single_rejected_spec(self):
+        """One rejected spec → one revised FeasibilityResult."""
+        designer, _ = _make_revise_feasibility_designer([_make_revised_spec()])
+
+        specs = [{"opportunity_id": "opp_billing", "approach": "Vague approach"}]
+        rejections = [_make_fd_rejection()]
+        solutions_list = [_make_solution_brief()]
+
+        results = designer.revise_rejected(specs, rejections, solutions_list)
+
+        assert len(results) == 1
+        assert results[0].opportunity_id == "opp_billing"
+        assert results[0].is_feasible is True
+        assert "Revised approach" in results[0].assessment["approach"]
+        assert results[0].total_rounds == 0
+
+    def test_revise_multiple_rejected_specs(self):
+        """Two rejected specs → two results."""
+        designer, _ = _make_revise_feasibility_designer([
+            _make_revised_spec("_a"),
+            _make_revised_spec("_b"),
+        ])
+
+        specs = [
+            {"opportunity_id": "opp_a", "approach": "Vague A"},
+            {"opportunity_id": "opp_b", "approach": "Vague B"},
+        ]
+        rejections = [_make_fd_rejection(item_id="opp_a"), _make_fd_rejection(item_id="opp_b")]
+        solutions_list = [_make_solution_brief(), _make_solution_brief()]
+
+        results = designer.revise_rejected(specs, rejections, solutions_list)
+
+        assert len(results) == 2
+
+    def test_revise_empty_rejections(self):
+        """Empty inputs → empty list, no LLM call."""
+        designer, mock_openai = _make_revise_feasibility_designer([])
+
+        results = designer.revise_rejected([], [], [])
+
+        assert results == []
+        mock_openai.chat.completions.create.assert_not_called()
+
+    def test_revise_json_decode_error_skips_item(self):
+        """Malformed LLM response → item skipped, warning logged with wasted token count."""
+        mock_openai = MagicMock()
+        bad_response = MagicMock()
+        bad_response.choices = [MagicMock()]
+        bad_response.choices[0].message.content = "{{invalid"
+        bad_response.usage = MagicMock()
+        bad_response.usage.prompt_tokens = 100
+        bad_response.usage.completion_tokens = 50
+        bad_response.usage.total_tokens = 150
+        good_response = _make_fd_llm_response(_make_revised_spec())
+        mock_openai.chat.completions.create.side_effect = [bad_response, good_response]
+
+        designer = FeasibilityDesigner(
+            tech_lead=MockTechLead([]),
+            risk_agent=MockRiskAgent([]),
+            openai_client=mock_openai,
+        )
+
+        specs = [
+            {"opportunity_id": "opp_a", "approach": "Bad"},
+            {"opportunity_id": "opp_b", "approach": "Good"},
+        ]
+        rejections = [_make_fd_rejection(item_id="opp_a"), _make_fd_rejection(item_id="opp_b")]
+        solutions_list = [_make_solution_brief(), _make_solution_brief()]
+
+        results = designer.revise_rejected(specs, rejections, solutions_list)
+
+        assert len(results) == 1
+        assert results[0].opportunity_id == "opp_b"
+
+    def test_revise_uses_correct_prompts(self):
+        """Verifies FEASIBILITY_REVISE_REJECTED_SYSTEM is used."""
+        from src.discovery.agents.prompts import FEASIBILITY_REVISE_REJECTED_SYSTEM
+
+        designer, mock_openai = _make_revise_feasibility_designer([_make_revised_spec()])
+
+        specs = [{"opportunity_id": "opp_1", "approach": "Vague"}]
+        rejections = [_make_fd_rejection()]
+        solutions_list = [_make_solution_brief()]
+
+        designer.revise_rejected(specs, rejections, solutions_list)
+
+        call_args = mock_openai.chat.completions.create.call_args
+        messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
+        assert messages[0]["content"] == FEASIBILITY_REVISE_REJECTED_SYSTEM
+
+    def test_revise_token_usage_tracked(self):
+        """Token usage accumulated per result."""
+        designer, _ = _make_revise_feasibility_designer([
+            _make_revised_spec("_a"),
+            _make_revised_spec("_b"),
+        ])
+
+        specs = [
+            {"opportunity_id": "opp_a", "approach": "A"},
+            {"opportunity_id": "opp_b", "approach": "B"},
+        ]
+        rejections = [_make_fd_rejection(item_id="opp_a"), _make_fd_rejection(item_id="opp_b")]
+        solutions_list = [_make_solution_brief(), _make_solution_brief()]
+
+        results = designer.revise_rejected(specs, rejections, solutions_list)
+
+        # Each result: 120 + 80 = 200 tokens
+        assert results[0].token_usage["total_tokens"] == 200
+        assert results[1].token_usage["total_tokens"] == 200
+
+    def test_revise_length_mismatch_raises(self):
+        """Different list lengths → ValueError."""
+        designer, _ = _make_revise_feasibility_designer([])
+
+        with pytest.raises(ValueError, match="same length"):
+            designer.revise_rejected(
+                [{"opportunity_id": "opp_1"}],
+                [],
+                [_make_solution_brief()],
+            )

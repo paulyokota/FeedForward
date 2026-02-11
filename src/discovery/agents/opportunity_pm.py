@@ -25,9 +25,12 @@ from src.discovery.agents.base import coerce_str
 from src.discovery.agents.prompts import (
     OPPORTUNITY_FRAMING_SYSTEM,
     OPPORTUNITY_FRAMING_USER,
+    OPPORTUNITY_REFRAME_SYSTEM,
+    OPPORTUNITY_REFRAME_USER,
     OPPORTUNITY_REQUERY_SYSTEM,
     OPPORTUNITY_REQUERY_USER,
 )
+from src.discovery.models.artifacts import InputRejection
 from src.discovery.models.enums import ConfidenceLevel, SourceType
 
 env_path = Path(__file__).parent.parent.parent.parent / ".env"
@@ -179,6 +182,90 @@ class OpportunityPM:
 
         return json.loads(response.choices[0].message.content)
 
+    def reframe_rejected(
+        self,
+        rejected_briefs: List[Dict[str, Any]],
+        rejections: List[InputRejection],
+        explorer_checkpoint: Dict[str, Any],
+    ) -> FramingResult:
+        """Revise rejected OpportunityBriefs using rejection feedback.
+
+        Each rejected brief is paired with its InputRejection by index.
+        Makes one LLM call per rejected brief using OPPORTUNITY_REFRAME prompts.
+
+        Args:
+            rejected_briefs: Original OpportunityBrief dicts that were rejected.
+            rejections: Corresponding InputRejection objects (same order/length).
+            explorer_checkpoint: Explorer checkpoint for additional evidence context.
+
+        Returns:
+            FramingResult with revised opportunities and aggregated token usage.
+        """
+        if len(rejected_briefs) != len(rejections):
+            raise ValueError(
+                f"rejected_briefs ({len(rejected_briefs)}) and rejections "
+                f"({len(rejections)}) must have the same length"
+            )
+
+        if not rejected_briefs:
+            return FramingResult()
+
+        total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        revised_opportunities: List[Dict[str, Any]] = []
+        findings_json = json.dumps(
+            explorer_checkpoint.get("findings", []), indent=2
+        )
+
+        for i, (brief, rejection) in enumerate(zip(rejected_briefs, rejections)):
+            rejection_dict = {
+                "item_id": rejection.item_id,
+                "rejection_reason": rejection.rejection_reason,
+                "suggested_improvement": rejection.suggested_improvement,
+            }
+
+            user_prompt = OPPORTUNITY_REFRAME_USER.format(
+                original_brief_json=json.dumps(brief, indent=2),
+                rejection_json=json.dumps(rejection_dict, indent=2),
+                explorer_findings_json=findings_json,
+            )
+
+            response = self.client.chat.completions.create(
+                model=self.config.model,
+                messages=[
+                    {"role": "system", "content": OPPORTUNITY_REFRAME_SYSTEM},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=self.config.temperature,
+                response_format={"type": "json_object"},
+            )
+
+            if response.usage:
+                total_usage["prompt_tokens"] += response.usage.prompt_tokens
+                total_usage["completion_tokens"] += response.usage.completion_tokens
+                total_usage["total_tokens"] += response.usage.total_tokens
+
+            try:
+                revised = json.loads(response.choices[0].message.content)
+            except (json.JSONDecodeError, TypeError):
+                wasted = response.usage.total_tokens if response.usage else 0
+                logger.warning(
+                    "reframe_rejected: JSON decode failed for item %d "
+                    "(item_id=%s, wasted_tokens=%d) — skipping",
+                    i,
+                    rejection.item_id,
+                    wasted,
+                )
+                continue
+
+            revised_opportunities.append(revised)
+
+        findings = explorer_checkpoint.get("findings", [])
+        return FramingResult(
+            opportunities=revised_opportunities,
+            explorer_findings_count=len(findings),
+            token_usage=total_usage,
+        )
+
     def build_checkpoint_artifacts(
         self,
         result: FramingResult,
@@ -201,25 +288,8 @@ class OpportunityPM:
         """
         now = datetime.now(timezone.utc).isoformat()
         briefs = []
-        decomposition_requests = []
 
         for raw_opp in result.opportunities:
-            # Handle decomposition requests (Issue #270)
-            if raw_opp.get("needs_decomposition"):
-                decomposition_requests.append({
-                    "original_finding": coerce_str(
-                        raw_opp.get("original_finding"), fallback=""
-                    ),
-                    "suggested_splits": raw_opp.get("suggested_splits", []),
-                    "reason": coerce_str(raw_opp.get("reason"), fallback=""),
-                })
-                logger.warning(
-                    "Decomposition requested for finding: %s — reason: %s",
-                    str(raw_opp.get("original_finding", "?"))[:80],
-                    str(raw_opp.get("reason", "?"))[:120],
-                )
-                continue
-
             evidence = []
             for conv_id in raw_opp.get("evidence_conversation_ids", []):
                 if valid_evidence_ids is not None and conv_id not in valid_evidence_ids:
@@ -292,7 +362,8 @@ class OpportunityPM:
 
         quality_flags = {
             "briefs_produced": len(briefs),
-            "decomposition_requests": len(decomposition_requests),
+            "validation_rejections": 0,
+            "validation_retries": 0,
         }
 
         checkpoint: Dict[str, Any] = {
@@ -306,9 +377,6 @@ class OpportunityPM:
             },
             "framing_notes": result.framing_notes,
         }
-
-        if decomposition_requests:
-            checkpoint["decomposition_requests"] = decomposition_requests
 
         return checkpoint
 

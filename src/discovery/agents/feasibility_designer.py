@@ -17,6 +17,8 @@ from typing import Any, Dict, List, Optional
 
 from src.discovery.agents.base import coerce_str
 from src.discovery.agents.prompts import (
+    FEASIBILITY_REVISE_REJECTED_SYSTEM,
+    FEASIBILITY_REVISE_REJECTED_USER,
     INPUT_VALIDATION_FEASIBILITY_SYSTEM,
     INPUT_VALIDATION_FEASIBILITY_USER,
 )
@@ -340,6 +342,100 @@ class FeasibilityDesigner:
             total_rounds=self.config.max_rounds,
             token_usage=total_usage,
         )
+
+    def revise_rejected(
+        self,
+        rejected_specs: List[Dict[str, Any]],
+        rejections: List[InputRejection],
+        solutions: List[Dict[str, Any]],
+    ) -> List[FeasibilityResult]:
+        """Revise rejected TechnicalSpecs using rejection feedback.
+
+        Each rejected spec is paired with its InputRejection and
+        corresponding SolutionBrief by index.
+
+        Args:
+            rejected_specs: Original TechnicalSpec dicts that were rejected.
+            rejections: Corresponding InputRejection objects (same order/length).
+            solutions: Corresponding SolutionBrief dicts (same order/length).
+
+        Returns:
+            List of FeasibilityResult for successfully revised specs.
+        """
+        if len(rejected_specs) != len(rejections) or len(rejected_specs) != len(solutions):
+            raise ValueError(
+                f"rejected_specs ({len(rejected_specs)}), rejections "
+                f"({len(rejections)}), and solutions ({len(solutions)}) must "
+                f"have the same length"
+            )
+
+        if not rejected_specs:
+            return []
+
+        results: List[FeasibilityResult] = []
+
+        for i, (spec, rejection, solution) in enumerate(
+            zip(rejected_specs, rejections, solutions)
+        ):
+            rejection_dict = {
+                "item_id": rejection.item_id,
+                "rejection_reason": rejection.rejection_reason,
+                "suggested_improvement": rejection.suggested_improvement,
+            }
+
+            user_prompt = FEASIBILITY_REVISE_REJECTED_USER.format(
+                original_spec_json=json.dumps(spec, indent=2),
+                rejection_json=json.dumps(rejection_dict, indent=2),
+                solution_brief_json=json.dumps(solution, indent=2),
+            )
+
+            response = self.client.chat.completions.create(
+                model=self.config.model,
+                messages=[
+                    {"role": "system", "content": FEASIBILITY_REVISE_REJECTED_SYSTEM},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=self.config.temperature,
+                response_format={"type": "json_object"},
+            )
+
+            usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            if response.usage:
+                usage = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+
+            try:
+                revised = json.loads(response.choices[0].message.content)
+            except (json.JSONDecodeError, TypeError):
+                wasted = response.usage.total_tokens if response.usage else 0
+                logger.warning(
+                    "revise_rejected: JSON decode failed for item %d "
+                    "(item_id=%s, wasted_tokens=%d) — skipping",
+                    i,
+                    rejection.item_id,
+                    wasted,
+                )
+                continue
+
+            opportunity_id = spec.get(
+                "opportunity_id",
+                rejection.item_id,
+            )
+
+            results.append(
+                FeasibilityResult(
+                    opportunity_id=opportunity_id,
+                    is_feasible=True,
+                    assessment=revised,
+                    total_rounds=0,
+                    token_usage=usage,
+                )
+            )
+
+        return results
 
     def build_checkpoint_artifacts(
         self,
