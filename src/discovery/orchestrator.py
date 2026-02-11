@@ -699,31 +699,27 @@ class DiscoveryOrchestrator:
         Returns (final_briefs, final_solutions) with accepted first, warned appended.
         Both lists maintain parallel index correspondence.
         """
-        if not solutions:
-            return briefs, solutions
-
-        # Item IDs come from the parent brief's affected_area.
-        # Iterate over max(briefs, solutions) so briefs without a matching
-        # solution still enter validation (with an empty solution dict).
+        # Pad briefs/solutions to equal length so parallel index
+        # correspondence holds throughout validation and downstream.
         id_field = "affected_area"
         n = max(len(briefs), len(solutions))
+        padded_solutions = list(solutions) + [{} for _ in range(n - len(solutions))]
+        padded_briefs = list(briefs) + [{} for _ in range(n - len(briefs))]
+
+        if not padded_solutions or all(s == {} for s in padded_solutions):
+            return padded_briefs, padded_solutions
+
         item_ids = [
-            briefs[i].get(id_field, f"solution_{i}") if i < len(briefs) else f"solution_{i}"
+            padded_briefs[i].get(id_field, f"solution_{i}")
             for i in range(n)
         ]
-        sol_map = {
-            item_ids[i]: solutions[i] if i < len(solutions) else {}
-            for i in range(n)
-        }
-        brief_map = {
-            item_ids[i]: briefs[i] if i < len(briefs) else {}
-            for i in range(n)
-        }
+        sol_map = {item_ids[i]: padded_solutions[i] for i in range(n)}
+        brief_map = {item_ids[i]: padded_briefs[i] for i in range(n)}
 
-        # Initial validation
+        # Initial validation — pass padded lists so validator sees all items
         try:
             started_at = datetime.now(timezone.utc)
-            validation = feas_designer.validate_input(solutions, briefs)
+            validation = feas_designer.validate_input(padded_solutions, padded_briefs)
             self._record_invocation(
                 run_id, stage_execution_id, "feasibility_designer_validate",
                 validation.token_usage, started_at,
@@ -731,9 +727,9 @@ class DiscoveryOrchestrator:
         except Exception:
             logger.warning(
                 "Run %s: validate_input failed — accepting all %d solutions",
-                run_id, len(solutions), exc_info=True,
+                run_id, len(padded_solutions), exc_info=True,
             )
-            return briefs, solutions
+            return padded_briefs, padded_solutions
 
         self._post_validation_event(
             convo_id, "feasibility_designer", 0, validation,
