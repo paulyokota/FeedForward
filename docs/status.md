@@ -28,7 +28,15 @@ First full sync-ideas run against #ideas channel. Processed 57 Slack messages (9
 
 ## Fill-Cards Play In Progress (2026-02-11)
 
-Three cards investigated so far: SC-117 (summary emails, Ready to Build), SC-52 (SmartPin account filtering, Need Requirements), SC-150 (multi-language AI generation, In Definition). Process refinements after each card: play goal reframed as "approved draft not pushed card," verification bar added, subagent usage scoped to broad mapping only. Next: continue with remaining cards from the ranked emptiness list.
+Six cards investigated. This session completed three:
+
+- **SC-44** (SmartPin frequency selector): feature card, In Definition to Ready to Build. Traced schedule_rule storage, SmartPin v2 UI, cron infrastructure.
+- **SC-156** (SmartPin edits lost after scheduling): bug card, fleshed out in Ready to Build. Deep code trace across 10+ files identified probable root cause (stale prop mutation in `handlePinDesignChange`).
+- **SC-158** (Chrome Extension alt text): feature card, In Definition to Ready to Build. Mapped two extension codebases, found bookmarklet already reads `img.alt` but routes it to wrong field, `altText` plumbing exists server-side but isn't wired.
+
+Previous three: SC-117 (summary emails), SC-52 (SmartPin account filtering), SC-150 (multi-language AI generation).
+
+Next: continue with remaining In Definition cards. Candidates identified: SC-97, SC-101, SC-130.
 
 ---
 

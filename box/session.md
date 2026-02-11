@@ -5,31 +5,22 @@
 
 ## Goal
 
-Sync Ideas play: first full run of Slack #ideas to Shortcut matching, plus shipped backfill and API documentation pass.
+Fill-cards play: investigate and flesh out Shortcut cards, moving them from In Definition to Ready to Build.
 
 ## What Happened
 
-- Full sync-ideas run: 57 Slack messages, 65 active stories, 10 Released stories
-  - Matched 2 ideas to existing stories (SC-52 per-profile SmartPins, SC-149 product tagging)
-  - Matched 1 idea to Released story (SC-84 turbo min visit time) with "This shipped!" reply
-  - Created 4 new cards: SC-156 (bug), SC-157, SC-158, SC-159 (features)
-- "This shipped!" backfill: 8 thread replies across 10 Released stories with Slack links
-  - Edge case: SC-27/34/40 shared one Slack thread, combined into single message
-- External links backfill: added `external_links` to 63 stories for search filtering
-- Shortcut search API: confirmed GET not POST, documented with full search operators reference
-- Slack API learnings: `text` field strips quoted content (must check attachments/blocks),
-  `chat.postMessage` requires `charset=utf-8` in Content-Type
-- `conversations.replies` gotcha: passing reply ts returns only that message, no error
+- **SC-44** (SmartPin frequency selector): traced schedule_rule storage (RFC 5545 RRule, hardcoded WEEKLY), SmartPin v2 UI (create.tsx, edit.tsx, neither has frequency control), cron infrastructure. User feedback mid-investigation redirected from old UI to v2 paths. Pushed, moved to Ready to Build.
+- **SC-156** (SmartPin edits lost after scheduling): deep code trace across 10+ files. Identified probable root cause: `handlePinDesignChange` in `pin-grid-item.tsx` sends stale `draft` prop instead of merging form values (compare with `handleMediaChange` which does it correctly). Secondary issue: design modal's full-object PATCH overwrites autosaved changes. Card was already in Ready to Build, fleshed out and cleared owners.
+- **SC-158** (Chrome Extension alt text): discovered two extension codebases (Turbo = Pinterest engagement, bookmarklet = save from web pages). Bookmarklet already reads `img.alt` but routes it to `description` field, not `altText`. Server-side `altText` plumbing exists (`NewPinterestPin`, `TackRepository.create()`) but `ExtensionDraftData` and API schema don't have the field. Pushed, moved to Ready to Build.
 
 ## Key Decisions
 
-- Bug cards use lean template (skip blank Monetization, UI, Reporting, Release sections)
-- Set `story_type` on card creation (bug vs feature) for `type:bug` search filtering
-- Set `external_links` on card creation for `has:external-link` filtering
-- "This shipped!" thread reply pattern added to sync-ideas play
-- Product Area tie-breaking: "Global Pin Settings" is PIN SCHEDULER not SMARTPIN
+- Evidence sections should contain only conversations about the actual feature, not adjacent themes
+- Don't mention irrelevant codebases just to say they're not relevant
+- Open questions that are product calls of "no" for v1 should be dropped, not left open on Ready to Build cards
+- Architectural notes that aren't questions belong in Architecture Context, not Open Questions
 
 ## Carried Forward
 
-- Fill-cards play continues with remaining cards from the ranked list
-- 20 active stories still have no `external_links` (no Slack source found)
+- Fill-cards play continues with remaining In Definition cards: SC-97, SC-101, SC-130 identified as candidates
+- 25 total In Definition cards remain (minus the 2 moved this session)

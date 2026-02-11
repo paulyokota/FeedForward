@@ -395,3 +395,114 @@ Entries accumulate until a pattern emerges across multiple investigations.
   between "mutations that change state" (card creates, description updates, state
   changes) and "mutations that add information" (reactions, thread replies). The cap
   should probably apply more strictly to the former.
+
+### 2026-02-11 — Fill-cards play: SC-44 (SmartPin frequency selector) + SC-156 (copy edits lost)
+
+- **Subagent claims need personal verification. Again.** The Explore subagent for
+  SC-44 reported "Customizable: Users can change via the dashboard (likely WEEKLY,
+  BIWEEKLY, MONTHLY options)." Completely wrong. Read `service.ts` myself: frequency
+  is hardcoded to `FREQ=WEEKLY;INTERVAL=1` in `createSmartPin()`, and `updateSmartPin()`
+  doesn't accept a `scheduleRule` parameter at all. Same error shape as the
+  `user_accounts.language` incident from SC-150. The rule is holding: use Explore
+  subagents for lay-of-the-land mapping, read files yourself for any claim that goes
+  on a card.
+
+- **Intercom signal for feature requests is often indirect.** Nobody wrote "give me a
+  frequency picker." They wrote "I keep getting duplicate pins," "how do I turn this
+  off," and "how often does this run?" The signal for frequency control lives in the
+  language of frustration (disable requests, duplicate complaints), not in the language
+  of the solution. Same pattern as SC-52 where users said "wrong account" not "filter
+  SmartPins by account."
+
+- **Intercom API subagent got stuck.** Background subagent for Intercom search sat in
+  a bash progress loop for 90+ seconds with no output. Had to kill it. The DB queries
+  had already provided sufficient evidence so we moved on. For future: set a mental
+  timeout on background agents. If they're not producing output within 60 seconds,
+  check and potentially kill.
+
+- **v2 UI context changed the card shape.** User flagged mid-investigation that a
+  SmartPin v2 experience is in progress. Reading those files (create.tsx, edit.tsx)
+  changed where the frequency selector would go and what the implementation looks like.
+  Without that correction, the card would have described changes to the wrong UI. User
+  context that redirects investigation mid-flight is high-value. Don't go dark.
+
+- **Fill-cards play needs to advance state AND clear owners.** Forgot to move SC-44 to
+  Ready to Build and clear owners after pushing the description. User caught it: "that's
+  not the end of the play is it?" The play docs (box/shortcut-ops.md line 224) say:
+  "mark as ready" = update + move to Ready to Build + unassign all owners. All three
+  steps, every time.
+
+- **Bug investigation is a different shape than feature investigation.** SC-44 was
+  mostly data gathering (Intercom, PostHog, codebase architecture). SC-156 was code
+  tracing: following the data flow from user edit through form state, autosave, design
+  modal, backend PATCH, back to form reset. Required reading 10+ files across frontend
+  and backend, understanding React state management patterns (Formik, SWR, prop
+  mutation), and identifying a race condition. Much more like debugging than research.
+  The fill-cards play should probably distinguish these two modes.
+
+- **The prop mutation pattern was the smoking gun for SC-156.** `handlePinDesignChange`
+  directly mutates `draft.mediaUrl` and `draft.mediaType` on the prop object, then sends
+  the whole prop to the backend. Compare with `handleMediaChange` which correctly merges
+  form values first. The inconsistency between these two handlers in the same file is
+  what makes it a probable bug, not just a theoretical race condition. The correct
+  pattern already exists in the same component.
+
+- **Full-object PATCH as a bug amplifier.** The backend PATCH handler for destinationless
+  drafts does a full replacement (`DestinationlessDraftFacet.put()`), not a field-level
+  merge. This means any client that sends a stale snapshot overwrites everything. The
+  design modal fetches its own SWR snapshot, applies only design changes, and PATCHes
+  the whole thing back. If that snapshot was fetched before the user's copy edits were
+  autosaved, the PATCH overwrites them. Full-object PATCH + stale snapshots = data loss.
+
+- **"Probable" is doing real work.** Called the root cause "probable" not "confirmed"
+  because I traced the code path but didn't run it or check logs. Paul asked if every
+  claim was personally verified from code. Being explicit about the confidence level
+  (code-read but not runtime-verified) is better than overclaiming. The card is honest
+  about what it knows and what it doesn't.
+
+- **Open questions: match card state, don't over-scope.** Had three open questions on
+  SC-44. Paul said the min-frequency and free-vs-paid questions were product calls of
+  "no" for v1, not things to leave open. The cron interval note was architectural, not
+  a question. Moved it to Architecture Context, dropped the others. Don't clutter a
+  Ready to Build card with scope expansion.
+
+### 2026-02-11 — Fill-cards play: SC-158 (Chrome Extension alt text)
+
+- **"Chrome extension" means two different things in this codebase.** The modern Turbo
+  extension (`packages/extension/`) is a Pinterest engagement tool. It doesn't create
+  pins from web pages at all. The "Chrome extension" users mean when they say "I saved
+  an image from a website" is the legacy bookmarklet
+  (`packages/tailwindapp-legacy/.../publisher/bookmarklet.js`). Took several file reads
+  to establish this. The entrypoints in `packages/extension/` are all
+  `pinterest.content/*`, which was the giveaway.
+
+- **"Infrastructure exists but isn't wired" pattern again.** Same shape as SmartPin
+  frequency (SC-44): `NewPinterestPin` has `altText`, `TackRepository.create()` passes
+  it through, the scheduler UI exposes it. But `ExtensionDraftData` doesn't have the
+  field, the API schema doesn't accept it, and the route doesn't map it. The plumbing
+  runs from the middle to the end. The first segment is missing.
+
+- **The bookmarklet already reads `img.alt` but routes it wrong.** The description
+  fallback chain is `data-pin-description` > `data-description` > `img.alt` >
+  `img.title` > `document.title`. So `img.alt` goes into `description` (pin caption),
+  not `altText` (accessibility metadata). The fix isn't "start reading alt." It's "send
+  it to the right field."
+
+- **Minified bookmarklet required bash extraction, not file reading.** The bookmarklet
+  is 3 lines, one of which is enormous. `Read` tool couldn't handle it. Used Python
+  regex extraction via Bash to pull out the relevant snippets around `.alt` and
+  `description`. For minified JS, searching with context extraction beats trying to
+  read the file.
+
+- **Evidence section got trimmed twice.** First draft had Intercom stats about all
+  alt-text conversations (41 total, theme breakdowns, discoverability complaints).
+  Paul flagged it as irrelevant: most of those conversations are about finding the
+  alt text field in the scheduler, not about the extension. Cut to just the two
+  verbatim quotes that are actually about the extension behavior. Also cut a bullet
+  explaining that the Turbo extension isn't relevant, because if it's not relevant,
+  don't mention it. Cards should contain signal, not disclaimers about non-signal.
+
+- **Explore subagent was accurate this time.** Correctly identified that the Turbo
+  extension is a Pinterest engagement tool and doesn't create pins from web pages.
+  Identified the legacy content.js alt reading code. Confirmed with my own reads.
+  The lay-of-the-land use case continues to work well when you verify the claims.
