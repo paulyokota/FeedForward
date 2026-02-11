@@ -487,7 +487,7 @@ class SolutionDesigner:
 
             try:
                 revised = json.loads(response.choices[0].message.content)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, TypeError):
                 wasted = response.usage.total_tokens if response.usage else 0
                 logger.warning(
                     "revise_rejected: JSON decode failed for item %d "

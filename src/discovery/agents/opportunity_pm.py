@@ -246,7 +246,7 @@ class OpportunityPM:
 
             try:
                 revised = json.loads(response.choices[0].message.content)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, TypeError):
                 wasted = response.usage.total_tokens if response.usage else 0
                 logger.warning(
                     "reframe_rejected: JSON decode failed for item %d "
@@ -259,8 +259,10 @@ class OpportunityPM:
 
             revised_opportunities.append(revised)
 
+        findings = explorer_checkpoint.get("findings", [])
         return FramingResult(
             opportunities=revised_opportunities,
+            explorer_findings_count=len(findings),
             token_usage=total_usage,
         )
 
