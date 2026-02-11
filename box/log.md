@@ -333,3 +333,65 @@ Entries accumulate until a pattern emerges across multiple investigations.
   - _Overall_: faster than SC-117 because the card stayed in Need Requirements. No
     solution sketch, no data provenance trace, no evidence CSV. The investigation
     scope matched the card's readiness level.
+
+### 2026-02-11 — Sync Ideas play: full run
+
+- **Slack API strips quoted/attached content from the `text` field.** The "Potential
+  Bug report from Heather Farris" message looked like a bare label in the `text`
+  field. The actual bug report (from a private conversation with Heather) was in
+  `attachments[0].text`. Same for the Turbo minimum visit time idea (a quote from
+  another channel) and the Smart Schedule idea (a cross-posted link with preview).
+  Three out of six real ideas would have been missed by only reading `text`. Always
+  check `attachments` and `blocks` for the real content. Added to the sync-ideas
+  play as a key behavior.
+
+- **Released stories weren't in the matching pool.** Initial fetch filtered to
+  non-archived, non-Released. That meant the Turbo minimum visit time idea
+  (TS 1770240250) had no match candidate. Paul caught it: SC-84 was the same idea,
+  just recently shipped. The "This shipped!" reply pattern emerged from this. Then
+  Paul asked to backfill all Released stories that had Slack links. Good instinct:
+  if the team posts ideas and never hears back when they ship, the feedback loop is
+  broken. Now part of the play.
+
+- **Three cards link to the same Slack thread.** SC-27, SC-34, SC-40 all point to
+  `p1770134253576789` (a big Turbo ideas thread). Handled by posting one combined
+  "These shipped!" message listing all three. Edge case worth remembering: Slack
+  threads can spawn multiple Shortcut stories. The shipped notification should be
+  one message covering all of them, not three separate replies.
+
+- **Bug cards don't need the full template.** The SmartPin-edits-revert bug (SC-156)
+  only needed "What" and "Evidence." Monetization Angle, UI Representation, Reporting,
+  Release strategy were all blank and just added noise. Paul established the pattern:
+  skip blank sections for bug cards. Added to the play.
+
+- **Shortcut search is GET, not POST.** Wasted time trying `POST /api/v3/search/stories`
+  which returns 404. The correct call is `GET /api/v3/search/stories?query=...&page_size=25`.
+  Confirmed via the official docs. Fell back to `GET /groups/{id}/stories` during the
+  run, which works but doesn't include descriptions. The GET search endpoint includes
+  full descriptions and supports search operators. Updated ops reference and memory.
+
+- **Slack `chat.postMessage` needs `charset=utf-8` in the Content-Type header.**
+  Bash `curl` calls got `invalid_json` errors. Switching to Python with
+  `Content-Type: application/json; charset=utf-8` fixed it. All Slack POST calls
+  should go through Python, not bash curl, to avoid encoding issues.
+
+- **SC-52 title update during matching.** Two Slack ideas pointed to the same story
+  (the original "filter SmartPins by account" and the new "per-profile SmartPin
+  sections"). Paul caught that the title should encompass both. Renamed to "Separate
+  SmartPin management by Pinterest profile." This is a thing the sync play should
+  watch for: when a new idea matches an existing story but reframes it, consider
+  whether the title still fits.
+
+- **SC-149 had a manual link but no reaction.** Someone had already pasted the
+  Shortcut URL in the thread manually, but the `:shortcut:` reaction was never added.
+  Also the link in the story description was plain text instead of markdown. These
+  partial-sync states happen when people manually cross-reference. The play's
+  idempotency checks caught it: we added the missing reaction and fixed the link
+  format without duplicating the thread reply.
+
+- **Mutation count: 27 total (19 sync + 8 shipped backfill).** Exceeded the 25-cap
+  but Paul approved it. The shipped backfill was lightweight idempotent replies, not
+  the kind of risky mutations the cap is meant to prevent. Worth distinguishing
+  between "mutations that change state" (card creates, description updates, state
+  changes) and "mutations that add information" (reactions, thread replies). The cap
+  should probably apply more strictly to the former.

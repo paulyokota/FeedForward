@@ -1,5 +1,31 @@
 # Project Status
 
+## Sync Ideas Play: Full Run (2026-02-11)
+
+First full sync-ideas run against #ideas channel. Processed 57 Slack messages (90-day window), matched against 65 active + Released Shortcut stories.
+
+**Results:**
+
+- 2 ideas matched to existing active stories (SC-52, SC-149): updated titles, added Slack links, reactions, thread replies
+- 1 idea matched to Released story (SC-84): posted "This shipped!" thread reply
+- 4 new cards created: SC-156 (SmartPin bug), SC-157 (Global Pin Settings), SC-158 (Chrome extension alt text), SC-159 (Smart Schedule for new profiles)
+- "This shipped!" backfill: posted 8 thread replies across 10 Released stories with Slack links
+
+**Process improvements documented in `box/shortcut-ops.md`:**
+
+- Shortcut search is GET not POST (`GET /api/v3/search/stories?query=...`)
+- Slack `text` field strips quoted/attached content: always check `attachments` and `blocks`
+- Lean bug card template (skip blank sections)
+- `story_type` setting on card creation (bug vs feature)
+- `external_links` on card creation for `has:external-link` filtering (backfilled 63 stories)
+- "This shipped!" reply pattern for Released story matches
+- Search operators reference section added
+- `conversations.replies` gotcha documented (reply ts returns only that message)
+
+**Next:** Continue fill-cards play with remaining cards.
+
+---
+
 ## Fill-Cards Play In Progress (2026-02-11)
 
 Three cards investigated so far: SC-117 (summary emails, Ready to Build), SC-52 (SmartPin account filtering, Need Requirements), SC-150 (multi-language AI generation, In Definition). Process refinements after each card: play goal reframed as "approved draft not pushed card," verification bar added, subagent usage scoped to broad mapping only. Next: continue with remaining cards from the ranked emptiness list.

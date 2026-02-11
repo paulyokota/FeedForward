@@ -5,35 +5,31 @@
 
 ## Goal
 
-Fill-cards play: SC-150 (multi-language AI generation), plus process improvements.
+Sync Ideas play: first full run of Slack #ideas to Shortcut matching, plus shipped backfill and API documentation pass.
 
 ## What Happened
 
-- Completed SC-150 card: "Allow users to set a language for all AI generation"
-  - Gathered fresh Intercom API evidence (111 conversations, 104 contacts)
-  - Refreshed PostHog reach numbers (~4,270 non-English AI feature users)
-  - Discovered `user_accounts.language` does NOT exist (corrected from earlier investigation)
-  - Iterated through three drafts before arriving at approved content
-  - Card is in "In Definition" on Shortcut with CSV evidence attached
-- Process improvements from SC-150 lessons:
-  - Reframed fill-cards play goal: "approved draft" not "pushed card"
-  - Added verification bar to fill-cards play (schema reads, file checks, write path traces)
-  - Added "Shortcut as Production Surface" rules to MEMORY.md
-  - Added "respond before acting" as first communication rule
-  - Revised subagent usage: broad mapping only, direct reads for card claims
-- Fixed MEMORY.md: removed incorrect `user_accounts.language`/`.locale` claim
-- Added v2 settings page location to MEMORY.md
-- Extensive log entries for SC-150 investigation
+- Full sync-ideas run: 57 Slack messages, 65 active stories, 10 Released stories
+  - Matched 2 ideas to existing stories (SC-52 per-profile SmartPins, SC-149 product tagging)
+  - Matched 1 idea to Released story (SC-84 turbo min visit time) with "This shipped!" reply
+  - Created 4 new cards: SC-156 (bug), SC-157, SC-158, SC-159 (features)
+- "This shipped!" backfill: 8 thread replies across 10 Released stories with Slack links
+  - Edge case: SC-27/34/40 shared one Slack thread, combined into single message
+- External links backfill: added `external_links` to 63 stories for search filtering
+- Shortcut search API: confirmed GET not POST, documented with full search operators reference
+- Slack API learnings: `text` field strips quoted content (must check attachments/blocks),
+  `chat.postMessage` requires `charset=utf-8` in Content-Type
+- `conversations.replies` gotcha: passing reply ts returns only that message, no error
 
 ## Key Decisions
 
-- Language preference should be explicit (not auto-detected) due to bidirectional intent
-- UI location: rename Ghostwriter tab to "AI Settings" in v2 settings page
-- Fill-cards play goal is an approved draft, pushing is a separate step
-- Explore subagents for orientation, direct file reads for claims on cards
-- Process improvements are justified by repeated failures, but Skills/automation can wait until patterns stabilize
+- Bug cards use lean template (skip blank Monetization, UI, Reporting, Release sections)
+- Set `story_type` on card creation (bug vs feature) for `type:bug` search filtering
+- Set `external_links` on card creation for `has:external-link` filtering
+- "This shipped!" thread reply pattern added to sync-ideas play
+- Product Area tie-breaking: "Global Pin Settings" is PIN SCHEDULER not SMARTPIN
 
 ## Carried Forward
 
 - Fill-cards play continues with remaining cards from the ranked list
-- AgenTerminal session to resume (crashed during this session, fixed)
+- 20 active stories still have no `external_links` (no Slack source found)

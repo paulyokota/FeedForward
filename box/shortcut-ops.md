@@ -55,12 +55,46 @@ detailed procedural skills that generated this knowledge are archived at
 
 ## API Quirks
 
-- **Group stories endpoint** (`/groups/{id}/stories`) does NOT include `description`. Must fetch individual stories via `GET /stories/{id}` for full content.
+- **Search is GET, not POST.** `GET /api/v3/search/stories?query=...&page_size=25` works. `POST /api/v3/search/stories` returns 404. Includes full descriptions. Supports search operators. Follow `next` URL for pagination. Max 250 per page, 1000 total results. `detail=slim` omits descriptions/comments (faster for title-only matching).
+- **Group stories endpoint** (`/groups/{id}/stories`) does NOT include `description`. Must fetch individual stories via `GET /stories/{id}` for full content. Prefer the search endpoint when you need descriptions.
 - **JSON payloads**: Always construct with Python `json.dumps()`. Bash string interpolation breaks on quotes, newlines, and markdown in descriptions.
+- **Slack `conversations.replies`**: Always pass the parent message `ts`, not a reply's `ts`. Passing a reply's `ts` returns only that one message (no error, no parent, no siblings). This would silently break idempotency checks for existing bot replies.
 - **Slack `already_reacted`**: Treat as success, not error.
 - **Slack `Retry-After`**: Sleep the specified duration, then retry.
 - **Story link conflicts**: "Cannot create a duplicate story link" means it already exists — treat as success.
 - **Pagination**: Shortcut search returns 25 per page. Slack history returns up to 200 with cursor-based pagination. Always check for `has_more` / `next`.
+
+## Search Operators (useful subset)
+
+Full reference: [Shortcut help center article on search operators](https://help.shortcut.com/hc/en-us/articles/360000046646)
+
+| Operator            | Example                                  | Notes                                        |
+| ------------------- | ---------------------------------------- | -------------------------------------------- |
+| `state:`            | `state:"In Definition"`                  | Quote multi-word states                      |
+| `!state:`           | `!state:Released`                        | Exclusion with `!` or `-` prefix             |
+| `is:archived`       | `!is:archived`                           | Filter archived stories                      |
+| `type:`             | `type:bug`, `type:feature`, `type:chore` | Story type filter                            |
+| `owner:`            | `owner:paulyokota`                       | Uses mention name, no `@`                    |
+| `team:`             | `team:Tailwind`                          | Team name, not ID                            |
+| `product-area:`     | `product-area:SMARTPIN`                  | Shortcut-defined custom field                |
+| `title:`            | `title:"smart pin"`                      | Search within titles only                    |
+| `description:`      | `description:shipped`                    | Search within descriptions only              |
+| `has:external-link` | `!has:external-link`                     | Stories with/without external links          |
+| `has:comment`       | `has:comment`                            | Stories with comments                        |
+| `has:deadline`      | `!has:deadline`                          | Stories with/without due dates               |
+| `created:`          | `created:2026-01-01..*`                  | Date range with `..`, use `*` for open-ended |
+| `updated:`          | `updated:today`                          | Also supports `yesterday`                    |
+| `is:overdue`        | `is:overdue`                             | Due date in the past                         |
+
+Operators combine with AND logic. No OR support. Invert any operator with `!` or `-` prefix.
+
+**Useful compound queries:**
+
+- All active stories: `!is:archived !state:Released`
+- Paul's Need Requirements cards: `owner:paulyokota state:"Need Requirements"`
+- Bugs in SmartPin: `type:bug product-area:SMARTPIN`
+- Old unfilled cards: `state:"In Definition" created:*..2026-01-01`
+- Stories without Slack links: `!has:external-link !is:archived`
 
 ## Story Template
 
@@ -115,6 +149,8 @@ than leaving them empty. The fill-cards play is for fleshing out what's missing.
 **What it does**: Match ideas posted in Slack #ideas to Shortcut stories. Create
 cards for unmatched ideas, add link-back lines to story descriptions, add
 `:shortcut:` reactions to Slack messages, post thread replies with story links.
+For ideas that match Released stories, post a "This shipped!" thread reply with
+the story link so the original poster knows it landed.
 
 **Key behaviors**:
 
@@ -125,11 +161,24 @@ cards for unmatched ideas, add link-back lines to story descriptions, add
 - New cards go to "In Definition" state, owned by Paul, assigned to Tailwind team
 - Infer Product Area from idea text using keyword matching (see Product Area Keywords below)
 - All In Definition stories should be assigned to Paul
+- Match against Released stories too: if an idea matches something already shipped,
+  post a "This shipped!" thread reply with the story link instead of creating a card
+- Slack messages may contain quoted/attached content (shared from private conversations
+  or other channels). Always check `attachments` and `blocks` for the real idea text,
+  not just the top-level `text` field
+- Bug cards use a leaner template: only include sections with actual content (skip
+  blank Monetization, UI, Reporting, Release sections)
+- Set `story_type` when creating cards: `bug` for bug reports, `feature` for ideas
+  (default). Enables `type:bug` search operator for filtering.
+- Set `external_links` to the Slack permalink URL when creating cards. This enables
+  `has:external-link` search filtering. The markdown link stays in the description
+  too (visible when reading the card). Both serve different purposes.
 
 **Idempotency**:
 
 - Check for existing `:shortcut:` reaction before adding
 - Check thread for existing bot reply with same Shortcut URL before posting
+- Check thread for existing "shipped" reply before posting a duplicate
 - Check story description for existing link line before prepending
 - `already_reacted` from Slack = success
 
