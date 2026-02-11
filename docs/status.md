@@ -1,32 +1,53 @@
 # Project Status
 
-## Current Phase
+## Current Approach: Claude in a Box (2026-02-11)
 
-**Phase 1 (Two-Stage Classification): COMPLETE** ✅
-**Phase 2 (Database Integration): COMPLETE** ✅
-**Phase 4 (Theme Extraction): COMPLETE** ✅
-**Classifier Improvement Project: COMPLETE** ✅
-**Phase 5 (Ground Truth Validation): COMPLETE** ✅
-**Story Grouping Architecture: COMPLETE** ✅
-**Frontend Dashboard: COMPLETE** ✅
-**Multi-Source Architecture: COMPLETE** ✅
-**Story Tracking Web App: PHASE 2.5 COMPLETE** ✅
-**Milestone 6 (Canonical Pipeline Consolidation): COMPLETE** ✅
-**Theme Quality Architecture: IMPROVEMENTS 1 & 2 COMPLETE** ✅
-**Pipeline Quality v1: COMPLETE** ✅
-**Customer-Only Digest: COMPLETE** ✅
-**Smart Digest (Issue #144): COMPLETE** ✅
-**LLM Resolution Extraction (Issue #146): COMPLETE** ✅
-**Async Pipeline Responsiveness (Issue #148): COMPLETE** ✅
-**Test Suite Optimization (Issue #147): COMPLETE** ✅
-**Story Evidence Quality (Issue #197): COMPLETE** ✅
-**Implementation Head-Start Relevance (Issue #198): COMPLETE** ✅
-**30-Day Recency Gate (Issue #200): COMPLETE** ✅
-**Pipeline Checkpoint/Resumability (Issue #202): COMPLETE** ✅
-**Streaming Batch Resume (Issue #209): COMPLETE** ✅
-**Discovery Engine: PHASE 1 COMPLETE — FIRST REAL RUN SUCCESSFUL** ✅
+Product discovery now uses a single Claude Code instance with direct access to data sources (Intercom DB, PostHog, target codebase) instead of the multi-agent discovery pipeline. See `reference/claude-in-a-box.md` for the full decision record.
 
-## Latest: Second Real Run (Aero) + Quality Evaluation + Architecture Direction (2026-02-10)
+The extraction pipeline (classification, themes, stories) remains active infrastructure. The discovery engine (`src/discovery/`) is dormant and preserved.
+
+---
+
+## Previous: Discovery Engine (2026-02-07 to 2026-02-11)
+
+**Discovery Engine: PHASE 1 COMPLETE** ✅
+
+## Latest (pre-pivot): Third Real Run + Quality Fixes + Specificity Gate (2026-02-10)
+
+**Third discovery run validated adaptive routing and quality fixes. Six issues closed, two PRs merged, one new issue filed.**
+
+- Run ID: `9fca9aa8-4134-40e0-ae8d-4b546b7d8d76` (aero product repo)
+- 21 findings -> 10 briefs -> 10 solutions -> 9 specs (1 infeasible) -> 9 rankings -> human_review
+- Elapsed: 29.4 min (down from 43 min in run #1)
+- Zero LLM validation crashes
+- Adaptive routing confirmed: internal engineering findings correctly deprioritized (Event Tracking ranked 9th)
+
+**Quality fixes merged (PR #269):**
+
+- #264: Agent invocation logging at all 8 call sites
+- #265: source_type propagation via evidence_source_map lookup
+- #266: Source-neutral prompt ("product and engineering analysts")
+- #267: Infeasibility reason enforcement with guard + placeholder
+
+**Specificity gate merged (PR #273, Issue #270):**
+
+- Rules 8-9 in OPPORTUNITY_FRAMING_SYSTEM prompt (actionability + coherence self-check)
+- `needs_decomposition` escape hatch, quality_flags in framing_metadata
+- 658 discovery tests passing
+
+**Quality contracts doc merged (PR #272, Issue #271, Codex):**
+
+- `docs/discovery/quality-contracts.md` — stage boundary quality contract philosophy
+
+**Filed #274**: Stable artifact IDs for Phase 2 feedback linking (P1, deferred until after next run)
+
+**Next steps:**
+
+- Fourth real run to validate specificity gate and source-neutral prompt
+- #274: Stable artifact IDs (after run validates prompt changes)
+- #226-231: Phase 2 issues (unblocked)
+
+### Previous: Second Real Run (Aero) + Quality Evaluation + Architecture Direction (2026-02-10)
 
 **Second discovery run against external product repo (aero). Human review revealed two systemic pipeline issues.**
 
@@ -46,12 +67,6 @@
 - Key thesis: pipeline over-constrains agents, forcing nonsensical conforming output
 - Direction: descriptive schemas + adaptive routing (more agent freedom, not more guardrails)
 - Filed #260 (surface-specificity constraint) and #261 (adaptive routing with descriptive schemas)
-
-**Next steps tracked in GitHub Issues:**
-
-- #260: Surface-specificity constraint (surgical prompt fix, do first)
-- #261: Adaptive pipeline routing with descriptive schemas (fundamental architecture change)
-- #226-231: Phase 2 issues (most blocked by #256, now resolved)
 
 ### Previous: First Real Run + Pipeline Hardening (2026-02-10)
 

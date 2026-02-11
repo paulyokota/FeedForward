@@ -179,21 +179,20 @@
       "startedAt": "2026-02-10T17:00:00Z",
       "updatedAt": "2026-02-10T17:20:00Z",
       "error": null
-    }
-  },
-  "261": {
-      "phase": "planned",
+    },
+    "261": {
+      "phase": "complete",
       "branch": "fix/261-discovery-adaptive-pipeline-routing-with",
-      "pr": null,
+      "pr": 263,
       "reviewConversationId": null,
-      "attempts": { "plan": 1, "test": 0, "review": 0 },
+      "attempts": { "plan": 3, "test": 1, "review": 1 },
       "startedAt": "2026-02-10T20:00:00Z",
-      "updatedAt": "2026-02-10T20:00:00Z",
+      "updatedAt": "2026-02-10T22:30:00Z",
       "error": null
     }
   },
   "runConversationId": "issue-runner-1770607532",
   "currentIssue": 261,
-  "completedCount": 12,
+  "completedCount": 13,
   "skippedCount": 6
 }

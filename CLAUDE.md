@@ -1,286 +1,68 @@
 # FeedForward
 
-> **When in doubt, do it by the book.**
->
-> Feeling tempted to skip a step? Don't. The Critical Path Checklist and Tech Lead Gates exist because we learned the hard way. Check the boxes. Every time.
+One Claude Code instance with direct access to data sources, doing product discovery
+investigations and producing actionable stories. Tools, skills, and scripts accumulate
+in `box/` as needs emerge.
 
-LLM-powered Intercom conversation analysis pipeline for extracting product insights.
+**Why this approach**: See `reference/claude-in-a-box.md` for the full decision record,
+including the pivot from the discovery engine, the reasoning, and the first validation test.
 
-**Start here**: Read `PLAN.md` for full project context, methodology, and phased implementation plan.
+## What You Are
 
-**Quick routing (decision friction reducer)**:
+You are a Claude Code instance doing product discovery for the aero product (Tailwind).
+You investigate across multiple data sources, reason about what you find, and produce
+stories that are ready for a product team to act on.
 
-| If you're doing...     | Then...                                                                                                                                                       |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Starting a feature     | Check skill scope and decide if you need an architect first. See [Quick Decision Tree](#quick-decision-tree).                                                 |
-| Writing new code       | Ensure tests exist before review. See [Critical Path Checklist](#critical-path-checklist-every-pr).                                                           |
-| Running the pipeline   | Use the dev-mode script only. See [Pipeline Execution](#pipeline-execution-dev-mode).                                                                         |
-| Creating a PR          | Full suite passes + 5-personality review. See [Critical Path Checklist](#critical-path-checklist-every-pr) and [Code Review Protocol](#code-review-protocol). |
-| Fixing review feedback | Original dev fixes their own code. See [Key Process Gates](#key-process-gates).                                                                               |
-| Ending a session       | Check for BACKLOG_FLAGs and TODOs. See [Backlog Hygiene](#backlog-hygiene-session-end).                                                                       |
+Your job is not to run a pipeline. Your job is to think.
 
-## Tech Stack
+## Data Sources
 
-- **Language**: Python 3.11, **Framework**: FastAPI + Next.js
-- **LLM**: OpenAI (gpt-4o-mini for cost efficiency)
-- **Database**: PostgreSQL for data, **pytest** for testing
-- Key commands:
-  - **Fast gate**: `pytest -m "fast"` (~1,726 pure unit tests)
-  - **Pre-merge**: `pytest -m "fast or medium"` (~2,200 tests)
-  - **Full local**: `pytest -m "not slow"` (~2,200 tests — same as pre-merge)
-  - **Full suite**: `pytest tests/ -v` (~2,492 tests including slow)
-  - **Parallel**: `pytest -m "fast" -n auto` (xdist, use for CI quick gate)
-  - **API server**: `uvicorn src.api.main:app --reload --port 8000`
+| Source                     | Access Method                               | What's There                                                                                  |
+| -------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Intercom conversations** | FeedForward PostgreSQL database (`src/db/`) | 16,000+ classified support conversations with themes, diagnostic summaries, verbatim excerpts |
+| **PostHog analytics**      | PostHog MCP server                          | Product usage events, user properties, country/geo data                                       |
+| **Target codebase**        | Direct file access (`../aero/`)             | The product codebase — read files, trace code, understand architecture                        |
+| **Research docs**          | Local files                                 | Product docs, architecture docs, reference material                                           |
+
+**Important**: When investigating Intercom data, verify against primary sources (actual
+conversation text in `source_body` / `support_insights`). Don't rely solely on
+pipeline-generated classifications — they may be incomplete or wrong.
+
+## The Box
+
+`box/` is where tooling accumulates. It starts nearly empty and grows as investigations
+reveal the need for reusable tools, scripts, processes, and reference material.
+
+**Principles:**
+
+- Add tooling when a real need emerges, not speculatively
+- Keep what does a good job, discard what doesn't
+- Raid from the old pipeline/discovery engine code when useful, don't rebuild from scratch
+- The box is the intelligence layer (what makes you good at discovery). Infrastructure
+  (database, API, frontend) stays in its existing locations.
 
 ## Project Structure
 
-| Path                     | Purpose                     |
-| ------------------------ | --------------------------- |
-| `src/`                   | Core pipeline code          |
-| `src/api/`               | FastAPI backend (19 routes) |
-| `webapp/`                | Next.js frontend            |
-| `tests/`                 | pytest test suite           |
-| `config/`                | Theme vocabulary, settings  |
-| `docs/`                  | Project documentation       |
-| `docs/process-playbook/` | Process gates and patterns  |
-
-## Project Context
-
-FeedForward extracts product insights from Intercom support conversations. The pipeline classifies conversations, extracts actionable themes, groups them into implementation-ready stories, and creates Shortcut tickets.
-
-**Current Phase**: Story Grouping Architecture (baseline established)
-
-See `docs/architecture.md` for complete system design and `docs/status.md` for current progress.
-
-### Smart Digest (Issue #144)
-
-Theme extraction now receives **full conversation context** instead of truncated snippets. Key fields:
-
-| Field                | Location                                 | Purpose                                    |
-| -------------------- | ---------------------------------------- | ------------------------------------------ |
-| `full_conversation`  | `conversations.support_insights` (JSONB) | Complete conversation text passed to LLM   |
-| `diagnostic_summary` | `themes` table                           | LLM-generated issue summary with context   |
-| `key_excerpts`       | `themes` table (JSONB)                   | Verbatim quotes with relevance annotations |
-
-PM Review uses `diagnostic_summary` for story validation (previously used `source_body[:500]`).
-
----
-
-## Critical Path Checklist (Every PR)
-
-```
-[ ] Tests exist (see docs/process-playbook/gates/test-gate.md)
-[ ] Fast gate passes: pytest -m "fast" (use during development)
-[ ] Pre-merge passes: pytest -m "fast or medium" (required before PR)
-[ ] Full suite passes: pytest tests/ -v (required before merge, includes slow)
-[ ] Cross-component PRs: Integration test verifies full data path (see docs/process-playbook/gates/integration-testing-gate.md)
-[ ] Pipeline PRs: Functional test evidence attached (see docs/process-playbook/gates/functional-testing-gate.md)
-[ ] Review converged: 5-personality, 2+ rounds
-[ ] Dev fixes own code (see docs/process-playbook/gates/learning-loop.md)
-[ ] CONVERGED comment posted
-[ ] Post-merge: Theo (Docs Skill) deployed for reflections
-```
-
-**PRs that skip tests will be reverted.**
-**Pipeline PRs without functional test evidence will be blocked.**
-
----
-
-## Tech Lead Gates (Self-Check)
-
-BEFORE these actions, STOP and answer:
-
-| Action                                     | Gate Question                         | If "No"                     |
-| ------------------------------------------ | ------------------------------------- | --------------------------- |
-| **Creating task list**                     | Are tests in the list?                | Add now                     |
-| **Deploying complex agent**                | Loaded required context?              | See context-loading-gate.md |
-| **Deploying 2+ agents**                    | Did architect define boundaries?      | Deploy architect first      |
-| **Launching reviewers**                    | Do tests exist for new code?          | Write tests first           |
-| **After Round 1 review**                   | Who wrote the code I'm fixing?        | Route to original dev       |
-| **Creating PR**                            | Build + tests pass?                   | Fix before PR               |
-| **PR with prompt/pipeline changes**        | Functional test run and verified?     | Run test, attach evidence   |
-| **Feature with cross-component data flow** | Integration test verifies full path?  | Add integration test first  |
-| **Executing architect output**             | Is it deleting code not in scope?     | Flag for user approval      |
-| **Session ending**                         | BACKLOG_FLAGs to file? TODOs in code? | Review and file issues      |
-| **Running pipeline**                       | Pre-flight passed? (see below)        | Run pre-flight first        |
-
-### Pipeline Execution (DEV MODE)
-
-**Pipeline runs are EXPENSIVE.** Use the dev-mode script which handles all safety checks:
-
-```bash
-# DEV MODE: Use this script - it does pre-flight checks AND auto-cleanup
-./scripts/dev-pipeline-run.sh
-
-# Options:
-./scripts/dev-pipeline-run.sh --days 7        # Process 7 days of conversations
-./scripts/dev-pipeline-run.sh --skip-cleanup  # Skip cleanup (NOT recommended in dev)
-./scripts/dev-pipeline-run.sh --help          # Show all options
-```
-
-**The script automatically:**
-
-1. Checks server is running with current code
-2. Verifies no active pipeline run
-3. Cleans stale data (orphans, themes, stories)
-4. Triggers full pipeline via API
-5. Monitors progress until completion
-
-**DO NOT run pipeline any other way during development.**
-
-**Lesson learned (2026-01-23):** Many wasted runs over 2 days from wrong commands and stale code.
-
----
-
-## Skill Deployment
-
-You (Claude Code) are the **Tech Lead**. Deploy skills via the Task tool.
-
-### Quick Decision Tree
-
-| Situation                    | Action                                   |
-| ---------------------------- | ---------------------------------------- |
-| 2+ skills needed             | **Architect first** to define boundaries |
-| <30 min, single file         | Do it yourself                           |
-| Single skill, clear contract | Skip architect                           |
-| Unsure?                      | Use architect                            |
-
-**Full coordination patterns**: `docs/process-playbook/agents/coordination-patterns.md`
-
-### The Team
-
-**Development Skills:**
-
-| Skill                    | Identity   | Domain                                    | Location                                 |
-| ------------------------ | ---------- | ----------------------------------------- | ---------------------------------------- |
-| `marcus-backend`         | **Marcus** | `src/`, database, API                     | `.claude/skills/marcus-backend/`         |
-| `sophia-frontend`        | **Sophia** | `webapp/`, UI                             | `.claude/skills/sophia-frontend/`        |
-| `kai-prompt-engineering` | **Kai**    | Theme extraction, classification, prompts | `.claude/skills/kai-prompt-engineering/` |
-| `kenji-testing`          | **Kenji**  | Tests, edge cases                         | `.claude/skills/kenji-testing/`          |
-| `priya-architecture`     | **Priya**  | Upfront design + conflict resolution      | `.claude/skills/priya-architecture/`     |
-| `theo-documentation`     | **Theo**   | Post-merge: docs + reflections            | `.claude/skills/theo-documentation/`     |
-
-**Review Skill (5-Personality):**
-
-| Personality  | Focus                           | Location                                            |
-| ------------ | ------------------------------- | --------------------------------------------------- |
-| **Reginald** | Correctness, performance        | `.claude/skills/review-5personality/personalities/` |
-| **Sanjay**   | Security, validation            | `.claude/skills/review-5personality/personalities/` |
-| **Quinn**    | Output quality, coherence       | `.claude/skills/review-5personality/personalities/` |
-| **Dmitri**   | Simplicity, YAGNI               | `.claude/skills/review-5personality/personalities/` |
-| **Maya**     | Clarity, future maintainability | `.claude/skills/review-5personality/personalities/` |
-
-Review protocol: `.claude/skills/review-5personality/SKILL.md`
-
-### Skill Count Guidance
-
-- **2-3 skills**: Easy, minimal overhead
-- **4-5 skills**: Sweet spot for complex features
-- **6+ skills**: Danger zone - coordination cost explodes
-
----
-
-## Code Review Protocol
-
-**5-Personality Review = 5 SEPARATE AGENTS + MINIMUM 2 ROUNDS**
-
-```
-Round 1: Launch 5 agents in parallel -> Collect issues -> Dev fixes own code
-Round 2: Launch 5 agents again -> Verify fixes -> Repeat until 0 new issues
-         -> Post "CONVERGED" -> Merge immediately
-```
-
-**Critical**: Use 5 separate agents, not 1 agent playing all 5 personalities.
-
-**Full protocol**: `docs/process-playbook/review/five-personality-review.md`
-
----
-
-## Key Process Gates
-
-| Gate                     | Enforcement                                       | Reference                                                 |
-| ------------------------ | ------------------------------------------------- | --------------------------------------------------------- |
-| **Test Gate**            | Tests before review, no exceptions                | `docs/process-playbook/gates/test-gate.md`                |
-| **Integration Testing**  | Cross-component features need full-path tests     | `docs/process-playbook/gates/integration-testing-gate.md` |
-| **Learning Loop**        | Original dev fixes their own review issues        | `docs/process-playbook/gates/learning-loop.md`            |
-| **5-Personality Review** | 2+ rounds, 5 separate agents                      | `docs/process-playbook/review/five-personality-review.md` |
-| **Functional Testing**   | Evidence required for pipeline/LLM PRs            | `docs/process-playbook/gates/functional-testing-gate.md`  |
-| **Backlog Hygiene**      | File issues before session ends, use BACKLOG_FLAG | `docs/process-playbook/gates/backlog-hygiene.md`          |
-
----
-
-## Skill Memory System
-
-Memories are collocated with each skill for portability.
-
-```
-.claude/skills/
-├── kai-prompt-engineering/
-│   ├── SKILL.md           # Procedures
-│   ├── IDENTITY.md        # Personality + lessons learned
-│   ├── memories/          # Skill-specific learnings
-│   └── context/
-│       └── keywords.yaml  # Declarative context loading
-└── ...
-```
-
-Context is loaded declaratively via `keywords.yaml` - no manual retrieval needed.
-
-Legacy location (deprecated): `.claude/memory/`
-
----
-
-## Backlog Hygiene (Session End)
-
-**Don't lose issues at session boundaries.** Two mechanisms:
-
-1. **Tech Lead Triggers** - Check after functional tests, review convergence, and session end:
-   - Functional test revealed out-of-scope issue?
-   - Fix exposed adjacent problem?
-   - Workaround instead of proper fix?
-   - TODO/FIXME added to code?
-
-2. **BACKLOG_FLAG Convention** - Any agent can flag potential issues:
-
-   ```markdown
-   ## BACKLOG_FLAG
-
-   title: [Concise issue title]
-   reason: [Why this matters, how it was discovered]
-   suggested_labels: [priority, type, component]
-   ```
-
-Tech Lead reviews at checkpoints, decides: file, merge with existing, or dismiss.
-
-**Full guide**: `docs/process-playbook/gates/backlog-hygiene.md`
-
----
-
-## Methodology: Validation-Driven Development (VDD)
-
-This project follows VDD principles from `reference/UAT-Agentic-Coding-Research.md`:
-
-- **Define acceptance criteria BEFORE writing code**
-- **Write failing tests first**, then implement to pass them
-- **Max 3-5 autonomous iterations** before human review
-- **Measure success objectively** (accuracy thresholds, not "looks good")
-
-VDD integrates with our process gates: Test Gate enforces tests-first, Functional Testing Gate validates LLM changes.
-
----
-
-## Issue Tracking
-
-GitHub Issues: https://github.com/paulyokota/FeedForward/issues
-
-- Use `gh issue list` to view open issues
-- Use `gh issue create` to create new issues
-- Reference issues in commits: `Fixes #N` or `Closes #N`
-- **Push with `git push`** (not `git push origin main` - explicit branch name triggers safety gate)
-
----
-
-## Commands
+| Path               | Purpose                                | Status                                                 |
+| ------------------ | -------------------------------------- | ------------------------------------------------------ |
+| `box/`             | Claude-in-a-Box toolset                | Active — accumulates as needs emerge                   |
+| `src/`             | Conversation pipeline code             | Active infrastructure — data source for investigations |
+| `src/api/`         | FastAPI backend (19 routes)            | Active infrastructure                                  |
+| `src/discovery/`   | Discovery engine (13 agents, 6 stages) | Dormant — preserved, not used. Available for raiding.  |
+| `webapp/`          | Next.js frontend                       | Active infrastructure                                  |
+| `tests/`           | pytest test suite (~2,492 tests)       | Active for infrastructure code                         |
+| `tests/discovery/` | Discovery engine tests (700+)          | Dormant — preserved, not running                       |
+| `config/`          | Theme vocabulary, settings             | Active infrastructure                                  |
+| `docs/`            | Project documentation                  | Active                                                 |
+| `reference/`       | Decision records, methodology          | Active                                                 |
+
+## Infrastructure
+
+The existing FeedForward infrastructure is still active and useful. The conversation
+pipeline (classification, themes, stories) produces data that investigations draw on.
+The API and frontend are used to view results.
+
+**Tech stack**: Python 3.11, FastAPI + Next.js, PostgreSQL
 
 ```bash
 # Start the frontend stack (requires two terminals)
@@ -289,125 +71,81 @@ cd webapp && npm run dev                        # Terminal 2: UI
 
 # Then open http://localhost:3000
 
-# Classification ONLY (NOT the full pipeline - use API for full runs)
-# See "Pipeline Pre-Flight" section before running anything
-python -m src.classification_pipeline --days 7              # Last 7 days
-python -m src.classification_pipeline --days 1 --max 10     # Test with 10 conversations
-python -m src.classification_pipeline --dry-run             # No DB writes
-python -m src.classification_pipeline --async --concurrency 20  # Async mode (faster)
-
-# FULL PIPELINE (classification → embedding → themes → stories)
-# Use the API endpoint - see "Pipeline Pre-Flight" section first
-curl -X POST "http://localhost:8000/api/pipeline/run" -H "Content-Type: application/json"
-
 # CLI commands
 python src/cli.py themes           # List all themes
 python src/cli.py trending         # Trending themes
 python src/cli.py pending          # Preview pending tickets
-
-# Tests — tiered markers (fast / medium / slow)
-pytest -m "fast"               # Pure unit tests (~1,726 tests) - CI quick gate
-pytest -m "fast" -n auto       # Same, parallelized via xdist
-pytest -m "fast or medium"     # Pre-merge gate (~2,200 tests)
-pytest -m "not slow"           # Same as "fast or medium" - full local dev
-pytest tests/ -v               # Full suite (~2,492 tests) - includes slow
-pytest -m "slow"               # Integration/pipeline tests only (~292 tests)
 ```
 
----
+## When Writing Code
+
+Most sessions will be investigation work, not code writing. But when the user asks
+you to write code — new tools for the box, infrastructure changes, bug fixes — use
+the existing development process:
+
+```bash
+# Tests
+pytest -m "fast"               # Pure unit tests (~1,726 tests) - quick gate
+pytest -m "fast or medium"     # Pre-merge gate (~2,200 tests)
+pytest tests/ -v               # Full suite (~2,492 tests)
+```
+
+**Development process docs** (use when the user requests code work):
+
+- Skills team and deployment: `.claude/skills/` (Marcus, Sophia, Kai, Kenji, Priya, Theo)
+- Code review protocol: `docs/process-playbook/review/five-personality-review.md`
+- Process gates: `docs/process-playbook/gates/`
+- Coordination patterns: `docs/process-playbook/agents/coordination-patterns.md`
+- Pipeline execution: `./scripts/dev-pipeline-run.sh` (for conversation pipeline only)
+
+## Issue Tracking
+
+GitHub Issues: https://github.com/paulyokota/FeedForward/issues
+
+- Use `gh issue list` to view open issues
+- Use `gh issue create` to create new issues
+- Reference issues in commits: `Fixes #N` or `Closes #N`
+- **Push with `git push`** (not `git push origin main`)
+
+## After Investigations
+
+When the user says **"update the log"**, do the following:
+
+1. **`box/log.md`** — Add entries for this investigation: what was slow, what was
+   manual, what was repeated, what worked surprisingly well, what almost didn't happen,
+   what data source quirks were encountered. Include the date and investigation topic.
+2. **Auto memory (`MEMORY.md`)** — Update with any durable learnings: data source
+   shortcuts, codebase navigation patterns, methodology insights that will help
+   future investigations. Remove anything that turned out to be wrong.
+
+Don't wait to be asked twice. Don't over-think what's "worthy" of logging — if it
+caught your attention during the investigation, write it down.
 
 ## Slash Commands
 
-| Command                       | Purpose                                                              |
-| ----------------------------- | -------------------------------------------------------------------- |
-| `/process-primer`             | Rebuild context on gold standard philosophy and process playbook     |
-| `/checkpoint`                 | **USE OFTEN** - Four-question verification before action (see below) |
-| `/pipeline-monitor [run_id]`  | Spawn Haiku agent to monitor pipeline, alert on errors               |
-| `/update-docs`                | Update all project docs after making changes                         |
-| `/session-end [summary]`      | End-of-session cleanup, status update, and commit                    |
-| `/create-issues [source]`     | Generate GitHub Issues from spec, file, or prompt                    |
-| `/prompt-iteration [version]` | Log new classification prompt version with metrics                   |
-| `/voice [message]`            | Start voice mode with relaxed silence detection                      |
-| `/voice-stop`                 | End voice mode and return to text                                    |
-
-### /checkpoint - The Four Questions
-
-Invoke `/checkpoint` at task start, after compaction, or when sensing drift. Forces verification before action.
-
-| Question       | What to answer                                           |
-| -------------- | -------------------------------------------------------- |
-| **PERMISSION** | Did user ask to DO or UNDERSTAND? If unclear, ask.       |
-| **VERIFIED**   | What am I assuming? Have I checked schema/callers/files? |
-| **VALUE**      | Does this help the GOAL or just move a METRIC?           |
-| **RECOVERY**   | If wrong, can we recover? If not, confirm with user.     |
-
-**This skill exists because of 17+ logged violations.** See `.claude/skills/checkpoint/SKILL.md` for full protocol.
-
----
-
-## Project-Specific Skills
-
-Auto-invoked skills that handle FeedForward-specific tasks. Claude decides when to use them based on context.
-
-| Skill                  | Purpose                                            | Location                               |
-| ---------------------- | -------------------------------------------------- | -------------------------------------- |
-| `process-primer`       | **User-invoked** - Load gold standard + playbook   | `.claude/skills/process-primer/`       |
-| `checkpoint`           | **User-invoked** - Four-question verification gate | `.claude/skills/checkpoint/`           |
-| `prompt-tester`        | Tests classification prompts, measures accuracy    | `.claude/skills/prompt-tester/`        |
-| `schema-validator`     | Validates Pydantic/DB/LLM schema consistency       | `.claude/skills/schema-validator/`     |
-| `escalation-validator` | Validates escalation rules and edge cases          | `.claude/skills/escalation-validator/` |
-
----
-
-## Developer Kit (Plugin)
-
-Claudebase Developer Kit (`developer-kit@claudebase`) provides general-purpose development capabilities:
-
-| Type     | Examples                                                                           |
-| -------- | ---------------------------------------------------------------------------------- |
-| Agents   | `architect`, `code-reviewer`, `database-admin`, `security-expert`, `python-expert` |
-| Skills   | `analyze`, `debug`, `design`, `implement`, `test`, `security`, `quality`           |
-| Commands | `/developer-kit:changelog`, `/developer-kit:reflect`, `/developer-kit:code-review` |
-
-Use these for general development tasks. Our custom subagents above are FeedForward-specific.
-
----
-
-## Frontend Design Plugin
-
-`frontend-design` plugin from `@anthropics/claude-code-plugins` for UI development:
-
-- Use for Story Tracking Web App UI (board views, detail pages, forms)
-- Provides design system guidance and component patterns
-- Installed via: `npx claude-plugins install @anthropics/claude-code-plugins/frontend-design`
-
----
+| Command                   | Purpose                                           |
+| ------------------------- | ------------------------------------------------- |
+| `/checkpoint`             | Four-question verification before action          |
+| `/session-end [summary]`  | End-of-session cleanup, status update, and commit |
+| `/create-issues [source]` | Generate GitHub Issues from spec, file, or prompt |
+| `/update-docs`            | Update all project docs after making changes      |
+| `/voice [message]`        | Start voice mode                                  |
+| `/voice-stop`             | End voice mode                                    |
 
 ## Key Documentation
 
-| Document                              | Purpose                                 |
-| ------------------------------------- | --------------------------------------- |
-| `docs/architecture.md`                | System design and components            |
-| `docs/status.md`                      | Current progress and next steps         |
-| `docs/changelog.md`                   | What's shipped                          |
-| `docs/story-grouping-architecture.md` | Story grouping pipeline design          |
-| `docs/story-granularity-standard.md`  | INVEST-based grouping criteria          |
-| `docs/tailwind-codebase-map.md`       | URL → Service mapping for ticket triage |
-| `docs/process-playbook/`              | Process gates and coordination patterns |
-
----
-
-## Reference Docs
-
-- `reference/intercom-llm-guide.md` - Technical implementation guide
-- `reference/UAT-Agentic-Coding-Research.md` - Development methodology
-- `reference/setup.md` - Project setup approach (PSB system)
-
----
+| Document                                   | Purpose                                          |
+| ------------------------------------------ | ------------------------------------------------ |
+| `reference/claude-in-a-box.md`             | Decision record for the Claude-in-a-Box approach |
+| `reference/UAT-Agentic-Coding-Research.md` | Development methodology (VDD)                    |
+| `docs/architecture.md`                     | System design and components                     |
+| `docs/status.md`                           | Current progress and next steps                  |
+| `docs/process-playbook/`                   | Process gates and coordination patterns          |
+| `docs/tailwind-codebase-map.md`            | URL to Service mapping for the target product    |
 
 ## MCP Configuration
 
-HTTP-type MCP servers (like Intercom) need tokens in the `env` block of `.mcp.json`, not just `.env`:
+HTTP-type MCP servers need tokens in the `env` block of `.mcp.json`, not just `.env`:
 
 ```json
 {

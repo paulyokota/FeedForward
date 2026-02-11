@@ -9,7 +9,7 @@ Process a single GitHub issue through the full development lifecycle: branch, pl
 
 ## issue-progress.json
 
-Create or update `issue-progress.json` in the working directory. The orchestrator reads this file to determine success or failure, so **you must update it after every phase transition**.
+Create or update `issue-progress.json` at the path in `$AGENTERMINAL_PROGRESS_PATH` (absolute). Falls back to `./issue-progress.json` if the env var is not set. The orchestrator reads this file to determine success or failure, so **you must update it after every phase transition**.
 
 ```json
 {
@@ -30,9 +30,8 @@ Valid phases: `pending`, `branched`, `planned`, `implemented`, `tested`, `review
 ### Phase 1: Read & Branch
 
 1. Read issue details: `gh issue view <number>`
-2. Create a feature branch: `git checkout -b fix/<number>-<slug>`
-   - Always use the prefix `fix/<number>-` for branches (e.g., `fix/12-login-button`). The orchestrator uses this prefix to match branches on retries.
-   - Slug: issue title, lowercase, non-alphanumeric replaced with hyphens, max 40 chars
+2. Verify you are on the correct branch (`git branch`). The orchestrator pre-creates your branch via git worktree. Do not run `git checkout -b`.
+   - If the env var `$AGENTERMINAL_PROGRESS_PATH` is **not** set, you are running standalone — create a branch yourself: `git checkout -b fix/<number>-<slug>` (prefix `fix/<number>-`, slug: lowercase, non-alphanumeric → hyphens, max 40 chars).
 3. Update issue-progress.json: `phase: "branched"`
 
 ### Phase 2: Plan
@@ -109,12 +108,13 @@ agenterminal.merge {
 
 5. If merge blocked, address blockers (update branch, wait for CI, etc.)
 6. Update issue-progress.json: `phase: "merged"`
-7. Switch back to main: `git checkout main && git pull`
+7. If not running under the orchestrator, switch back to main: `git checkout main && git pull`
 
 ### Phase 7: Cleanup
 
 1. Close the issue if not auto-closed: `gh issue close <number> --comment "Fixed in PR #<pr>"`
-2. Update issue-progress.json: `phase: "complete"`
+2. Delete the plan file: `rm -f plan-issue-<number>.md` (development artifact, not a deliverable)
+3. Update issue-progress.json: `phase: "complete"`
 
 ## Error Handling
 
@@ -128,12 +128,13 @@ agenterminal.merge {
 ### Recovery
 
 - On any unrecoverable error, update `issue-progress.json` with `phase: "skipped"` and `error: "<reason>"`
-- Switch back to main branch: `git checkout main && git pull`
+- If not running under the orchestrator (no `$AGENTERMINAL_PROGRESS_PATH`), switch back to main branch: `git checkout main && git pull`
 
 ## Tips
 
 - Always ensure you are on the correct branch before making changes
 - Commit frequently with descriptive messages referencing the issue number
+- Do NOT commit plan files (`plan-issue-*.md`) — they are gitignored development artifacts
 - If the issue is ambiguous, use `agenterminal.ask` to clarify with the user before planning
 - For the CI polling in Phase 6, use `agenterminal.github.poll` to also catch any new review comments that arrive during the wait
 - Update issue-progress.json after EVERY phase transition — the orchestrator depends on it

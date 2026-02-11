@@ -1,53 +1,25 @@
 # Last Session Summary
 
-**Date**: 2026-02-10 17:15
+**Date**: 2026-02-11
 **Branch**: main
 
 ## Goal
 
-Second discovery run against aero product repo, human review of opportunity quality, architecture direction for pipeline flexibility.
+Pivot to Claude-in-a-Box approach. Document the decision, rewrite CLAUDE.md, create box/ directory, set up learning system, and clean up project docs.
 
 ## What Happened
 
-### Second Real Run (Aero Product Repo)
-
-- Run ID: `2a9d5cb3-7477-4375-8854-86dceca4ae82`
-- Added target repo support: `--target-repo`, `--scope-dirs`, `--doc-paths`, `--no-auto-pull`
-- RepoSyncer service: auto-pull with stash/restore for dirty working trees
-- ArtifactChain.tsx rewritten with structured stage views (evidence chips, risk teasers, solution components)
-
-### Quality Evaluation (Agenterminal: session-210-disc)
-
-- Reviewed opportunities #1 and #6 in detail via UI
-- #1: Over-grouping — 8 unrelated findings bundled into single "User Experience" opportunity
-- #6: Forced user-facing framing — internal instrumentation work got user feedback mechanisms bolted on
-- source_type mislabeling bug: research documents labeled as "intercom" in OpportunityPM evidence
-
-### Architecture Direction (3-way: Paul, Claude, Codex)
-
-- Paul's thesis: pipeline over-constrains agents, forcing conforming-but-nonsensical output
-- Direction: descriptive schemas + adaptive routing (more agent freedom)
-- Rejected: prescriptive enums, more guardrails, problem-type routing
-- Filed #260 (surface-specificity) and #261 (adaptive routing)
-
-## Issues Filed
-
-- #260: Surface-specificity constraint for explorer and OpportunityPM prompts
-- #261: Adaptive pipeline routing with descriptive opportunity schemas
+- Created `reference/claude-in-a-box.md` — full decision record with verbatim transcript excerpts
+- Rewrote `CLAUDE.md` from pipeline-oriented (~440 lines) to investigation-oriented (~175 lines)
+- Created `box/` directory with minimal README and investigation log (`box/log.md`)
+- Set up learning system: investigation log + auto memory reorientation
+- Moved discovery engine history to `memory/discovery-engine-history.md`
+- Pared back `README.md` from 340 lines to 34 lines
+- Updated `docs/status.md` with pivot note
+- First investigation completed: multi-language AI content generation (24 users, PostHog reach analysis, codebase verification)
 
 ## Key Decisions
 
-- "Descriptive over prescriptive" — let agents describe what they found, pipeline adapts
-- #260 first (surgical), #261 second (fundamental)
-- Pause opportunity evaluation until both land
-
-## Agenterminal Conversations
-
-- `session-210-disc`: Discovery run review and architecture discussion
-
-## Next
-
-1. #260 — Surface-specificity constraint
-2. #261 — Adaptive pipeline routing with descriptive schemas
-3. Re-run discovery against aero with improved pipeline
-4. source_type mislabeling bug (file as separate issue)
+- Claude-in-a-Box replaces the 13-agent discovery engine pipeline
+- Old code preserved (non-destructive migration), new tooling accumulates in box/
+- "Update the log" convention defined for post-investigation learning capture
