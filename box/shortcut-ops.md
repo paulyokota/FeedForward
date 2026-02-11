@@ -88,6 +88,26 @@ New Shortcut cards use this description template:
 -
 ```
 
+### Section expectations
+
+Most cards today are bare-bones — a one-liner "What" and dashes everywhere else.
+The goal is to make each section substantive:
+
+- **"What"**: Clear feature description. What does this do, who is it for, what
+  changes from the user's perspective. Not just a verbatim Slack quote.
+- **Evidence**: Data points, customer quotes, support ticket counts, usage metrics
+  — anything that demonstrates demand or validates the need.
+- **Monetization Angle**: How this connects to revenue. Credit consumption,
+  conversion, retention, upsell path.
+- **UI Representation**: Wireframes, mockups, or written descriptions of what the
+  user sees and interacts with.
+- **Reporting Needs/Measurement Plan**: What to measure to know if this worked.
+  Events to track, success criteria, dashboards.
+- **Release strategy**: Phasing, feature flags, beta groups, rollout plan.
+
+When creating cards from investigations, populate sections with findings rather
+than leaving them empty. The fill-cards play is for fleshing out what's missing.
+
 ## The Three Plays
 
 ### 1. Sync Ideas (Slack #ideas → Shortcut)
@@ -133,20 +153,37 @@ execute decisions (archive loser, merge content, add story links).
 - Check `archived` status before archiving
 - Check for `## Merged from SC-{id}` heading before merging content
 
-### 3. Fill Cards (interactive grooming)
+### 3. Fill Cards (investigation-driven grooming)
 
-**What it does**: Find stories with empty template sections, present one at a
-time, accept brain dumps, synthesize into polished section content, push updates.
+**What it does**: Find stories with empty template sections, investigate across
+data sources (Intercom API, PostHog, codebase, Slack), synthesize findings into
+card content, and present a complete draft for Paul's approval.
+
+**The goal is an approved draft, not a pushed card.** Pushing to Shortcut is a
+separate step that happens only after Paul has reviewed the full card text and
+said to ship it. "Let me push it" is not approval. Present the wording, wait
+for explicit go-ahead.
 
 **Key behaviors**:
 
 - Rank by most empty sections first, then oldest
 - Present one card at a time with full content rendered
-- Accept free-form brain dumps — figure out which sections they address
+- Investigate: hit Intercom API (not just DB), PostHog, codebase, Slack for evidence
 - Synthesize into clear, concise product writing (bullet points, no jargon inflation)
 - Don't add ideas Paul didn't express, don't drop ideas he did
-- "mark as ready" = update + move to Ready to Build + unassign all owners
+- Present the full draft text for review before pushing anything
+- "mark as ready" = update + move to Ready to Build + unassign all owners (only after approval)
 - Supports voice mode if available
+
+**Verification bar** (before presenting a draft):
+
+- If the card names a database column or table, you've read the schema definition
+- If the card names a code file or path, you've confirmed it exists
+- If the card recommends a data source, you've traced the write path to confirm it has the data you're claiming
+- If the card cites a number, you can point to where it came from
+
+This isn't about constraining creativity or solution design. It's about making
+sure the facts underneath the solution are correct before presenting.
 
 **Idempotency**:
 

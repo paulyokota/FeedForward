@@ -5,20 +5,35 @@
 
 ## Goal
 
-Finish Claude-in-a-Box setup: pare back README, update status.md, set up learning system, and commit everything.
+Fill-cards play: SC-150 (multi-language AI generation), plus process improvements.
 
 ## What Happened
 
-- Pared back README.md from 340 lines to 34 lines
-- Updated docs/status.md with pivot note at top
-- Committed the full Claude-in-a-Box pivot (reference doc, CLAUDE.md rewrite, box/ directory, status update)
-- Diagnosed Developer Kit Stop hook overwriting `docs/session/last-session.md` — moved session notes to `box/session.md` instead of patching the plugin
-- Updated the investigation log (`box/log.md`) with 7 new entries from the first investigation, using the readable transcript at `~/Desktop/session-dc28eb93-transcript.md`
-- Updated auto memory with Intercom data access paths (DB cache + API), stale data note, query patterns, context limits
-- Verified new session context carry-over — clean pickup of pivot, identity, methodology
+- Completed SC-150 card: "Allow users to set a language for all AI generation"
+  - Gathered fresh Intercom API evidence (111 conversations, 104 contacts)
+  - Refreshed PostHog reach numbers (~4,270 non-English AI feature users)
+  - Discovered `user_accounts.language` does NOT exist (corrected from earlier investigation)
+  - Iterated through three drafts before arriving at approved content
+  - Card is in "In Definition" on Shortcut with CSV evidence attached
+- Process improvements from SC-150 lessons:
+  - Reframed fill-cards play goal: "approved draft" not "pushed card"
+  - Added verification bar to fill-cards play (schema reads, file checks, write path traces)
+  - Added "Shortcut as Production Surface" rules to MEMORY.md
+  - Added "respond before acting" as first communication rule
+  - Revised subagent usage: broad mapping only, direct reads for card claims
+- Fixed MEMORY.md: removed incorrect `user_accounts.language`/`.locale` claim
+- Added v2 settings page location to MEMORY.md
+- Extensive log entries for SC-150 investigation
 
 ## Key Decisions
 
-- Session notes live in `box/session.md` to avoid Developer Kit plugin overwriting them
-- Intercom has two access paths: FeedForward DB (cached, aging) and Intercom API (`src/intercom_client.py`)
-- New session verified: CLAUDE.md + reference doc + auto memory provide sufficient carry-over context
+- Language preference should be explicit (not auto-detected) due to bidirectional intent
+- UI location: rename Ghostwriter tab to "AI Settings" in v2 settings page
+- Fill-cards play goal is an approved draft, pushing is a separate step
+- Explore subagents for orientation, direct file reads for claims on cards
+- Process improvements are justified by repeated failures, but Skills/automation can wait until patterns stabilize
+
+## Carried Forward
+
+- Fill-cards play continues with remaining cards from the ranked list
+- AgenTerminal session to resume (crashed during this session, fixed)

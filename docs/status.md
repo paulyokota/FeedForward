@@ -1,5 +1,11 @@
 # Project Status
 
+## Fill-Cards Play In Progress (2026-02-11)
+
+Three cards investigated so far: SC-117 (summary emails, Ready to Build), SC-52 (SmartPin account filtering, Need Requirements), SC-150 (multi-language AI generation, In Definition). Process refinements after each card: play goal reframed as "approved draft not pushed card," verification bar added, subagent usage scoped to broad mapping only. Next: continue with remaining cards from the ranked emptiness list.
+
+---
+
 ## Current Approach: Claude in a Box (2026-02-11)
 
 Product discovery now uses a single Claude Code instance with direct access to data sources (Intercom DB, PostHog, target codebase) instead of the multi-agent discovery pipeline. See `reference/claude-in-a-box.md` for the full decision record.
