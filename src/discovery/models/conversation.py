@@ -31,6 +31,7 @@ class EventType(str, Enum):
     EXPLORER_RESPONSE = "explorer:response"
     CHECKPOINT_SUBMIT = "checkpoint:submit"
     STAGE_TRANSITION = "stage:transition"
+    INPUT_VALIDATION = "input:validation"
 
 
 class ConversationTurn(BaseModel):
