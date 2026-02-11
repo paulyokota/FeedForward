@@ -270,6 +270,7 @@ class TestDiscoveryOrchestrator:
         # Stage 2: Mock SolutionDesigner
         sol_instance = mock_solution_cls.return_value
         sol_instance.design_solution.return_value = _mock_solution_design_result()
+        sol_instance.validate_input.return_value = _mock_validation_result(accepted=["checkout"])
         sol_instance.build_checkpoint_artifacts.return_value = {
             "schema_version": 1,
             "solutions": [
@@ -294,6 +295,7 @@ class TestDiscoveryOrchestrator:
         # Stage 3: Mock FeasibilityDesigner
         feas_instance = mock_feasibility_cls.return_value
         feas_instance.assess_feasibility.return_value = _mock_feasibility_result()
+        feas_instance.validate_input.return_value = _mock_validation_result(accepted=["checkout"])
         feas_instance.build_checkpoint_artifacts.return_value = {
             "schema_version": 1,
             "specs": [
@@ -320,6 +322,7 @@ class TestDiscoveryOrchestrator:
         # Stage 4: Mock TPMAgent
         tpm_instance = mock_tpm_cls.return_value
         tpm_instance.rank_opportunities.return_value = _mock_ranking_result()
+        tpm_instance.validate_input.return_value = _mock_validation_result(accepted=["checkout"])
         tpm_instance.build_checkpoint_artifacts.return_value = {
             "schema_version": 1,
             "rankings": [
@@ -554,6 +557,7 @@ class TestDiscoveryOrchestrator:
         # Stage 2
         sol_instance = mock_solution_cls.return_value
         sol_instance.design_solution.return_value = _mock_solution_design_result()
+        sol_instance.validate_input.return_value = _mock_validation_result(accepted=["checkout"])
         sol_instance.build_checkpoint_artifacts.return_value = {
             "schema_version": 1,
             "solutions": [
@@ -578,6 +582,7 @@ class TestDiscoveryOrchestrator:
         # Stage 3
         feas_instance = mock_feasibility_cls.return_value
         feas_instance.assess_feasibility.return_value = _mock_feasibility_result()
+        feas_instance.validate_input.return_value = _mock_validation_result(accepted=["checkout"])
         feas_instance.build_checkpoint_artifacts.return_value = {
             "schema_version": 1,
             "specs": [
@@ -604,6 +609,7 @@ class TestDiscoveryOrchestrator:
         # Stage 4
         tpm_instance = mock_tpm_cls.return_value
         tpm_instance.rank_opportunities.return_value = _mock_ranking_result()
+        tpm_instance.validate_input.return_value = _mock_validation_result(accepted=["checkout"])
         tpm_instance.build_checkpoint_artifacts.return_value = {
             "schema_version": 1,
             "rankings": [
@@ -630,8 +636,9 @@ class TestDiscoveryOrchestrator:
         invocations = storage.agent_invocations
         agent_names = [inv.agent_name for inv in invocations]
 
-        # 4 explorers + opportunity_pm + solution_designer + feasibility_designer + tpm_agent = 8
-        assert len(invocations) == 8, f"Expected 8 invocations, got {len(invocations)}: {agent_names}"
+        # 4 explorers + opportunity_pm + solution_designer_validate + solution_designer
+        # + feasibility_designer_validate + feasibility_designer + tpm_validate + tpm_agent = 11
+        assert len(invocations) == 11, f"Expected 11 invocations, got {len(invocations)}: {agent_names}"
 
         # Check explorer invocations
         assert "customer_voice" in agent_names
@@ -668,3 +675,557 @@ class TestDiscoveryOrchestrator:
 
         pri_stage = [s for s in stages if s.stage == StageType.PRIORITIZATION][0]
         assert "tpm_agent" in pri_stage.participating_agents
+
+
+# ============================================================================
+# Validation-retry-process loop tests (#278)
+# ============================================================================
+
+
+def _mock_validation_result(accepted=None, rejected=None):
+    """Build an InputValidationResult for testing."""
+    from src.discovery.models.artifacts import InputRejection, InputValidationResult
+
+    return InputValidationResult(
+        accepted_items=accepted or [],
+        rejected_items=[
+            InputRejection(
+                item_id=r["item_id"],
+                rejection_reason=r.get("reason", "too vague"),
+                rejecting_agent=r.get("agent", "test_agent"),
+                suggested_improvement=r.get("suggestion"),
+            )
+            for r in (rejected or [])
+        ],
+        token_usage={"prompt_tokens": 50, "completion_tokens": 30, "total_tokens": 80},
+    )
+
+
+@pytest.mark.slow
+class TestValidationRetryBriefs:
+    """Tests for _validate_retry_briefs (Stage 2 input validation)."""
+
+    def _create_orchestrator(self, storage=None, transport=None):
+        storage = storage or InMemoryStorage()
+        transport = transport or InMemoryTransport()
+        mock_client = MagicMock()
+        orchestrator = DiscoveryOrchestrator(
+            db_connection=MagicMock(),
+            transport=transport,
+            openai_client=mock_client,
+            posthog_data={},
+            repo_root="/tmp/fake-repo",
+        )
+        orchestrator.storage = storage
+        orchestrator.state_machine.storage = storage
+        orchestrator.service.storage = storage
+        orchestrator.service.state_machine.storage = storage
+        return orchestrator, storage, mock_client
+
+    def _make_briefs(self, count=3):
+        return [
+            {
+                "affected_area": f"area_{i}",
+                "problem_statement": f"Problem {i}",
+                "evidence": [_evidence()],
+                "counterfactual": f"Counter {i}",
+                "explorer_coverage": "Reviewed data",
+            }
+            for i in range(count)
+        ]
+
+    def test_all_accepted_passes_through(self):
+        """When all briefs are accepted, they pass through unchanged."""
+        orchestrator, storage, _ = self._create_orchestrator()
+
+        briefs = self._make_briefs(3)
+        designer = MagicMock()
+        designer.validate_input.return_value = _mock_validation_result(
+            accepted=["area_0", "area_1", "area_2"],
+        )
+        pm = MagicMock()
+
+        result = orchestrator._validate_retry_briefs(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            designer=designer, pm=pm, briefs=briefs, explorer_checkpoint={},
+        )
+
+        assert len(result) == 3
+        assert [b["affected_area"] for b in result] == ["area_0", "area_1", "area_2"]
+        pm.reframe_rejected.assert_not_called()
+
+    def test_partial_reject_retry_succeeds(self):
+        """Rejected briefs are revised and re-validated."""
+        orchestrator, storage, _ = self._create_orchestrator()
+
+        briefs = self._make_briefs(3)
+        designer = MagicMock()
+        # First call: area_1 rejected
+        designer.validate_input.side_effect = [
+            _mock_validation_result(
+                accepted=["area_0", "area_2"],
+                rejected=[{"item_id": "area_1", "reason": "too vague"}],
+            ),
+            # Re-validation of revised brief: accepted
+            _mock_validation_result(accepted=["area_1"]),
+        ]
+
+        pm = MagicMock()
+        pm.reframe_rejected.return_value = _mock_framing_result()
+        pm.build_checkpoint_artifacts.return_value = {
+            "briefs": [
+                {
+                    "affected_area": "area_1",
+                    "problem_statement": "Revised problem",
+                    "evidence": [_evidence()],
+                    "counterfactual": "Revised counter",
+                    "explorer_coverage": "Reviewed data",
+                }
+            ]
+        }
+
+        result = orchestrator._validate_retry_briefs(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            designer=designer, pm=pm, briefs=briefs, explorer_checkpoint={},
+        )
+
+        assert len(result) == 3
+        pm.reframe_rejected.assert_called_once()
+        assert designer.validate_input.call_count == 2
+
+    def test_retry_exhausted_adds_warnings(self):
+        """After MAX_VALIDATION_RETRIES, rejected items get validation_warnings."""
+        orchestrator, storage, _ = self._create_orchestrator()
+
+        briefs = self._make_briefs(3)
+        designer = MagicMock()
+        # Always reject area_1
+        designer.validate_input.return_value = _mock_validation_result(
+            accepted=["area_0", "area_2"],
+            rejected=[{"item_id": "area_1", "reason": "persistently vague"}],
+        )
+
+        pm = MagicMock()
+        pm.reframe_rejected.return_value = _mock_framing_result()
+        pm.build_checkpoint_artifacts.return_value = {
+            "briefs": [
+                {
+                    "affected_area": "area_1",
+                    "problem_statement": "Still vague",
+                    "evidence": [_evidence()],
+                    "counterfactual": "Counter",
+                    "explorer_coverage": "Reviewed data",
+                }
+            ]
+        }
+
+        result = orchestrator._validate_retry_briefs(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            designer=designer, pm=pm, briefs=briefs, explorer_checkpoint={},
+        )
+
+        # All 3 should be returned: 2 accepted + 1 warned
+        assert len(result) == 3
+        # Warned item should be at the end
+        warned = [b for b in result if b.get("validation_warnings")]
+        assert len(warned) == 1
+        assert warned[0]["affected_area"] == "area_1"
+        assert "persistently vague" in warned[0]["validation_warnings"][0]
+
+    def test_all_rejected_all_warned(self):
+        """When all briefs are rejected and stay rejected, all get warnings."""
+        orchestrator, storage, _ = self._create_orchestrator()
+
+        briefs = self._make_briefs(2)
+        designer = MagicMock()
+        designer.validate_input.return_value = _mock_validation_result(
+            rejected=[
+                {"item_id": "area_0", "reason": "vague"},
+                {"item_id": "area_1", "reason": "vague"},
+            ],
+        )
+
+        pm = MagicMock()
+        pm.reframe_rejected.return_value = _mock_framing_result()
+        pm.build_checkpoint_artifacts.return_value = {
+            "briefs": [
+                {"affected_area": "area_0", "problem_statement": "P0", "evidence": [], "counterfactual": "C0", "explorer_coverage": "R"},
+                {"affected_area": "area_1", "problem_statement": "P1", "evidence": [], "counterfactual": "C1", "explorer_coverage": "R"},
+            ]
+        }
+
+        result = orchestrator._validate_retry_briefs(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            designer=designer, pm=pm, briefs=briefs, explorer_checkpoint={},
+        )
+
+        assert len(result) == 2
+        assert all(b.get("validation_warnings") for b in result)
+
+    def test_validate_input_exception_accepts_all(self):
+        """When validate_input raises, all briefs are accepted (graceful degradation)."""
+        orchestrator, storage, _ = self._create_orchestrator()
+
+        briefs = self._make_briefs(3)
+        designer = MagicMock()
+        designer.validate_input.side_effect = RuntimeError("LLM timeout")
+        pm = MagicMock()
+
+        result = orchestrator._validate_retry_briefs(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            designer=designer, pm=pm, briefs=briefs, explorer_checkpoint={},
+        )
+
+        assert len(result) == 3
+        assert result == briefs
+        pm.reframe_rejected.assert_not_called()
+
+    def test_ordering_accepted_first_warned_last(self):
+        """Accepted items preserve original order, warned items appended at end."""
+        orchestrator, storage, _ = self._create_orchestrator()
+
+        briefs = self._make_briefs(4)  # area_0, area_1, area_2, area_3
+        designer = MagicMock()
+        # area_1 rejected always
+        designer.validate_input.return_value = _mock_validation_result(
+            accepted=["area_0", "area_2", "area_3"],
+            rejected=[{"item_id": "area_1", "reason": "vague"}],
+        )
+
+        pm = MagicMock()
+        pm.reframe_rejected.return_value = _mock_framing_result()
+        pm.build_checkpoint_artifacts.return_value = {
+            "briefs": [{"affected_area": "area_1", "problem_statement": "P", "evidence": [], "counterfactual": "C", "explorer_coverage": "R"}]
+        }
+
+        result = orchestrator._validate_retry_briefs(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            designer=designer, pm=pm, briefs=briefs, explorer_checkpoint={},
+        )
+
+        areas = [b["affected_area"] for b in result]
+        # Accepted in original order, warned at end
+        assert areas == ["area_0", "area_2", "area_3", "area_1"]
+
+    def test_empty_briefs_passes_through(self):
+        """Empty briefs list returns empty without calling validate_input."""
+        orchestrator, storage, _ = self._create_orchestrator()
+        designer = MagicMock()
+        pm = MagicMock()
+
+        result = orchestrator._validate_retry_briefs(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            designer=designer, pm=pm, briefs=[], explorer_checkpoint={},
+        )
+
+        assert result == []
+        designer.validate_input.assert_not_called()
+
+
+@pytest.mark.slow
+class TestValidationRetrySolutions:
+    """Tests for _validate_retry_solutions (Stage 3 input validation)."""
+
+    def _create_orchestrator(self, storage=None, transport=None):
+        storage = storage or InMemoryStorage()
+        transport = transport or InMemoryTransport()
+        mock_client = MagicMock()
+        orchestrator = DiscoveryOrchestrator(
+            db_connection=MagicMock(),
+            transport=transport,
+            openai_client=mock_client,
+            posthog_data={},
+            repo_root="/tmp/fake-repo",
+        )
+        orchestrator.storage = storage
+        orchestrator.state_machine.storage = storage
+        orchestrator.service.storage = storage
+        orchestrator.service.state_machine.storage = storage
+        return orchestrator, storage, mock_client
+
+    def _make_pairs(self, count=3):
+        briefs = [
+            {
+                "affected_area": f"area_{i}",
+                "problem_statement": f"Problem {i}",
+                "evidence": [_evidence()],
+            }
+            for i in range(count)
+        ]
+        solutions = [
+            {
+                "proposed_solution": f"Solution {i}",
+                "experiment_plan": f"Plan {i}",
+                "success_metrics": f"Metric {i}",
+                "build_experiment_decision": BuildExperimentDecision.EXPERIMENT_FIRST.value,
+                "decision_rationale": f"Rationale {i}",
+                "evidence": [_evidence()],
+            }
+            for i in range(count)
+        ]
+        return briefs, solutions
+
+    def test_all_accepted(self):
+        orchestrator, _, _ = self._create_orchestrator()
+        briefs, solutions = self._make_pairs(3)
+
+        feas_designer = MagicMock()
+        feas_designer.validate_input.return_value = _mock_validation_result(
+            accepted=["area_0", "area_1", "area_2"],
+        )
+        sol_designer = MagicMock()
+
+        final_b, final_s = orchestrator._validate_retry_solutions(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            feas_designer=feas_designer, sol_designer=sol_designer,
+            briefs=briefs, solutions=solutions,
+        )
+
+        assert len(final_b) == 3
+        assert len(final_s) == 3
+        sol_designer.revise_rejected.assert_not_called()
+
+    def test_partial_reject_retry(self):
+        orchestrator, _, _ = self._create_orchestrator()
+        briefs, solutions = self._make_pairs(3)
+
+        feas_designer = MagicMock()
+        feas_designer.validate_input.side_effect = [
+            _mock_validation_result(
+                accepted=["area_0", "area_2"],
+                rejected=[{"item_id": "area_1", "reason": "missing metrics"}],
+            ),
+            _mock_validation_result(accepted=["area_1"]),
+        ]
+
+        sol_designer = MagicMock()
+        sol_designer.revise_rejected.return_value = [_mock_solution_design_result()]
+        sol_designer.build_checkpoint_artifacts.return_value = {
+            "solutions": [
+                {
+                    "proposed_solution": "Revised solution",
+                    "experiment_plan": "Revised plan",
+                    "success_metrics": "Better metric",
+                    "build_experiment_decision": BuildExperimentDecision.EXPERIMENT_FIRST.value,
+                    "decision_rationale": "Revised rationale",
+                    "evidence": [_evidence()],
+                }
+            ]
+        }
+
+        final_b, final_s = orchestrator._validate_retry_solutions(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            feas_designer=feas_designer, sol_designer=sol_designer,
+            briefs=briefs, solutions=solutions,
+        )
+
+        assert len(final_b) == 3
+        assert len(final_s) == 3
+        sol_designer.revise_rejected.assert_called_once()
+
+    def test_validate_input_exception_accepts_all(self):
+        orchestrator, _, _ = self._create_orchestrator()
+        briefs, solutions = self._make_pairs(3)
+
+        feas_designer = MagicMock()
+        feas_designer.validate_input.side_effect = RuntimeError("Boom")
+        sol_designer = MagicMock()
+
+        final_b, final_s = orchestrator._validate_retry_solutions(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            feas_designer=feas_designer, sol_designer=sol_designer,
+            briefs=briefs, solutions=solutions,
+        )
+
+        assert final_b == briefs
+        assert final_s == solutions
+
+
+@pytest.mark.slow
+class TestValidationRetryPackages:
+    """Tests for _validate_retry_packages (Stage 4 input validation)."""
+
+    def _create_orchestrator(self, storage=None, transport=None):
+        storage = storage or InMemoryStorage()
+        transport = transport or InMemoryTransport()
+        mock_client = MagicMock()
+        orchestrator = DiscoveryOrchestrator(
+            db_connection=MagicMock(),
+            transport=transport,
+            openai_client=mock_client,
+            posthog_data={},
+            repo_root="/tmp/fake-repo",
+        )
+        orchestrator.storage = storage
+        orchestrator.state_machine.storage = storage
+        orchestrator.service.storage = storage
+        orchestrator.service.state_machine.storage = storage
+        return orchestrator, storage, mock_client
+
+    def _make_packages(self, count=3):
+        return [
+            {
+                "opportunity_id": f"opp_{i}",
+                "opportunity_brief": {"affected_area": f"opp_{i}", "problem_statement": f"P{i}"},
+                "solution_brief": {"proposed_solution": f"S{i}"},
+                "technical_spec": {
+                    "opportunity_id": f"opp_{i}",
+                    "approach": f"Approach {i}",
+                    "effort_estimate": "1 week",
+                    "dependencies": "None",
+                    "risks": [],
+                    "acceptance_criteria": f"Criteria {i}",
+                },
+            }
+            for i in range(count)
+        ]
+
+    def test_all_accepted(self):
+        orchestrator, _, _ = self._create_orchestrator()
+        packages = self._make_packages(3)
+
+        tpm = MagicMock()
+        tpm.validate_input.return_value = _mock_validation_result(
+            accepted=["opp_0", "opp_1", "opp_2"],
+        )
+        feas_designer = MagicMock()
+
+        result = orchestrator._validate_retry_packages(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            tpm=tpm, feas_designer=feas_designer,
+            packages=packages, solution_map={},
+        )
+
+        assert len(result) == 3
+        feas_designer.revise_rejected.assert_not_called()
+
+    def test_partial_reject_retry(self):
+        orchestrator, _, _ = self._create_orchestrator()
+        packages = self._make_packages(3)
+
+        tpm = MagicMock()
+        tpm.validate_input.side_effect = [
+            _mock_validation_result(
+                accepted=["opp_0", "opp_2"],
+                rejected=[{"item_id": "opp_1", "reason": "incomplete spec"}],
+            ),
+            _mock_validation_result(accepted=["opp_1"]),
+        ]
+
+        feas_designer = MagicMock()
+        feas_designer.revise_rejected.return_value = [_mock_feasibility_result()]
+        feas_designer.build_checkpoint_artifacts.return_value = {
+            "specs": [
+                {
+                    "opportunity_id": "opp_1",
+                    "approach": "Revised approach",
+                    "effort_estimate": "2 weeks",
+                    "dependencies": "None",
+                    "risks": [],
+                    "acceptance_criteria": "Better criteria",
+                }
+            ],
+            "infeasible_solutions": [],
+        }
+
+        result = orchestrator._validate_retry_packages(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            tpm=tpm, feas_designer=feas_designer,
+            packages=packages, solution_map={},
+        )
+
+        assert len(result) == 3
+        feas_designer.revise_rejected.assert_called_once()
+
+    def test_validate_input_exception_accepts_all(self):
+        orchestrator, _, _ = self._create_orchestrator()
+        packages = self._make_packages(3)
+
+        tpm = MagicMock()
+        tpm.validate_input.side_effect = RuntimeError("Crash")
+        feas_designer = MagicMock()
+
+        result = orchestrator._validate_retry_packages(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            tpm=tpm, feas_designer=feas_designer,
+            packages=packages, solution_map={},
+        )
+
+        assert result == packages
+
+
+@pytest.mark.slow
+class TestValidationGeneral:
+    """General validation tests: constant, events, invocations."""
+
+    def test_max_validation_retries_is_two(self):
+        from src.discovery.orchestrator import MAX_VALIDATION_RETRIES
+        assert MAX_VALIDATION_RETRIES == 2
+
+    def test_post_validation_event_called(self):
+        """INPUT_VALIDATION events are posted during validation."""
+        storage = InMemoryStorage()
+        transport = InMemoryTransport()
+        mock_client = MagicMock()
+        orchestrator = DiscoveryOrchestrator(
+            db_connection=MagicMock(),
+            transport=transport,
+            openai_client=mock_client,
+            posthog_data={},
+            repo_root="/tmp/fake-repo",
+        )
+        orchestrator.storage = storage
+        orchestrator.state_machine.storage = storage
+        orchestrator.service.storage = storage
+        orchestrator.service.state_machine.storage = storage
+
+        validation = _mock_validation_result(
+            accepted=["a", "b"],
+            rejected=[{"item_id": "c", "reason": "bad"}],
+        )
+
+        # post_event won't fail — InMemoryTransport handles it
+        orchestrator._post_validation_event("test-convo", "test_agent", 0, validation)
+
+        # Verify event was posted via transport
+        turns = transport.read_turns("test-convo")
+        assert len(turns) == 1
+        assert "input:validation" in turns[0]["text"]
+
+    def test_record_invocation_for_validation(self):
+        """_record_invocation is called for validation LLM calls."""
+        storage = InMemoryStorage()
+        transport = InMemoryTransport()
+        mock_client = MagicMock()
+        orchestrator = DiscoveryOrchestrator(
+            db_connection=MagicMock(),
+            transport=transport,
+            openai_client=mock_client,
+            posthog_data={},
+            repo_root="/tmp/fake-repo",
+        )
+        orchestrator.storage = storage
+        orchestrator.state_machine.storage = storage
+        orchestrator.service.storage = storage
+        orchestrator.service.state_machine.storage = storage
+
+        briefs = [
+            {"affected_area": "a", "problem_statement": "P", "evidence": [], "counterfactual": "C", "explorer_coverage": "R"},
+        ]
+        designer = MagicMock()
+        designer.validate_input.return_value = _mock_validation_result(accepted=["a"])
+        pm = MagicMock()
+
+        # Create a mock run + stage execution for invocation recording
+        from uuid import uuid4
+        run_id = uuid4()
+
+        orchestrator._validate_retry_briefs(
+            run_id=run_id, convo_id="test-convo", stage_execution_id=1,
+            designer=designer, pm=pm, briefs=briefs, explorer_checkpoint={},
+        )
+
+        # Should have recorded 1 invocation (the validate_input call)
+        invocations = [inv for inv in storage.agent_invocations
+                       if inv.agent_name == "solution_designer_validate"]
+        assert len(invocations) == 1
