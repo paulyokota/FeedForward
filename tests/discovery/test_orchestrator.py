@@ -907,6 +907,46 @@ class TestValidationRetryBriefs:
         # Accepted in original order, warned at end
         assert areas == ["area_0", "area_2", "area_3", "area_1"]
 
+    def test_revised_brief_with_changed_id_replaces_original(self):
+        """When reframe_rejected changes affected_area, the old brief is replaced."""
+        orchestrator, storage, _ = self._create_orchestrator()
+
+        briefs = self._make_briefs(3)  # area_0, area_1, area_2
+        designer = MagicMock()
+        # area_1 rejected on first pass, accepted with new ID on second
+        designer.validate_input.side_effect = [
+            _mock_validation_result(
+                accepted=["area_0", "area_2"],
+                rejected=[{"item_id": "area_1", "reason": "too broad"}],
+            ),
+            _mock_validation_result(accepted=["area_1_specific"]),
+        ]
+
+        pm = MagicMock()
+        pm.reframe_rejected.return_value = _mock_framing_result()
+        pm.build_checkpoint_artifacts.return_value = {
+            "briefs": [
+                {
+                    "affected_area": "area_1_specific",
+                    "problem_statement": "Revised and specific",
+                    "evidence": [_evidence()],
+                    "counterfactual": "C",
+                    "explorer_coverage": "R",
+                }
+            ]
+        }
+
+        result = orchestrator._validate_retry_briefs(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            designer=designer, pm=pm, briefs=briefs, explorer_checkpoint={},
+        )
+
+        areas = [b["affected_area"] for b in result]
+        # No duplicates: area_1 should be replaced by area_1_specific
+        assert "area_1" not in areas
+        assert "area_1_specific" in areas
+        assert len(result) == 3
+
     def test_empty_briefs_passes_through(self):
         """Empty briefs list returns empty without calling validate_input."""
         orchestrator, storage, _ = self._create_orchestrator()

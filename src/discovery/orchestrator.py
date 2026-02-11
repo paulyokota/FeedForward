@@ -622,13 +622,21 @@ class DiscoveryOrchestrator:
                 framing_result.token_usage, started_at,
             )
 
-            # Update item_map with revised briefs (keyed by affected_area)
+            # Update item_map with revised briefs. When affected_area changes,
+            # replace the old ID in item_ids to avoid emitting both old and new.
             revised_brief_ids = set()
-            for rb in revised_briefs:
+            for idx, rb in enumerate(revised_briefs):
                 rb_id = rb.get(id_field, "")
-                if rb_id:
-                    item_map[rb_id] = rb
-                    revised_brief_ids.add(rb_id)
+                if not rb_id:
+                    continue
+                item_map[rb_id] = rb
+                revised_brief_ids.add(rb_id)
+                # If revised brief changed its ID, swap in item_ids
+                if idx < len(rej_list):
+                    old_id = rej_list[idx].item_id
+                    if old_id != rb_id and old_id in set(item_ids):
+                        item_ids = [rb_id if iid == old_id else iid for iid in item_ids]
+                        item_map.pop(old_id, None)
 
             if len(revised_briefs) != len(rej_list):
                 logger.warning(
@@ -983,12 +991,14 @@ class DiscoveryOrchestrator:
         warned_ids = set()
         for r in rejected:
             if r.item_id in pkg_map:
-                spec = pkg_map[r.item_id].get("technical_spec", {})
+                pkg = pkg_map[r.item_id]
+                spec = pkg.get("technical_spec", {})
                 warnings = spec.get("validation_warnings") or []
                 warnings.append(
                     f"Rejected after {MAX_VALIDATION_RETRIES} retries: {r.rejection_reason}"
                 )
                 spec["validation_warnings"] = warnings
+                pkg["technical_spec"] = spec
                 warned_ids.add(r.item_id)
 
         # Deterministic ordering: accepted in original order, warned appended
