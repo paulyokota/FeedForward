@@ -31,6 +31,8 @@ from src.discovery.agents.prompts import (
     SOLUTION_PROPOSAL_USER,
     SOLUTION_REENTRY_SYSTEM,
     SOLUTION_REENTRY_USER,
+    SOLUTION_REVISE_REJECTED_SYSTEM,
+    SOLUTION_REVISE_REJECTED_USER,
     SOLUTION_REVISION_SYSTEM,
     SOLUTION_REVISION_USER,
 )
@@ -418,6 +420,105 @@ class SolutionDesigner:
             total_usage=total_usage,
             experience_skipped=skip_experience,
         )
+
+    def revise_rejected(
+        self,
+        rejected_solutions: List[Dict[str, Any]],
+        rejections: List[InputRejection],
+        briefs: List[Dict[str, Any]],
+    ) -> List[SolutionDesignResult]:
+        """Revise rejected SolutionBriefs using rejection feedback.
+
+        Each rejected solution is paired with its InputRejection and
+        corresponding OpportunityBrief by index.
+
+        Args:
+            rejected_solutions: Original SolutionBrief dicts that were rejected.
+            rejections: Corresponding InputRejection objects (same order/length).
+            briefs: Corresponding OpportunityBrief dicts (same order/length).
+
+        Returns:
+            List of SolutionDesignResult for successfully revised solutions.
+        """
+        if len(rejected_solutions) != len(rejections) or len(rejected_solutions) != len(briefs):
+            raise ValueError(
+                f"rejected_solutions ({len(rejected_solutions)}), rejections "
+                f"({len(rejections)}), and briefs ({len(briefs)}) must have "
+                f"the same length"
+            )
+
+        if not rejected_solutions:
+            return []
+
+        results: List[SolutionDesignResult] = []
+
+        for i, (solution, rejection, brief) in enumerate(
+            zip(rejected_solutions, rejections, briefs)
+        ):
+            rejection_dict = {
+                "item_id": rejection.item_id,
+                "rejection_reason": rejection.rejection_reason,
+                "suggested_improvement": rejection.suggested_improvement,
+            }
+
+            user_prompt = SOLUTION_REVISE_REJECTED_USER.format(
+                original_solution_json=json.dumps(solution, indent=2),
+                rejection_json=json.dumps(rejection_dict, indent=2),
+                opportunity_brief_json=json.dumps(brief, indent=2),
+            )
+
+            response = self.client.chat.completions.create(
+                model=self.config.model,
+                messages=[
+                    {"role": "system", "content": SOLUTION_REVISE_REJECTED_SYSTEM},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=self.config.temperature,
+                response_format={"type": "json_object"},
+            )
+
+            usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            if response.usage:
+                usage = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+
+            try:
+                revised = json.loads(response.choices[0].message.content)
+            except json.JSONDecodeError:
+                wasted = response.usage.total_tokens if response.usage else 0
+                logger.warning(
+                    "revise_rejected: JSON decode failed for item %d "
+                    "(item_id=%s, wasted_tokens=%d) — skipping",
+                    i,
+                    rejection.item_id,
+                    wasted,
+                )
+                continue
+
+            # Build evidence from the brief's evidence list (fallback)
+            evidence = brief.get("evidence", [])
+
+            results.append(
+                SolutionDesignResult(
+                    proposed_solution=coerce_str(revised.get("proposed_solution")),
+                    experiment_plan=coerce_str(revised.get("experiment_plan")) if revised.get("experiment_plan") else None,
+                    success_metrics=coerce_str(revised.get("success_metrics", "")),
+                    build_experiment_decision=revised.get("build_experiment_decision"),
+                    decision_rationale=coerce_str(revised.get("decision_rationale", "")),
+                    evidence=evidence,
+                    dialogue_rounds=0,
+                    validation_challenges=[],
+                    experience_direction=None,
+                    convergence_forced=False,
+                    convergence_note="",
+                    token_usage=usage,
+                )
+            )
+
+        return results
 
     def build_checkpoint_artifacts(
         self,
