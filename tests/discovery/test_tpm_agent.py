@@ -413,3 +413,305 @@ class TestConfig:
         agent = TPMAgent(openai_client=MagicMock(), config=config)
         assert agent.config.model == "gpt-4o"
         assert agent.config.temperature == 0.1
+
+
+# ============================================================================
+# validate_input — TPMAgent (Issue #276)
+# ============================================================================
+
+
+def _make_validation_llm_response(content_dict, prompt_tokens=150, completion_tokens=120):
+    """Create mock OpenAI response for validate_input tests."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = json.dumps(content_dict)
+    mock_response.usage = MagicMock()
+    mock_response.usage.prompt_tokens = prompt_tokens
+    mock_response.usage.completion_tokens = completion_tokens
+    mock_response.usage.total_tokens = prompt_tokens + completion_tokens
+    return mock_response
+
+
+def _make_validate_tpm(response_dict, **response_kwargs):
+    """Create a TPMAgent for validate_input tests."""
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = _make_validation_llm_response(
+        response_dict, **response_kwargs
+    )
+    return TPMAgent(openai_client=mock_client)
+
+
+def _make_packages_for_validation(count, prefix="opp"):
+    """Build N minimal packages with opportunity_ids."""
+    return [
+        {
+            "opportunity_id": f"{prefix}_{i}",
+            "opportunity_brief": {"affected_area": f"Area {i}"},
+            "solution_brief": {"proposed_solution": f"Fix {i}"},
+            "technical_spec": {"approach": f"Approach {i}", "effort_estimate": "1 week"},
+        }
+        for i in range(count)
+    ]
+
+
+class TestTPMAgentValidateInput:
+    """TPMAgent.validate_input() — Issue #276."""
+
+    def test_empty_input_no_llm_call(self):
+        """Empty packages → empty result, no LLM call."""
+        agent = _make_validate_tpm({"accepted_items": [], "rejected_items": []})
+        result = agent.validate_input([])
+
+        assert result.accepted_items == []
+        assert result.rejected_items == []
+        assert result.token_usage == {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        agent.client.chat.completions.create.assert_not_called()
+
+    def test_all_accepted(self):
+        """LLM accepts all packages."""
+        packages = _make_packages_for_validation(3)
+        agent = _make_validate_tpm({
+            "accepted_items": ["opp_0", "opp_1", "opp_2"],
+            "rejected_items": [],
+        })
+        result = agent.validate_input(packages)
+
+        assert sorted(result.accepted_items) == ["opp_0", "opp_1", "opp_2"]
+        assert result.rejected_items == []
+
+    def test_all_rejected(self):
+        """LLM rejects all packages."""
+        packages = _make_packages_for_validation(2)
+        agent = _make_validate_tpm({
+            "accepted_items": [],
+            "rejected_items": [
+                {"item_id": "opp_0", "rejection_reason": "Incomplete spec", "rejecting_agent": "tpm"},
+                {"item_id": "opp_1", "rejection_reason": "Missing effort", "rejecting_agent": "tpm"},
+            ],
+        })
+        result = agent.validate_input(packages)
+
+        assert result.accepted_items == []
+        assert len(result.rejected_items) == 2
+
+    def test_mixed_accepted_rejected(self):
+        """Some accepted, some rejected."""
+        packages = _make_packages_for_validation(4)
+        agent = _make_validate_tpm({
+            "accepted_items": ["opp_0", "opp_3"],
+            "rejected_items": [
+                {"item_id": "opp_1", "rejection_reason": "No mitigation", "rejecting_agent": "tpm"},
+                {"item_id": "opp_2", "rejection_reason": "Contradictory", "rejecting_agent": "tpm"},
+            ],
+        })
+        result = agent.validate_input(packages)
+
+        assert sorted(result.accepted_items) == ["opp_0", "opp_3"]
+        assert len(result.rejected_items) == 2
+
+    def test_single_item_accepted(self):
+        """Single package accepted."""
+        packages = _make_packages_for_validation(1)
+        agent = _make_validate_tpm({
+            "accepted_items": ["opp_0"],
+            "rejected_items": [],
+        })
+        result = agent.validate_input(packages)
+
+        assert result.accepted_items == ["opp_0"]
+
+    def test_single_item_rejected(self):
+        """Single package rejected."""
+        packages = _make_packages_for_validation(1)
+        agent = _make_validate_tpm({
+            "accepted_items": [],
+            "rejected_items": [
+                {"item_id": "opp_0", "rejection_reason": "Incomplete", "rejecting_agent": "tpm"},
+            ],
+        })
+        result = agent.validate_input(packages)
+
+        assert result.accepted_items == []
+        assert len(result.rejected_items) == 1
+
+    def test_token_usage_populated(self):
+        """Token usage from LLM response is returned."""
+        packages = _make_packages_for_validation(1)
+        agent = _make_validate_tpm(
+            {"accepted_items": ["opp_0"], "rejected_items": []},
+            prompt_tokens=400,
+            completion_tokens=300,
+        )
+        result = agent.validate_input(packages)
+
+        assert result.token_usage["prompt_tokens"] == 400
+        assert result.token_usage["completion_tokens"] == 300
+        assert result.token_usage["total_tokens"] == 700
+
+    def test_json_decode_error_accepts_all(self):
+        """Full JSON parse failure → accept all packages."""
+        packages = _make_packages_for_validation(3)
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "not json at all"
+        mock_response.usage = MagicMock()
+        mock_response.usage.prompt_tokens = 100
+        mock_response.usage.completion_tokens = 50
+        mock_response.usage.total_tokens = 150
+        mock_client.chat.completions.create.return_value = mock_response
+
+        agent = TPMAgent(openai_client=mock_client)
+        result = agent.validate_input(packages)
+
+        assert sorted(result.accepted_items) == ["opp_0", "opp_1", "opp_2"]
+        assert result.rejected_items == []
+
+    def test_null_content_accepts_all(self):
+        """None LLM content → accept all."""
+        packages = _make_packages_for_validation(2)
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = None
+        mock_response.usage = MagicMock()
+        mock_response.usage.prompt_tokens = 50
+        mock_response.usage.completion_tokens = 0
+        mock_response.usage.total_tokens = 50
+        mock_client.chat.completions.create.return_value = mock_response
+
+        agent = TPMAgent(openai_client=mock_client)
+        result = agent.validate_input(packages)
+
+        assert sorted(result.accepted_items) == ["opp_0", "opp_1"]
+
+    def test_partial_parse_unmentioned_accepted(self):
+        """Items not mentioned → accepted."""
+        packages = _make_packages_for_validation(4)
+        agent = _make_validate_tpm({
+            "accepted_items": ["opp_0"],
+            "rejected_items": [
+                {"item_id": "opp_1", "rejection_reason": "Bad", "rejecting_agent": "tpm"},
+            ],
+        })
+        result = agent.validate_input(packages)
+
+        assert "opp_0" in result.accepted_items
+        assert "opp_2" in result.accepted_items
+        assert "opp_3" in result.accepted_items
+        assert len(result.rejected_items) == 1
+
+    def test_extra_fields_ignored(self):
+        """Extra fields in response are ignored."""
+        packages = _make_packages_for_validation(1)
+        agent = _make_validate_tpm({
+            "accepted_items": ["opp_0"],
+            "rejected_items": [],
+            "summary": "all good",
+        })
+        result = agent.validate_input(packages)
+
+        assert result.accepted_items == ["opp_0"]
+
+    def test_rejection_with_suggested_improvement(self):
+        """Rejection includes suggested_improvement."""
+        packages = _make_packages_for_validation(1)
+        agent = _make_validate_tpm({
+            "accepted_items": [],
+            "rejected_items": [
+                {
+                    "item_id": "opp_0",
+                    "rejection_reason": "No effort estimate",
+                    "rejecting_agent": "tpm",
+                    "suggested_improvement": "Add effort range with confidence",
+                },
+            ],
+        })
+        result = agent.validate_input(packages)
+
+        assert result.rejected_items[0].suggested_improvement == "Add effort range with confidence"
+
+    def test_rejection_without_suggested_improvement(self):
+        """Rejection without optional field."""
+        packages = _make_packages_for_validation(1)
+        agent = _make_validate_tpm({
+            "accepted_items": [],
+            "rejected_items": [
+                {"item_id": "opp_0", "rejection_reason": "Incomplete", "rejecting_agent": "tpm"},
+            ],
+        })
+        result = agent.validate_input(packages)
+
+        assert result.rejected_items[0].suggested_improvement is None
+
+    def test_item_id_uses_opportunity_id(self):
+        """Item IDs come from package['opportunity_id']."""
+        packages = [{"opportunity_id": "billing_fix", "technical_spec": {"approach": "Fix billing"}}]
+        agent = _make_validate_tpm({
+            "accepted_items": ["billing_fix"],
+            "rejected_items": [],
+        })
+        result = agent.validate_input(packages)
+
+        assert "billing_fix" in result.accepted_items
+
+    def test_missing_opportunity_id_fallback(self):
+        """Package without opportunity_id → fallback ID."""
+        packages = [{"technical_spec": {"approach": "Fix something"}}]
+        agent = _make_validate_tpm({
+            "accepted_items": [],
+            "rejected_items": [],
+        })
+        result = agent.validate_input(packages)
+
+        assert "package_0" in result.accepted_items
+
+    def test_token_usage_zero_when_empty(self):
+        """Empty input → zero token usage."""
+        agent = _make_validate_tpm({"accepted_items": [], "rejected_items": []})
+        result = agent.validate_input([])
+
+        assert result.token_usage == {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+    def test_correct_prompts_used(self):
+        """Verify system prompt is INPUT_VALIDATION_PRIORITIZATION_SYSTEM."""
+        from src.discovery.agents.prompts import INPUT_VALIDATION_PRIORITIZATION_SYSTEM
+
+        packages = _make_packages_for_validation(1)
+        agent = _make_validate_tpm({
+            "accepted_items": ["opp_0"],
+            "rejected_items": [],
+        })
+        agent.validate_input(packages)
+
+        call_args = agent.client.chat.completions.create.call_args
+        messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
+        assert messages[0]["content"] == INPUT_VALIDATION_PRIORITIZATION_SYSTEM
+
+    def test_empty_rejected_all_accepted(self):
+        """Empty rejected, all in accepted."""
+        packages = _make_packages_for_validation(2)
+        agent = _make_validate_tpm({
+            "accepted_items": ["opp_0", "opp_1"],
+            "rejected_items": [],
+        })
+        result = agent.validate_input(packages)
+
+        assert sorted(result.accepted_items) == ["opp_0", "opp_1"]
+
+    def test_empty_accepted_all_rejected(self):
+        """Empty accepted, all rejected."""
+        packages = _make_packages_for_validation(2)
+        agent = _make_validate_tpm({
+            "accepted_items": [],
+            "rejected_items": [
+                {"item_id": "opp_0", "rejection_reason": "Bad", "rejecting_agent": "tpm"},
+                {"item_id": "opp_1", "rejection_reason": "Bad", "rejecting_agent": "tpm"},
+            ],
+        })
+        result = agent.validate_input(packages)
+
+        assert result.accepted_items == []
+        assert len(result.rejected_items) == 2

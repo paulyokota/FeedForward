@@ -14,9 +14,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from src.discovery.agents.prompts import (
+    INPUT_VALIDATION_PRIORITIZATION_SYSTEM,
+    INPUT_VALIDATION_PRIORITIZATION_USER,
     TPM_RANKING_SYSTEM,
     TPM_RANKING_USER,
 )
+from src.discovery.models.artifacts import InputRejection, InputValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,66 @@ class TPMAgent:
             from openai import OpenAI
 
             self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    def validate_input(
+        self,
+        packages: List[Dict[str, Any]],
+    ) -> InputValidationResult:
+        """Validate TechnicalSpec packages before prioritization.
+
+        Makes a single LLM call batching all packages. Each package is
+        identified by its ``opportunity_id`` field.
+
+        Args:
+            packages: Opportunity packages from the upstream feasibility stage.
+
+        Returns:
+            InputValidationResult with accepted/rejected split and token usage.
+        """
+        if not packages:
+            return InputValidationResult()
+
+        all_item_ids = [
+            p.get("opportunity_id", f"package_{i}") for i, p in enumerate(packages)
+        ]
+
+        upstream_checkpoint = json.dumps({"specs": packages}, indent=2)
+        user_prompt = INPUT_VALIDATION_PRIORITIZATION_USER.format(
+            upstream_checkpoint_json=upstream_checkpoint,
+        )
+
+        response = self.client.chat.completions.create(
+            model=self.config.model,
+            messages=[
+                {"role": "system", "content": INPUT_VALIDATION_PRIORITIZATION_SYSTEM},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=self.config.temperature,
+            response_format={"type": "json_object"},
+        )
+
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
+
+        try:
+            raw = json.loads(response.choices[0].message.content)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning(
+                "validate_input: full JSON parse failure — accepting all %d packages",
+                len(packages),
+            )
+            return InputValidationResult(
+                accepted_items=list(all_item_ids), token_usage=usage
+            )
+
+        return self._parse_validation_response(
+            raw, all_item_ids, "tpm", usage
+        )
 
     def rank_opportunities(
         self,
@@ -201,3 +264,47 @@ class TPMAgent:
             entry["recommended_rank"] = i
 
         return deduped
+
+    @staticmethod
+    def _parse_validation_response(
+        raw: Dict[str, Any],
+        all_item_ids: List[str],
+        rejecting_agent: str,
+        usage: Dict[str, int],
+    ) -> InputValidationResult:
+        """Parse LLM validation response into InputValidationResult.
+
+        Items with valid verdicts are processed normally. Items not mentioned
+        in the LLM response are treated as accepted (conservative).
+        """
+        accepted = []
+        rejected = []
+        mentioned_ids: set = set()
+
+        for item in raw.get("rejected_items", []):
+            if isinstance(item, dict) and item.get("item_id"):
+                mentioned_ids.add(item["item_id"])
+                rejected.append(
+                    InputRejection(
+                        item_id=item["item_id"],
+                        rejection_reason=item.get("rejection_reason", "No reason provided"),
+                        rejecting_agent=item.get("rejecting_agent", rejecting_agent),
+                        suggested_improvement=item.get("suggested_improvement"),
+                    )
+                )
+
+        for item_id in raw.get("accepted_items", []):
+            if isinstance(item_id, str) and item_id:
+                mentioned_ids.add(item_id)
+                accepted.append(item_id)
+
+        # Items not mentioned → accepted (conservative)
+        for item_id in all_item_ids:
+            if item_id not in mentioned_ids:
+                accepted.append(item_id)
+
+        return InputValidationResult(
+            accepted_items=accepted,
+            rejected_items=rejected,
+            token_usage=usage,
+        )

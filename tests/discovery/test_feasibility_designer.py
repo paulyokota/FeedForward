@@ -717,3 +717,346 @@ class TestConfig:
         )
 
         assert result.opportunity_id == "billing"
+
+
+# ============================================================================
+# validate_input — FeasibilityDesigner (Issue #276)
+# ============================================================================
+
+import json
+from unittest.mock import MagicMock
+
+from src.discovery.agents.feasibility_designer import FeasibilityDesigner
+
+
+def _make_validation_llm_response(content_dict, prompt_tokens=150, completion_tokens=120):
+    """Create mock OpenAI response for validate_input tests."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = json.dumps(content_dict)
+    mock_response.usage = MagicMock()
+    mock_response.usage.prompt_tokens = prompt_tokens
+    mock_response.usage.completion_tokens = completion_tokens
+    mock_response.usage.total_tokens = prompt_tokens + completion_tokens
+    return mock_response
+
+
+def _make_validate_feasibility_designer(response_dict, **response_kwargs):
+    """Create a FeasibilityDesigner for validate_input tests."""
+    mock_openai = MagicMock()
+    mock_openai.chat.completions.create.return_value = _make_validation_llm_response(
+        response_dict, **response_kwargs
+    )
+    return FeasibilityDesigner(
+        tech_lead=MockTechLead([]),
+        risk_agent=MockRiskAgent([]),
+        openai_client=mock_openai,
+    )
+
+
+def _make_solutions(count, prefix="Area"):
+    """Build N minimal solution dicts."""
+    return [
+        {"proposed_solution": f"Fix {prefix} {i}", "success_metrics": f"Metric {i}"}
+        for i in range(count)
+    ]
+
+
+def _make_briefs_for_feasibility(count, prefix="Area"):
+    """Build N minimal brief dicts with affected_area."""
+    return [
+        {"affected_area": f"{prefix} {i}", "problem_statement": f"Problem {i}"}
+        for i in range(count)
+    ]
+
+
+class TestFeasibilityDesignerValidateInput:
+    """FeasibilityDesigner.validate_input() — Issue #276."""
+
+    def test_empty_input_no_llm_call(self):
+        """Empty solutions → empty result, no LLM call."""
+        designer = _make_validate_feasibility_designer({"accepted_items": [], "rejected_items": []})
+        result = designer.validate_input([], [])
+
+        assert result.accepted_items == []
+        assert result.rejected_items == []
+        assert result.token_usage == {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        designer.client.chat.completions.create.assert_not_called()
+
+    def test_all_accepted(self):
+        """LLM accepts all solutions."""
+        solutions = _make_solutions(3)
+        briefs = _make_briefs_for_feasibility(3)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": ["Area 0", "Area 1", "Area 2"],
+            "rejected_items": [],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert sorted(result.accepted_items) == ["Area 0", "Area 1", "Area 2"]
+        assert result.rejected_items == []
+
+    def test_all_rejected(self):
+        """LLM rejects all solutions."""
+        solutions = _make_solutions(2)
+        briefs = _make_briefs_for_feasibility(2)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": [],
+            "rejected_items": [
+                {"item_id": "Area 0", "rejection_reason": "Vague", "rejecting_agent": "tech_lead"},
+                {"item_id": "Area 1", "rejection_reason": "No metrics", "rejecting_agent": "tech_lead"},
+            ],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert result.accepted_items == []
+        assert len(result.rejected_items) == 2
+
+    def test_mixed_accepted_rejected(self):
+        """Some accepted, some rejected."""
+        solutions = _make_solutions(4)
+        briefs = _make_briefs_for_feasibility(4)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": ["Area 0", "Area 3"],
+            "rejected_items": [
+                {"item_id": "Area 1", "rejection_reason": "Missing plan", "rejecting_agent": "tech_lead"},
+                {"item_id": "Area 2", "rejection_reason": "Contradictory", "rejecting_agent": "tech_lead"},
+            ],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert sorted(result.accepted_items) == ["Area 0", "Area 3"]
+        assert len(result.rejected_items) == 2
+
+    def test_single_item_accepted(self):
+        """Single solution accepted."""
+        solutions = _make_solutions(1)
+        briefs = _make_briefs_for_feasibility(1)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": ["Area 0"],
+            "rejected_items": [],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert result.accepted_items == ["Area 0"]
+
+    def test_single_item_rejected(self):
+        """Single solution rejected."""
+        solutions = _make_solutions(1)
+        briefs = _make_briefs_for_feasibility(1)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": [],
+            "rejected_items": [
+                {"item_id": "Area 0", "rejection_reason": "Vague solution", "rejecting_agent": "tech_lead"},
+            ],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert result.accepted_items == []
+        assert len(result.rejected_items) == 1
+
+    def test_token_usage_populated(self):
+        """Token usage from LLM response is returned."""
+        solutions = _make_solutions(1)
+        briefs = _make_briefs_for_feasibility(1)
+        designer = _make_validate_feasibility_designer(
+            {"accepted_items": ["Area 0"], "rejected_items": []},
+            prompt_tokens=300,
+            completion_tokens=200,
+        )
+        result = designer.validate_input(solutions, briefs)
+
+        assert result.token_usage["prompt_tokens"] == 300
+        assert result.token_usage["completion_tokens"] == 200
+        assert result.token_usage["total_tokens"] == 500
+
+    def test_json_decode_error_accepts_all(self):
+        """Full JSON parse failure → accept all solutions."""
+        solutions = _make_solutions(3)
+        briefs = _make_briefs_for_feasibility(3)
+
+        mock_openai = MagicMock()
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "{{invalid json"
+        mock_response.usage = MagicMock()
+        mock_response.usage.prompt_tokens = 100
+        mock_response.usage.completion_tokens = 50
+        mock_response.usage.total_tokens = 150
+        mock_openai.chat.completions.create.return_value = mock_response
+
+        designer = FeasibilityDesigner(
+            tech_lead=MockTechLead([]),
+            risk_agent=MockRiskAgent([]),
+            openai_client=mock_openai,
+        )
+        result = designer.validate_input(solutions, briefs)
+
+        assert sorted(result.accepted_items) == ["Area 0", "Area 1", "Area 2"]
+        assert result.rejected_items == []
+
+    def test_null_content_accepts_all(self):
+        """None LLM content → accept all."""
+        solutions = _make_solutions(2)
+        briefs = _make_briefs_for_feasibility(2)
+
+        mock_openai = MagicMock()
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = None
+        mock_response.usage = MagicMock()
+        mock_response.usage.prompt_tokens = 50
+        mock_response.usage.completion_tokens = 0
+        mock_response.usage.total_tokens = 50
+        mock_openai.chat.completions.create.return_value = mock_response
+
+        designer = FeasibilityDesigner(
+            tech_lead=MockTechLead([]),
+            risk_agent=MockRiskAgent([]),
+            openai_client=mock_openai,
+        )
+        result = designer.validate_input(solutions, briefs)
+
+        assert sorted(result.accepted_items) == ["Area 0", "Area 1"]
+
+    def test_partial_parse_unmentioned_accepted(self):
+        """Items not mentioned in response → accepted."""
+        solutions = _make_solutions(4)
+        briefs = _make_briefs_for_feasibility(4)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": ["Area 0"],
+            "rejected_items": [
+                {"item_id": "Area 1", "rejection_reason": "Bad", "rejecting_agent": "tech_lead"},
+            ],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        # Area 2, Area 3 unmentioned → accepted
+        assert "Area 0" in result.accepted_items
+        assert "Area 2" in result.accepted_items
+        assert "Area 3" in result.accepted_items
+        assert len(result.rejected_items) == 1
+
+    def test_extra_fields_ignored(self):
+        """Extra fields in LLM response are ignored."""
+        solutions = _make_solutions(1)
+        briefs = _make_briefs_for_feasibility(1)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": ["Area 0"],
+            "rejected_items": [],
+            "notes": "extra field",
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert result.accepted_items == ["Area 0"]
+
+    def test_rejection_with_suggested_improvement(self):
+        """Rejection includes suggested_improvement."""
+        solutions = _make_solutions(1)
+        briefs = _make_briefs_for_feasibility(1)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": [],
+            "rejected_items": [
+                {
+                    "item_id": "Area 0",
+                    "rejection_reason": "No experiment plan",
+                    "rejecting_agent": "tech_lead",
+                    "suggested_improvement": "Add concrete experiment plan with metrics",
+                },
+            ],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert result.rejected_items[0].suggested_improvement == "Add concrete experiment plan with metrics"
+
+    def test_rejection_without_suggested_improvement(self):
+        """Rejection without optional suggested_improvement."""
+        solutions = _make_solutions(1)
+        briefs = _make_briefs_for_feasibility(1)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": [],
+            "rejected_items": [
+                {"item_id": "Area 0", "rejection_reason": "Vague", "rejecting_agent": "tech_lead"},
+            ],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert result.rejected_items[0].suggested_improvement is None
+
+    def test_item_id_from_parent_brief_affected_area(self):
+        """Item IDs come from briefs[i]['affected_area'], not solutions."""
+        solutions = [{"proposed_solution": "Fix the thing"}]
+        briefs = [{"affected_area": "Checkout page", "problem_statement": "Slow checkout"}]
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": ["Checkout page"],
+            "rejected_items": [],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert "Checkout page" in result.accepted_items
+
+    def test_more_solutions_than_briefs_fallback_id(self):
+        """Solutions outnumber briefs → extra items get fallback IDs."""
+        solutions = _make_solutions(3)
+        briefs = _make_briefs_for_feasibility(1)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": [],
+            "rejected_items": [],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        # All 3 unmentioned → accepted
+        assert "Area 0" in result.accepted_items
+        assert "solution_1" in result.accepted_items
+        assert "solution_2" in result.accepted_items
+
+    def test_token_usage_zero_when_empty(self):
+        """Empty input → zero token usage."""
+        designer = _make_validate_feasibility_designer({"accepted_items": [], "rejected_items": []})
+        result = designer.validate_input([], [])
+
+        assert result.token_usage == {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+    def test_correct_prompts_used(self):
+        """Verify system prompt is INPUT_VALIDATION_FEASIBILITY_SYSTEM."""
+        from src.discovery.agents.prompts import INPUT_VALIDATION_FEASIBILITY_SYSTEM
+
+        solutions = _make_solutions(1)
+        briefs = _make_briefs_for_feasibility(1)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": ["Area 0"],
+            "rejected_items": [],
+        })
+        designer.validate_input(solutions, briefs)
+
+        call_args = designer.client.chat.completions.create.call_args
+        messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
+        assert messages[0]["content"] == INPUT_VALIDATION_FEASIBILITY_SYSTEM
+
+    def test_empty_rejected_all_accepted(self):
+        """Empty rejected_items, all in accepted."""
+        solutions = _make_solutions(2)
+        briefs = _make_briefs_for_feasibility(2)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": ["Area 0", "Area 1"],
+            "rejected_items": [],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert sorted(result.accepted_items) == ["Area 0", "Area 1"]
+
+    def test_empty_accepted_all_rejected(self):
+        """Empty accepted_items, all in rejected."""
+        solutions = _make_solutions(2)
+        briefs = _make_briefs_for_feasibility(2)
+        designer = _make_validate_feasibility_designer({
+            "accepted_items": [],
+            "rejected_items": [
+                {"item_id": "Area 0", "rejection_reason": "Bad", "rejecting_agent": "tech_lead"},
+                {"item_id": "Area 1", "rejection_reason": "Bad", "rejecting_agent": "tech_lead"},
+            ],
+        })
+        result = designer.validate_input(solutions, briefs)
+
+        assert result.accepted_items == []
+        assert len(result.rejected_items) == 2

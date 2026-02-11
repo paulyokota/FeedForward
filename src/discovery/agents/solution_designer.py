@@ -25,6 +25,8 @@ from typing import Any, Dict, List, Optional
 from src.discovery.agents.base import coerce_str
 from src.discovery.agents.experience_agent import ExperienceAgent
 from src.discovery.agents.prompts import (
+    INPUT_VALIDATION_SOLUTION_SYSTEM,
+    INPUT_VALIDATION_SOLUTION_USER,
     SOLUTION_PROPOSAL_SYSTEM,
     SOLUTION_PROPOSAL_USER,
     SOLUTION_REENTRY_SYSTEM,
@@ -33,6 +35,7 @@ from src.discovery.agents.prompts import (
     SOLUTION_REVISION_USER,
 )
 from src.discovery.agents.validation_agent import ValidationAgent
+from src.discovery.models.artifacts import InputRejection, InputValidationResult
 from src.discovery.models.enums import (
     BuildExperimentDecision,
     ConfidenceLevel,
@@ -131,6 +134,68 @@ class SolutionDesigner:
             from openai import OpenAI
 
             self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    def validate_input(
+        self,
+        briefs: List[Dict[str, Any]],
+        explorer_context: Dict[str, Any],
+    ) -> InputValidationResult:
+        """Validate OpportunityBriefs before designing solutions.
+
+        Makes a single LLM call batching all briefs. Each brief is identified
+        by its ``affected_area`` field.
+
+        Args:
+            briefs: OpportunityBrief dicts from the upstream framing stage.
+            explorer_context: Explorer checkpoint context for the LLM prompt.
+
+        Returns:
+            InputValidationResult with accepted/rejected split and token usage.
+        """
+        if not briefs:
+            return InputValidationResult()
+
+        all_item_ids = [b.get("affected_area", f"brief_{i}") for i, b in enumerate(briefs)]
+
+        upstream_checkpoint = json.dumps(
+            {"briefs": briefs, "explorer_context": explorer_context}, indent=2
+        )
+        user_prompt = INPUT_VALIDATION_SOLUTION_USER.format(
+            upstream_checkpoint_json=upstream_checkpoint,
+        )
+
+        response = self.client.chat.completions.create(
+            model=self.config.model,
+            messages=[
+                {"role": "system", "content": INPUT_VALIDATION_SOLUTION_SYSTEM},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=self.config.temperature,
+            response_format={"type": "json_object"},
+        )
+
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
+
+        try:
+            raw = json.loads(response.choices[0].message.content)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning(
+                "validate_input: full JSON parse failure — accepting all %d briefs",
+                len(briefs),
+            )
+            return InputValidationResult(
+                accepted_items=list(all_item_ids), token_usage=usage
+            )
+
+        return self._parse_validation_response(
+            raw, all_item_ids, "solution_designer", usage
+        )
 
     def design_solution(
         self,
@@ -689,6 +754,50 @@ class SolutionDesigner:
             convergence_note=convergence_note,
             skip_rationale=skip_rationale,
             token_usage=total_usage,
+        )
+
+    @staticmethod
+    def _parse_validation_response(
+        raw: Dict[str, Any],
+        all_item_ids: List[str],
+        rejecting_agent: str,
+        usage: Dict[str, int],
+    ) -> InputValidationResult:
+        """Parse LLM validation response into InputValidationResult.
+
+        Items with valid verdicts are processed normally. Items not mentioned
+        in the LLM response are treated as accepted (conservative).
+        """
+        accepted = []
+        rejected = []
+        mentioned_ids: set = set()
+
+        for item in raw.get("rejected_items", []):
+            if isinstance(item, dict) and item.get("item_id"):
+                mentioned_ids.add(item["item_id"])
+                rejected.append(
+                    InputRejection(
+                        item_id=item["item_id"],
+                        rejection_reason=item.get("rejection_reason", "No reason provided"),
+                        rejecting_agent=item.get("rejecting_agent", rejecting_agent),
+                        suggested_improvement=item.get("suggested_improvement"),
+                    )
+                )
+
+        for item_id in raw.get("accepted_items", []):
+            if isinstance(item_id, str) and item_id:
+                mentioned_ids.add(item_id)
+                accepted.append(item_id)
+
+        # Items not mentioned → accepted (conservative)
+        for item_id in all_item_ids:
+            if item_id not in mentioned_ids:
+                accepted.append(item_id)
+
+        return InputValidationResult(
+            accepted_items=accepted,
+            rejected_items=rejected,
+            token_usage=usage,
         )
 
     @staticmethod

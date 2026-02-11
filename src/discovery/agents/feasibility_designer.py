@@ -10,13 +10,19 @@ multi-round dialogue, convergence check, and forced convergence.
 
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from src.discovery.agents.base import coerce_str
+from src.discovery.agents.prompts import (
+    INPUT_VALIDATION_FEASIBILITY_SYSTEM,
+    INPUT_VALIDATION_FEASIBILITY_USER,
+)
 from src.discovery.agents.risk_agent import RiskAgent
 from src.discovery.agents.tech_lead_agent import TechLeadAgent
+from src.discovery.models.artifacts import InputRejection, InputValidationResult
 from src.discovery.models.enums import ConfidenceLevel, FeasibilityAssessment, SourceType
 
 logger = logging.getLogger(__name__)
@@ -75,11 +81,82 @@ class FeasibilityDesigner:
         self,
         tech_lead: TechLeadAgent,
         risk_agent: RiskAgent,
+        openai_client=None,
         config: Optional[FeasibilityDesignerConfig] = None,
     ):
         self.tech_lead = tech_lead
         self.risk_agent = risk_agent
         self.config = config or FeasibilityDesignerConfig()
+        if openai_client is not None:
+            self.client = openai_client
+        else:
+            from openai import OpenAI
+
+            self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    def validate_input(
+        self,
+        solutions: List[Dict[str, Any]],
+        briefs: List[Dict[str, Any]],
+    ) -> InputValidationResult:
+        """Validate SolutionBriefs before assessing feasibility.
+
+        Makes a single LLM call batching all solutions. Each solution is
+        identified by the ``affected_area`` from the corresponding parent
+        OpportunityBrief (positional lookup).
+
+        Args:
+            solutions: SolutionBrief dicts from the upstream solution stage.
+            briefs: Corresponding OpportunityBrief dicts (same order).
+
+        Returns:
+            InputValidationResult with accepted/rejected split and token usage.
+        """
+        if not solutions:
+            return InputValidationResult()
+
+        all_item_ids = [
+            briefs[i].get("affected_area", f"solution_{i}") if i < len(briefs) else f"solution_{i}"
+            for i in range(len(solutions))
+        ]
+
+        upstream_checkpoint = json.dumps({"solutions": solutions}, indent=2)
+        user_prompt = INPUT_VALIDATION_FEASIBILITY_USER.format(
+            upstream_checkpoint_json=upstream_checkpoint,
+        )
+
+        response = self.client.chat.completions.create(
+            model=self.config.model,
+            messages=[
+                {"role": "system", "content": INPUT_VALIDATION_FEASIBILITY_SYSTEM},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=self.config.temperature,
+            response_format={"type": "json_object"},
+        )
+
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
+
+        try:
+            raw = json.loads(response.choices[0].message.content)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning(
+                "validate_input: full JSON parse failure — accepting all %d solutions",
+                len(solutions),
+            )
+            return InputValidationResult(
+                accepted_items=list(all_item_ids), token_usage=usage
+            )
+
+        return self._parse_validation_response(
+            raw, all_item_ids, "tech_lead", usage
+        )
 
     def assess_feasibility(
         self,
@@ -388,6 +465,50 @@ class FeasibilityDesigner:
             ),
             "constraints_identified": assessment.get("constraints_identified", []),
         }
+
+    @staticmethod
+    def _parse_validation_response(
+        raw: Dict[str, Any],
+        all_item_ids: List[str],
+        rejecting_agent: str,
+        usage: Dict[str, int],
+    ) -> InputValidationResult:
+        """Parse LLM validation response into InputValidationResult.
+
+        Items with valid verdicts are processed normally. Items not mentioned
+        in the LLM response are treated as accepted (conservative).
+        """
+        accepted = []
+        rejected = []
+        mentioned_ids: set = set()
+
+        for item in raw.get("rejected_items", []):
+            if isinstance(item, dict) and item.get("item_id"):
+                mentioned_ids.add(item["item_id"])
+                rejected.append(
+                    InputRejection(
+                        item_id=item["item_id"],
+                        rejection_reason=item.get("rejection_reason", "No reason provided"),
+                        rejecting_agent=item.get("rejecting_agent", rejecting_agent),
+                        suggested_improvement=item.get("suggested_improvement"),
+                    )
+                )
+
+        for item_id in raw.get("accepted_items", []):
+            if isinstance(item_id, str) and item_id:
+                mentioned_ids.add(item_id)
+                accepted.append(item_id)
+
+        # Items not mentioned → accepted (conservative)
+        for item_id in all_item_ids:
+            if item_id not in mentioned_ids:
+                accepted.append(item_id)
+
+        return InputValidationResult(
+            accepted_items=accepted,
+            rejected_items=rejected,
+            token_usage=usage,
+        )
 
     @staticmethod
     def _accumulate_usage(
