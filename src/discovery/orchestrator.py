@@ -702,16 +702,22 @@ class DiscoveryOrchestrator:
         if not solutions:
             return briefs, solutions
 
-        # Item IDs come from the parent brief's affected_area
+        # Item IDs come from the parent brief's affected_area.
+        # Iterate over max(briefs, solutions) so briefs without a matching
+        # solution still enter validation (with an empty solution dict).
         id_field = "affected_area"
+        n = max(len(briefs), len(solutions))
         item_ids = [
             briefs[i].get(id_field, f"solution_{i}") if i < len(briefs) else f"solution_{i}"
-            for i in range(len(solutions))
+            for i in range(n)
         ]
-        sol_map = {item_ids[i]: solutions[i] for i in range(len(solutions))}
+        sol_map = {
+            item_ids[i]: solutions[i] if i < len(solutions) else {}
+            for i in range(n)
+        }
         brief_map = {
             item_ids[i]: briefs[i] if i < len(briefs) else {}
-            for i in range(len(solutions))
+            for i in range(n)
         }
 
         # Initial validation

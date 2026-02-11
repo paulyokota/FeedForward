@@ -1040,6 +1040,45 @@ class TestValidationRetrySolutions:
         assert final_b == briefs
         assert final_s == solutions
 
+    def test_fewer_solutions_than_briefs_preserves_all_briefs(self):
+        """Regression: briefs without matching solutions must not be dropped."""
+        orchestrator, _, _ = self._create_orchestrator()
+        briefs = [
+            {"affected_area": f"area_{i}", "problem_statement": f"P{i}", "evidence": [_evidence()]}
+            for i in range(5)
+        ]
+        solutions = [
+            {
+                "proposed_solution": f"Sol {i}",
+                "experiment_plan": f"Plan {i}",
+                "success_metrics": f"Metric {i}",
+                "build_experiment_decision": BuildExperimentDecision.EXPERIMENT_FIRST.value,
+                "decision_rationale": f"Rationale {i}",
+                "evidence": [_evidence()],
+            }
+            for i in range(3)  # only 3 solutions for 5 briefs
+        ]
+
+        feas_designer = MagicMock()
+        feas_designer.validate_input.return_value = _mock_validation_result(
+            accepted=["area_0", "area_1", "area_2", "area_3", "area_4"],
+        )
+        sol_designer = MagicMock()
+
+        final_b, final_s = orchestrator._validate_retry_solutions(
+            run_id=UUID("00000000-0000-0000-0000-000000000001"), convo_id="test-convo", stage_execution_id=1,
+            feas_designer=feas_designer, sol_designer=sol_designer,
+            briefs=briefs, solutions=solutions,
+        )
+
+        assert len(final_b) == 5, f"Expected 5 briefs, got {len(final_b)}"
+        assert len(final_s) == 5, f"Expected 5 solutions, got {len(final_s)}"
+        # Briefs beyond solutions should get empty solution dicts
+        assert final_s[3] == {}
+        assert final_s[4] == {}
+        assert final_b[3]["affected_area"] == "area_3"
+        assert final_b[4]["affected_area"] == "area_4"
+
 
 @pytest.mark.slow
 class TestValidationRetryPackages:
