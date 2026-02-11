@@ -623,10 +623,21 @@ class DiscoveryOrchestrator:
             )
 
             # Update item_map with revised briefs (keyed by affected_area)
+            revised_brief_ids = set()
             for rb in revised_briefs:
                 rb_id = rb.get(id_field, "")
                 if rb_id:
                     item_map[rb_id] = rb
+                    revised_brief_ids.add(rb_id)
+
+            if len(revised_briefs) != len(rej_list):
+                logger.warning(
+                    "Run %s: revision returned %d briefs for %d rejected — some skipped",
+                    run_id, len(revised_briefs), len(rej_list),
+                )
+
+            # Items that weren't revised carry forward as still-rejected
+            unrevised = [r for r in rej_list if r.item_id not in revised_brief_ids]
 
             # Re-validate ONLY revised briefs
             try:
@@ -641,8 +652,8 @@ class DiscoveryOrchestrator:
                     "Run %s: re-validation failed — accepting revised briefs",
                     run_id, exc_info=True,
                 )
-                accepted_ids.update(rb.get(id_field, "") for rb in revised_briefs)
-                rejected = []
+                accepted_ids.update(revised_brief_ids)
+                rejected = unrevised
                 break
 
             self._post_validation_event(
@@ -650,7 +661,7 @@ class DiscoveryOrchestrator:
             )
 
             accepted_ids.update(re_validation.accepted_items)
-            rejected = re_validation.rejected_items
+            rejected = re_validation.rejected_items + unrevised
 
         # Items still rejected → add validation_warnings and include them
         warned_ids = set()
@@ -769,16 +780,28 @@ class DiscoveryOrchestrator:
             )
 
             # Update sol_map with revised solutions (keyed by original item_id)
-            for idx, r in enumerate(rejected):
+            revised_item_ids = set()
+            for idx, r in enumerate(rej_list):
                 if r.item_id in sol_map and idx < len(revised_solutions):
                     sol_map[r.item_id] = revised_solutions[idx]
+                    revised_item_ids.add(r.item_id)
+
+            if len(revised_solutions) != len(rej_list):
+                logger.warning(
+                    "Run %s: revision returned %d solutions for %d rejected — some skipped",
+                    run_id, len(revised_solutions), len(rej_list),
+                )
+
+            # Items that weren't revised carry forward as still-rejected
+            unrevised = [r for r in rej_list if r.item_id not in revised_item_ids]
 
             # Re-validate ONLY revised solutions
-            revised_briefs_for_val = [brief_map.get(r.item_id, {}) for r in rej_list]
+            revised_for_val = [sol_map[iid] for iid in revised_item_ids if iid in sol_map]
+            revised_briefs_for_val = [brief_map.get(iid, {}) for iid in revised_item_ids if iid in sol_map]
             try:
                 started_at = datetime.now(timezone.utc)
                 re_validation = feas_designer.validate_input(
-                    revised_solutions,
+                    revised_for_val,
                     revised_briefs_for_val,
                 )
                 self._record_invocation(
@@ -790,8 +813,8 @@ class DiscoveryOrchestrator:
                     "Run %s: re-validation failed — accepting revised solutions",
                     run_id, exc_info=True,
                 )
-                accepted_ids.update(r.item_id for r in rej_list)
-                rejected = []
+                accepted_ids.update(revised_item_ids)
+                rejected = unrevised
                 break
 
             self._post_validation_event(
@@ -799,7 +822,7 @@ class DiscoveryOrchestrator:
             )
 
             accepted_ids.update(re_validation.accepted_items)
-            rejected = re_validation.rejected_items
+            rejected = re_validation.rejected_items + unrevised
 
         # Items still rejected → add validation_warnings to their solutions
         warned_ids = set()
@@ -914,12 +937,23 @@ class DiscoveryOrchestrator:
 
             # Rebuild packages with revised specs
             revised_packages = []
+            revised_pkg_ids = set()
             for idx, rej in enumerate(rej_list):
                 if idx < len(revised_specs) and rej.item_id in pkg_map:
                     pkg = dict(pkg_map[rej.item_id])
                     pkg["technical_spec"] = revised_specs[idx]
                     pkg_map[rej.item_id] = pkg
                     revised_packages.append(pkg)
+                    revised_pkg_ids.add(rej.item_id)
+
+            if len(revised_specs) != len(rej_list):
+                logger.warning(
+                    "Run %s: revision returned %d specs for %d rejected — some skipped",
+                    run_id, len(revised_specs), len(rej_list),
+                )
+
+            # Items that weren't revised carry forward as still-rejected
+            unrevised = [r for r in rej_list if r.item_id not in revised_pkg_ids]
 
             # Re-validate ONLY revised packages
             try:
@@ -934,8 +968,8 @@ class DiscoveryOrchestrator:
                     "Run %s: re-validation failed — accepting revised packages",
                     run_id, exc_info=True,
                 )
-                accepted_ids.update(rej.item_id for rej in rej_list)
-                rejected = []
+                accepted_ids.update(revised_pkg_ids)
+                rejected = unrevised
                 break
 
             self._post_validation_event(
@@ -943,7 +977,7 @@ class DiscoveryOrchestrator:
             )
 
             accepted_ids.update(re_validation.accepted_items)
-            rejected = re_validation.rejected_items
+            rejected = re_validation.rejected_items + unrevised
 
         # Items still rejected → add validation_warnings to their specs
         warned_ids = set()
