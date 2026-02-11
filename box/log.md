@@ -50,3 +50,37 @@ Entries accumulate until a pattern emerges across multiple investigations.
   technically correct but not the right question. The right question was "how many of
   those users are non-English?" That pivot made the story much stronger. Worth
   remembering: always ask "is the denominator right?"
+
+- **Tried Intercom MCP three times before giving up.** Searched for "intercom" MCP tools,
+  got nothing. User corrected: "API not mcp for intercom." There are two access paths:
+  (1) the FeedForward PostgreSQL DB which has cached/imported conversations, and (2) the
+  Intercom API via `src/intercom_client.py`. No MCP server. The DB data gets staler every
+  day we don't run the import pipeline. For investigations about recent activity, may need
+  to pull fresh data via the API first.
+
+- **`issue_type` column is useless — all 16,593 rows are "other".** First query tried
+  to filter by `issue_type = 'feature_request'` and got zero rows. Had to discover that
+  the themes table (`issue_signature`, `user_intent`) is where the real signal lives.
+  The conversations table's classification fields are essentially noise.
+
+- **SQL errors added friction.** `column "classification" does not exist` (wrong column
+  name), then `ORDER BY expressions must appear in select list` (DISTINCT + ORDER BY
+  incompatibility). Two failed queries before finding the right pattern. A reusable
+  "find recurring themes with N+ distinct users" query would eliminate this every time.
+
+- **Subagent for codebase exploration worked really well.** Spawned an Explore agent to
+  map AI language handling in the aero repo. Got a comprehensive report back in ~90
+  seconds. Much faster and more thorough than manually grepping. Worth reusing for
+  codebase-heavy investigations.
+
+- **The investigation hit context limits mid-stream.** Research phase consumed ~168k
+  tokens and triggered automatic compaction before PostHog analysis was complete.
+  The investigation had to be resumed in a new context window. For longer investigations,
+  this is a real constraint — need to either work faster or structure work so partial
+  results are saved somewhere durable before context runs out.
+
+- **Real-time user corrections shaped the whole methodology.** Three corrections in quick
+  succession ("API not mcp", "primary sources only", "ensure they're talking about the
+  same thing") turned what could have been a sloppy surface-level investigation into a
+  rigorous one. The pipeline can't do this. This might be the single strongest argument
+  for the Claude-in-a-Box approach.

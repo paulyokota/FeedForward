@@ -18,7 +18,7 @@ This command helps recover context after automatic context compaction.
 
 5. **Read key status files**:
    - `docs/status.md` - Current project state
-   - `docs/session/last-session.md` - Last session notes (if exists)
+   - `box/session.md` - Session notes (if exists)
 
 6. **Summarize for user** - Present a brief summary:
 
