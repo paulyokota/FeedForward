@@ -36,6 +36,8 @@ from src.discovery.agents.tech_lead_agent import TechLeadAgent
 from src.discovery.agents.tpm_agent import TPMAgent
 from src.discovery.agents.validation_agent import ValidationAgent
 from src.discovery.db.storage import DiscoveryStorage
+from src.discovery.models.artifacts import InputRejection, InputValidationResult
+from src.discovery.models.conversation import EventType
 from src.discovery.models.enums import AgentStatus, StageType
 from src.discovery.models.run import AgentInvocation, DiscoveryRun, RunConfig, TokenUsage
 from src.discovery.services.conversation import ConversationService
@@ -45,6 +47,8 @@ from src.discovery.services.state_machine import DiscoveryStateMachine
 from src.discovery.services.transport import ConversationTransport
 
 logger = logging.getLogger(__name__)
+
+MAX_VALIDATION_RETRIES = 2
 
 
 class DiscoveryOrchestrator:
@@ -292,27 +296,42 @@ class DiscoveryOrchestrator:
         )
 
     def _run_solution_validation(self, run_id: UUID, convo_id: str):
-        """Stage 2: SolutionDesigner runs multi-agent dialogue per brief."""
+        """Stage 2: SolutionDesigner runs multi-agent dialogue per brief.
+
+        Validates briefs via SolutionDesigner.validate_input() before processing.
+        Rejected briefs are revised by OpportunityPM.reframe_rejected() and
+        re-validated up to MAX_VALIDATION_RETRIES times.
+        """
         validation_agent = ValidationAgent(openai_client=self.client)
         experience_agent = ExperienceAgent(openai_client=self.client)
         designer = SolutionDesigner(
             validation_agent, experience_agent, openai_client=self.client
         )
+        pm = OpportunityPM(openai_client=self.client)
         stage_exec = self.storage.get_active_stage(run_id)
 
         prior = self.service.get_prior_checkpoints(run_id)
         opp_artifacts = self._get_stage_artifacts(
             run_id, StageType.OPPORTUNITY_FRAMING
         )
+        explorer_checkpoint = self._get_stage_artifacts(
+            run_id, StageType.EXPLORATION
+        )
         briefs = opp_artifacts.get("briefs", [])
 
+        # --- Validate-retry-process loop ---
+        final_briefs = self._validate_retry_briefs(
+            run_id, convo_id, stage_exec.id, designer, pm,
+            briefs, explorer_checkpoint,
+        )
+
         results = []
-        for i, brief in enumerate(briefs):
+        for i, brief in enumerate(final_briefs):
             logger.info(
                 "Run %s: designing solution %d/%d (%s)",
                 run_id,
                 i + 1,
-                len(briefs),
+                len(final_briefs),
                 brief.get("affected_area", "?"),
             )
             started_at = datetime.now(timezone.utc)
@@ -328,7 +347,7 @@ class DiscoveryOrchestrator:
                     "Run %s: skipping solution %d/%d (%s) — %s: %s",
                     run_id,
                     i + 1,
-                    len(briefs),
+                    len(final_briefs),
                     brief.get("affected_area", "?"),
                     type(exc).__name__,
                     str(exc)[:200],
@@ -352,10 +371,22 @@ class DiscoveryOrchestrator:
         )
 
     def _run_feasibility_risk(self, run_id: UUID, convo_id: str):
-        """Stage 3: FeasibilityDesigner assesses each solution."""
+        """Stage 3: FeasibilityDesigner assesses each solution.
+
+        Validates solutions via FeasibilityDesigner.validate_input() before
+        processing. Rejected solutions are revised by
+        SolutionDesigner.revise_rejected() and re-validated up to
+        MAX_VALIDATION_RETRIES times.
+        """
         tech_lead = TechLeadAgent(openai_client=self.client)
         risk_agent = RiskAgent(openai_client=self.client)
-        designer = FeasibilityDesigner(tech_lead, risk_agent)
+        feas_designer = FeasibilityDesigner(tech_lead, risk_agent)
+        # SolutionDesigner needed for revising rejected solutions
+        sol_validation_agent = ValidationAgent(openai_client=self.client)
+        sol_experience_agent = ExperienceAgent(openai_client=self.client)
+        sol_designer = SolutionDesigner(
+            sol_validation_agent, sol_experience_agent, openai_client=self.client
+        )
         stage_exec = self.storage.get_active_stage(run_id)
 
         prior = self.service.get_prior_checkpoints(run_id)
@@ -368,19 +399,25 @@ class DiscoveryOrchestrator:
         briefs = opp_artifacts.get("briefs", [])
         solutions = sol_artifacts.get("solutions", [])
 
+        # --- Validate-retry-process loop ---
+        final_briefs, final_solutions = self._validate_retry_solutions(
+            run_id, convo_id, stage_exec.id, feas_designer, sol_designer,
+            briefs, solutions,
+        )
+
         results = []
-        for i, brief in enumerate(briefs):
-            solution = solutions[i] if i < len(solutions) else {}
+        for i, brief in enumerate(final_briefs):
+            solution = final_solutions[i] if i < len(final_solutions) else {}
             logger.info(
                 "Run %s: assessing feasibility %d/%d (%s)",
                 run_id,
                 i + 1,
-                len(briefs),
+                len(final_briefs),
                 brief.get("affected_area", "?"),
             )
             started_at = datetime.now(timezone.utc)
             try:
-                result = designer.assess_feasibility(solution, brief, prior)
+                result = feas_designer.assess_feasibility(solution, brief, prior)
                 results.append(result)
                 self._record_invocation(
                     run_id, stage_exec.id, "feasibility_designer",
@@ -391,13 +428,13 @@ class DiscoveryOrchestrator:
                     "Run %s: skipping feasibility %d/%d (%s) — %s: %s",
                     run_id,
                     i + 1,
-                    len(briefs),
+                    len(final_briefs),
                     brief.get("affected_area", "?"),
                     type(exc).__name__,
                     str(exc)[:200],
                 )
 
-        artifacts = designer.build_checkpoint_artifacts(results)
+        artifacts = feas_designer.build_checkpoint_artifacts(results)
 
         self.storage.update_participating_agents(
             stage_exec.id,
@@ -418,8 +455,17 @@ class DiscoveryOrchestrator:
         )
 
     def _run_prioritization(self, run_id: UUID, convo_id: str):
-        """Stage 4: TPMAgent ranks feasible opportunities."""
+        """Stage 4: TPMAgent ranks feasible opportunities.
+
+        Validates packages via TPMAgent.validate_input() before ranking.
+        Rejected specs are revised by FeasibilityDesigner.revise_rejected()
+        and re-validated up to MAX_VALIDATION_RETRIES times.
+        """
         tpm = TPMAgent(openai_client=self.client)
+        # FeasibilityDesigner needed for revising rejected specs
+        tech_lead = TechLeadAgent(openai_client=self.client)
+        risk_agent = RiskAgent(openai_client=self.client)
+        feas_designer = FeasibilityDesigner(tech_lead, risk_agent)
         stage_exec = self.storage.get_active_stage(run_id)
 
         feas_artifacts = self._get_stage_artifacts(
@@ -456,6 +502,12 @@ class DiscoveryOrchestrator:
                 }
             )
 
+        # --- Validate-retry-process loop ---
+        packages = self._validate_retry_packages(
+            run_id, convo_id, stage_exec.id, tpm, feas_designer,
+            packages, solution_map,
+        )
+
         # Short-circuit when no feasible specs — emit empty rankings
         started_at = datetime.now(timezone.utc)
         if not packages:
@@ -491,6 +543,505 @@ class DiscoveryOrchestrator:
         return self.service.submit_checkpoint(
             convo_id, run_id, "tpm_agent", artifacts=artifacts
         )
+
+    # ========================================================================
+    # Validation-retry helpers
+    # ========================================================================
+
+    def _validate_retry_briefs(
+        self,
+        run_id: UUID,
+        convo_id: str,
+        stage_execution_id: int,
+        designer: SolutionDesigner,
+        pm: OpportunityPM,
+        briefs: List[Dict[str, Any]],
+        explorer_checkpoint: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """Validate briefs via SolutionDesigner, retry rejected via OpportunityPM.
+
+        Returns final list of briefs: accepted (original order) + warned (appended).
+        """
+        if not briefs:
+            return briefs
+
+        # Build item_id → original index mapping for ordering
+        id_field = "affected_area"
+        item_ids = [b.get(id_field, f"brief_{i}") for i, b in enumerate(briefs)]
+        item_map = {item_ids[i]: briefs[i] for i in range(len(briefs))}
+
+        # Initial validation
+        try:
+            started_at = datetime.now(timezone.utc)
+            validation = designer.validate_input(briefs, explorer_checkpoint)
+            self._record_invocation(
+                run_id, stage_execution_id, "solution_designer_validate",
+                validation.token_usage, started_at,
+            )
+        except Exception:
+            logger.warning(
+                "Run %s: validate_input failed — accepting all %d briefs",
+                run_id, len(briefs), exc_info=True,
+            )
+            return briefs
+
+        self._post_validation_event(
+            convo_id, "solution_designer", 0, validation,
+        )
+
+        accepted_ids = set(validation.accepted_items)
+        rejected = validation.rejected_items
+
+        retry_count = 0
+        while rejected and retry_count < MAX_VALIDATION_RETRIES:
+            retry_count += 1
+            logger.info(
+                "Run %s: validation retry %d — %d rejected briefs",
+                run_id, retry_count, len(rejected),
+            )
+
+            rej_briefs = [item_map[r.item_id] for r in rejected if r.item_id in item_map]
+            rej_list = [r for r in rejected if r.item_id in item_map]
+
+            if not rej_briefs:
+                break
+
+            # Revise via OpportunityPM
+            started_at = datetime.now(timezone.utc)
+            evidence_source_map = extract_evidence_source_map(explorer_checkpoint)
+            valid_ids = extract_evidence_ids(explorer_checkpoint)
+            framing_result = pm.reframe_rejected(rej_briefs, rej_list, explorer_checkpoint)
+            revised_artifacts = pm.build_checkpoint_artifacts(
+                framing_result,
+                valid_evidence_ids=valid_ids if valid_ids else None,
+                evidence_source_map=evidence_source_map if evidence_source_map else None,
+            )
+            revised_briefs = revised_artifacts.get("briefs", [])
+            self._record_invocation(
+                run_id, stage_execution_id, "opportunity_pm_revise",
+                framing_result.token_usage, started_at,
+            )
+
+            # Update item_map with revised briefs. When affected_area changes,
+            # replace the old ID in item_ids to avoid emitting both old and new.
+            revised_brief_ids = set()
+            for idx, rb in enumerate(revised_briefs):
+                rb_id = rb.get(id_field, "")
+                if not rb_id:
+                    continue
+                item_map[rb_id] = rb
+                revised_brief_ids.add(rb_id)
+                # If revised brief changed its ID, swap in item_ids
+                if idx < len(rej_list):
+                    old_id = rej_list[idx].item_id
+                    if old_id != rb_id and old_id in set(item_ids):
+                        item_ids = [rb_id if iid == old_id else iid for iid in item_ids]
+                        item_map.pop(old_id, None)
+
+            if len(revised_briefs) != len(rej_list):
+                logger.warning(
+                    "Run %s: revision returned %d briefs for %d rejected — some skipped",
+                    run_id, len(revised_briefs), len(rej_list),
+                )
+
+            # Items that weren't revised carry forward as still-rejected
+            unrevised = [r for r in rej_list if r.item_id not in revised_brief_ids]
+
+            # Re-validate ONLY revised briefs
+            try:
+                started_at = datetime.now(timezone.utc)
+                re_validation = designer.validate_input(revised_briefs, explorer_checkpoint)
+                self._record_invocation(
+                    run_id, stage_execution_id, "solution_designer_validate",
+                    re_validation.token_usage, started_at,
+                )
+            except Exception:
+                logger.warning(
+                    "Run %s: re-validation failed — accepting revised briefs",
+                    run_id, exc_info=True,
+                )
+                accepted_ids.update(revised_brief_ids)
+                rejected = unrevised
+                break
+
+            self._post_validation_event(
+                convo_id, "solution_designer", retry_count, re_validation,
+            )
+
+            accepted_ids.update(re_validation.accepted_items)
+            rejected = re_validation.rejected_items + unrevised
+
+        # Items still rejected → add validation_warnings and include them
+        warned_ids = set()
+        for r in rejected:
+            if r.item_id in item_map:
+                brief = item_map[r.item_id]
+                warnings = brief.get("validation_warnings") or []
+                warnings.append(
+                    f"Rejected after {MAX_VALIDATION_RETRIES} retries: {r.rejection_reason}"
+                )
+                brief["validation_warnings"] = warnings
+                warned_ids.add(r.item_id)
+
+        # Deterministic ordering: accepted in original order, warned appended
+        final = []
+        warned = []
+        for iid in item_ids:
+            if iid in warned_ids:
+                warned.append(item_map[iid])
+            else:
+                final.append(item_map[iid])
+        # Include revised items that may have new IDs
+        for iid in accepted_ids:
+            if iid not in set(item_ids) and iid in item_map:
+                final.append(item_map[iid])
+        final.extend(warned)
+
+        logger.info(
+            "Run %s: brief validation complete — %d accepted, %d warned",
+            run_id, len(final) - len(warned), len(warned),
+        )
+        return final
+
+    def _validate_retry_solutions(
+        self,
+        run_id: UUID,
+        convo_id: str,
+        stage_execution_id: int,
+        feas_designer: FeasibilityDesigner,
+        sol_designer: SolutionDesigner,
+        briefs: List[Dict[str, Any]],
+        solutions: List[Dict[str, Any]],
+    ) -> tuple:
+        """Validate solutions via FeasibilityDesigner, retry via SolutionDesigner.
+
+        Returns (final_briefs, final_solutions) with accepted first, warned appended.
+        Both lists maintain parallel index correspondence.
+        """
+        # Pad briefs/solutions to equal length so parallel index
+        # correspondence holds throughout validation and downstream.
+        id_field = "affected_area"
+        n = max(len(briefs), len(solutions))
+        padded_solutions = list(solutions) + [{} for _ in range(n - len(solutions))]
+        padded_briefs = list(briefs) + [{} for _ in range(n - len(briefs))]
+
+        if not padded_solutions or all(s == {} for s in padded_solutions):
+            return padded_briefs, padded_solutions
+
+        item_ids = [
+            padded_briefs[i].get(id_field, f"solution_{i}")
+            for i in range(n)
+        ]
+        sol_map = {item_ids[i]: padded_solutions[i] for i in range(n)}
+        brief_map = {item_ids[i]: padded_briefs[i] for i in range(n)}
+
+        # Initial validation — pass padded lists so validator sees all items
+        try:
+            started_at = datetime.now(timezone.utc)
+            validation = feas_designer.validate_input(padded_solutions, padded_briefs)
+            self._record_invocation(
+                run_id, stage_execution_id, "feasibility_designer_validate",
+                validation.token_usage, started_at,
+            )
+        except Exception:
+            logger.warning(
+                "Run %s: validate_input failed — accepting all %d solutions",
+                run_id, len(padded_solutions), exc_info=True,
+            )
+            return padded_briefs, padded_solutions
+
+        self._post_validation_event(
+            convo_id, "feasibility_designer", 0, validation,
+        )
+
+        accepted_ids = set(validation.accepted_items)
+        rejected = validation.rejected_items
+
+        retry_count = 0
+        while rejected and retry_count < MAX_VALIDATION_RETRIES:
+            retry_count += 1
+            logger.info(
+                "Run %s: solution validation retry %d — %d rejected",
+                run_id, retry_count, len(rejected),
+            )
+
+            rej_sols = [sol_map[r.item_id] for r in rejected if r.item_id in sol_map]
+            rej_briefs = [brief_map[r.item_id] for r in rejected if r.item_id in brief_map]
+            rej_list = [r for r in rejected if r.item_id in sol_map]
+
+            if not rej_sols:
+                break
+
+            # Revise via SolutionDesigner
+            started_at = datetime.now(timezone.utc)
+            revised_results = sol_designer.revise_rejected(rej_sols, rej_list, rej_briefs)
+            # Convert SolutionDesignResult list to solution dicts
+            revised_artifacts = sol_designer.build_checkpoint_artifacts(revised_results)
+            revised_solutions = revised_artifacts.get("solutions", [])
+            revision_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            for r in revised_results:
+                for k in revision_usage:
+                    revision_usage[k] += r.token_usage.get(k, 0)
+            self._record_invocation(
+                run_id, stage_execution_id, "solution_designer_revise",
+                revision_usage, started_at,
+            )
+
+            # Update sol_map with revised solutions (keyed by original item_id)
+            revised_item_ids = set()
+            for idx, r in enumerate(rej_list):
+                if r.item_id in sol_map and idx < len(revised_solutions):
+                    sol_map[r.item_id] = revised_solutions[idx]
+                    revised_item_ids.add(r.item_id)
+
+            if len(revised_solutions) != len(rej_list):
+                logger.warning(
+                    "Run %s: revision returned %d solutions for %d rejected — some skipped",
+                    run_id, len(revised_solutions), len(rej_list),
+                )
+
+            # Items that weren't revised carry forward as still-rejected
+            unrevised = [r for r in rej_list if r.item_id not in revised_item_ids]
+
+            # Re-validate ONLY revised solutions
+            revised_for_val = [sol_map[iid] for iid in revised_item_ids if iid in sol_map]
+            revised_briefs_for_val = [brief_map.get(iid, {}) for iid in revised_item_ids if iid in sol_map]
+            try:
+                started_at = datetime.now(timezone.utc)
+                re_validation = feas_designer.validate_input(
+                    revised_for_val,
+                    revised_briefs_for_val,
+                )
+                self._record_invocation(
+                    run_id, stage_execution_id, "feasibility_designer_validate",
+                    re_validation.token_usage, started_at,
+                )
+            except Exception:
+                logger.warning(
+                    "Run %s: re-validation failed — accepting revised solutions",
+                    run_id, exc_info=True,
+                )
+                accepted_ids.update(revised_item_ids)
+                rejected = unrevised
+                break
+
+            self._post_validation_event(
+                convo_id, "feasibility_designer", retry_count, re_validation,
+            )
+
+            accepted_ids.update(re_validation.accepted_items)
+            rejected = re_validation.rejected_items + unrevised
+
+        # Items still rejected → add validation_warnings to their solutions
+        warned_ids = set()
+        for r in rejected:
+            if r.item_id in sol_map:
+                sol = sol_map[r.item_id]
+                warnings = sol.get("validation_warnings") or []
+                warnings.append(
+                    f"Rejected after {MAX_VALIDATION_RETRIES} retries: {r.rejection_reason}"
+                )
+                sol["validation_warnings"] = warnings
+                warned_ids.add(r.item_id)
+
+        # Deterministic ordering: accepted in original order, warned appended
+        final_briefs = []
+        final_solutions = []
+        warned_briefs = []
+        warned_solutions = []
+        for iid in item_ids:
+            if iid in warned_ids:
+                warned_briefs.append(brief_map[iid])
+                warned_solutions.append(sol_map[iid])
+            else:
+                final_briefs.append(brief_map[iid])
+                final_solutions.append(sol_map[iid])
+        final_briefs.extend(warned_briefs)
+        final_solutions.extend(warned_solutions)
+
+        logger.info(
+            "Run %s: solution validation complete — %d accepted, %d warned",
+            run_id, len(final_solutions) - len(warned_solutions), len(warned_solutions),
+        )
+        return final_briefs, final_solutions
+
+    def _validate_retry_packages(
+        self,
+        run_id: UUID,
+        convo_id: str,
+        stage_execution_id: int,
+        tpm: TPMAgent,
+        feas_designer: FeasibilityDesigner,
+        packages: List[Dict[str, Any]],
+        solution_map: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """Validate packages via TPMAgent, retry rejected specs via FeasibilityDesigner.
+
+        Returns final list of packages: accepted (original order) + warned (appended).
+        """
+        if not packages:
+            return packages
+
+        id_field = "opportunity_id"
+        item_ids = [p.get(id_field, f"package_{i}") for i, p in enumerate(packages)]
+        pkg_map = {item_ids[i]: packages[i] for i in range(len(packages))}
+
+        # Initial validation
+        try:
+            started_at = datetime.now(timezone.utc)
+            validation = tpm.validate_input(packages)
+            self._record_invocation(
+                run_id, stage_execution_id, "tpm_validate",
+                validation.token_usage, started_at,
+            )
+        except Exception:
+            logger.warning(
+                "Run %s: validate_input failed — accepting all %d packages",
+                run_id, len(packages), exc_info=True,
+            )
+            return packages
+
+        self._post_validation_event(
+            convo_id, "tpm_agent", 0, validation,
+        )
+
+        accepted_ids = set(validation.accepted_items)
+        rejected = validation.rejected_items
+
+        retry_count = 0
+        while rejected and retry_count < MAX_VALIDATION_RETRIES:
+            retry_count += 1
+            logger.info(
+                "Run %s: package validation retry %d — %d rejected",
+                run_id, retry_count, len(rejected),
+            )
+
+            rej_specs = []
+            rej_solutions = []
+            rej_list = []
+            for r in rejected:
+                if r.item_id in pkg_map:
+                    pkg = pkg_map[r.item_id]
+                    rej_specs.append(pkg.get("technical_spec", {}))
+                    rej_solutions.append(pkg.get("solution_brief", {}))
+                    rej_list.append(r)
+
+            if not rej_specs:
+                break
+
+            # Revise specs via FeasibilityDesigner
+            started_at = datetime.now(timezone.utc)
+            revised_results = feas_designer.revise_rejected(rej_specs, rej_list, rej_solutions)
+            revised_artifacts = feas_designer.build_checkpoint_artifacts(revised_results)
+            revised_specs = revised_artifacts.get("specs", [])
+            revision_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            for r in revised_results:
+                for k in revision_usage:
+                    revision_usage[k] += r.token_usage.get(k, 0)
+            self._record_invocation(
+                run_id, stage_execution_id, "feasibility_designer_revise",
+                revision_usage, started_at,
+            )
+
+            # Rebuild packages with revised specs
+            revised_packages = []
+            revised_pkg_ids = set()
+            for idx, rej in enumerate(rej_list):
+                if idx < len(revised_specs) and rej.item_id in pkg_map:
+                    pkg = dict(pkg_map[rej.item_id])
+                    pkg["technical_spec"] = revised_specs[idx]
+                    pkg_map[rej.item_id] = pkg
+                    revised_packages.append(pkg)
+                    revised_pkg_ids.add(rej.item_id)
+
+            if len(revised_specs) != len(rej_list):
+                logger.warning(
+                    "Run %s: revision returned %d specs for %d rejected — some skipped",
+                    run_id, len(revised_specs), len(rej_list),
+                )
+
+            # Items that weren't revised carry forward as still-rejected
+            unrevised = [r for r in rej_list if r.item_id not in revised_pkg_ids]
+
+            # Re-validate ONLY revised packages
+            try:
+                started_at = datetime.now(timezone.utc)
+                re_validation = tpm.validate_input(revised_packages)
+                self._record_invocation(
+                    run_id, stage_execution_id, "tpm_validate",
+                    re_validation.token_usage, started_at,
+                )
+            except Exception:
+                logger.warning(
+                    "Run %s: re-validation failed — accepting revised packages",
+                    run_id, exc_info=True,
+                )
+                accepted_ids.update(revised_pkg_ids)
+                rejected = unrevised
+                break
+
+            self._post_validation_event(
+                convo_id, "tpm_agent", retry_count, re_validation,
+            )
+
+            accepted_ids.update(re_validation.accepted_items)
+            rejected = re_validation.rejected_items + unrevised
+
+        # Items still rejected → add validation_warnings to their specs
+        warned_ids = set()
+        for r in rejected:
+            if r.item_id in pkg_map:
+                pkg = pkg_map[r.item_id]
+                spec = pkg.get("technical_spec", {})
+                warnings = spec.get("validation_warnings") or []
+                warnings.append(
+                    f"Rejected after {MAX_VALIDATION_RETRIES} retries: {r.rejection_reason}"
+                )
+                spec["validation_warnings"] = warnings
+                pkg["technical_spec"] = spec
+                warned_ids.add(r.item_id)
+
+        # Deterministic ordering: accepted in original order, warned appended
+        final = []
+        warned = []
+        for iid in item_ids:
+            if iid in warned_ids:
+                warned.append(pkg_map[iid])
+            else:
+                final.append(pkg_map[iid])
+        final.extend(warned)
+
+        logger.info(
+            "Run %s: package validation complete — %d accepted, %d warned",
+            run_id, len(final) - len(warned), len(warned),
+        )
+        return final
+
+    def _post_validation_event(
+        self,
+        convo_id: str,
+        agent_name: str,
+        cycle: int,
+        validation: InputValidationResult,
+    ) -> None:
+        """Post an INPUT_VALIDATION event to the conversation."""
+        try:
+            self.service.post_event(
+                convo_id,
+                agent_name,
+                EventType.INPUT_VALIDATION,
+                {
+                    "cycle": cycle,
+                    "accepted": len(validation.accepted_items),
+                    "rejected": len(validation.rejected_items),
+                    "rejected_item_ids": [r.item_id for r in validation.rejected_items],
+                },
+            )
+        except Exception:
+            logger.warning(
+                "Failed to post validation event for %s cycle %d",
+                agent_name, cycle, exc_info=True,
+            )
 
     # ========================================================================
     # Helpers

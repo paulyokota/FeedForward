@@ -1,37 +1,57 @@
 # Discovery Quality Contracts
 
-This document defines a lightweight, stage-by-stage quality contract pattern
-for the Discovery Engine. The goal is to preserve creative reasoning while
-preventing low-quality artifacts from propagating through the pipeline.
+This document defines the stage-by-stage quality contract pattern for the
+Discovery Engine. The goal is to preserve creative reasoning while preventing
+low-quality artifacts from propagating through the pipeline.
 
 ## Principle
 
-Each stage owns the semantic quality of its output. Before handing off to the
-next stage, the producing agent must self-check its output against a small set
-of acceptance criteria (typically 1–2 checks). If the criteria fail, the agent
-must revise, decompose, or return a structured "needs_decomposition" signal
-instead of forcing a brief forward.
+The **receiving stage** validates its input using domain expertise. Each
+consuming agent evaluates upstream artifacts against stage-specific acceptance
+criteria before processing them. If items fail validation, the producing agent
+revises them and the consuming agent re-validates — up to a maximum retry
+limit.
 
 This is **not** about rigid formatting. Pydantic already enforces structure.
 These contracts focus on **semantic quality**: actionability, coherence, and
 traceability.
 
-## Pattern (Lightweight)
+## Pattern: Validate-Retry-Process
 
-1. **Stage-specific self-checks** in the producing agent's prompt.
-2. **Escape hatch** for cases that are too broad to act on (e.g. "needs_decomposition").
-3. **Quality flags/metrics** in checkpoint metadata (counts + short reasons).
-4. **No orchestration change** required initially; prompts do the work.
+```
+1. Consuming agent calls validate_input(items)
+   → Returns InputValidationResult: accepted_items + rejected_items
+2. If rejections exist:
+   a. Producing agent calls revise_rejected(items, rejections, context)
+   b. Consuming agent re-validates ONLY revised items
+   c. Repeat up to MAX_VALIDATION_RETRIES (2) times
+3. Items still rejected after retries → pass through with validation_warnings
+4. Final items = accepted (original order) + warned (appended)
+5. Stage processes final items through its normal logic
+```
 
-## Stage-by-Stage Criteria (v1)
+Key properties:
 
-| Stage | Output | Quality Contract (1–2 checks) |
-| --- | --- | --- |
-| 0 → 1 | Explorer findings | Specific enough to name a concrete surface/system; evidence pointers present |
-| 1 → 2 | Opportunity briefs | **Actionability:** developer can identify a surface/system; **Coherence:** single underlying issue (not a grab-bag) |
-| 2 → 3 | Solution briefs | Concrete approach + measurable success criteria |
-| 3 → 4 | Feasibility specs | Constraints and risks are explicit and non-empty |
-| 4 → 5 | Rankings | Rationale ties to evidence + feasibility inputs |
+- **Conservative fallback**: if `validate_input()` throws, all items are
+  accepted (graceful degradation — pipeline never blocks on validation failure)
+- **Deterministic ordering**: accepted items preserve original input order;
+  warned items are appended at the end
+- **Token tracking**: every validation and revision LLM call records token
+  usage via `_record_invocation()`
+- **Audit trail**: `INPUT_VALIDATION` events posted to the conversation for
+  each validation cycle
+
+## Stage-by-Stage Criteria
+
+| Boundary | Consuming Agent     | Producing Agent     | Item ID Field                       | Quality Check                                                                                   |
+| -------- | ------------------- | ------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1 → 2    | SolutionDesigner    | OpportunityPM       | `affected_area`                     | Actionability: can a developer identify a concrete surface? Coherence: single underlying issue? |
+| 2 → 3    | FeasibilityDesigner | SolutionDesigner    | `affected_area` (from parent brief) | Concrete approach + measurable success criteria?                                                |
+| 3 → 4    | TPMAgent            | FeasibilityDesigner | `opportunity_id`                    | Constraints and risks explicit and non-empty?                                                   |
+
+Stage 0 → 1 (explorer findings → opportunity framing) does not have receiving-
+stage validation — the OpportunityPM is the first to frame raw findings, so
+there is no typed upstream artifact to validate against.
 
 ## Quality Flags (Metadata Convention)
 
@@ -40,37 +60,68 @@ Each checkpoint metadata may include a `quality_flags` object:
 ```json
 {
   "quality_flags": {
-    "filtered_items": 2,
-    "needs_decomposition": 1,
-    "revised_outputs": 1,
-    "notes": [
-      "Dropped one brief: too broad, no identifiable surface",
-      "Split one finding into two briefs"
-    ]
+    "briefs_produced": 10,
+    "validation_rejections": 2,
+    "validation_retries": 1
   }
 }
 ```
 
-This is intentionally lightweight: counts + short notes. It helps identify
-where quality is leaking without adding heavy infrastructure.
+These counters track how much validation activity occurred at each stage
+boundary. High `validation_rejections` relative to `briefs_produced` indicates
+the upstream stage may need prompt tuning.
 
-## Escape Hatch Pattern
+## Warning Pass-Through
 
-When an item fails the quality gate:
-- **Decompose** into multiple specific items when possible, OR
-- Return it in a structured `needs_decomposition` list and **do not** emit a
-  brief for it.
+When an item fails validation after `MAX_VALIDATION_RETRIES` (2) retries:
 
-## Rollout Plan
+1. A `validation_warnings` list is attached to the artifact (OpportunityBrief,
+   SolutionBrief, or TechnicalSpec)
+2. The warning includes the rejection reason:
+   `"Rejected after 2 retries: <reason>"`
+3. The item is appended to the end of the final items list
+4. The stage processes it normally — warnings are informational, not blocking
 
-1. **Start with Stage 1 (OpportunityPM)**: add actionability + coherence
-   checks plus `needs_decomposition` and `quality_flags`. (Issue #270)
-2. **Document the pattern** (this file). (Issue #271)
-3. **Expand to other stages only when evidence indicates** a quality leak.
+This ensures the pipeline never drops items due to validation disagreements.
+Human reviewers can use `validation_warnings` to flag items for closer
+inspection in Stage 5 (human review).
 
-## Motivation (Runs 1–3)
+## Agent Methods
+
+Each boundary involves two methods:
+
+**Consuming agent** — `validate_input(items, context) → InputValidationResult`
+
+- Single LLM call batching all items
+- Returns accepted/rejected split with rejection reasons
+- Empty input → no LLM call, empty result
+- Malformed LLM response → accept all (conservative)
+- Partial parse → unmentioned items accepted
+
+**Producing agent** — `revise_rejected(items, rejections, context) → revised results`
+
+- One LLM call per rejected item
+- Passes rejection reason + original context for targeted revision
+- JSONDecodeError → skip item (logged with wasted token count)
+
+## Rollout Status
+
+All three boundaries are implemented:
+
+1. **1 → 2** (SolutionDesigner validates briefs): Issue #276 + #277 + #278
+2. **2 → 3** (FeasibilityDesigner validates solutions): Issue #276 + #277 + #278
+3. **3 → 4** (TPMAgent validates specs): Issue #276 + #277 + #278
+
+Foundation models (`InputRejection`, `InputValidationResult`,
+`validation_warnings` field) established in Issue #275.
+
+Orchestrator integration (validate-retry-process loop) in Issue #278.
+
+## Motivation (Runs 1-3)
 
 Recent runs showed broad findings ("Glitches and Performance Issues") flowing
-through the pipeline without decomposition. The quality contract pattern
-targets this failure mode by making the producing stage responsible for
-semantic scope checks.
+through the pipeline without decomposition, and some stages producing output
+that downstream agents couldn't meaningfully act on. The receiving-stage
+validation pattern addresses this by letting domain-expert agents gate their
+own input — the agent that will use the artifact is best positioned to judge
+whether it's actionable.
