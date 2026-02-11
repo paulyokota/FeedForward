@@ -65,6 +65,8 @@ VALID_STAGE_TRANSITIONS = {
 ALLOWED_BACKWARD_TRANSITIONS = {
     StageType.FEASIBILITY_RISK: {StageType.SOLUTION_VALIDATION},
     StageType.HUMAN_REVIEW: set(STAGE_ORDER),  # can send back to any stage
+    StageType.SOLUTION_VALIDATION: {StageType.OPPORTUNITY_FRAMING},  # input validation rejection
+    StageType.PRIORITIZATION: {StageType.FEASIBILITY_RISK},  # input validation rejection
 }
 
 

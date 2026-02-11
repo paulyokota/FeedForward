@@ -729,3 +729,68 @@ class TestInvariants:
         run = storage.get_run(run_id)
         assert run.status == RunStatus.COMPLETED
         assert run.current_stage == StageType.HUMAN_REVIEW
+
+
+# ============================================================================
+# Backward transitions for input validation (Issue #275)
+# ============================================================================
+
+
+class TestInputValidationBackwardTransitions:
+    """Tests for new backward transitions added for input validation rejection."""
+
+    def _advance_to_stage(self, sm, run_id, target_stage):
+        """Helper to advance a running run to a specific stage."""
+        target_idx = STAGE_ORDER.index(target_stage)
+        for _ in range(target_idx):
+            sm.advance_stage(run_id, artifacts={"data": True})
+
+    def test_backward_transition_solution_validation_to_opportunity_framing(self, sm, storage, running_run):
+        """Solution Validation can send back to Opportunity Framing on input rejection."""
+        run_id = running_run.id
+        self._advance_to_stage(sm, run_id, StageType.SOLUTION_VALIDATION)
+
+        new_stage = sm.send_back(
+            run_id,
+            StageType.OPPORTUNITY_FRAMING,
+            reason="OpportunityBrief too abstract — no specific product surface named",
+        )
+
+        assert new_stage.stage == StageType.OPPORTUNITY_FRAMING
+        assert new_stage.status == StageStatus.IN_PROGRESS
+        assert new_stage.sent_back_from == StageType.SOLUTION_VALIDATION
+        assert "too abstract" in new_stage.send_back_reason
+        assert new_stage.attempt_number == 2
+
+    def test_backward_transition_prioritization_to_feasibility_risk(self, sm, storage, running_run):
+        """Prioritization can send back to Feasibility/Risk on input rejection."""
+        run_id = running_run.id
+        self._advance_to_stage(sm, run_id, StageType.PRIORITIZATION)
+
+        new_stage = sm.send_back(
+            run_id,
+            StageType.FEASIBILITY_RISK,
+            reason="TechnicalSpec missing effort estimate confidence range",
+        )
+
+        assert new_stage.stage == StageType.FEASIBILITY_RISK
+        assert new_stage.status == StageStatus.IN_PROGRESS
+        assert new_stage.sent_back_from == StageType.PRIORITIZATION
+        assert "effort estimate" in new_stage.send_back_reason
+        assert new_stage.attempt_number == 2
+
+    def test_solution_validation_cannot_send_to_exploration(self, sm, running_run):
+        """Solution Validation can only send back to Opportunity Framing, not Exploration."""
+        run_id = running_run.id
+        self._advance_to_stage(sm, run_id, StageType.SOLUTION_VALIDATION)
+
+        with pytest.raises(InvalidTransitionError, match="Cannot send back"):
+            sm.send_back(run_id, StageType.EXPLORATION, reason="not allowed")
+
+    def test_prioritization_cannot_send_to_solution_validation(self, sm, running_run):
+        """Prioritization can only send back to Feasibility/Risk, not Solution Validation."""
+        run_id = running_run.id
+        self._advance_to_stage(sm, run_id, StageType.PRIORITIZATION)
+
+        with pytest.raises(InvalidTransitionError, match="Cannot send back"):
+            sm.send_back(run_id, StageType.SOLUTION_VALIDATION, reason="not allowed")

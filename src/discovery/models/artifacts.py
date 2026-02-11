@@ -81,6 +81,10 @@ class OpportunityBrief(BaseModel):
         default=None,
         description="Hints for downstream stages (e.g., ['skip_experience', 'internal_risk_framing'])",
     )
+    validation_warnings: Optional[List[str]] = Field(
+        default=None,
+        description="Warnings from receiving-stage input validation (populated by downstream agents)",
+    )
 
     def model_post_init(self, __context) -> None:
         extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
@@ -155,6 +159,10 @@ class SolutionBrief(BaseModel):
     )
     skip_rationale: Optional[str] = Field(
         default=None, description="Why Optional fields were omitted (populated when experiment_plan, build_experiment_decision, or experience_direction is None)"
+    )
+    validation_warnings: Optional[List[str]] = Field(
+        default=None,
+        description="Warnings from receiving-stage input validation (populated by downstream agents)",
     )
 
     def model_post_init(self, __context) -> None:
@@ -233,6 +241,10 @@ class TechnicalSpec(BaseModel):
     dependencies: str = Field(min_length=1, description="What this blocks or is blocked by")
     risks: List[RiskItem] = Field(min_length=1, description="Identified risks with severity and mitigation")
     acceptance_criteria: str = Field(min_length=1, description="How to verify completion")
+    validation_warnings: Optional[List[str]] = Field(
+        default=None,
+        description="Warnings from receiving-stage input validation (populated by downstream agents)",
+    )
 
     def model_post_init(self, __context) -> None:
         extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
@@ -522,3 +534,45 @@ class HumanReviewCheckpoint(BaseModel):
         extra_fields = set(self.model_fields_set) - set(self.__class__.model_fields.keys())
         if extra_fields:
             logger.info("HumanReviewCheckpoint has extra fields: %s", extra_fields)
+
+
+# ============================================================================
+# Input validation artifacts (Issue #275)
+# ============================================================================
+
+
+class InputRejection(BaseModel):
+    """A single rejected input item from receiving-stage validation.
+
+    When a downstream agent determines that an upstream artifact doesn't meet
+    its input requirements, it produces one of these per rejected item.
+    """
+
+    model_config = {"extra": "allow"}
+
+    item_id: str = Field(min_length=1, description="ID of the rejected item (e.g., opportunity_id)")
+    rejection_reason: str = Field(min_length=1, description="Why this item was rejected")
+    rejecting_agent: str = Field(min_length=1, description="Which agent rejected the item")
+    suggested_improvement: Optional[str] = Field(
+        default=None, description="How the upstream agent could fix this item"
+    )
+
+
+class InputValidationResult(BaseModel):
+    """Result of a receiving-stage input validation pass.
+
+    A downstream agent validates all items from the upstream checkpoint,
+    partitioning them into accepted and rejected sets.
+    """
+
+    model_config = {"extra": "allow"}
+
+    accepted_items: List[str] = Field(
+        default_factory=list, description="IDs of items that passed validation"
+    )
+    rejected_items: List[InputRejection] = Field(
+        default_factory=list, description="Items that failed validation"
+    )
+    token_usage: Dict[str, int] = Field(
+        default_factory=lambda: {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    )

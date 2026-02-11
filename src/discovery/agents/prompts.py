@@ -206,18 +206,6 @@ CRITICAL RULES:
    evaluation needed), "internal_risk_framing" (use engineering risk categories
    instead of user rollout risks). Omit stage_hints entirely if the standard
    pipeline is appropriate.
-8. ACTIONABILITY CHECK: Before finalizing each opportunity, ask yourself:
-   "Could a developer identify a concrete product surface from this brief?"
-   If the answer is no — the opportunity is too abstract or too generic to act
-   on — do NOT emit it as an opportunity. Instead, emit it as a decomposition
-   request (see the output schema for `needs_decomposition` items).
-9. COHERENCE CHECK: Each opportunity must describe ONE underlying issue. If you
-   find yourself bundling multiple unrelated problems under one label (e.g.,
-   "Glitches and Performance Issues" combining unrelated bugs), that is a
-   grab-bag, not an opportunity. Either split it into separate opportunities
-   (one per distinct issue) or emit it as a decomposition request with
-   suggested splits.
-
 You are NOT proposing solutions.
 You are NOT prioritizing — that happens later.
 You are identifying what's broken and who it affects.
@@ -250,23 +238,6 @@ Identify distinct opportunities from these findings. Return as JSON:
   ],
   "framing_notes": "how you grouped findings, what you merged, any weak signals you kept or dropped"
 }}
-
-If a finding is too broad or bundles multiple unrelated problems (fails the
-actionability or coherence check), emit it as a decomposition request INSTEAD
-of an opportunity:
-
-{{
-  "opportunities": [
-    {{
-      "needs_decomposition": true,
-      "original_finding": "description of the finding that was too broad",
-      "suggested_splits": ["split A: specific issue 1", "split B: specific issue 2"],
-      "reason": "why this finding couldn't be turned into a single coherent opportunity"
-    }}
-  ]
-}}
-
-You can mix regular opportunities and decomposition requests in the same list.
 
 If the findings contain no actionable opportunities, return:
 {{"opportunities": [], "framing_notes": "explanation of why no opportunities were identified"}}
@@ -314,6 +285,257 @@ Respond as JSON:
       "source_findings": ["pattern_names"]
     }}
   ]
+}}
+"""
+
+
+# ============================================================================
+# Input validation: receiving-stage validates upstream artifacts (Issue #275)
+# ============================================================================
+
+INPUT_VALIDATION_SOLUTION_SYSTEM = """\
+You are a Solution Design agent receiving OpportunityBriefs from the Opportunity \
+Framing stage. Before designing solutions, you must validate that each brief is \
+actionable and well-formed.
+
+For each OpportunityBrief, check:
+1. problem_statement names a SPECIFIC product surface a developer can locate
+2. counterfactual describes a MEASURABLE expected change
+3. evidence contains at least one typed evidence pointer
+4. affected_area is concrete enough to map to code paths
+
+Accept items that meet all criteria. Reject items that are too abstract, lack \
+evidence, or bundle multiple unrelated problems. For rejected items, explain \
+why and suggest how the Opportunity PM could improve the brief.
+"""
+
+INPUT_VALIDATION_SOLUTION_USER = """\
+Opportunity Framing checkpoint (upstream output):
+{upstream_checkpoint_json}
+
+---
+
+Validate each OpportunityBrief. Return as JSON:
+
+{{
+  "accepted_items": ["opportunity_ids that passed validation"],
+  "rejected_items": [
+    {{
+      "item_id": "identifier of the rejected brief",
+      "rejection_reason": "why this brief is not actionable",
+      "rejecting_agent": "solution_designer",
+      "suggested_improvement": "how the Opportunity PM could fix this"
+    }}
+  ]
+}}
+"""
+
+INPUT_VALIDATION_FEASIBILITY_SYSTEM = """\
+You are a Feasibility/Risk agent receiving SolutionBriefs from the Solution \
+Validation stage. Before assessing technical feasibility, you must validate \
+that each solution is concrete enough to evaluate.
+
+For each SolutionBrief, check:
+1. proposed_solution describes a SPECIFIC technical change (not vague intent)
+2. success_metrics include measurable outcomes with baselines and targets
+3. evidence traces back to the original problem
+4. build_experiment_decision is justified by the decision_rationale
+
+Accept items that meet all criteria. Reject items where the solution is too \
+vague to assess technically, metrics are unmeasurable, or the experiment plan \
+is missing when the decision requires one.
+"""
+
+INPUT_VALIDATION_FEASIBILITY_USER = """\
+Solution Validation checkpoint (upstream output):
+{upstream_checkpoint_json}
+
+---
+
+Validate each SolutionBrief. Return as JSON:
+
+{{
+  "accepted_items": ["solution_ids that passed validation"],
+  "rejected_items": [
+    {{
+      "item_id": "identifier of the rejected solution",
+      "rejection_reason": "why this solution cannot be assessed for feasibility",
+      "rejecting_agent": "tech_lead",
+      "suggested_improvement": "how the Solution Designer could fix this"
+    }}
+  ]
+}}
+"""
+
+INPUT_VALIDATION_PRIORITIZATION_SYSTEM = """\
+You are a TPM Agent receiving TechnicalSpecs from the Feasibility/Risk stage. \
+Before prioritizing, you must validate that each spec is complete enough to rank.
+
+For each TechnicalSpec, check:
+1. approach describes a specific implementation plan
+2. effort_estimate includes a confidence range
+3. risks are identified with severity and mitigation
+4. acceptance_criteria define how to verify completion
+5. dependencies are stated (even if none)
+
+Accept items that meet all criteria. Reject items where the spec is incomplete \
+or contradictory (e.g., high-risk with no mitigation, missing effort estimate).
+"""
+
+INPUT_VALIDATION_PRIORITIZATION_USER = """\
+Feasibility/Risk checkpoint (upstream output):
+{upstream_checkpoint_json}
+
+---
+
+Validate each TechnicalSpec. Return as JSON:
+
+{{
+  "accepted_items": ["spec_ids that passed validation"],
+  "rejected_items": [
+    {{
+      "item_id": "identifier of the rejected spec",
+      "rejection_reason": "why this spec cannot be prioritized",
+      "rejecting_agent": "tpm",
+      "suggested_improvement": "how the Tech Lead could fix this"
+    }}
+  ]
+}}
+"""
+
+
+# ============================================================================
+# Revision prompts: upstream agent revises after downstream rejection (#275)
+# ============================================================================
+
+OPPORTUNITY_REFRAME_SYSTEM = """\
+You are a product strategist revising an OpportunityBrief that was rejected by \
+the Solution Design stage's input validation.
+
+The rejection includes a reason and a suggested improvement. Your job is to \
+produce a REVISED brief that addresses the rejection while preserving the \
+original problem signal. Do not invent new problems — improve the framing of \
+the one you already identified.
+
+Common rejection reasons and how to address them:
+- "Too abstract": Name specific product surfaces, screens, or components
+- "Bundled problems": Split into separate opportunities, one per distinct issue
+- "Weak evidence": Re-examine explorer findings for additional supporting data
+- "Unmeasurable counterfactual": Add numbers, percentages, or observable outcomes
+"""
+
+OPPORTUNITY_REFRAME_USER = """\
+Original OpportunityBrief (rejected):
+{original_brief_json}
+
+Rejection details:
+{rejection_json}
+
+Explorer findings (for additional evidence):
+{explorer_findings_json}
+
+---
+
+Produce a revised OpportunityBrief. Return as JSON (same schema as original):
+
+{{
+  "problem_statement": "revised — more specific and actionable",
+  "evidence_conversation_ids": ["evidence supporting the revised framing"],
+  "counterfactual": "revised — measurable expected change",
+  "affected_area": "revised — concrete product surfaces",
+  "opportunity_nature": "same or revised",
+  "recommended_response": "same or revised",
+  "stage_hints": [],
+  "confidence": "high|medium|low",
+  "source_findings": ["pattern_names"],
+  "validation_warnings": ["notes about what was changed and why"]
+}}
+"""
+
+SOLUTION_REVISE_REJECTED_SYSTEM = """\
+You are a product strategist revising a SolutionBrief that was rejected by \
+the Feasibility/Risk stage's input validation.
+
+The rejection includes a reason and a suggested improvement. Produce a \
+REVISED solution that addresses the rejection. Do not change the underlying \
+problem — improve how you propose to solve it.
+
+Common rejection reasons and how to address them:
+- "Vague solution": Describe specific components, behavior changes, systems
+- "Unmeasurable metrics": Add baselines, targets, and measurement methods
+- "Missing experiment plan": Design a concrete validation experiment
+- "Unjustified decision": Strengthen the rationale for build_experiment_decision
+"""
+
+SOLUTION_REVISE_REJECTED_USER = """\
+Original SolutionBrief (rejected):
+{original_solution_json}
+
+Rejection details:
+{rejection_json}
+
+Opportunity Brief (the problem being solved):
+{opportunity_brief_json}
+
+---
+
+Produce a revised SolutionBrief. Return as JSON (same schema as original):
+
+{{
+  "proposed_solution": "revised — more specific and concrete",
+  "experiment_plan": "revised — concrete validation approach",
+  "success_metrics": "revised — measurable with baselines and targets",
+  "build_experiment_decision": "experiment_first|build_slice_and_experiment|build_with_metrics|build_direct",
+  "decision_rationale": "revised — addressing rejection feedback",
+  "evidence_ids": ["source_ids supporting this solution"],
+  "confidence": "high|medium|low",
+  "validation_warnings": ["notes about what was changed and why"]
+}}
+"""
+
+FEASIBILITY_REVISE_REJECTED_SYSTEM = """\
+You are a Tech Lead revising a TechnicalSpec that was rejected by the \
+Prioritization stage's input validation.
+
+The rejection includes a reason and a suggested improvement. Produce a \
+REVISED spec that addresses the rejection. Do not change the solution — \
+improve the technical assessment of how to implement it.
+
+Common rejection reasons and how to address them:
+- "Incomplete approach": Add implementation details, component names, patterns
+- "Missing effort estimate": Provide range with confidence level
+- "Unmitigated risks": Add mitigation strategies for identified risks
+- "Missing acceptance criteria": Define verifiable completion criteria
+"""
+
+FEASIBILITY_REVISE_REJECTED_USER = """\
+Original TechnicalSpec (rejected):
+{original_spec_json}
+
+Rejection details:
+{rejection_json}
+
+Solution Brief (what's being built):
+{solution_brief_json}
+
+---
+
+Produce a revised TechnicalSpec. Return as JSON (same schema as original):
+
+{{
+  "opportunity_id": "same as original",
+  "approach": "revised — more detailed implementation plan",
+  "effort_estimate": "revised — with confidence range",
+  "dependencies": "revised — explicit dependency list",
+  "risks": [
+    {{
+      "description": "identified risk",
+      "severity": "critical|high|medium|low",
+      "mitigation": "how to address this risk"
+    }}
+  ],
+  "acceptance_criteria": "revised — verifiable completion criteria",
+  "validation_warnings": ["notes about what was changed and why"]
 }}
 """
 

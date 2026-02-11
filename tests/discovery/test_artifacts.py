@@ -17,6 +17,8 @@ from src.discovery.models.artifacts import (
     FeasibilityRiskCheckpoint,
     HumanReviewCheckpoint,
     InfeasibleSolution,
+    InputRejection,
+    InputValidationResult,
     OpportunityBrief,
     PrioritizationCheckpoint,
     PrioritizedOpportunity,
@@ -1218,3 +1220,166 @@ class TestHumanReviewCheckpoint:
     def test_schema_version_defaults_to_1(self):
         cp = HumanReviewCheckpoint(**_make_human_review_checkpoint())
         assert cp.schema_version == 1
+
+
+# ============================================================================
+# Input validation artifact helpers (Issue #275)
+# ============================================================================
+
+
+def _make_input_rejection(**overrides) -> dict:
+    """Create a valid input rejection dict."""
+    base = {
+        "item_id": "opp_billing_friction",
+        "rejection_reason": "Problem statement too abstract — no specific product surface named",
+        "rejecting_agent": "solution_designer",
+        "suggested_improvement": "Name the specific billing page or component where friction occurs",
+    }
+    base.update(overrides)
+    return base
+
+
+# ============================================================================
+# InputRejection tests
+# ============================================================================
+
+
+class TestInputRejection:
+    def test_input_rejection_valid(self):
+        ir = InputRejection(**_make_input_rejection())
+        assert ir.item_id == "opp_billing_friction"
+        assert ir.rejecting_agent == "solution_designer"
+        assert ir.suggested_improvement is not None
+
+    def test_input_rejection_missing_item_id_rejected(self):
+        data = _make_input_rejection()
+        del data["item_id"]
+        with pytest.raises(ValidationError):
+            InputRejection(**data)
+
+    def test_input_rejection_empty_item_id_rejected(self):
+        with pytest.raises(ValidationError):
+            InputRejection(**_make_input_rejection(item_id=""))
+
+    def test_input_rejection_missing_rejection_reason_rejected(self):
+        data = _make_input_rejection()
+        del data["rejection_reason"]
+        with pytest.raises(ValidationError):
+            InputRejection(**data)
+
+    def test_input_rejection_empty_rejection_reason_rejected(self):
+        with pytest.raises(ValidationError):
+            InputRejection(**_make_input_rejection(rejection_reason=""))
+
+    def test_input_rejection_missing_rejecting_agent_rejected(self):
+        data = _make_input_rejection()
+        del data["rejecting_agent"]
+        with pytest.raises(ValidationError):
+            InputRejection(**data)
+
+    def test_input_rejection_empty_rejecting_agent_rejected(self):
+        with pytest.raises(ValidationError):
+            InputRejection(**_make_input_rejection(rejecting_agent=""))
+
+    def test_input_rejection_optional_suggested_improvement(self):
+        data = _make_input_rejection()
+        del data["suggested_improvement"]
+        ir = InputRejection(**data)
+        assert ir.suggested_improvement is None
+
+    def test_input_rejection_extra_fields_allowed(self):
+        ir = InputRejection(
+            **_make_input_rejection(),
+            severity="high",
+        )
+        assert ir.severity == "high"  # type: ignore[attr-defined]
+
+
+# ============================================================================
+# InputValidationResult tests
+# ============================================================================
+
+
+class TestInputValidationResult:
+    def test_input_validation_result_valid(self):
+        result = InputValidationResult(
+            accepted_items=["opp_1", "opp_2"],
+            rejected_items=[InputRejection(**_make_input_rejection())],
+            token_usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+        )
+        assert len(result.accepted_items) == 2
+        assert len(result.rejected_items) == 1
+        assert result.token_usage["total_tokens"] == 150
+
+    def test_input_validation_result_empty_lists(self):
+        result = InputValidationResult()
+        assert result.accepted_items == []
+        assert result.rejected_items == []
+        assert result.token_usage == {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+    def test_input_validation_result_with_rejections(self):
+        result = InputValidationResult(
+            accepted_items=["opp_1"],
+            rejected_items=[
+                InputRejection(**_make_input_rejection(item_id="opp_2")),
+                InputRejection(**_make_input_rejection(item_id="opp_3")),
+            ],
+        )
+        assert len(result.rejected_items) == 2
+        assert result.rejected_items[0].item_id == "opp_2"
+        assert result.rejected_items[1].item_id == "opp_3"
+
+    def test_input_validation_result_invalid_rejection_inside(self):
+        with pytest.raises(ValidationError):
+            InputValidationResult(
+                rejected_items=[{"item_id": ""}],  # Empty item_id
+            )
+
+    def test_input_validation_result_extra_fields_allowed(self):
+        result = InputValidationResult(
+            validation_round=2,
+        )
+        assert result.validation_round == 2  # type: ignore[attr-defined]
+
+
+# ============================================================================
+# validation_warnings field tests (Issue #275)
+# ============================================================================
+
+
+class TestValidationWarnings:
+    def test_opportunity_brief_validation_warnings_roundtrip(self):
+        warnings = ["Problem statement was narrowed from 'billing issues' to 'billing upgrade page'"]
+        data = _make_opportunity_brief(validation_warnings=warnings)
+        ob = OpportunityBrief(**data)
+        assert ob.validation_warnings == warnings
+        roundtripped = OpportunityBrief(**ob.model_dump())
+        assert roundtripped.validation_warnings == warnings
+
+    def test_opportunity_brief_validation_warnings_default_none(self):
+        ob = OpportunityBrief(**_make_opportunity_brief())
+        assert ob.validation_warnings is None
+
+    def test_solution_brief_validation_warnings_roundtrip(self):
+        warnings = ["Metrics revised to include baseline numbers"]
+        data = _make_solution_brief(validation_warnings=warnings)
+        sb = SolutionBrief(**data)
+        assert sb.validation_warnings == warnings
+        roundtripped = SolutionBrief(**sb.model_dump())
+        assert roundtripped.validation_warnings == warnings
+
+    def test_solution_brief_validation_warnings_default_none(self):
+        sb = SolutionBrief(**_make_solution_brief())
+        assert sb.validation_warnings is None
+
+    def test_technical_spec_validation_warnings_roundtrip(self):
+        warnings = ["Effort estimate revised to include confidence range"]
+        data = _make_technical_spec(validation_warnings=warnings)
+        ts = TechnicalSpec(**data)
+        assert ts.validation_warnings == warnings
+        roundtripped = TechnicalSpec(**ts.model_dump())
+        assert roundtripped.validation_warnings == warnings
+
+    def test_technical_spec_validation_warnings_default_none(self):
+        ts = TechnicalSpec(**_make_technical_spec())
+        assert ts.validation_warnings is None

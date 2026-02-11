@@ -539,3 +539,115 @@ class TestArtifactValidation:
         # Missing review_metadata
         with pytest.raises(ArtifactValidationError, match="Field required"):
             svc._validate_artifacts(StageType.HUMAN_REVIEW, {"decisions": []})
+
+
+# ============================================================================
+# Input validation event type (Issue #275)
+# ============================================================================
+
+
+class TestInputValidationEvent:
+    def test_input_validation_event_parseable(self):
+        """EventType.INPUT_VALIDATION should be parseable from JSON turns."""
+        payload = {
+            "_event": "input:validation",
+            "agent": "solution_designer",
+            "accepted": ["opp_1"],
+            "rejected": ["opp_2"],
+        }
+        turn = _make_turn(json.dumps(payload))
+        event = parse_turn(turn)
+        assert event.event_type == EventType.INPUT_VALIDATION
+        assert event.agent_name == "solution_designer"
+        assert event.payload["accepted"] == ["opp_1"]
+
+    def test_input_validation_event_in_all_event_types(self):
+        """INPUT_VALIDATION should be enumerable alongside other event types."""
+        assert EventType.INPUT_VALIDATION.value == "input:validation"
+        assert EventType.INPUT_VALIDATION in EventType
+
+    def test_input_validation_event_roundtrip(self):
+        """build_event_text + parse_turn roundtrip for INPUT_VALIDATION."""
+        text = build_event_text(
+            EventType.INPUT_VALIDATION,
+            {"agent": "tech_lead", "result": {"accepted": 3, "rejected": 1}},
+        )
+        turn = _make_turn(text)
+        event = parse_turn(turn)
+        assert event.event_type == EventType.INPUT_VALIDATION
+        assert event.payload["result"]["rejected"] == 1
+
+
+# ============================================================================
+# Prompt constant existence tests (Issue #275)
+# ============================================================================
+
+
+class TestPromptConstants:
+    """Verify all new prompt constants exist and are well-formed format strings."""
+
+    def test_validation_prompt_constants_exist(self):
+        from src.discovery.agents import prompts
+
+        validation_pairs = [
+            ("INPUT_VALIDATION_SOLUTION_SYSTEM", "INPUT_VALIDATION_SOLUTION_USER"),
+            ("INPUT_VALIDATION_FEASIBILITY_SYSTEM", "INPUT_VALIDATION_FEASIBILITY_USER"),
+            ("INPUT_VALIDATION_PRIORITIZATION_SYSTEM", "INPUT_VALIDATION_PRIORITIZATION_USER"),
+        ]
+        for system_name, user_name in validation_pairs:
+            system_prompt = getattr(prompts, system_name)
+            user_prompt = getattr(prompts, user_name)
+            assert isinstance(system_prompt, str), f"{system_name} is not a string"
+            assert isinstance(user_prompt, str), f"{user_name} is not a string"
+            assert len(system_prompt) > 50, f"{system_name} is too short"
+            assert len(user_prompt) > 50, f"{user_name} is too short"
+
+    def test_revision_prompt_constants_exist(self):
+        from src.discovery.agents import prompts
+
+        revision_pairs = [
+            ("OPPORTUNITY_REFRAME_SYSTEM", "OPPORTUNITY_REFRAME_USER"),
+            ("SOLUTION_REVISE_REJECTED_SYSTEM", "SOLUTION_REVISE_REJECTED_USER"),
+            ("FEASIBILITY_REVISE_REJECTED_SYSTEM", "FEASIBILITY_REVISE_REJECTED_USER"),
+        ]
+        for system_name, user_name in revision_pairs:
+            system_prompt = getattr(prompts, system_name)
+            user_prompt = getattr(prompts, user_name)
+            assert isinstance(system_prompt, str), f"{system_name} is not a string"
+            assert isinstance(user_prompt, str), f"{user_name} is not a string"
+            assert len(system_prompt) > 50, f"{system_name} is too short"
+            assert len(user_prompt) > 50, f"{user_name} is too short"
+
+    def test_validation_user_prompts_have_format_placeholders(self):
+        from src.discovery.agents import prompts
+
+        user_prompts = [
+            prompts.INPUT_VALIDATION_SOLUTION_USER,
+            prompts.INPUT_VALIDATION_FEASIBILITY_USER,
+            prompts.INPUT_VALIDATION_PRIORITIZATION_USER,
+        ]
+        for prompt in user_prompts:
+            assert "{upstream_checkpoint_json}" in prompt
+
+    def test_revision_user_prompts_have_format_placeholders(self):
+        from src.discovery.agents import prompts
+
+        assert "{original_brief_json}" in prompts.OPPORTUNITY_REFRAME_USER
+        assert "{rejection_json}" in prompts.OPPORTUNITY_REFRAME_USER
+        assert "{original_solution_json}" in prompts.SOLUTION_REVISE_REJECTED_USER
+        assert "{rejection_json}" in prompts.SOLUTION_REVISE_REJECTED_USER
+        assert "{original_spec_json}" in prompts.FEASIBILITY_REVISE_REJECTED_USER
+        assert "{rejection_json}" in prompts.FEASIBILITY_REVISE_REJECTED_USER
+
+    def test_opportunity_framing_system_rules_8_9_removed(self):
+        """Rules 8-9 (ACTIONABILITY CHECK and COHERENCE CHECK) should be removed."""
+        from src.discovery.agents import prompts
+
+        assert "ACTIONABILITY CHECK" not in prompts.OPPORTUNITY_FRAMING_SYSTEM
+        assert "COHERENCE CHECK" not in prompts.OPPORTUNITY_FRAMING_SYSTEM
+
+    def test_opportunity_framing_user_needs_decomposition_removed(self):
+        """needs_decomposition output format should be removed."""
+        from src.discovery.agents import prompts
+
+        assert "needs_decomposition" not in prompts.OPPORTUNITY_FRAMING_USER
