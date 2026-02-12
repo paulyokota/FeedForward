@@ -235,6 +235,19 @@ separate step that happens only after Paul has reviewed the full card text and
 said to ship it. "Let me push it" is not approval. Present the wording, wait
 for explicit go-ahead.
 
+**Pre-flight (before starting a card)**:
+
+1. Read the Story Template (above) so section names and expectations are fresh
+2. Check the card's workflow state: Need Requirements cards get context to
+   support a stakeholder conversation. In Definition cards get the full
+   treatment (investigation, solution sketch, all sections).
+3. Ask: "Is this a bug or a feature?" Bug cards use a leaner template (skip
+   blank Monetization, UI, Reporting, Release sections).
+4. Ask: "Is this a new feature or an extension of an existing one?" Frame as
+   extension when possible. Identify the closest existing feature surface.
+5. Check `box/posthog-events.md` for already-discovered event names in this
+   product area. Check `box/queries.md` for saved SQL patterns.
+
 **Key behaviors**:
 
 - Rank by most empty sections first, then oldest
@@ -260,6 +273,17 @@ sure the facts underneath the solution are correct before presenting.
 
 - Re-fetch current description from Shortcut before each update (don't use stale cache)
 - Only update sections Paul explicitly changed — preserve everything else
+
+**Completion (after Paul approves and says to ship)**:
+
+All three steps, every time. Don't stop after the description update.
+
+1. **Update description** via Shortcut API
+2. **Move to Ready to Build** (workflow state `500000019`)
+3. **Unassign all owners** (`owner_ids: []`)
+
+If any new PostHog event names were discovered during investigation, add them
+to `box/posthog-events.md`.
 
 ### 4. Recurring Request (Intercom explicit feature request → Shortcut card)
 

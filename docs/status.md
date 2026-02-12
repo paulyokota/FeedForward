@@ -1,5 +1,28 @@
 # Project Status
 
+## Tooling Consolidation + Evidence Cleanup (2026-02-11)
+
+Built three reusable tools from investigation log patterns, then audited and fixed evidence quality on shipped cards.
+
+**Tooling created:**
+
+- `box/posthog-events.md`: Event name catalog organized by product area. Eliminates repeated event-definitions-list lookups.
+- `box/queries.md`: 5 saved SQL patterns for FeedForward DB (recurring themes, recency filter, theme detail, product area breakdown, keyword search).
+- Pre-flight and completion checklists added to fill-cards play in `box/shortcut-ops.md`.
+
+**Evidence cleanup (4 of 9 shipped cards needed fixes):**
+
+- SC-158: bare Intercom IDs → full conversation URLs
+- SC-161: bare Intercom IDs → URLs + 2 new PostHog saved insights (SmartPin Users, Blog Import Usage)
+- SC-44: added 8 representative Intercom conversation links + PostHog insight link
+- SC-150: still pending (needs PostHog insights for AI generation country breakdown)
+
+**Memory updated:** Added compaction-safety rule for Shortcut approvals.
+
+**Next:** SC-150 evidence fix, then continue fill-cards play with remaining In Definition cards.
+
+---
+
 ## Fill-Cards Play: SC-97 + SC-108 Billing Cards (2026-02-11)
 
 Two billing cards investigated and shipped to Ready to Build in one session. Both were In Definition with minimal context.

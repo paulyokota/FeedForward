@@ -5,22 +5,30 @@
 
 ## Goal
 
-Backlog hygiene: audit all active Shortcut stories for missing template sections, add placeholders, and fill the worst offender.
+Reflect on investigation learnings, build reusable tooling from patterns, and clean up evidence quality on shipped cards.
 
 ## What Happened
 
-- **Template audit**: Fetched all 74 non-archived non-Released stories. Checked for 6 required section headers ("What", Evidence, UI Representation, Monetization Angle, Reporting, Release Strategy). Found 20 stories with gaps. Added empty placeholder sections via API.
-- **Sub-task mistake**: SC-37 and SC-38 are sub-tasks. Added template sections to them by mistake, reverted after user flagged it. Shortcut search API doesn't distinguish sub-tasks.
-- **SC-39 fill**: "Merge old extension with inspiration extension functionality" had all 6 sections empty but rich context in the description (migration plan, decision table) plus two linked Shortcut Write docs with detailed usage data, code locations, and onboarding spec. Reorganized into template format. One revision: moved migration sequence from "What" to Release Strategy.
+- **Tooling consolidation**: Re-read the full investigation log, identified 3 recurring friction points, and built tools for each:
+  - `box/posthog-events.md`: PostHog event name catalog (check before searching, add after discovering)
+  - `box/queries.md`: Saved SQL queries for FeedForward DB (recurring themes, recency filter, keyword search, theme detail, product area breakdown)
+  - Pre-flight + completion checklists added to fill-cards play in `box/shortcut-ops.md`
+
+- **Evidence cleanup audit**: Reviewed 9 shipped cards against the evidence standard (Intercom refs link to conversations, PostHog stats link to saved insights). 5 passed, 4 needed fixes.
+  - SC-158: converted bare Intercom IDs to full URLs. Pushed.
+  - SC-161: created 2 PostHog saved insights (SmartPin Users um1Cjlhi, Blog Import KhsT5tWx), converted bare Intercom IDs to URLs, refreshed PostHog numbers. Pushed.
+  - SC-44: added 8 representative Intercom conversation links across 3 categories, added PostHog insight link. Pushed (after reverting an unapproved version).
+  - SC-150: still pending. Needs PostHog saved insights for 4 AI generation country breakdown events.
 
 ## Key Decisions
 
-- Sub-tasks should be skipped for template enforcement.
-- Migration/rollout sequences belong in Release Strategy, not "What".
-- Shortcut Write docs accessible via `GET /api/v3/documents/{uuid}`, content in `content_markdown` field.
+- Evidence standard: every Intercom reference must link to the conversation, every PostHog stat must link to a saved insight.
+- After context compaction, re-show proposed text and get fresh approval. Never reconstruct from memory and push.
+- Tooling should emerge from repeated friction (3+ occurrences), not from speculation.
 
 ## Carried Forward
 
-- Fill-cards play continues: SC-44 (2 empty sections), SC-158 (2 empty sections) are next Ready to Build candidates
-- 10 stories still need Evidence section filled (SC-14, SC-15, SC-32, SC-33, SC-35, SC-41, SC-45, SC-46, SC-47, SC-48)
-- Blog import 4:1 failure ratio still worth investigating separately
+- SC-150 evidence cleanup: create PostHog saved insights for AI generation country breakdown (4 events: SmartContent, Ghostwriter, Generate Pin, Made for You), update card with links
+- SC-117 investigation complete, draft in `box/sc-117-draft.md`, not yet pushed to Shortcut (needs review + approval)
+- Fill-cards play continues with remaining In Definition cards
+- 10 stories still need Evidence section filled
