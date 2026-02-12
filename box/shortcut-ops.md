@@ -109,16 +109,22 @@ New Shortcut cards use this description template:
 ## Evidence
 -
 
-## Monetization Angle
+## Architecture Context
 -
 
 ## UI Representation (Wireframes, descriptions of visuals, etc.)
 -
 
+## Monetization Angle
+-
+
+## Open Questions
+-
+
 ## Reporting Needs/Measurement Plan
 -
 
-## Release strategy
+## Release Strategy
 -
 ```
 
@@ -130,19 +136,35 @@ The goal is to make each section substantive:
 - **"What"**: Clear feature description. What does this do, who is it for, what
   changes from the user's perspective. Not just a verbatim Slack quote.
 - **Evidence**: Data points, customer quotes, support ticket counts, usage metrics
-  — anything that demonstrates demand or validates the need.
-- **Monetization Angle**: How this connects to revenue. Credit consumption,
-  conversion, retention, upsell path.
-- **UI Representation**: Wireframes, mockups, or written descriptions of what the
-  user sees and interacts with.
+  — anything that demonstrates demand or validates the need. Verbatim quotes are
+  strongest. Include Intercom conversation IDs for traceability.
+- **Architecture Context**: Relevant codebase findings. What exists, what doesn't,
+  key files, data model constraints. Separate from UI Representation (architecture
+  is backend/system, UI is what the user sees). Only include if there are meaningful
+  codebase findings. Bug cards may not need this.
+- **UI Representation**: Written descriptions of what the user sees and interacts
+  with. Reference existing component files. Describe current state and proposed
+  changes per screen. Avoid "Create flow" phrasing (conflicts with Tailwind Create
+  product). Use "New [X] form", "Edit form", "Dashboard", etc.
+- **Monetization Angle**: How this connects to revenue. Keep tight: only points
+  that add real insight. Credit consumption patterns and acquisition/retention
+  levers are most useful. Skip speculative tier-gating unless it's a clear call.
+- **Open Questions**: Product decisions that need to be made before or during build.
+  Drop questions that are obvious "no" for v1. Architectural notes that aren't
+  questions belong in Architecture Context.
 - **Reporting Needs/Measurement Plan**: What to measure to know if this worked.
   Events to track, success criteria, dashboards.
-- **Release strategy**: Phasing, feature flags, beta groups, rollout plan.
+- **Release Strategy**: Rollout scope (all users, beta, feature flag), announcement
+  plan (email, marketing, SEO), support enablement (help docs, canned responses).
+  This is NOT implementation steps; those belong in Architecture Context.
+
+Bug cards use a leaner template: only include sections with actual content. Skip
+blank Monetization, UI, Reporting, Release sections.
 
 When creating cards from investigations, populate sections with findings rather
 than leaving them empty. The fill-cards play is for fleshing out what's missing.
 
-## The Three Plays
+## Plays
 
 ### 1. Sync Ideas (Slack #ideas → Shortcut)
 
@@ -238,6 +260,63 @@ sure the facts underneath the solution are correct before presenting.
 
 - Re-fetch current description from Shortcut before each update (don't use stale cache)
 - Only update sections Paul explicitly changed — preserve everything else
+
+### 4. Recurring Request (Intercom explicit feature request → Shortcut card)
+
+**What it does**: Find a recurring explicit feature request in Intercom that isn't
+already tracked in Shortcut, validate it against the codebase and PostHog, and
+produce a full card in Ready to Build.
+
+This is one flavor of new-card play. Others (e.g. cards from PostHog anomalies,
+codebase patterns, competitive gaps) would have different discovery phases.
+
+**Criteria for a valid candidate**:
+
+- 3+ distinct users clearly asking for the same thing
+- At least one conversation in the past 30 days (use Intercom API, DB is stale)
+- Not already tracked in Shortcut (search by topic keyword)
+
+**Phase 1: Find the signal**
+
+1. Start with Intercom API topic-keyword search (not language-pattern search).
+   `source.body` only searches opening messages, so feature-request phrasing
+   like "would love to" won't match. Use topic nouns instead: "RSS", "carousel",
+   "hashtag", "undo", etc.
+2. Check hit counts to gauge volume. Filter out spam-heavy topics.
+3. For each promising topic, search Shortcut (`GET /api/v3/search/stories?query=...`)
+   to confirm it's not already tracked.
+4. DB can validate volume (GROUP BY issue_signature, COUNT DISTINCT contact_email)
+   but is bad for discovery. Most themes are bugs, not feature requests.
+
+**Phase 2: Validate**
+
+1. Read 8-12 actual Intercom conversations to confirm users are asking for the
+   same thing. Record conversation IDs and verbatim quotes.
+2. Verify at least one conversation is within the last 30 days.
+3. Run a codebase Explore subagent (background) to map the relevant feature area.
+   Verify key claims from the subagent by reading files yourself.
+4. Query PostHog for usage context: how many people use the adjacent feature
+   surface, country breakdown if relevant, comparison benchmarks.
+5. Before writing the card, ask: "Is this a new feature or an extension of an
+   existing one?" Frame as extension when possible. Identify the closest existing
+   feature surface and build from there.
+
+**Phase 3: Build the card**
+
+1. Use the Story Template from this document. All sections required for feature
+   cards. Architecture Context and Open Questions are included when there are
+   meaningful findings.
+2. Present the full card text for Paul's review. Don't push to Shortcut until
+   explicit approval.
+3. Create the story in Ready to Build state, assigned to Tailwind team, Product
+   Area inferred from content, no individual owners.
+
+**Verification bar** (same as fill-cards):
+
+- Database columns/tables named on the card: you've read the schema definition
+- Code files named on the card: you've confirmed they exist and do what you claim
+- Data sources recommended: you've traced the write path
+- Numbers cited: you can point to where they came from
 
 ## General Constraints
 

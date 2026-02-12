@@ -506,3 +506,103 @@ Entries accumulate until a pattern emerges across multiple investigations.
   extension is a Pinterest engagement tool and doesn't create pins from web pages.
   Identified the legacy content.js alt reading code. Confirmed with my own reads.
   The lay-of-the-land use case continues to work well when you verify the claims.
+
+### 2026-02-11 — New-card play (proto-run): SC-161 (RSS SmartPin)
+
+- **DB is a validator, not a discoverer, for feature requests.** Started with DB
+  theme queries (GROUP BY issue_signature, COUNT DISTINCT users). Found 40 signatures
+  with 3+ users, but almost all were bugs/failures. Only 2-3 were feature requests,
+  and those were already tracked in Shortcut (SC-55) or too vague. The themes table
+  is great for recurring problems, bad for recurring requests. For future runs: start
+  with topic-keyword search on the Intercom API, use DB to validate volume after.
+
+- **Intercom API `source.body` search only hits the opening message.** Feature request
+  language like "would love to", "is there a way to" returns 0 results because people
+  don't start conversations with that phrasing. They open with "I need help with X"
+  and the request emerges in the thread. Pivoted from language-pattern search to
+  topic-keyword search ("RSS", "carousel", "hashtag", etc), which is what surfaced
+  the winning candidate.
+
+- **Topic-keyword search with volume check was the winning pattern.** Searched 8-10
+  topic keywords, got hit counts (board: 197, SEO: 51, hashtag: 31, RSS: 14, etc).
+  Then checked each against Shortcut for existing tracking. RSS had 580 conversations,
+  332 unique contacts, and zero Shortcut stories. That's the signal: high volume,
+  untracked.
+
+- **Sequential Intercom API agent was too slow.** First background agent iterated 10
+  search terms sequentially, took 5+ minutes, killed it. Direct targeted searches
+  (one term at a time, parallel where possible) were much faster. Don't delegate
+  the discovery phase to a sequential background agent.
+
+- **"Is this a new feature or an extension of an existing one?"** I framed RSS as a
+  new feature involving the Made-For-You blog generation pipeline. User reframed it
+  as "RSS SmartPin": an input mechanism for the existing SmartPin flow. SmartPin
+  already does URL-to-pin-on-a-schedule; RSS just feeds it URLs automatically. This
+  was a much cleaner framing. The codebase exploration had given me all the pieces
+  (SmartPin cron, URL-to-pin flow, Made-For-You as separate and older). I should have
+  noticed the SmartPin framing myself. Lesson: before writing the card, explicitly
+  ask "what existing feature surface is this closest to?" and frame accordingly.
+
+- **Card format wasn't memorized, cost two revision rounds.** Wrote the first draft
+  in a generic format (What, Evidence, Architecture, Open Questions, Reach, Release).
+  User caught it: "we broke the format." Had to look up SC-44 and SC-158 to get the
+  actual template. Then missed UI Representation and Monetization Angle sections.
+  Then content in those sections needed adjustment ("Create flow" naming, Release
+  Strategy scope, trimming Monetization to relevant points only). Three passes before
+  the card was right. The template exists in shortcut-ops.md but the new-card play
+  needs it front-of-mind.
+
+- **"Create flow" is product-specific terminology.** Tailwind has a product called
+  "Tailwind Create." Using "Create flow" in a card confuses internal readers. Renamed
+  to "New SmartPin form." Watch for naming collisions with existing product surfaces.
+
+- **Release Strategy is about rollout, not implementation.** First draft described
+  backend and frontend implementation steps. User caught it: Release Strategy should
+  cover audience (everyone vs beta), announcement (email, marketing), and support
+  enablement. Implementation details belong in Architecture Context.
+
+- **Monetization Angle should be tight.** First draft had five bullets (credits,
+  tier gating, feed limits, competitive context, acquisition lever). User trimmed to
+  two: credit consumption and acquisition lever. The others were speculative or
+  obvious. Match depth to what's actually useful for the reader.
+
+- **Codebase Explore subagent in background worked well again.** Launched while doing
+  Intercom and PostHog work. Got a comprehensive report on Charlotte blog import,
+  Made-For-You, SmartPin cron, RSS absence. Verified key claims (blog-post-fetcher.ts
+  line 80: `sample(posts, 4)`, site-blog-posts-request-processor.ts) myself before
+  putting them on the card. The broad-then-verify pattern continues to work.
+
+- **PostHog blog import failure ratio is 4:1.** 2,910 failed vs 797 successful blog
+  imports in 90 days. Didn't investigate why. Included as context on the card (RSS
+  would be an alternative, more reliable import path) but flagged as a separate
+  investigation topic.
+
+### 2026-02-11 — Backlog hygiene: template section audit + SC-39 fill
+
+- **Bulk template audit was straightforward.** Fetched all 74 non-archived non-Released
+  stories, checked for the 6 required section headers. Found 20 stories with gaps.
+  10 just missing Evidence, 4 completely empty (no template at all), rest scattered.
+  Added empty placeholder sections to all 20 via API. Simple script, under 2 minutes.
+
+- **Sub-tasks look like regular stories in search results.** SC-37 and SC-38 are
+  sub-tasks but the Shortcut search API doesn't distinguish them. Added template
+  sections to them by mistake, had to revert. Need to either skip known sub-task IDs
+  or find an API field that identifies them. User said to ignore sub-tasks for template
+  enforcement.
+
+- **SC-39 had rich context in the wrong format.** The card description had a migration
+  plan and feature decision summary table, plus two linked Shortcut Write docs with
+  detailed usage data, code locations, tracking gap analysis, and an onboarding spec.
+  All the content was there, just not in template sections. Restructuring took one
+  pass with one revision (migration sequence moved from "What" to Release Strategy).
+
+- **Shortcut Write docs are accessible via API.** `GET /api/v3/documents/{uuid}` works.
+  Content is in the `content_markdown` field (not `content` or `body`). The doc IDs
+  are base64-encoded in the Shortcut Write URLs. Useful for future fill-cards work
+  when cards link to Write docs.
+
+- **Fill-cards on well-documented stories is fast.** SC-39 went from "all sections
+  empty" to shipped in one draft + one revision. The bottleneck was reading the linked
+  docs, not writing the sections. When the research already exists, the fill is mostly
+  reorganization. Contrast with SC-161 (RSS SmartPin) where the investigation was the
+  bulk of the work.

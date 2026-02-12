@@ -1,5 +1,20 @@
 # Project Status
 
+## Backlog Hygiene: Template Audit + SC-39 Fill (2026-02-11)
+
+Audited all 74 non-archived non-Released Shortcut stories for missing template sections. Added empty placeholders to 20 stories with gaps, then filled SC-39 (extension rebuild) by restructuring existing Shortcut Write docs into template format.
+
+**Results:**
+
+- 20 stories had missing section headers. 10 just missing Evidence, 4 completely empty, rest scattered. All now have placeholder sections.
+- SC-39 filled from two linked Shortcut Write docs (Publisher Extension Rebuild: Feature Decisions + Extension-Side Onboarding). One revision: moved migration sequence from "What" to Release Strategy.
+- Learned Shortcut Write docs are accessible via `GET /api/v3/documents/{uuid}` with content in `content_markdown` field.
+- Sub-tasks (SC-37, SC-38) are indistinguishable from regular stories in Shortcut search API. Accidentally added template sections, reverted.
+
+**Next:** Fill remaining Ready to Build gaps: SC-44 (2 sections), SC-158 (2 sections). 10 stories still need Evidence filled.
+
+---
+
 ## Sync Ideas Play: Full Run (2026-02-11)
 
 First full sync-ideas run against #ideas channel. Processed 57 Slack messages (90-day window), matched against 65 active + Released Shortcut stories.
