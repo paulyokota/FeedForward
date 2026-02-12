@@ -5,45 +5,33 @@ argument-hint: [session-summary]
 
 # End Session
 
-Complete the current work session with proper documentation and commits.
+Complete the current work session with proper documentation and staged commits.
 
 ## Steps
 
-1. **Review pending changes**:
+1. **Update `box/session.md`**:
+   - Replace with current session: date, goal, what happened, key decisions, carried forward items
+   - Carried forward = anything in progress or agreed-upon but not yet done
+
+2. **Update `MEMORY.md`** (if durable learnings emerged):
+   - Methodology insights, data source quirks, principles
+   - Remove anything that turned out to be wrong
+   - Keep it under 200 lines
+
+3. **Update `box/log.md`** (if investigation work happened):
+   - What was slow, what worked, data source discoveries, tooling friction
+   - Date and topic for each entry
+
+4. **Review and stage changes**:
+
    ```bash
    git status
    git diff --stat
    ```
 
-2. **Update docs/status.md**:
-   - Add session notes under "Recent Session Notes" with today's date
-   - Update "What's Done" checklist
-   - Update "What's Next" with follow-up tasks
-   - Note any blockers encountered
-
-3. **Update changelog** (use developer-kit):
-   - Run `/developer-kit:changelog` to generate entries from git history
-   - Review and add to `docs/changelog.md` under [Unreleased]
-
-4. **Session reflection** (use developer-kit):
-   - Run `/developer-kit:reflect --summary --decisions`
-   - Captures what was accomplished, key decisions, and learnings
-   - Optionally save with `--save docs/session/[date].md`
-
-5. **Stage and commit changes**:
    - Group related changes into logical commits
    - Use clear commit messages
 
-6. **Push to remote branch**:
-   - Push all commits to the feature branch
-   - Do NOT push directly to main
-
-7. **Summary**: Provide a brief summary of what was accomplished
+5. **Summary**: Provide a brief summary of what was accomplished and what's staged
 
 Session summary from user: $ARGUMENTS
-
-## Developer-Kit Integration
-
-This command leverages the Claudebase Developer Kit:
-- `/developer-kit:changelog` - Parses git history, generates formatted changelog
-- `/developer-kit:reflect` - Structured session reflection with decisions/learnings

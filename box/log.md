@@ -739,6 +739,40 @@ Entries accumulate until a pattern emerges across multiple investigations.
   breakdown table (4 events: SmartContent, Ghostwriter, Generate Pin, Made for You).
   Stopped before creating the insights because user called stop.
 
+### 2026-02-12 — Quality gate evaluation (SC-162, SC-46) + Architecture Context feedback
+
+- **SC-46 fill-cards investigation was the heaviest single-card investigation yet.** Four
+  data sources (PostHog events, PostHog person properties, Intercom DB, aero codebase),
+  6 saved insights created, multiple PostHog event discovery rounds (9 keyword-related
+  events found), codebase architecture verification (credit system, signup flow), and
+  signup intent data analysis requiring array combination tallying. The PostHog
+  `Personalized Uses Selected` event stores multi-select as an array, which means the
+  breakdown produces dozens of permutation buckets that need manual aggregation.
+
+- **Signup intent data required careful interpretation.** Raw numbers show ~63% of
+  respondents "selected keywords," but most of those (2,392 of 2,999) selected all four
+  options. The more meaningful signals: 127 selected keywords as sole use case (2.7%),
+  and 26% of subset-selectors included keywords. The "select all" rate is noise for
+  intent analysis. Always ask what the denominator means.
+
+- **PostHog `feature` property on credit consumption events is always null.** Queried
+  credit consumption by feature breakdown, every row came back with `feature: null`.
+  The property exists in the schema but nothing populates it. Dead end for understanding
+  which features drive credit consumption via PostHog alone. The codebase analysis
+  (reading the cost table directly) was the only reliable approach.
+
+- **Team feedback changed the Architecture Context guidelines mid-session.** Bill flagged
+  SC-150 as over-prescriptive; Logan agreed. This interrupted the quality gate evaluation
+  but was higher priority: it affects the primary value lever (card quality for downstream
+  use). Codified the orientation-vs-prescription distinction in template, quality gate,
+  and MEMORY.md. The structural insight (capability+judgment at every workflow level) came
+  from the discussion with Paul, not from the initial feedback read.
+
+- **Session-end command was stale.** Still referenced changelog generation, developer-kit
+  reflect, push-to-remote, and docs/status.md from the pipeline era. Simplified to:
+  session.md, MEMORY.md, log.md, stage+commit. Dropped push (creates pressure to skip
+  review) and status.md (duplicative with session.md).
+
 ### 2026-02-12 — SC-150 evidence fix + Sync Ideas play + Bug discovery play (SC-162)
 
 - **SC-150 numbers were wrong (21-27% vs actual 15-19%).** The original investigation

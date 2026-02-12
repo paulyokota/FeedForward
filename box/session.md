@@ -1,34 +1,45 @@
 # Last Session
 
-**Date**: 2026-02-11
+**Date**: 2026-02-12
 **Branch**: main
 
 ## Goal
 
-Reflect on investigation learnings, build reusable tooling from patterns, and clean up evidence quality on shipped cards.
+Evaluate Ready to Build cards against the Card Quality Gate. Interrupted mid-exercise by team feedback on card prescriptiveness, which led to a significant process refinement.
 
 ## What Happened
 
-- **Tooling consolidation**: Re-read the full investigation log, identified 3 recurring friction points, and built tools for each:
-  - `box/posthog-events.md`: PostHog event name catalog (check before searching, add after discovering)
-  - `box/queries.md`: Saved SQL queries for FeedForward DB (recurring themes, recency filter, keyword search, theme detail, product area breakdown)
-  - Pre-flight + completion checklists added to fill-cards play in `box/shortcut-ops.md`
+- **Quality gate evaluation** on 2 of 23 Ready to Build cards:
+  - **SC-162** (stuck_in_queue silent pin loss): tightened scope. Open Questions folded into Architecture Context, explicit done state added covering all 3 unhandled failure reasons. Also fixed bare Intercom IDs to linked URLs.
+  - **SC-46** (Introduce Monetization for Keyword Search): full fill-cards treatment. Card was essentially empty. Added PostHog usage data (53k searches/90d, subscriber mix, signup intent), Intercom signal (77 conversations), architecture context with verified credit system paths. Thumbs up/down descoped with comment. 6 PostHog insights created.
 
-- **Evidence cleanup audit**: Reviewed 9 shipped cards against the evidence standard (Intercom refs link to conversations, PostHog stats link to saved insights). 5 passed, 4 needed fixes.
-  - SC-158: converted bare Intercom IDs to full URLs. Pushed.
-  - SC-161: created 2 PostHog saved insights (SmartPin Users um1Cjlhi, Blog Import KhsT5tWx), converted bare Intercom IDs to URLs, refreshed PostHog numbers. Pushed.
-  - SC-44: added 8 representative Intercom conversation links across 3 categories, added PostHog insight link. Pushed (after reverting an unapproved version).
-  - SC-150: still pending. Needs PostHog saved insights for 4 AI generation country breakdown events.
+- **Team feedback on Architecture Context** (Bill, Logan via Slack):
+  - Cards like SC-150 are over-prescriptive: step-by-step implementation plans bias the developer's planning agent and foreclose on approaches they might prefer.
+  - SC-70 cited as the right level: clear on what to build, light on how.
+  - Discussed with Paul: this isn't a style preference, it's the same capability+judgment principle we use at the product discovery level. Devs use their own agent+judgment combos for planning and implementation. Prescriptive cards collapse their discovery space.
+
+- **Codified the distinction** in `box/shortcut-ops.md`:
+  - Architecture Context section: orient, don't prescribe (feature cards). Bug cards are the exception.
+  - "What" section: scope definition and done state, not solution sketch.
+  - Scoping-ready quality gate criterion: updated to match.
+
+- **Updated MEMORY.md** with the structural principle in Separation of Concerns.
+
+- **Cleaned up session-end command**: removed changelog generation, developer-kit:reflect, push-to-remote, and docs/status.md steps. Now: session.md, MEMORY.md, log.md, stage+commit.
+
+- **Updated `box/posthog-events.md`**: added Keyword Research section (3 events, 3 insights) and Signup/Onboarding section (Personalized Uses Selected event, 1 insight).
 
 ## Key Decisions
 
-- Evidence standard: every Intercom reference must link to the conversation, every PostHog stat must link to a saved insight.
-- After context compaction, re-show proposed text and get fresh approval. Never reconstruct from memory and push.
-- Tooling should emerge from repeated friction (3+ occurrences), not from speculation.
+- Architecture Context on feature/chore cards should describe current state (orientation), not implementation steps (prescription). Bug cards can be more prescriptive since fix paths are deterministic. Origin: team feedback, codified in template and quality gate.
+- SC-46 thumbs up/down descoped to reduce complexity. Comment added to card.
+- docs/status.md dropped from session-end process (duplicative with box/session.md).
+- Push not included in session-end (avoids pressure to skip review).
 
 ## Carried Forward
 
-- SC-150 evidence cleanup: create PostHog saved insights for AI generation country breakdown (4 events: SmartContent, Ghostwriter, Generate Pin, Made for You), update card with links
-- SC-117 investigation complete, draft in `box/sc-117-draft.md`, not yet pushed to Shortcut (needs review + approval)
+- Quality gate evaluation: SC-156 next, then remaining 20 cards in priority order
+- SC-150 needs Architecture Context revised per new guidelines (it was the example Bill flagged). Evidence cleanup is done (5 PostHog insight links present).
+- SC-46 Architecture Context may also need revision (has implementation steps we just pushed today)
+- SC-117 investigation complete, draft in `box/sc-117-draft.md`, not yet pushed (needs review + approval)
 - Fill-cards play continues with remaining In Definition cards
-- 10 stories still need Evidence section filled
