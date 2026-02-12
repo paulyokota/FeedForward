@@ -1075,3 +1075,9 @@ failed_at IS NULL`) makes the queue query fast even as the table grows. Simpler 
 - **Sync Ideas shipped-reply final tally: 3 posted (SC-70, SC-73, SC-127).** Out of
   14 Released stories with Slack threads, 11 already had shipped replies from a
   previous run. 3 were missing. The gap was invisible until we checked live.
+
+- **Formalizing session-end as a skill was prompted by a missed step.** The temp
+  file cleanup wasn't happening because `/session-end` was just a line in a table
+  in CLAUDE.md with no defined steps. Created `.claude/skills/session-end/SKILL.md`
+  with all 5 steps spelled out. Same pattern as the fill-cards completion checklist:
+  codify what we keep forgetting, not what we know.
