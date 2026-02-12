@@ -389,22 +389,24 @@ async def phase2_index(client: IntercomClient, conn, max_convs=None):
     a dedicated writer coroutine serializes all DB writes on the single
     psycopg2 connection. This avoids concurrent connection access.
     """
-    # Fetch unindexed IDs in batches to limit memory
+    # Fetch unindexed IDs using keyset pagination to avoid OFFSET costs
     BATCH_SIZE = 5000
-    offset = 0
     conv_ids = []
+    last_id = ""
     while True:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT conversation_id FROM conversation_search_index
                 WHERE full_text IS NULL AND failed_at IS NULL
-                LIMIT %s OFFSET %s
-            """, (BATCH_SIZE, offset))
+                  AND conversation_id > %s
+                ORDER BY conversation_id
+                LIMIT %s
+            """, (last_id, BATCH_SIZE))
             batch = [row[0] for row in cur.fetchall()]
         if not batch:
             break
         conv_ids.extend(batch)
-        offset += BATCH_SIZE
+        last_id = batch[-1]
         if max_convs and len(conv_ids) >= max_convs:
             conv_ids = conv_ids[:max_convs]
             break
