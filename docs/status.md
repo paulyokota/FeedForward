@@ -1,5 +1,28 @@
 # Project Status
 
+## Card Quality Gate + Separation of Concerns (2026-02-12)
+
+Meta-session focused on box-building, no investigation work.
+
+**Quality gate added to `box/shortcut-ops.md`:**
+
+Reviewed 4 pipeline-era research KBs (~4,000 lines: story_knowledge_base.md, feedback-analysis-kb.md, story-granularity-standard.md, gold-standard-alignment.md). Extracted what's useful for Claude-in-a-Box and discarded what was built for the pipeline world. Result: 4 evaluative (not prescriptive) quality criteria checked before presenting cards for approval.
+
+1. Problem stated independently from solution
+2. Developer with codebase access could scope implementation from card alone
+3. Every factual claim linked to verifiable source
+4. Done state is observable and testable
+
+Gate referenced in fill-cards and recurring-request plays. Designed for downstream consumer: devs using Claude Code-assisted development.
+
+**Separation of concerns principle captured in MEMORY.md:**
+
+Established the boundary between Claude's responsibilities (capabilities: data gathering, synthesis, verification) and user's responsibilities (judgment: prioritization, framing, strategic context). The quality gate, approval rules, and communication rules are all implementations of this: keep the channel open so capabilities and judgment stay in contact.
+
+**Next:** Test quality gate on next card fill. Continue investigation work (fill-cards or new investigation types).
+
+---
+
 ## Tooling Consolidation + Evidence Cleanup (2026-02-11)
 
 Built three reusable tools from investigation log patterns, then audited and fixed evidence quality on shipped cards.

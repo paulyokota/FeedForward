@@ -164,6 +164,23 @@ blank Monetization, UI, Reporting, Release sections.
 When creating cards from investigations, populate sections with findings rather
 than leaving them empty. The fill-cards play is for fleshing out what's missing.
 
+## Card Quality Gate
+
+Check before presenting a card for approval. Every criterion must pass. If one
+doesn't, revise the card.
+
+1. **Problem before solution**: Is the problem stated independently from any
+   implementation ideas? Would the card still make sense as a problem statement
+   with the Architecture Context removed?
+2. **Scoping-ready**: Could a developer with codebase access but no prior context
+   estimate the work and identify which files to touch from this card alone?
+3. **Verifiable evidence**: Is every factual claim linked to a source? Intercom
+   conversation URLs, PostHog saved insight links, specific file paths. No
+   unanchored assertions.
+4. **Observable done state**: Could someone write a test, check a dashboard, or
+   perform a user action to verify this card is complete? Is "done" concrete,
+   not vague?
+
 ## Plays
 
 ### 1. Sync Ideas (Slack #ideas → Shortcut)
@@ -276,6 +293,9 @@ for explicit go-ahead.
 This isn't about constraining creativity or solution design. It's about making
 sure the facts underneath the solution are correct before presenting.
 
+**Quality gate**: Run the Card Quality Gate (above) before presenting draft
+for approval.
+
 **Idempotency**:
 
 - Re-fetch current description from Shortcut before each update (don't use stale cache)
@@ -348,6 +368,9 @@ codebase patterns, competitive gaps) would have different discovery phases.
 - Code files named on the card: you've confirmed they exist and do what you claim
 - Data sources recommended: you've traced the write path
 - Numbers cited: you can point to where they came from
+
+**Quality gate**: Run the Card Quality Gate (above) before presenting draft
+for approval.
 
 ## General Constraints
 
