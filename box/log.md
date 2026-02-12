@@ -935,3 +935,85 @@ Entries accumulate until a pattern emerges across multiple investigations.
   forward pre-compaction assumptions as facts. The Intercom 401 token assumption was
   the clearest example: would have shipped without Intercom evidence if the user hadn't
   challenged it.
+
+### 2026-02-12 — Verified explore prompt: design + A/B test
+
+- **Custom-prompted general-purpose subagent vs built-in Explore agent on the same
+  question (AI language handling in aero).** Same question, same codebase, different
+  agent type and prompt. The verified prompt requires file:line citations on every
+  claim, [INFERRED] markers on reasoning, and a structured claims array.
+
+- **The verified agent found a real mechanism the Explore agent missed.** SmartPin's
+  revised-copy-generator uses the `franc` library for statistical language detection
+  on scraped content, appending translation instructions to the LLM prompt for
+  non-English text. The Explore agent looked at the SmartPin request handler, saw no
+  language parameter, and concluded "no language support." False negative from
+  insufficient depth. The verified agent traced deeper because it had to back up its
+  claims with evidence.
+
+- **The Explore agent's error was a false negative, not a hallucination.** It didn't
+  fabricate something that doesn't exist. It missed something that does exist because
+  it stopped at the API surface. Both error types are dangerous for cards, but false
+  negatives are harder to catch because the output reads as thorough and confident.
+
+- **Cost: 2x time, ~1.2x tokens.** Verified agent: ~5 min, 136k tokens, 85 tool
+  calls. Explore agent: ~2 min, 111k tokens, 52 tool calls. The quality gap (12
+  structured claims with citations vs confident summary with a wrong answer) makes
+  the cost difference trivial for architecture mapping going on cards.
+
+- **The tunable prompt is the real win.** With the built-in Explore agent, when it
+  gets something wrong, the only recourse is "remember to verify harder." That's a
+  discipline lever that fails under load (see SC-150, SC-44). With a custom prompt,
+  when we see a pattern of errors, we can add a rule. The tool improves from its
+  failures instead of just us getting more vigilant.
+
+- **Prompt template saved to `box/verified-explore-prompt.md`.** Decision table at
+  the top: narrow questions go to Explore, broad architecture mapping goes to this
+  prompt, specific claim verification goes to reading the file yourself. Provisional
+  direction: will tune based on observations across more runs.
+
+### 2026-02-12 — Intercom full-text search index design + issue cleanup
+
+- **Intercom's search API only hits the opening message.** Confirmed by reading the
+  OpenAPI spec (`POST /conversations/search` filters on `source.body`). Thread replies
+  are invisible to search. `GET /conversations/{id}` returns full threads (up to 500
+  parts), but you need the ID first. This is the fundamental blind spot: feature
+  requests articulated in reply #3 are undiscoverable.
+
+- **We already have most of the plumbing.** `IntercomClient` in `src/intercom_client.py`
+  has async conversation fetching with retry/rate-limit logic, `cursor_callback` for
+  checkpoint persistence, and `initial_cursor` for resume. `build_full_conversation_text()`
+  in `src/digest_extractor.py:302` already concatenates parts with author labels and
+  strips HTML. The sync script is mostly wiring, not greenfield.
+
+- **The "bias to action" failure mode with data sources.** When the high-quality source
+  (Intercom API) has friction (auth issues, first-message limitation, rate limits) and
+  the low-quality source (stale DB) is easy, investigations naturally drift toward the
+  DB. This isn't a discipline problem, it's a tooling problem. The search index is
+  designed to make the right path the easy path.
+
+- **Two rounds of Codex review caught real issues.** First round: upsert strategy for
+  interrupted syncs, storage growth concerns, ILIKE fallback ambiguity, concurrent sync
+  trampling. Second round: advisory lock vs boolean flag enforcement, failed state
+  tracking for permanent errors, NULL vs empty string semantics for "not yet indexed."
+  Both rounds improved the design. Plan review is worth the time for infrastructure
+  that will run unsupervised for hours.
+
+- **`full_text IS NULL` as the indexing queue.** No separate `indexed` boolean column.
+  NULL means not yet indexed, non-NULL means indexed. Combined with `failed_at IS NULL`
+  to exclude permanently failed rows. Partial index (`WHERE full_text IS NULL AND
+failed_at IS NULL`) makes the queue query fast even as the table grows. Simpler than
+  a status enum, and the partial index is the mechanism, not a flag you have to
+  remember to check.
+
+- **GitHub issue backlog cleanup.** Closed 40 open issues from the pipeline/discovery
+  engine era (all pre-#284). Only #284 (Intercom search index) remains open. The issue
+  tracker is now a clean surface for targeted "build from issue" work like this, not a
+  graveyard of abandoned pipeline features.
+
+- **Core principle crystallized: reasoning over pattern matching.** Decision trees and
+  string matching are never a real substitute for actual reasoning. This is the macro
+  lesson of the pipeline pivot, but it applies at every level: keyword search missing
+  replies, theme classifiers missing novel requests, explore agents pattern-matching on
+  parameter names instead of tracing execution. When building tools, prefer designs that
+  preserve the ability to reason. Saved to MEMORY.md as a top-level principle.

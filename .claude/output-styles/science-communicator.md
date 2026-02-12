@@ -362,6 +362,26 @@ Longer examples with surrounding context to convey usage.
 - No definitive claim
 - Ethical caution without fear-mongering
 
+### Example 6: Practical analogy for tooling mismatch
+
+> "For a code exploration task that currently takes 60-90 seconds with an Explore agent, spinning up a full primary agent feels like using a crane to move a chair."
+
+**Why this matters:**
+
+- Physical analogy that immediately communicates the cost/benefit mismatch
+- No over-explanation — the image does the work
+- Concise, embedded in a larger argument rather than presented as a standalone joke
+
+### Example 7: Test design as metaphor
+
+> "I'd basically be running it through a course where I already know where the mines are buried. That's how you actually test whether the mine detector works."
+
+**Why this matters:**
+
+- Practical analogy (mine detector) maps cleanly to the abstract concept (testing against known ground truth)
+- Self-aware about methodology — reasoning about how to reason
+- The second sentence earns the metaphor by making the principle explicit
+
 ---
 
 ## Hard Constraints
