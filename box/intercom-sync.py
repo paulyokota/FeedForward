@@ -383,16 +383,31 @@ async def _phase1_incremental(client, conn, sync_id, since_ts, end_ts, max_convs
 
 
 async def phase2_index(client: IntercomClient, conn, max_convs=None):
-    """Phase 2: Fetch full threads for unindexed conversations."""
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT conversation_id FROM conversation_search_index
-            WHERE full_text IS NULL AND failed_at IS NULL
-        """)
-        conv_ids = [row[0] for row in cur.fetchall()]
+    """Phase 2: Fetch full threads for unindexed conversations.
 
-    if max_convs:
-        conv_ids = conv_ids[:max_convs]
+    Uses a single-writer pattern: fetch tasks put results on a queue,
+    a dedicated writer coroutine serializes all DB writes on the single
+    psycopg2 connection. This avoids concurrent connection access.
+    """
+    # Fetch unindexed IDs in batches to limit memory
+    BATCH_SIZE = 5000
+    offset = 0
+    conv_ids = []
+    while True:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT conversation_id FROM conversation_search_index
+                WHERE full_text IS NULL AND failed_at IS NULL
+                LIMIT %s OFFSET %s
+            """, (BATCH_SIZE, offset))
+            batch = [row[0] for row in cur.fetchall()]
+        if not batch:
+            break
+        conv_ids.extend(batch)
+        offset += BATCH_SIZE
+        if max_convs and len(conv_ids) >= max_convs:
+            conv_ids = conv_ids[:max_convs]
+            break
 
     total = len(conv_ids)
     if total == 0:
@@ -403,16 +418,40 @@ async def phase2_index(client: IntercomClient, conn, max_convs=None):
 
     indexed = 0
     semaphore = asyncio.Semaphore(FETCH_CONCURRENCY)
+    write_queue = asyncio.Queue()
+    SENTINEL = None  # Signals writer to stop
 
-    async def fetch_and_index(session, conv_id):
+    async def db_writer():
+        """Single coroutine that handles all DB writes sequentially."""
         nonlocal indexed
+        pending_writes = []
+        COMMIT_BATCH = 50
+
+        while True:
+            item = await write_queue.get()
+            if item is SENTINEL:
+                # Flush remaining
+                if pending_writes:
+                    _execute_write_batch(conn, pending_writes)
+                    indexed += sum(1 for w in pending_writes if w[0] == "index")
+                break
+
+            pending_writes.append(item)
+            if len(pending_writes) >= COMMIT_BATCH:
+                _execute_write_batch(conn, pending_writes)
+                indexed += sum(1 for w in pending_writes if w[0] == "index")
+                if indexed % 100 < COMMIT_BATCH:
+                    logger.info("Phase 2: %d / %d indexed", indexed, total)
+                pending_writes.clear()
+
+    async def fetch_one(session, conv_id):
+        """Fetch a single conversation and enqueue the DB write."""
         async with semaphore:
             for attempt in range(MAX_RETRIES_PHASE2):
                 try:
                     raw_conv = await client.get_conversation_async(session, conv_id)
                     full_text = build_full_conversation_text(raw_conv, max_length=MAX_FULL_TEXT_LENGTH)
 
-                    # Count parts
                     parts_container = raw_conv.get("conversation_parts", {})
                     parts_list = (
                         parts_container.get("conversation_parts", [])
@@ -422,22 +461,12 @@ async def phase2_index(client: IntercomClient, conn, max_convs=None):
                     part_count = len(parts_list)
                     truncated = len(full_text) >= MAX_FULL_TEXT_LENGTH or part_count >= MAX_PARTS
 
-                    with conn.cursor() as cur:
-                        cur.execute("""
-                            UPDATE conversation_search_index
-                            SET full_text = %s, part_count = %s, truncated = %s, synced_at = NOW()
-                            WHERE conversation_id = %s
-                        """, (full_text, part_count, truncated, conv_id))
-                    conn.commit()
-
-                    indexed += 1
-                    if indexed % 100 == 0:
-                        logger.info("Phase 2: %d / %d indexed", indexed, total)
+                    await write_queue.put(("index", conv_id, full_text, part_count, truncated))
                     return
 
                 except aiohttp.ClientResponseError as e:
                     if e.status == 404:
-                        _mark_failed(conn, conv_id, f"http_404: Not Found")
+                        await write_queue.put(("fail", conv_id, "http_404: Not Found"))
                         return
                     if attempt < MAX_RETRIES_PHASE2 - 1:
                         delay = 2 ** attempt
@@ -447,7 +476,7 @@ async def phase2_index(client: IntercomClient, conn, max_convs=None):
                         )
                         await asyncio.sleep(delay)
                     else:
-                        _mark_failed(conn, conv_id, f"http_{e.status}: {e.message}")
+                        await write_queue.put(("fail", conv_id, f"http_{e.status}: {e.message}"))
                         return
 
                 except Exception as e:
@@ -459,27 +488,40 @@ async def phase2_index(client: IntercomClient, conn, max_convs=None):
                         )
                         await asyncio.sleep(delay)
                     else:
-                        _mark_failed(conn, conv_id, f"error: {type(e).__name__}: {e}")
+                        await write_queue.put(("fail", conv_id, f"error: {type(e).__name__}: {e}"))
                         return
 
     async with client._get_aiohttp_session() as session:
-        tasks = [fetch_and_index(session, cid) for cid in conv_ids]
-        await asyncio.gather(*tasks)
+        writer_task = asyncio.create_task(db_writer())
+        fetch_tasks = [fetch_one(session, cid) for cid in conv_ids]
+        await asyncio.gather(*fetch_tasks)
+        await write_queue.put(SENTINEL)
+        await writer_task
 
     logger.info("Phase 2 complete: %d / %d indexed", indexed, total)
     return indexed
 
 
-def _mark_failed(conn, conv_id: str, reason: str):
-    """Mark a conversation as failed."""
+def _execute_write_batch(conn, writes: list):
+    """Execute a batch of DB writes within a single transaction."""
     with conn.cursor() as cur:
-        cur.execute("""
-            UPDATE conversation_search_index
-            SET failed_at = NOW(), failed_reason = %s
-            WHERE conversation_id = %s
-        """, (reason, conv_id))
+        for write in writes:
+            if write[0] == "index":
+                _, conv_id, full_text, part_count, truncated = write
+                cur.execute("""
+                    UPDATE conversation_search_index
+                    SET full_text = %s, part_count = %s, truncated = %s, synced_at = NOW()
+                    WHERE conversation_id = %s
+                """, (full_text, part_count, truncated, conv_id))
+            elif write[0] == "fail":
+                _, conv_id, reason = write
+                cur.execute("""
+                    UPDATE conversation_search_index
+                    SET failed_at = NOW(), failed_reason = %s
+                    WHERE conversation_id = %s
+                """, (reason, conv_id))
+                logger.warning("Failed: %s — %s", conv_id, reason)
     conn.commit()
-    logger.warning("Failed: %s — %s", conv_id, reason)
 
 
 def show_status():
