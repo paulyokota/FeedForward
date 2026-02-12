@@ -127,16 +127,37 @@ def complete_sync_state(conn, sync_id: str, listed: int, indexed: int):
         """, (listed, indexed, sync_id))
 
 
-def find_resumable_sync(conn, sync_type: str) -> str | None:
-    """Find the most recent incomplete sync of the given type. Returns sync UUID or None."""
+def find_resumable_sync(conn, sync_type: str, date_start=None) -> str | None:
+    """Find the most recent incomplete sync of the given type.
+
+    For incremental syncs, validates that date_range_start matches to avoid
+    applying an old cursor to a different date range.
+
+    Returns sync UUID or None.
+    """
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT id FROM conversation_sync_state
+            SELECT id, date_range_start FROM conversation_sync_state
             WHERE sync_type = %s AND completed_at IS NULL AND active = TRUE
             ORDER BY started_at DESC LIMIT 1
         """, (sync_type,))
         row = cur.fetchone()
-        return str(row[0]) if row else None
+        if not row:
+            return None
+
+        sync_id, stored_date_start = str(row[0]), row[1]
+
+        # For incremental syncs, refuse to resume if date range doesn't match
+        if sync_type == "incremental":
+            if stored_date_start != date_start:
+                logger.info(
+                    "Found incomplete incremental sync %s but date_range_start "
+                    "(%s) doesn't match --since (%s), starting fresh",
+                    sync_id, stored_date_start, date_start,
+                )
+                return None
+
+        return sync_id
 
 
 def get_last_sync_cursor(conn, sync_id: str) -> tuple:
@@ -284,10 +305,14 @@ async def _phase1_full(client, conn, sync_id, end_ts, max_convs):
 
 async def _phase1_incremental(client, conn, sync_id, since_ts, end_ts, max_convs):
     """Incremental sync using updated_at filter (custom search query)."""
-    listed = 0
+    # Resume from cursor checkpoint if available
+    resume_cursor, listed = get_last_sync_cursor(conn, sync_id)
+    if resume_cursor:
+        logger.info("Resuming incremental from cursor, already listed %d", listed)
+
     batch = []
     per_page = client.PER_PAGE
-    starting_after = None
+    starting_after = resume_cursor
 
     search_query = {
         "query": {
@@ -555,7 +580,7 @@ def main():
             sync_type = "incremental" if since_date else "full"
 
             # Try to resume an incomplete sync of the same type
-            sync_id = find_resumable_sync(conn, sync_type)
+            sync_id = find_resumable_sync(conn, sync_type, date_start=since_date)
             if sync_id:
                 logger.info("Resuming incomplete sync: %s", sync_id)
             else:
