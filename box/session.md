@@ -1,33 +1,34 @@
 # Last Session
 
-**Date**: 2026-02-12 (session 4)
+**Date**: 2026-02-12 (session 5, post-compaction recovery)
 **Branch**: main
 
 ## Goal
 
-Meta-session: tooling improvements for investigation quality and data access.
+Complete Sync Ideas play (shipped-reply step was interrupted by compaction), run the log, session-end cleanup.
 
 ## What Happened
 
-- **Verified explore prompt designed and A/B tested.** Created `box/verified-explore-prompt.md`: a custom-prompted general-purpose subagent with mandatory file:line citations, [INFERRED] markers, and structured claims arrays. Tested against built-in Explore agent on AI language handling. Verified agent found the `franc` language detection mechanism the Explore agent missed (false negative). Provisional direction: quality > velocity.
+- **Recovered from context compaction.** Summary claimed shipped-reply check was done (0 items). It wasn't. The summary invented a clean ending for a step that was mid-flight.
 
-- **Intercom full-text search index designed.** Problem: DB is stale/filtered, API search only hits opening messages. Designed a PostgreSQL full-text search index of complete conversation threads. Two-phase sync (list metadata, then fetch threads). Reuses existing `IntercomClient` and `build_full_conversation_text()`. Schema went through two rounds of Codex review (advisory locks, failed state tracking, NULL semantics, partial indexes). GitHub issue #284 created for issue-runner implementation.
+- **Stale temp file trap.** Initially read from `/tmp/slack_threads2.json` (24+ hours old) instead of hitting the Slack API live. This caused the shipped-reply check to miss all replies posted since the file was cached. Caught by user pointing to a specific Slack thread that already had a shipped reply.
 
-- **Issue backlog cleanup.** Closed 40 pre-pivot issues (pipeline/discovery engine era). Only #284 remains open. Clean issue tracker for targeted build-from-issue work.
+- **Completed shipped-reply step properly.** Queried Shortcut for Released stories (23 total), cross-referenced with Slack threads, checked each thread live via Slack API. Found 3 threads missing shipped replies (SC-70, SC-73, SC-127). Posted all 3. SC-73 was hiding behind SC-74 in the same thread (previous run caught one but missed the other).
 
-- **Science communicator output style updated.** Added two new canonical examples (crane/chair tooling mismatch, mine detector test design).
+- **Deleted 11 stale temp files** from `/tmp/` to prevent future sessions from consuming them.
 
-- **Core principle codified: reasoning over pattern matching.** Decision trees and string matching are never a real substitute for actual reasoning. Applies at every level: keyword search, theme classifiers, explore agents. Saved to MEMORY.md as top-level principle.
+- **Updated log and MEMORY.md** with session learnings: compaction summaries are unreliable, temp files with unknown provenance are dangerous, string matching for idempotency is the pattern-matching anti-pattern.
+
+- **Created `/session-end` skill** (`/.claude/skills/session-end/SKILL.md`) with temp file cleanup as step 4. Previously this was just a CLAUDE.md table entry with no formalized steps.
+
+- **Intercom full sync still running.** PID 94314, at 54k conversations listed (Phase 1). Detached process, survives session end.
 
 ## Key Decisions
 
-- Verified explore prompt is provisional direction for broad architecture mapping. Built-in Explore still fine for narrow "where is X?" questions. Claims going on cards still require direct file reads (belt and suspenders).
-- Intercom search index: lightweight (ID, dates, email, full text), not a data warehouse. No classification, no pipeline changes. Manual sync for now.
-- Issue tracker reset: old issues are closed history, not active backlog.
+- Session-end cleanup now includes temp file deletion as a formalized step.
+- Shipped-reply checks must start from Released stories (authoritative source) and hit the Slack API live, not cached data.
 
 ## Carried Forward
 
-- Issue #284: Intercom full-text search index implementation (issue-runner candidate)
-- Quality gate evaluation continues: SC-97, SC-108, remaining ~15 cards
-- SC-150, SC-117, SC-46 still need Architecture Context revision passes
-- Observe verified explore prompt across more runs, tune if patterns emerge
+- Fill-cards play on 7 quality-gate failures: SC-15, SC-51, SC-68, SC-90, SC-118, SC-131, SC-132
+- Intercom full sync completing in background

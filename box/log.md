@@ -1017,3 +1017,61 @@ failed_at IS NULL`) makes the queue query fast even as the table grows. Simpler 
   replies, theme classifiers missing novel requests, explore agents pattern-matching on
   parameter names instead of tracing execution. When building tools, prefer designs that
   preserve the ability to reason. Saved to MEMORY.md as a top-level principle.
+
+### 2026-02-12 — SC-140 fill + Sync Ideas play + session recovery
+
+- **Context compaction + summary = unreliable session state.** Session hit context
+  limit. The auto-generated summary claimed the shipped-reply step of the sync-ideas
+  play was complete (0 items needed). It wasn't. The summary invented a clean ending
+  for a step that was mid-flight. Lesson: never trust a summary's claim that a step
+  is "done." Re-execute the check against live data.
+
+- **Stale temp files are a trap.** `/tmp/slack_threads2.json` was from a previous
+  session (Feb 11, over 24 hours old). Used it as if it were current, which caused
+  the shipped-reply check to miss all the replies that had been posted in the
+  intervening time. The thread data showed 14 messages; live API showed 16. The
+  approach should have been obvious: for any check that depends on current state,
+  hit the API, not a cached file with unknown provenance. Deleted all 11 stale temp
+  files after catching this. Rule: don't consume temp files you didn't create in the
+  current session. If you need the data, fetch it fresh.
+
+- **String matching for idempotency checks: reasoning over pattern matching again.**
+  Checked for existing shipped replies by matching "This shipped!" and "shipped!" in
+  thread text. This is the core anti-pattern: substituting a string match for actually
+  reading the thread and understanding what's there. The correct approach was to hit
+  the Slack API live and read the actual thread replies. Same lesson as keyword search
+  missing feature requests, theme classifiers missing novel categories, and explore
+  agents pattern-matching on parameter names. When the question is "has this been
+  done?", read the primary source and reason about it.
+
+- **Shipped-reply check should start from Released stories, not from cached idea data.**
+  First approach: load cached ideas file, find SC IDs, cross-reference against
+  Released stories. Correct approach: query Shortcut for Released stories (23 total),
+  check which ones have Slack idea threads, check those threads live for existing
+  shipped replies. Starting from the authoritative source (Shortcut Released state)
+  is simpler and more reliable than starting from a cached intermediate artifact.
+
+- **SC-73 was hiding behind SC-74 in the same thread.** Thread 1770226318.944429
+  had both SC-73 and SC-74 (both Released). A previous run had posted the shipped
+  reply for SC-74 but missed SC-73. Only caught this because the live API check
+  showed the thread, and manual inspection noticed one was present and the other
+  wasn't. Threads with multiple Released stories need per-story verification, not
+  per-thread verification.
+
+- **SC-140 Architecture Context correction was the most important edit of the session.**
+  Card originally claimed "Turbo requires a post-publish trigger... the scheduler
+  currently has no post-publish hook." User caught this by pointing to
+  `add-to-communities-button.tsx:206-218`: Communities already handles the same
+  constraint (submit at schedule time, gate visibility until publish). The Communities
+  code is the precedent, not a gap. This was a case of the investigation correctly
+  reading code but incorrectly inferring a constraint that doesn't exist.
+
+- **Product Area is a judgment call, not a keyword match.** SC-140 touches the Pin
+  Scheduler surface but the change serves Turbo strategy. Product Area = TURBO.
+  Same pattern as SC-170 (Turbo extension filters): the code lives in one domain,
+  the value lives in another. Always ask "what does this serve?" not "where does
+  the code live?"
+
+- **Sync Ideas shipped-reply final tally: 3 posted (SC-70, SC-73, SC-127).** Out of
+  14 Released stories with Slack threads, 11 already had shipped replies from a
+  previous run. 3 were missing. The gap was invisible until we checked live.
