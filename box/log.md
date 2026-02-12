@@ -844,3 +844,94 @@ Entries accumulate until a pattern emerges across multiple investigations.
   Questions) matches the investigation shape: find the problem, prove it exists, describe
   where the code lives, flag unknowns. Feature cards require more judgment about what to
   build; bug cards require more judgment about what's actually broken.
+
+### 2026-02-12 — Quality gate pass: Ready to Build cards
+
+- **`.env` file has comments that break `source`.** Third session in a row where
+  `source .env` fails because of comment lines. Have to `grep` the token out with
+  `grep '^SHORTCUT_API_TOKEN=' .env | cut -d= -f2`. This should probably just be a
+  helper in the box at this point.
+
+- **Don't reconstruct timelines from coincidental timestamps.** Saw a PostHog dashboard
+  `last_refresh` of Feb 10 and a Write doc dated "2026-02-10 (revised)", inferred the
+  doc's numbers came from the cached dashboard results. Wrong: the doc predated the
+  dashboard by over a week and had its own data provenance. The timestamps matching was
+  coincidence. Same shape as the `user_accounts.language` error: filling a gap in
+  knowledge with a plausible-sounding inference instead of saying "I don't know." When
+  you don't have provenance information, say so. Don't fabricate a causal chain from
+  co-occurring data points.
+
+- **Write docs are a real data source for card fill.** SC-39 had two linked Shortcut
+  Write docs (Feature Decisions + Onboarding spec) with detailed scope definitions,
+  usage data, and tracking requirements. These are richer than most card descriptions.
+  But the verification bar still applies: re-run the PostHog queries yourself, grep
+  the codebase yourself. The doc is a guide to what to verify, not a substitute for
+  verification.
+
+- **Don't accept API failures without debugging them.** Intercom API returned 401
+  during SC-42 investigation. Assumed "token expired," moved on, carried the assumption
+  forward post-compaction as "Intercom API returned 401 (token issue)." Didn't try a
+  different endpoint, didn't test the token directly, didn't inspect the request format.
+  Token was fine. Something about the specific call was wrong. The anti-pattern: guess
+  the call format, get a failure, make an unverified assumption about why, and carry on
+  without access to available valuable information. Intercom conversations are the
+  strongest primary source we have. Giving up on them without a real diagnosis means
+  the card ships with less evidence than it could have.
+
+- **Intercom search has known limits; multi-token intersection is a practical next step.**
+  Intercom API `source.body` search with `~` operator only hits opening messages and
+  fails on multi-word compound queries. Our DB is a partial index (pipeline-filtered
+  import). For future investigations, a two-phase approach would help: run single-token
+  searches ("smartpin", "text", "edit") via the API, intersect IDs client-side, fetch
+  the intersection to verify. Gives a ceiling to compare against the DB floor. Could
+  also be a box tool. Full solution would be exporting all conversations and building
+  a proper full-text index, but the intersection approach is cheap and unblocks better
+  counts without new infrastructure.
+
+- **Subtask creation pattern for cards with embedded specs.** SC-39's "What" section
+  said "1 new feature to add (extension-side onboarding)" with a linked Write doc.
+  That's an implicit subtask. Created SC-165 as a standalone story linked via "relates
+  to," with our standard template, verified evidence, and its own done state. Better
+  than leaving it buried in the parent card's scope list where a dev has to extract it.
+
+- **SC-42 full investigation survived compaction.** Hit context limit mid-investigation.
+  Restarted from scratch using durable artifacts (PostHog saved insight kRUoIQIx, DB
+  queries, codebase files) as starting points rather than carrying forward pre-compaction
+  conclusions. Key finding: the user's title field in the SmartPin form is saved to the
+  DB but never used during generation. The `MadeForYouSmartPinRequest` schema doesn't
+  carry a title field at all. The generation pipeline re-scrapes the URL and generates
+  AI copy from scratch every time.
+
+- **Verify search match counts by reading the actual conversations.** Initial broad
+  keyword search returned 50 conversations. Manual review found 22 were actually about
+  the specific feature request. The other 28 were language issues, Tailwind Create
+  questions, refund requests, and other noise. "50 conversations" would have been a
+  misleading evidence number. The lesson: search results are candidates, not evidence.
+  Every conversation on the card should be one you've read and confirmed is about the
+  thing.
+
+- **Dropped Open Questions from card template.** It wasn't in the original team-wide
+  required sections. Product questions should be answered and baked into the card before
+  it ships. Implementation questions are the dev's domain. Listing open implementation
+  questions is noise, not signal, and blurs definition of done.
+
+- **Architecture Context prescription check caught a subtle nudge.** Original draft said
+  "The plumbing for user input influencing generation exists; it just doesn't include
+  the title or copy fields." Revised to neutral fact: "keywords from the form flow
+  through the schema to the content generator." Same information, no editorial about
+  what to do with it. The test: would a developer reading this feel guided toward a
+  specific approach? If yes, revise.
+
+- **SC-135 (toast covers indicator): quick quality gate fix.** Small UI bug, no
+  architecture context needed. Added done state ("pause/resume/active indicator remains
+  visible and accessible while toast notifications are displayed"), changed type from
+  `feature` to `bug`, cleaned up description. Fastest card yet: no investigation needed,
+  just template compliance.
+
+- **Context compaction recovery worked.** This session hit compaction mid-SC-42
+  investigation, restarted, completed SC-42, then did SC-135. The durable artifact
+  strategy (PostHog saved insights, DB queries in `box/queries.md`, codebase file paths
+  in memory) meant the restart cost was real but bounded. The bigger risk was carrying
+  forward pre-compaction assumptions as facts. The Intercom 401 token assumption was
+  the clearest example: would have shipped without Intercom evidence if the user hadn't
+  challenged it.

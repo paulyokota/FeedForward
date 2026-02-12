@@ -25,11 +25,16 @@ Project ID: `161414`
 
 ### SmartPin
 
-| Event Name                | Used In | Notes                               |
-| ------------------------- | ------- | ----------------------------------- |
-| `SmartPin Added`          | SC-150  | User adds a SmartPin                |
-| `Clicked SmartPin`        | SC-52   | User clicks on a SmartPin in the UI |
-| `Viewed SmartPin V2 Page` | SC-44   | V2 experience page view             |
+| Event Name                                    | Used In       | Notes                                                                   |
+| --------------------------------------------- | ------------- | ----------------------------------------------------------------------- |
+| `SmartPin Added`                              | SC-150, SC-42 | User adds a SmartPin                                                    |
+| `Clicked SmartPin`                            | SC-52         | User clicks on a SmartPin in the UI                                     |
+| `Viewed SmartPin V2 Page`                     | SC-44         | V2 experience page view                                                 |
+| `Successfully generated SmartPin`             | SC-42         | 200k events/90d, 6k users. Saved insight kRUoIQIx                       |
+| `Selected SmartContent generated description` | SC-42         | User picks an AI-generated description. 39k events/90d                  |
+| `Changed SmartPin images to select from`      | SC-42         | User modifies image selection. 11.8k events/90d                         |
+| `Changed SmartPin design tier`                | SC-42         | User changes design tier. Very low volume (11 events/90d)               |
+| `Changed SmartPin title`                      | SC-42         | User edits title on edit form. Tracked but title not used in generation |
 
 ### Blog Import
 

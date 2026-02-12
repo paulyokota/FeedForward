@@ -118,9 +118,6 @@ New Shortcut cards use this description template:
 ## Monetization Angle
 -
 
-## Open Questions
--
-
 ## Reporting Needs/Measurement Plan
 -
 
@@ -156,9 +153,6 @@ The goal is to make each section substantive:
 - **Monetization Angle**: How this connects to revenue. Keep tight: only points
   that add real insight. Credit consumption patterns and acquisition/retention
   levers are most useful. Skip speculative tier-gating unless it's a clear call.
-- **Open Questions**: Product decisions that need to be made before or during build.
-  Drop questions that are obvious "no" for v1. Architectural notes that aren't
-  questions belong in Architecture Context.
 - **Reporting Needs/Measurement Plan**: What to measure to know if this worked.
   Events to track, success criteria, dashboards.
 - **Release Strategy**: Rollout scope (all users, beta, feature flag), announcement
