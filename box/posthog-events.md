@@ -60,6 +60,19 @@ Saved insights (SC-108): country breakdown, statement download over-index (2 ins
 
 Key finding: EU users are ~10% of paying base but ~37% of statement downloads.
 
+### Publishing / Scheduling
+
+| Event Name               | Used In | Notes                                                                                                          |
+| ------------------------ | ------- | -------------------------------------------------------------------------------------------------------------- |
+| `Failed to publish post` | SC-162  | ~10k/week (136k in 90d). Has `failure_reason` property. `failure_step` exists but always null (not populated). |
+
+Saved insights (SC-162):
+
+- [Failure Reasons Breakdown (90d)](https://us.posthog.com/project/161414/insights/4YUK0VuF)
+- [Publish Failures by Reason (Weekly Trend)](https://us.posthog.com/project/161414/insights/ony5syZ4)
+
+Key failure reasons (90d): `expired_token` (41k, 904 users), `pin_not_found` (23k, 1,393 users), `stuck_in_queue` (12k, 768 users, NO UI COPY), `board_not_found` (11k, 804 users), `blocked_spam` (8k, 804 users). `stuck_in_queue`, `forbidden_resource`, and `invalid_parameters` have no entry in `failure-reasons.ts`.
+
 ## Useful Person Properties
 
 | Property              | Type   | Notes                                          |

@@ -180,7 +180,7 @@ the story link so the original poster knows it landed.
 - Each top-level Slack message = one idea (threads may contain sub-ideas)
 - Matching is semantic — compare idea text against story titles and descriptions
 - Likely matches need Paul's confirmation one at a time
-- New cards go to "In Definition" state, owned by Paul, assigned to Tailwind team
+- New cards go to "In Definition" state, owned by Paul, no team assignment
 - Infer Product Area from idea text using keyword matching (see Product Area Keywords below)
 - All In Definition stories should be assigned to Paul
 - Match against Released stories too: if an idea matches something already shipped,
@@ -203,6 +203,13 @@ the story link so the original poster knows it landed.
 - Check thread for existing "shipped" reply before posting a duplicate
 - Check story description for existing link line before prepending
 - `already_reacted` from Slack = success
+
+**Slack thread reply formats**:
+
+- **Tracked reply** (new idea matched or created):
+  `Tracked: <shortcut_url|SC-NNN: Story title>`
+- **Shipped reply** (idea matches a Released story):
+  `This shipped! <shortcut_url|SC-NNN: Story title>`
 
 ### 2. Find Dupes (Shortcut deduplication)
 

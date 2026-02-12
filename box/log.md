@@ -738,3 +738,75 @@ Entries accumulate until a pattern emerges across multiple investigations.
 - **SC-150 still pending.** Needs PostHog saved insights for the AI generation country
   breakdown table (4 events: SmartContent, Ghostwriter, Generate Pin, Made for You).
   Stopped before creating the insights because user called stop.
+
+### 2026-02-12 — SC-150 evidence fix + Sync Ideas play + Bug discovery play (SC-162)
+
+- **SC-150 numbers were wrong (21-27% vs actual 15-19%).** The original investigation
+  used an inconsistent country classification for non-English users. Running a fresh
+  HogQL query with the canonical country list from `box/posthog-events.md` and creating
+  5 saved insights showed lower but more defensible numbers. Every number on a card
+  should link to a verifiable saved insight. Created: bWnNuUmS, TOeXrrL3, gUT8upI1,
+  aPHgQYUU, 22dCtKPs.
+
+- **Sync Ideas play: "Tracked:" format is better than the old bold-title format.** Old
+  format used `*Story title*\nURL` on two lines. New format uses
+  `Tracked: <url|SC-NNN: Story title>` as a single linked line. Cleaner, more scannable.
+  Documented in shortcut-ops.md. Also discovered we forgot the description link-back on
+  SC-150 and SC-161 during the play. SC-150 had "Link to original idea in Slack" as
+  plain text (no URL). SC-161 had no link at all. Fixed both.
+
+- **Bug discovery play: don't stack unreliable methods.** First attempt used DB theme
+  classifications + keyword matching against Shortcut titles. User caught it immediately:
+  "we're stacking failure modes." Pipeline classifications are unreliable. Keyword
+  matching is unreliable. Chaining them makes it worse, not better. The fix was to go
+  to primary sources (Intercom API conversation text) and use reasoning, not pipelines.
+
+- **"disappeared" was the cleanest Intercom search signal.** Ran 10 bug-keyword searches
+  (error: 98, lost: 31, stuck: 22, broken: 14, failed: 14, disappeared: 7, crash: 4,
+  etc). "error" had the highest volume but was noisy (billing errors, spam). "disappeared"
+  had only 7 results and every single one was a real product bug. Low volume + high
+  signal-to-noise is more useful for bug discovery than high volume + noise.
+
+- **Intercom-to-PostHog cross-reference via email is the strongest evidence technique
+  we've found.** Intercom conversations have contact emails. PostHog has person properties
+  with email. Querying PostHog `Failed to publish post` events filtered by the Intercom
+  reporters' emails established a verified causal link. Three of seven "vanished pins"
+  reporters had `stuck_in_queue` failures in PostHog, including one with 70 failures in
+  24 seconds (a single bulk scheduling attempt that completely failed). This turned a
+  plausible theory into proven causation.
+
+- **`stuck_in_queue` is a ghost failure reason.** 12,029 events, 768 users in 90 days.
+  Not a single reference anywhere in the aero codebase. It originates from Tack (the
+  publish pipeline backend) and is completely invisible to the frontend. Users whose pins
+  fail for this reason see the generic "Something Went Wrong" fallback with no actionable
+  guidance. Two other failure reasons also have no UI copy: `forbidden_resource` (6,753
+  events) and `invalid_parameters` (5,547 events).
+
+- **The codebase explorer was useful for broad architecture mapping but slow.** Ran for
+  5+ minutes exploring the scheduling system, Tack API, credit consumption, SmartPin
+  generation, and bulk delete. Produced a comprehensive report covering pin statuses,
+  deletion flows, credit event types, and potential bug scenarios. But I had already read
+  the key files (failure-reasons.ts, use-failed-missed-posts.ts) directly and gotten
+  faster targeted answers. The explorer report confirmed and organized what I already
+  knew rather than discovering new information. For targeted questions ("does this failure
+  reason have UI copy?"), direct grep/read is faster. For "how does the whole publish
+  pipeline work?", the explorer is worth the wait.
+
+- **PostHog weekly trend exposed infrastructure-level spikiness.** `stuck_in_queue`
+  ranges from 291/week to 2,219/week. The spikes don't correlate with any obvious pattern
+  in other failure reasons. This suggests the root cause is infrastructure congestion (Tack
+  queue depth, timeout thresholds) rather than user behavior. Worth noting for the
+  engineering team when they investigate.
+
+- **The bulk delete feature (Feb 4, 2026) is adjacent but probably not causal.** Found
+  commit `3f5d7e288` adding bulk pin deletion. Tempting to connect it to the "vanished
+  pins" reports, but the Intercom conversations predate it (Jan 14, Jan 19, Jan 25). The
+  PostHog `stuck_in_queue` events also span Nov 2025 through Feb 2026. The feature is
+  interesting context but not the explanation.
+
+- **Bug cards are faster than feature cards.** SC-162 was investigation + card in one
+  session. No solution sketch needed, no UI Representation, no Monetization Angle, no
+  Release Strategy. The lean bug template (What, Evidence, Architecture Context, Open
+  Questions) matches the investigation shape: find the problem, prove it exists, describe
+  where the code lives, flag unknowns. Feature cards require more judgment about what to
+  build; bug cards require more judgment about what's actually broken.

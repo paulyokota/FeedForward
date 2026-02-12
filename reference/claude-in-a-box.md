@@ -349,6 +349,102 @@ On the box as accumulation point:
 
 ---
 
+## Retrospective: What the First Full Day Proved (2026-02-12)
+
+After a full day of investigation work (SC-117, SC-150, SC-52, SC-44, SC-156, SC-158,
+SC-161, SC-97, SC-108, SC-162), plus sync-ideas, find-dupes, and backlog hygiene runs,
+some of the open questions from day one have answers.
+
+### The reasoning-in-the-loop argument held up
+
+The strongest single piece of evidence produced all day was the Intercom-to-PostHog
+cross-reference on SC-162. Three users who reported "my pins vanished" in Intercom were
+found in PostHog with `stuck_in_queue` publish failures. One had 70 failures in 24
+seconds: a bulk scheduling attempt that silently failed. This technique (get email from
+Intercom contact, query PostHog for that person's events) wasn't planned. It emerged
+mid-investigation from asking "can we actually prove this causal link?" No pipeline would
+have done this because it's not a step you'd design in advance. It's the kind of
+reasoning move that only happens when the same agent holds the question and the tools.
+
+The investigation also changed direction twice based on what was found. Started looking
+for "vanished pins," discovered the publish failure landscape was 10k/week with several
+unhandled failure reasons, narrowed to `stuck_in_queue` as the sharpest concrete bug.
+Each step informed the next in ways that can't be pre-specified in a pipeline stage
+definition.
+
+### The pipeline comparison is starker than expected
+
+The discovery engine processed 18-46 findings per run across ~30-43 minutes. In a
+comparable amount of time, a single Claude-in-a-Box investigation produced one card with:
+verified cross-source causal evidence, specific PostHog saved insights with links,
+verbatim customer quotes tied to conversation IDs, codebase grep confirming the failure
+reason has zero UI handling, and a weekly trend showing infrastructure-level spikiness.
+The pipeline would have classified "pins vanishing" as a theme and assigned it a severity
+score. It would not have discovered `stuck_in_queue`, traced it to the Tack service,
+proven the causal link via email cross-reference, or noticed that the failure-reasons
+catalog has gaps.
+
+The difference isn't speed or volume. It's that the pipeline optimized for coverage
+("find all the themes") when what matters is depth on the things that matter ("prove this
+specific bug exists and show where the code breaks"). One well-evidenced Severity 0 bug
+card is worth more than 46 findings with confidence scores.
+
+### What separated the good investigations from the weaker ones
+
+The day's work included both strong cards (SC-162, SC-97, SC-108) and cards that required
+multiple revision rounds (SC-150, SC-44). The pattern: investigations that stayed close
+to primary sources (reading actual Intercom conversations, querying PostHog directly,
+grepping the codebase) produced stronger evidence than investigations that relied on
+intermediaries (subagent reports, pipeline classifications, DB theme tables). The
+`user_accounts.language` error on SC-150 and the "customizable frequency" error on SC-44
+both originated from subagent reports that were trusted without verification.
+
+The methodology that emerged: use subagents for broad initial mapping ("what files handle
+scheduling?"), but read the source yourself for any specific claim going on a card. Use
+the Intercom API, not the DB, for evidence. Create PostHog saved insights so every number
+is verifiable. Cross-reference data sources when possible.
+
+### Open questions revisited
+
+From the original "What It Didn't Prove (Yet)" section:
+
+- **Scale**: Still unproven for "find the top 10 opportunities across all of Intercom."
+  But the bug discovery play showed that a focused investigation across all data sources
+  produces higher quality output than trying to process everything at once. The right
+  scaling model is probably "run more investigations" not "make one investigation bigger."
+- **Repeatability**: Addressed by the accumulating toolset in `box/`. PostHog event
+  catalog, saved queries, card template, play checklists, Slack reply formats. Each
+  session's methodology learnings get captured and improve the next session. It's not
+  pipeline-repeatable (same input, same output) but it's process-repeatable (same
+  approach, improving quality).
+- **Context limits**: Hit compaction twice during the day. Managed by saving partial
+  results durably (PostHog saved insights, `/tmp/` files for raw data). The investigation
+  log and MEMORY.md serve as cross-session continuity. Still a real constraint for very
+  long investigations.
+- **Cost at scale**: Not measured precisely, but the output quality makes the comparison
+  moot. A $2 pipeline run that produces 46 unverified findings is not cheaper than a $20
+  investigation that produces one verified, actionable bug card with cross-source evidence.
+
+### Why it works (the non-obvious part)
+
+The pipeline approach assumed the hard part was processing at scale. Classify 16,000
+conversations, extract themes, score severity, rank by reach. All of that machinery
+worked. But the output was never good enough to act on without a human re-investigating
+everything anyway.
+
+The reasoning isn't separable from the data gathering. The SC-162 investigation didn't
+work as gather-then-classify-then-synthesize. The "disappeared" search results shaped
+which PostHog queries to run. The PostHog failure reason breakdown changed what the card
+was about. The cross-reference was a verification step that became the strongest evidence.
+Trying to pre-specify these steps in a pipeline stage definition is like trying to write
+a script for a conversation.
+
+The parts that look systematizable from the outside ("read conversations, find patterns")
+are actually judgment-heavy at every step. The parts that are genuinely mechanical
+(fetching data, formatting cards, posting to Slack) take seconds either way.
+
+---
+
 ## Appendix: Session Metadata
 
 - **Session date**: 2026-02-11
