@@ -133,15 +133,22 @@ New Shortcut cards use this description template:
 Most cards today are bare-bones — a one-liner "What" and dashes everywhere else.
 The goal is to make each section substantive:
 
-- **"What"**: Clear feature description. What does this do, who is it for, what
-  changes from the user's perspective. Not just a verbatim Slack quote.
+- **"What"**: Clear description of what we're building and why. What changes from
+  the user's perspective, what is true when this is done. Should stand on its own
+  as a scope definition without implementation detail. Not a solution sketch or
+  implementation plan. Not just a verbatim Slack quote.
 - **Evidence**: Data points, customer quotes, support ticket counts, usage metrics
   — anything that demonstrates demand or validates the need. Verbatim quotes are
   strongest. Include Intercom conversation IDs for traceability.
-- **Architecture Context**: Relevant codebase findings. What exists, what doesn't,
-  key files, data model constraints. Separate from UI Representation (architecture
-  is backend/system, UI is what the user sees). Only include if there are meaningful
-  codebase findings. Bug cards may not need this.
+- **Architecture Context**: Orientation for the developer picking this up. What
+  exists today, what doesn't exist, dead ends to avoid, key constraints. The goal
+  is to save the developer from re-discovering the landscape, not to prescribe how
+  to build the solution. For feature/chore cards: describe the current state of the
+  relevant system area (files, data model, integrations) without specifying
+  implementation steps. For bug cards: more prescriptive detail is appropriate since
+  the fix path is typically deterministic (root cause location, failure mechanism,
+  specific code paths involved). Separate from UI Representation (architecture is
+  backend/system, UI is what the user sees).
 - **UI Representation**: Written descriptions of what the user sees and interacts
   with. Reference existing component files. Describe current state and proposed
   changes per screen. Avoid "Create flow" phrasing (conflicts with Tailwind Create
@@ -172,8 +179,9 @@ doesn't, revise the card.
 1. **Problem before solution**: Is the problem stated independently from any
    implementation ideas? Would the card still make sense as a problem statement
    with the Architecture Context removed?
-2. **Scoping-ready**: Could a developer with codebase access but no prior context
-   estimate the work and identify which files to touch from this card alone?
+2. **Scoping-ready**: Does the card describe the feature behavior and current system
+   state clearly enough that a developer with codebase access could estimate the
+   work? Architecture Context should orient, not prescribe.
 3. **Verifiable evidence**: Is every factual claim linked to a source? Intercom
    conversation URLs, PostHog saved insight links, specific file paths. No
    unanchored assertions.

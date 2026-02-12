@@ -60,6 +60,34 @@ Saved insights (SC-108): country breakdown, statement download over-index (2 ins
 
 Key finding: EU users are ~10% of paying base but ~37% of statement downloads.
 
+### Keyword Research
+
+| Event Name           | Used In | Notes                                                                       |
+| -------------------- | ------- | --------------------------------------------------------------------------- |
+| `Searched keywords`  | SC-46   | Main search event. 53,677 in 90d (~3,800/week, 600-1,500 unique users/week) |
+| `Clicked Keyword`    | SC-46   | User clicks a keyword result                                                |
+| `Saved Keyword List` | SC-46   | User saves a keyword list                                                   |
+
+Saved insights (SC-46):
+
+- [Keyword Search Usage (90d)](https://us.posthog.com/project/161414/insights/YFPxKCsI)
+- [Keyword Feature Engagement (90d)](https://us.posthog.com/project/161414/insights/nueAQ5UK)
+- [Keyword Search by Subscription State (90d)](https://us.posthog.com/project/161414/insights/saG6PGLz)
+
+Key finding: ~49% of keyword searchers are active subscribers, ~45% null (likely free). Currently costs 0 credits (`WEBSITE_KEYWORDS: 0` in cost table).
+
+### Signup / Onboarding
+
+| Event Name                   | Used In | Notes                                                                   |
+| ---------------------------- | ------- | ----------------------------------------------------------------------- |
+| `Personalized Uses Selected` | SC-46   | Post-signup feature intent selector. `personalizedUses` array property. |
+
+Options: `pin_scheduler`, `smart_pin`, `keywords`, `turbo`. Multi-select. Launched ~Jan 4, 2026. ~4,750 respondents in first 5 weeks.
+
+Saved insight: [Signup Intent - Personalized Uses (90d)](https://us.posthog.com/project/161414/insights/8qSPAMAI)
+
+Key finding: 127 users selected keyword research as sole use case (2.7%). Among subset-selectors (not "all four"), ~26% included keywords.
+
 ### Publishing / Scheduling
 
 | Event Name               | Used In | Notes                                                                                                          |
