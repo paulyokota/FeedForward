@@ -35,7 +35,7 @@ def search_tsquery(conn, query: str, since_days=None, email_pattern=None,
     params.append(query)
 
     if since_days:
-        conditions.append("created_at > NOW() - interval '%s days'")
+        conditions.append("created_at > NOW() - make_interval(days => %s)")
         params.append(since_days)
 
     if email_pattern:
@@ -84,7 +84,7 @@ def search_ilike(conn, query: str, since_days=None, email_pattern=None,
     params.append(f"%{query}%")
 
     if since_days:
-        conditions.append("created_at > NOW() - interval '%s days'")
+        conditions.append("created_at > NOW() - make_interval(days => %s)")
         params.append(since_days)
 
     if email_pattern:

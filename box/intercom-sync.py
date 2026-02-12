@@ -127,6 +127,18 @@ def complete_sync_state(conn, sync_id: str, listed: int, indexed: int):
         """, (listed, indexed, sync_id))
 
 
+def find_resumable_sync(conn, sync_type: str) -> str | None:
+    """Find the most recent incomplete sync of the given type. Returns sync UUID or None."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT id FROM conversation_sync_state
+            WHERE sync_type = %s AND completed_at IS NULL AND active = TRUE
+            ORDER BY started_at DESC LIMIT 1
+        """, (sync_type,))
+        row = cur.fetchone()
+        return str(row[0]) if row else None
+
+
 def get_last_sync_cursor(conn, sync_id: str) -> tuple:
     """Get the last cursor and listed count for a sync. Returns (cursor, listed)."""
     with conn.cursor() as cur:
@@ -529,14 +541,25 @@ def main():
         if not acquire_advisory_lock(conn):
             if args.force and check_stale_sync(conn):
                 clear_stale_syncs(conn)
-                logger.info("Stale sync cleared, proceeding with --force")
+                conn.commit()
+                # Re-attempt lock after clearing stale syncs
+                if not acquire_advisory_lock(conn):
+                    print("Could not acquire advisory lock even after clearing stale syncs.")
+                    sys.exit(1)
+                logger.info("Stale sync cleared, lock acquired with --force")
             else:
                 print("Another sync is running. Use --force to override if stale.")
                 sys.exit(1)
 
         try:
             sync_type = "incremental" if since_date else "full"
-            sync_id = create_sync_state(conn, sync_type, date_start=since_date)
+
+            # Try to resume an incomplete sync of the same type
+            sync_id = find_resumable_sync(conn, sync_type)
+            if sync_id:
+                logger.info("Resuming incomplete sync: %s", sync_id)
+            else:
+                sync_id = create_sync_state(conn, sync_type, date_start=since_date)
             conn.commit()
 
             listed = 0
