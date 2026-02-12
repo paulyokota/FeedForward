@@ -417,8 +417,10 @@ async def phase2_index(client: IntercomClient, conn, max_convs=None):
     logger.info("Phase 2: %d conversations to index (concurrency=%d)", total, FETCH_CONCURRENCY)
 
     indexed = 0
-    semaphore = asyncio.Semaphore(FETCH_CONCURRENCY)
-    write_queue = asyncio.Queue()
+    # Bounded queue provides backpressure: if DB writes fall behind fetches,
+    # put() blocks until the writer drains the queue. Prevents OOM from
+    # accumulating 100k-char full_text strings in memory.
+    write_queue = asyncio.Queue(maxsize=FETCH_CONCURRENCY * 2)
     SENTINEL = None  # Signals writer to stop
 
     async def db_writer():
@@ -446,55 +448,68 @@ async def phase2_index(client: IntercomClient, conn, max_convs=None):
 
     async def fetch_one(session, conv_id):
         """Fetch a single conversation and enqueue the DB write."""
-        async with semaphore:
-            for attempt in range(MAX_RETRIES_PHASE2):
-                try:
-                    raw_conv = await client.get_conversation_async(session, conv_id)
-                    full_text = build_full_conversation_text(raw_conv, max_length=MAX_FULL_TEXT_LENGTH)
+        for attempt in range(MAX_RETRIES_PHASE2):
+            try:
+                raw_conv = await client.get_conversation_async(session, conv_id)
+                full_text = build_full_conversation_text(raw_conv, max_length=MAX_FULL_TEXT_LENGTH)
 
-                    parts_container = raw_conv.get("conversation_parts", {})
-                    parts_list = (
-                        parts_container.get("conversation_parts", [])
-                        if isinstance(parts_container, dict)
-                        else []
+                parts_container = raw_conv.get("conversation_parts", {})
+                parts_list = (
+                    parts_container.get("conversation_parts", [])
+                    if isinstance(parts_container, dict)
+                    else []
+                )
+                part_count = len(parts_list)
+                truncated = len(full_text) >= MAX_FULL_TEXT_LENGTH or part_count >= MAX_PARTS
+
+                await write_queue.put(("index", conv_id, full_text, part_count, truncated))
+                return
+
+            except aiohttp.ClientResponseError as e:
+                if e.status == 404:
+                    await write_queue.put(("fail", conv_id, "http_404: Not Found"))
+                    return
+                if attempt < MAX_RETRIES_PHASE2 - 1:
+                    delay = 2 ** attempt
+                    logger.warning(
+                        "Error fetching %s (HTTP %d), retry %d/%d in %ds",
+                        conv_id, e.status, attempt + 1, MAX_RETRIES_PHASE2, delay,
                     )
-                    part_count = len(parts_list)
-                    truncated = len(full_text) >= MAX_FULL_TEXT_LENGTH or part_count >= MAX_PARTS
-
-                    await write_queue.put(("index", conv_id, full_text, part_count, truncated))
+                    await asyncio.sleep(delay)
+                else:
+                    await write_queue.put(("fail", conv_id, f"http_{e.status}: {e.message}"))
                     return
 
-                except aiohttp.ClientResponseError as e:
-                    if e.status == 404:
-                        await write_queue.put(("fail", conv_id, "http_404: Not Found"))
-                        return
-                    if attempt < MAX_RETRIES_PHASE2 - 1:
-                        delay = 2 ** attempt
-                        logger.warning(
-                            "Error fetching %s (HTTP %d), retry %d/%d in %ds",
-                            conv_id, e.status, attempt + 1, MAX_RETRIES_PHASE2, delay,
-                        )
-                        await asyncio.sleep(delay)
-                    else:
-                        await write_queue.put(("fail", conv_id, f"http_{e.status}: {e.message}"))
-                        return
+            except Exception as e:
+                if attempt < MAX_RETRIES_PHASE2 - 1:
+                    delay = 2 ** attempt
+                    logger.warning(
+                        "Error fetching %s (%s), retry %d/%d in %ds",
+                        conv_id, e, attempt + 1, MAX_RETRIES_PHASE2, delay,
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    await write_queue.put(("fail", conv_id, f"error: {type(e).__name__}: {e}"))
+                    return
 
-                except Exception as e:
-                    if attempt < MAX_RETRIES_PHASE2 - 1:
-                        delay = 2 ** attempt
-                        logger.warning(
-                            "Error fetching %s (%s), retry %d/%d in %ds",
-                            conv_id, e, attempt + 1, MAX_RETRIES_PHASE2, delay,
-                        )
-                        await asyncio.sleep(delay)
-                    else:
-                        await write_queue.put(("fail", conv_id, f"error: {type(e).__name__}: {e}"))
-                        return
+    # Worker pool: N workers pull IDs from a queue instead of spawning
+    # a task per conversation (avoids overhead of 100k+ pending tasks).
+    id_queue = asyncio.Queue()
+    for cid in conv_ids:
+        id_queue.put_nowait(cid)
+
+    async def worker(session):
+        while not id_queue.empty():
+            try:
+                conv_id = id_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            await fetch_one(session, conv_id)
 
     async with client._get_aiohttp_session() as session:
         writer_task = asyncio.create_task(db_writer())
-        fetch_tasks = [fetch_one(session, cid) for cid in conv_ids]
-        await asyncio.gather(*fetch_tasks)
+        workers = [asyncio.create_task(worker(session)) for _ in range(FETCH_CONCURRENCY)]
+        await asyncio.gather(*workers)
         await write_queue.put(SENTINEL)
         await writer_task
 
