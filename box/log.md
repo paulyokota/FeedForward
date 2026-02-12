@@ -606,3 +606,89 @@ Entries accumulate until a pattern emerges across multiple investigations.
   docs, not writing the sections. When the research already exists, the fill is mostly
   reorganization. Contrast with SC-161 (RSS SmartPin) where the investigation was the
   bulk of the work.
+
+### 2026-02-11 — Fill-cards play: SC-97 (past-due cancellation) + SC-108 (European invoices)
+
+- **Two billing cards back to back revealed shared infrastructure.** Both cards touch the
+  same billing settings pages (`billing.tsx`, `subscription.blade.php`), the same
+  Organization model, and the same Chargify integration. Reading the code once for SC-97
+  meant SC-108 investigation was much faster: already knew the billing address modal only
+  collects country/zip/state, already knew the Chargify sync path, already had the
+  organization schema loaded. When cards cluster in the same product area, do them in
+  sequence.
+
+- **The "where does it actually fail?" question drove the SC-97 investigation.** The
+  Explore subagent said "NO GUARD PREVENTS PAST-DUE USERS FROM CANCELLING." But users
+  obviously can't cancel. The answer was outside any Tailwind code: Chargify's API
+  rejects plan changes on past-due subscriptions. Had to trace through
+  AccountPlanCanceler -> AccountPlanChanger -> subscription_updater.updateSubscription()
+  to find that the failure happens at the external API boundary, not in any guard logic.
+  The subagent's claim was technically true (no Tailwind-side guard) but misleading
+  (the block still exists). Read the code path yourself when the claim feels wrong even
+  if you can't immediately say why.
+
+- **PostHog event discovery pattern is settling.** Third investigation using the "search
+  for events containing keyword" approach. Works every time: search for events with
+  'billing' or 'cancel' or 'subscription' in the name, get the list, then query the
+  specific events. The event names aren't guessable but the keyword search is reliable.
+  Also used person property queries (subscription state breakdown, country breakdown)
+  which were new for this session.
+
+- **The "3x over-index" signal for SC-108 was the strongest evidence.** EU users are
+  ~10% of paying users but ~37% of statement downloads. Germany alone: 5% of users,
+  17% of downloads. This disproportionality is more persuasive than the raw Intercom
+  count (62 conversations). The support volume proves it's a problem; the download
+  ratio proves it's a bigger problem than the support volume suggests (most users
+  probably don't bother writing in, they just struggle with their accounting).
+
+- **"123 Unknown Address" was the architectural smoking gun for SC-108.** Every single
+  Chargify customer gets `address: "123 Unknown Address"` from
+  `tw-customer-to-chargify-mapper.ts`. That hardcoded placeholder is what European
+  customers see on their downloaded statements. The Intercom quote from Spain ("the
+  billing address appears as a placeholder") is describing this exact line of code.
+  Connecting a customer's words to a specific line number is the most convincing
+  architecture evidence a card can have.
+
+- **Chargify already has the fields, Tailwind just doesn't send them.** The
+  `ChargifyCustomer` type includes `vat_number`, `address`, `address_2`, `organization`,
+  `tax_exempt`. None of these are populated by the billing location sync. The gap is
+  entirely on the Tailwind side: schema (no columns), UI (no form fields), sync (no
+  mapping). This makes the implementation path straightforward: add columns, add fields,
+  extend sync.
+
+- **FreshBooks tables were a surprise find.** The schema has
+  `user_organizations_freshbooks_clients`, `_invoices`, and `_payments` tables. Almost
+  certainly the backend for the "Taylor's Jarvis add on" mentioned in the Slack thread.
+  This is the current manual workaround: support creates FreshBooks invoices by hand.
+  Finding the workaround infrastructure validates the problem (if it weren't real, nobody
+  would have built tooling for it).
+
+- **Release Strategy should match the user base, not be performative.** SC-108 first
+  draft had announcement plans (in-product banner, email to past requesters). User caught
+  it: new users will just see the fields as how things work, and existing users who needed
+  this have already asked support. No announcement needed. Support enablement (help docs,
+  canned response, retire FreshBooks workflow) is the right scope. Don't pad Release
+  Strategy with activities that don't add value.
+
+- **Intercom agent parallelism worked well this session.** Launched Intercom DB search
+  and codebase Explore as background agents while running PostHog queries directly. Both
+  finished in under 3 minutes. The Intercom agent ran narrowing queries autonomously
+  (keyword counts, false positive checks, country signals, resolution patterns) and
+  produced a comprehensive summary. For well-scoped DB searches, the background agent
+  pattern delivers.
+
+- **Investigation friction for billing cards.** Shape comparison:
+  - _Slack thread_: one message + two short replies for both cards. Low value as input,
+    but the verbatim quotes from the original poster were excellent card material.
+  - _Intercom DB_: high value for SC-108 (62 conversations with rich verbatim quotes from
+    5+ countries). Lower value for SC-97 (the problem is more about UX flow than support
+    volume).
+  - _PostHog_: high value for both. SC-97: 1,826 past-due transitions, recovery rates,
+    cancellation prompt views. SC-108: country breakdown + statement download over-index.
+    The country-level analysis was a new technique.
+  - _Codebase_: essential for both. SC-97 needed the full cancellation code trace.
+    SC-108 needed the billing address modal, Chargify mapper, and schema. Both required
+    reading files myself after subagent reports.
+  - _Overall_: SC-97 took longer (deeper code tracing, more PostHog queries). SC-108
+    benefited from shared infrastructure knowledge. Doing them in sequence saved probably
+    20-30 minutes on SC-108.

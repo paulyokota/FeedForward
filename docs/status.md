@@ -1,5 +1,30 @@
 # Project Status
 
+## Fill-Cards Play: SC-97 + SC-108 Billing Cards (2026-02-11)
+
+Two billing cards investigated and shipped to Ready to Build in one session. Both were In Definition with minimal context.
+
+**SC-97 (Past-due cancellation guard)**:
+
+- Traced cancellation flow through `AccountPlanCanceler.php` to Chargify API. Found the block is at Chargify level (rejects plan changes on past-due subscriptions), not in Tailwind code. No guard exists in the product.
+- PostHog: ~50 past-due transitions/month, 3-5% of plan changes affected. Created 3 saved insights (transition counts, flow analysis, cancellation prompt views).
+- Intercom: 18 conversations found via DB + API. Verbatim quotes from users hitting the wall mid-cancellation.
+- Architecture context: identified exact files for guard implementation (legacy PHP + V2 billing settings).
+
+**SC-108 (European invoice information)**:
+
+- Traced billing address infrastructure through all layers: UI modal only collects country/zip/state, API handler accepts same limited fields, DB has no VAT/company/street columns, Chargify mapper hardcodes `"123 Unknown Address"` for every customer.
+- Chargify customer type supports `vat_number`, `address`, `organization`, `tax_exempt` but Tailwind doesn't populate any of them.
+- PostHog: EU users are ~10% of paying base but ~37% of statement downloads (3x over-index). Germany alone: 5% of users, 17% of downloads. Created 2 saved insights.
+- Intercom: 62 narrowly-scoped conversations about invoice/VAT needs. Entirely manual resolution (support creates FreshBooks invoices).
+- Found FreshBooks tables in schema: `user_organizations_freshbooks_clients/invoices/payments`. Manual workaround infrastructure.
+
+**Process learnings**: Card clustering in the same product area pays off. SC-108 investigation was ~30 min faster because billing infrastructure was already mapped from SC-97. Disproportionality signals (10% of users, 37% of downloads) are more persuasive than raw counts.
+
+**Next:** Continue fill-cards play with remaining In Definition cards.
+
+---
+
 ## Backlog Hygiene: Template Audit + SC-39 Fill (2026-02-11)
 
 Audited all 74 non-archived non-Released Shortcut stories for missing template sections. Added empty placeholders to 20 stories with gaps, then filled SC-39 (extension rebuild) by restructuring existing Shortcut Write docs into template format.
@@ -43,15 +68,17 @@ First full sync-ideas run against #ideas channel. Processed 57 Slack messages (9
 
 ## Fill-Cards Play In Progress (2026-02-11)
 
-Six cards investigated. This session completed three:
+Eight cards investigated across three sessions:
 
+- **SC-97** (Past-due cancellation guard): feature card, In Definition to Ready to Build. Traced cancellation through legacy PHP to Chargify. Block is external (Chargify rejects past-due plan changes).
+- **SC-108** (European invoice information): feature card, In Definition to Ready to Build. Full billing infrastructure audit. "123 Unknown Address" hardcoded, Chargify fields exist but unpopulated.
 - **SC-44** (SmartPin frequency selector): feature card, In Definition to Ready to Build. Traced schedule_rule storage, SmartPin v2 UI, cron infrastructure.
 - **SC-156** (SmartPin edits lost after scheduling): bug card, fleshed out in Ready to Build. Deep code trace across 10+ files identified probable root cause (stale prop mutation in `handlePinDesignChange`).
 - **SC-158** (Chrome Extension alt text): feature card, In Definition to Ready to Build. Mapped two extension codebases, found bookmarklet already reads `img.alt` but routes it to wrong field, `altText` plumbing exists server-side but isn't wired.
 
 Previous three: SC-117 (summary emails), SC-52 (SmartPin account filtering), SC-150 (multi-language AI generation).
 
-Next: continue with remaining In Definition cards. Candidates identified: SC-97, SC-101, SC-130.
+Next: continue with remaining In Definition cards. Candidates: SC-101, SC-130.
 
 ---
 
