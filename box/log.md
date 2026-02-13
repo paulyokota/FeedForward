@@ -1443,3 +1443,28 @@ and inference doesn't fire under session pressure. Specific numbers (77 chat.upd
 - **Per compaction summary: `str | None` type syntax needed `from __future__ import annotations`.**
   The system Python 3.10 threw a TypeError at runtime without the import. This is a
   macOS Python version quirk worth remembering for future hook scripts.
+
+### 2026-02-13 — Hook documentation gap + Bug Discovery play codification
+
+- **The hook existed but three key docs didn't mention it.** CLAUDE.md, shortcut-ops.md,
+  and tooling-logistics.md all described mutation rules or API access patterns but had
+  zero reference to the PreToolUse hook or the `execute_approved` execution path. A fresh
+  session following a play checklist would hit the gate and not understand why (the deny
+  message is self-explanatory, but smoother if the docs say "mutations route through
+  execute_approved" right where the plays say "present for approval"). MEMORY.md and the
+  log already had it. The gap was in the workflow-facing docs vs the memory-facing docs.
+
+- **Codified play 5: Customer Reported Bug Discovery.** Reconstructed the SC-162
+  investigation sequence from the log and turned it into a named play in shortcut-ops.md.
+  Key structural differences from the feature request play (play 4): symptom keywords
+  instead of topic nouns, recency check early in Phase 1 to avoid investigating
+  already-fixed bugs, Intercom-to-PostHog email cross-reference as the core evidence
+  technique, lean bug card template, Jam MCP integration for structured debug data from
+  screen recordings.
+
+- **Lost track of already-committed work mid-session.** After committing and pushing two
+  files, was asked to review them one turn later, re-read and re-reviewed them as if they
+  were uncommitted, then tried to commit them again. Failed because nothing to stage. The
+  information was one turn back in context, not a compaction or memory issue. Didn't check
+  git state before acting. When asked to do something with files, check `git status` first
+  to know whether there's actually work to do.
