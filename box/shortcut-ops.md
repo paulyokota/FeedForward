@@ -44,6 +44,7 @@ detailed procedural skills that generated this knowledge are archived at
 | NAV              | `698b5277-d354-4cb1-893b-1cb71a5bf9a3` |
 | BILLING          | `698b5277-fa07-4751-8ac6-b6d86f2ca2de` |
 | API/MCP          | `698b5277-43c1-411a-9b32-d39bcfd1c2cc` |
+| M4U              | `698e9253-c138-4e96-9dd3-7c732aff37fd` |
 
 ### Slack
 
@@ -63,6 +64,12 @@ detailed procedural skills that generated this knowledge are archived at
 - **Slack `Retry-After`**: Sleep the specified duration, then retry.
 - **Story link conflicts**: "Cannot create a duplicate story link" means it already exists — treat as success.
 - **Pagination**: Shortcut search returns 25 per page. Slack history returns up to 200 with cursor-based pagination. Always check for `has_more` / `next`.
+- **Intercom `source.body` search only searches the first message.** Admin replies, internal notes, and Intercom app cards (e.g., "Jam for Customer Support") are NOT searchable via the conversations search API. To find conversations where a CS agent used a specific tool or mentioned something in a reply, you need the conversation ID from another source (Slack thread, CS person, etc.) and fetch it directly via `GET /conversations/{id}`.
+- **Intercom conversation fetch concurrency.** The default `INTERCOM_FETCH_CONCURRENCY=10` in `intercom-sync.py` is extremely conservative. At concurrency 10, throughput was ~1.1 conv/sec (64 req/min). At concurrency 80, throughput jumped to ~100 conv/sec (~6000 req/min) with zero 429 errors. The bottleneck at low concurrency is network latency per request, not rate limits. The script's hardcoded cap is 100 (`min(100, ...)`); for bulk syncs, 80 is a good default.
+- **Intercom API requires `Accept: application/json` header.** Without it, `urllib.request` gets HTTP 406 Not Acceptable. `curl` sends `Accept: */*` by default so it works without, but Python's `urllib` does not. Always include it in programmatic calls.
+- **Intercom conversation parts have different `part_type` values.** Only `comment` contains the main conversation messages. `assignment` contains CS agent handoff messages (often substantive — Mike's Jam offers, troubleshooting replies). `note` contains internal notes and app card results (Jam upload confirmations, recording URLs). `open` contains reopen messages. Everything else (`snoozed`, `close`, `timer_unsnooze`, `fin_guidance_applied`, `default_assignment`, `conversation_attribute_updated_by_admin`, `company_updated`, `channel_and_reply_time_expectation`) has no useful body text.
+- **Search index covers 5 part types.** `build_full_conversation_text()` in `digest_extractor.py` indexes `comment`, `assignment`, `close`, `open`, and `note` parts. Internal notes starting with "Insight has been recorded" (Intercom Insight boilerplate) are filtered. Other part types have no useful body text and are excluded.
+- **FeedForward `.env` sourcing.** `source .env` alone doesn't export variables for Python subprocesses. Use `export $(grep -E '^(VAR1|VAR2)' .env | xargs)` to make specific vars available, or run scripts that load `.env` themselves (like `intercom-sync.py` which uses `python-dotenv`).
 
 ## Search Operators (useful subset)
 
@@ -230,6 +237,15 @@ the story link so the original poster knows it landed.
 - **Shipped reply** (idea matches a Released story):
   `This shipped! <shortcut_url|SC-NNN: Story title>`
 
+**Correct state per card**:
+
+- Released stories should have TWO bot replies: a Tracked reply AND a
+  This shipped! reply, with Tracked posted first (earlier timestamp)
+- All other states should have ONE bot reply: a Tracked reply only
+- A single Slack thread may carry replies for multiple cards
+
+No automated audit script currently. Thread state verification is manual.
+
 ### 2. Find Dupes (Shortcut deduplication)
 
 **What it does**: Find potential duplicate stories, present pairs for review,
@@ -273,12 +289,21 @@ for explicit go-ahead.
    extension when possible. Identify the closest existing feature surface.
 5. Check `box/posthog-events.md` for already-discovered event names in this
    product area. Check `box/queries.md` for saved SQL patterns.
+6. **Refresh the Intercom search index** so full-text search covers recent
+   conversations. Run from the FeedForward repo root:
+   ```
+   INTERCOM_FETCH_CONCURRENCY=80 python3 box/intercom-sync.py --since $(date -v-7d +%Y-%m-%d)
+   ```
+   This syncs conversations updated in the last 7 days (listing + full thread
+   fetch). Takes seconds for a week's worth. Use `--status` to check the
+   index state. See "Intercom Search Patterns" below for how to query.
 
 **Key behaviors**:
 
 - Rank by most empty sections first, then oldest
 - Present one card at a time with full content rendered
-- Investigate: hit Intercom API (not just DB), PostHog, codebase, Slack for evidence
+- Investigate: Intercom (local search index + API for specific conversations),
+  PostHog, codebase, Slack for evidence. See "Intercom Search Patterns" below.
 - Synthesize into clear, concise product writing (bullet points, no jargon inflation)
 - Don't add ideas Paul didn't express, don't drop ideas he did
 - Present the full draft text for review before pushing anything
@@ -331,10 +356,12 @@ codebase patterns, competitive gaps) would have different discovery phases.
 
 **Phase 1: Find the signal**
 
-1. Start with Intercom API topic-keyword search (not language-pattern search).
-   `source.body` only searches opening messages, so feature-request phrasing
-   like "would love to" won't match. Use topic nouns instead: "RSS", "carousel",
-   "hashtag", "undo", etc.
+1. Start with the local Intercom search index for full-thread keyword search
+   (see "Intercom Search Patterns" above). This searches all conversation parts
+   including admin replies, not just opening messages. Use topic nouns: "RSS",
+   "carousel", "hashtag", "undo", etc. Refresh the index first (pre-flight step
+   6 from fill-cards). Fall back to the Intercom API `source.body` search for
+   opening-message-only queries when needed.
 2. Check hit counts to gauge volume. Filter out spam-heavy topics.
 3. For each promising topic, search Shortcut (`GET /api/v3/search/stories?query=...`)
    to confirm it's not already tracked.
@@ -383,6 +410,136 @@ for approval.
   Paul's decision. Don't batch-execute without review.
 - **Rate limiting**: 0.5s delay between sequential API calls. Respect `Retry-After`.
 
+## Intercom Search Patterns
+
+The local search index (`conversation_search_index` table) contains full
+conversation threads — all admin replies, internal notes, and customer messages
+— not just the opening message. This is the primary tool for Intercom evidence
+gathering. The Intercom API `source.body` search only hits the first message.
+
+**Refresh before use** (pre-flight step 6):
+
+```
+INTERCOM_FETCH_CONCURRENCY=80 python3 box/intercom-sync.py --since $(date -v-7d +%Y-%m-%d)
+```
+
+**Full-text search** (searches all conversation parts):
+
+```sql
+SELECT conversation_id, source_body, part_count,
+       ts_rank(to_tsvector('english', full_text), query) AS rank
+FROM conversation_search_index,
+     to_tsquery('english', 'screen & recording') AS query
+WHERE to_tsvector('english', full_text) @@ query
+ORDER BY rank DESC
+LIMIT 20;
+```
+
+**ILIKE fallback** (when you need exact phrase or partial match):
+
+```sql
+SELECT conversation_id, source_body, part_count
+FROM conversation_search_index
+WHERE full_text ILIKE '%jam.dev%'
+ORDER BY updated_at DESC
+LIMIT 20;
+```
+
+**Fetch a specific conversation** (when you have an ID from search results,
+Slack, or a CS person):
+
+```
+curl -s "https://api.intercom.io/conversations/{ID}" \
+  -H "Authorization: Bearer $INTERCOM_ACCESS_TOKEN" \
+  -H "Intercom-Version: 2.11" \
+  -H "Accept: application/json"
+```
+
+**Check index health**:
+
+```
+python3 box/intercom-sync.py --status
+```
+
+**Key limitations**:
+
+- `source.body` API search only hits opening messages (see API Quirks above)
+- The indexer covers `comment`, `assignment`, `close`, `open`, and `note` parts.
+  Internal notes with Intercom Insight boilerplate ("Insight has been recorded...")
+  are filtered out. Other part types (`snoozed`, `timer_unsnooze`,
+  `fin_guidance_applied`, `default_assignment`, `conversation_attribute_updated_by_admin`,
+  `company_updated`, `channel_and_reply_time_expectation`) have no useful body text
+  and are excluded. See API Quirks for the full `part_type` breakdown.
+- The local index is as fresh as the last `--since` run. Always refresh first.
+
+## Jam MCP (Screen Recording Debug Data)
+
+Jam is a screen recording tool used by CS agents. When a customer reports a visual
+bug or behavioral issue, CS asks them to record a Jam. The recording captures
+console logs, network requests, user events, and video — structured debug data
+that's otherwise lost in text descriptions.
+
+**Use case for investigations**: During card-fill or recurring-request plays, when
+an Intercom conversation references a Jam recording (URL like `jam.dev/c/...`),
+use the Jam MCP to extract structured debug data. This replaces manually opening
+the Jam link and reading through the recording.
+
+**MCP server configuration**:
+
+```
+Server URL: https://mcp.jam.dev/mcp
+Transport: HTTP (streamable)
+Auth: OAuth (sign in to Jam workspace when prompted)
+```
+
+**Setup** (one-time, per machine):
+
+```bash
+claude mcp add -s user Jam -- npx -y mcp-remote@latest https://mcp.jam.dev/mcp
+```
+
+Uses `mcp-remote` as a stdio proxy (same pattern as PostHog). The `-s user` flag
+stores the config in `~/.claude.json` (available across all projects). On first
+use, `mcp-remote` opens a browser for Jam OAuth. The native `-t http` transport
+doesn't complete the OAuth flow — always use `mcp-remote` for OAuth-based HTTP
+MCP servers.
+
+**Available tools**:
+
+| Tool                 | Purpose                                            |
+| -------------------- | -------------------------------------------------- |
+| `getDetails`         | Full Jam details (title, description, reporter)    |
+| `getConsoleLogs`     | Console output during recording (errors, warnings) |
+| `getNetworkRequests` | HTTP requests/responses (API failures, 4xx/5xx)    |
+| `getScreenshot`      | Screenshot at a specific timestamp                 |
+| `getUserEvents`      | Click/scroll/input events during recording         |
+| `getMetadata`        | Browser, OS, screen size, URL                      |
+| `getVideoTranscript` | Transcript of the recording (narration if present) |
+| `analyzeVideo`       | AI analysis of the video content                   |
+| `listJams`           | List Jams (filter by folder, date, etc.)           |
+| `listMembers`        | Workspace members                                  |
+| `listFolders`        | Workspace folders                                  |
+| `createComment`      | Add a comment to a Jam                             |
+| `updateJam`          | Update Jam metadata (title, folder, etc.)          |
+
+**Investigation pattern**: When a conversation mentions a Jam URL, extract the
+Jam ID from the URL, then call `getConsoleLogs` and `getNetworkRequests` to find
+the technical root cause. `getMetadata` gives browser/OS context. This is
+especially useful for visual bugs and intermittent failures where the customer
+description alone isn't enough to reproduce.
+
+**Jam flow markers in Intercom** (searchable in the index after the part_type fix):
+
+| Phase    | part_type    | Search pattern                                    | Notes                                                    |
+| -------- | ------------ | ------------------------------------------------- | -------------------------------------------------------- |
+| Offer    | `assignment` | `"Would you mind taking a screen recording"`      | Mike's canned Jam prompt. ~380 hits across full history. |
+| Complete | `note`       | `"Jam created!"` or `"View the screen recording"` | Intercom app card confirming upload succeeded.           |
+
+The offer marker finds every conversation where CS offered Jam. The complete
+marker finds where a recording was actually uploaded. The gap between them
+(offer without complete) indicates the customer didn't follow through — but
+determining why requires reading the conversation, not string matching.
+
 ## Product Area Keywords
 
 For inferring Product Area when creating new cards from Slack ideas.
@@ -399,5 +556,6 @@ For inferring Product Area when creating new cards from Slack ideas.
 | NAV              | navigation, nav, product-focused nav                                                                                                                     |
 | BILLING          | billing, subscription, cancel, past-due, invoice                                                                                                         |
 | API/MCP          | API, MCP, ChatGPT, integration, workflow, app store                                                                                                      |
+| M4U              | made for you, generate a pin, pin from URL, URL scrape, labs, ghostwriter pin                                                                            |
 
-**Tie-break priority** (most specific wins): EXTENSION > TURBO, KEYWORD RESEARCH > SMARTPIN > PIN SCHEDULER, CREDITS > BILLING. When ambiguous, propose best guess and flag it.
+**Tie-break priority** (most specific wins): EXTENSION > TURBO, KEYWORD RESEARCH > SMARTPIN > M4U > PIN SCHEDULER, CREDITS > BILLING. When ambiguous, propose best guess and flag it.

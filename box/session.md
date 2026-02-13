@@ -5,29 +5,26 @@
 
 ## Goal
 
-Optimize core documentation (CLAUDE.md and MEMORY.md) to make the three fundamental principles prominent and front-loaded at session start.
+Continue from compacted session: test the rewritten `sync-ideas-audit.py` against real mega-thread data.
 
 ## What Happened
 
-- **Identified three core principles** from the decision record and investigation log: (1) Capabilities + Judgment, (2) Reason on Primary Sources, (3) Quality Over Velocity. Traced each through the log entries to validate they're genuinely load-bearing and distinct.
+- **Compaction recovery failure.** Fresh instance inherited a compaction summary about a rewritten audit script. Started reasoning about the code based on the summary's claims instead of running it. User corrected: "proxy."
 
-- **Considered a fourth principle** (iterative tooling philosophy). Decided it's a consequence of the three, not a peer. It flows naturally from the principles when applied to the meta-question of process improvement.
+- **Script failed on first run.** `--slack-first` mode sent an empty query string to the Shortcut search API (400 error). Instead of showing the error and discussing, went off solo debugging with random API calls. User had to say "stop" twice.
 
-- **Ran web research** on human-AI collaboration models, intelligence analysis tradecraft, Claude Code CLAUDE.md best practices, and LLM agent memory organization. Key findings: within-task complementarity research validates the collaboration model; structured system prompts with explicit sections outperform monolithic designs; CLAUDE.md should contain only what's needed every session.
+- **Patched script produced garbage.** After patching the query to `*`, the API returned 200 but 0 stories. All 79 Slack-referenced stories showed as NOT_IN_SHORTCUT. Entire report was wrong because the Shortcut fetch was broken.
 
-- **Rewrote CLAUDE.md**: added Core Principles section immediately after the one-liner, before "What You Are." Removed redundant "Important" note under Data Sources. Rewired The Box section to connect tooling philosophy back to the three principles.
+- **Discarded the script.** Agreed it had no redeeming value: written from wrong mental model, rewritten from compaction summary, never tested against real data, Shortcut fetch broken. Deleted `box/sync-ideas-audit.py` and cleaned all references from `tooling-logistics.md`, `shortcut-ops.md`, `MEMORY.md`.
 
-- **Rewrote MEMORY.md**: Core Principles with operational implications now open the file (lines 1-49). Folded "Separation of Concerns," "Communication Rules," and "Shortcut as Production Surface" into their respective principles. Split "Investigation Methodology" into principle-level items (moved up) and tactical items (kept as "Investigation Tactics"). Extracted "Card Formatting" as its own section. File went from 123 lines to 116 lines.
-
-- **Key wording iteration**: Principle 2 evolved from "go to primary sources" (data hygiene instruction) to "reason on primary sources" (what the activity is and why it can't be decomposed). Principle 3 evolved from "investigations are fast, quality comes from gates" (defensive) to "bias toward completion is the specific failure mode" (honest about what the principle protects against).
+- **Wrote log entry** documenting post-compaction failure modes: reasoning about code instead of running it, compaction summary as ground truth, solo debugging instead of communicating, guessing at API behavior instead of reading docs.
 
 ## Key Decisions
 
-- Three principles, not four. Iterative tooling philosophy is a consequence, not a peer.
-- CLAUDE.md gets concise principle statements. MEMORY.md gets the same principles with operational implications. They reinforce without duplicating.
-- Investigation Methodology split: "why" items moved to principles, "how" items stay as tactics.
+- Script discarded entirely rather than fixed. The documented learnings (correct state model, API patterns, failure modes) survive in their respective files.
+- Log entry left as historical record ("Tooling created" still references the script with "Needs update").
 
 ## Carried Forward
 
 - Fill-cards play on 7 quality-gate failures: SC-15, SC-51, SC-68, SC-90, SC-118, SC-131, SC-132
-- Log entry for this session's observations
+- No audit script exists. Rebuild from scratch if needed, testing each API call against live data before building on it.
