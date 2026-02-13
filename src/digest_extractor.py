@@ -346,12 +346,16 @@ def build_full_conversation_text(
         body = part.get("body", "")
         part_type = part.get("part_type", "")
 
-        # Skip non-comment parts (assignments, notes, state changes)
-        if part_type != "comment" or not body:
+        # Only index part types that carry meaningful conversation content
+        if part_type not in ("comment", "assignment", "close", "open", "note") or not body:
             continue
 
         clean_body = _strip_html(body)
         if not clean_body:
+            continue
+
+        # Skip Intercom Insight tool boilerplate in notes
+        if part_type == "note" and clean_body.strip().startswith("Insight has been recorded"):
             continue
 
         # Determine author label

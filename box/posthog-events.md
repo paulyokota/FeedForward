@@ -81,6 +81,21 @@ Saved insights (SC-46):
 
 Key finding: ~49% of keyword searchers are active subscribers, ~45% null (likely free). Currently costs 0 credits (`WEBSITE_KEYWORDS: 0` in cost table).
 
+### Scraping (Scooby V2)
+
+| Event Name                           | Used In | Notes                                                                                                                                           |
+| ------------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Successfully scraped generic site`  | SC-167  | Frontend-initiated scrape (Generate a Pin flow). Key properties: `sourceUrl`, `reason` (null = success, non-null = quality issue), `scrapeMode` |
+| `Successfully scraped SmartPin site` | SC-167  | Backend-initiated scrape (SmartPin cron). Different flow from generic site.                                                                     |
+| `Failed to scrape SmartPin site`     | SC-167  | Backend scrape failure                                                                                                                          |
+
+Saved insights (SC-167):
+
+- [SC-167: Etsy Scrape Failures by URL Format](https://us.posthog.com/project/161414/insights/i8y0hclm)
+- [SC-167: Etsy Scrape Empty Rate (Before vs After Feb 11)](https://us.posthog.com/project/161414/insights/6FD87pVN)
+
+Key finding: `shopname.etsy.com` subdomain URLs have 100% scrape failure rate. `www.etsy.com` URLs succeed ~95%+. The `reason` property value `"No image or text content found in scrape"` indicates empty scrape.
+
 ### Signup / Onboarding
 
 | Event Name                   | Used In | Notes                                                                   |
