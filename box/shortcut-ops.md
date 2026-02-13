@@ -401,6 +401,85 @@ codebase patterns, competitive gaps) would have different discovery phases.
 **Quality gate**: Run the Card Quality Gate (above) before presenting draft
 for approval.
 
+### 5. Customer Reported Bug Discovery (Intercom symptom search → Shortcut bug card)
+
+**What it does**: Find untracked product bugs by searching Intercom for symptom
+keywords, cross-referencing reporters against PostHog failure events, and tracing
+failure paths in the codebase. Produces a lean bug card in Ready to Build.
+
+This is the bug counterpart to Recurring Request (play 4). Play 4 hunts for
+untracked feature requests using topic nouns. This play hunts for untracked bugs
+using symptom language.
+
+**Phase 1: Signal hunting**
+
+1. Search the local Intercom index for symptom keywords: "disappeared", "lost",
+   "broken", "stuck", "failed", "error", "crash", "missing", "gone", "won't load".
+   Refresh the index first (pre-flight step 6 from fill-cards).
+2. Score each keyword by volume and signal-to-noise. Low volume + high signal
+   ("disappeared": 7 hits, all real bugs) beats high volume + noise ("error": 98
+   hits, mostly billing/spam).
+3. Check recency: are there instances in the last 30 days? If the most recent
+   instance is 6+ months old, flag as historical and deprioritize. Bugs that
+   stopped being reported may already be fixed.
+4. Check Shortcut to confirm the bug isn't already tracked.
+5. Don't stack unreliable methods. DB theme classifications + keyword matching
+   against Shortcut titles compounds error. Go to primary sources and use reasoning.
+
+**Phase 2: Read and cluster**
+
+1. Read 8-12 actual conversations behind the best keyword hits. Confirm they
+   describe the same symptom.
+2. Cluster into candidate bugs. One keyword search may surface multiple distinct
+   issues.
+3. If any conversation references a Jam recording URL (`jam.dev/c/...`), pull
+   structured debug data via the Jam MCP: `getConsoleLogs` for errors,
+   `getNetworkRequests` for failed API calls, `getMetadata` for browser/OS context.
+   This can surface the technical root cause directly from the user's session.
+
+**Phase 3: Cross-reference to PostHog**
+
+1. Pull contact emails from the Intercom conversations.
+2. Query PostHog for failure/error events filtered by those emails. The
+   Intercom-to-PostHog email cross-reference is the strongest evidence technique:
+   it turns "users say X happens" into "users who say X happens have Y failure
+   events."
+3. Check volume: query the failure event unfiltered for total count, unique users,
+   and weekly trend over 90 days. Spiky patterns suggest infrastructure issues.
+   Steady patterns suggest code bugs.
+
+**Phase 4: Codebase trace**
+
+1. Grep the aero codebase for the failure reason or error string.
+2. Check whether the failure has user-facing UI copy (error messages, status
+   indicators). Unmapped failure reasons that fall through to generic fallbacks
+   are higher severity.
+3. Trace the failure path: where does the error originate, how does it propagate,
+   what does the user see?
+
+**Phase 5: Card**
+
+1. Use the lean bug template: What, Evidence, Architecture Context. Skip
+   Monetization, UI Representation, Reporting, Release Strategy unless they have
+   real content.
+2. Evidence should include: Intercom conversation links with verbatim quotes,
+   PostHog event counts with saved insight links, the email cross-reference
+   results. If Jam recordings provided debug data, include the key findings
+   (specific errors, failed requests).
+3. Architecture Context for bugs can be more prescriptive than for features: root
+   cause location, failure mechanism, specific code paths. The fix path is
+   typically more deterministic.
+4. Present the full card text for approval.
+
+**Verification bar** (same as fill-cards):
+
+- Failure reasons named on the card: you've grepped for them in the codebase
+- Code files named on the card: you've confirmed they exist and do what you claim
+- Numbers cited: you can point to the PostHog saved insight
+- Cross-reference claims: you've run the actual query, not inferred from adjacent data
+
+**Quality gate**: Run the Card Quality Gate before presenting draft for approval.
+
 ## General Constraints
 
 - **Mutation cap**: 25 mutations per run. Each card creation, description update,
