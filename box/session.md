@@ -5,50 +5,50 @@
 
 ## Goal
 
-Investigate Claude Code hooks as a deterministic enforcement layer for production
-surface mutations. Following the day 3 batch mutation incident, advisory instructions
-proved insufficient under session pressure. Determine if hooks can close the gap.
+Create a session primer document (`box/primer.md`) that orients fresh instances on
+the approach, the collaboration model, the compounding toolset, and why the constraints
+have the shape they have. Separates orientation (primer) from operational rules
+(CLAUDE.md), tactical reference (MEMORY.md), and historical record (log).
 
 ## What Happened
 
-- **Built and registered `production-mutation-gate.py` PreToolUse hook.** Blocks all
-  Slack mutations (chat.update, chat.postMessage, chat.delete, reactions.add/remove)
-  and Shortcut mutations (PUT/POST/DELETE/PATCH to api.app.shortcut.com) through Bash.
-  Reads pass through. Deny messages direct to `agenterminal.execute_approved` or manual
-  approval fallback.
+- **Recovered from crashed session.** Previous session hit max context without
+  autocompact and locked up. Uncommitted log entries (hook docs gap + bug discovery
+  play notes) were the only thing in limbo. Committed those first.
 
-- **Coordinated with Codex via AgenTerminal conversation** (per compaction summary:
-  conversation 6TMY881). Codex built `execute_approved` MCP tool in AgenTerminal
-  PR #92, merged by user. The tool shows an approval modal with command, surface badge,
-  and description.
+- **Reconstructed the crashed session's conversation.** User provided the key exchange
+  about separating priming from the log, the three-layer gap analysis, and the idea
+  of a session primer. Built on that context.
 
-- **Registered post-compaction reminder hook.** SessionStart hook with "compact"
-  matcher injects hard stop reminders after context compaction.
+- **Drafted `box/primer.md` (~197 lines).** Four sections: What This Is (thesis +
+  SC-162 example), How the Toolset Compounds (5 concrete tool-origin stories),
+  Why the Constraints Have the Shape They Have (5 tendency-opportunity patterns),
+  How We Work Together (collaboration model).
 
-- **Full test suite passed (7 tests verified this session):**
-  - chat.delete blocked with save-first-specific message
-  - Shortcut curl -X PUT blocked
-  - Python requests.post() to Shortcut blocked
-  - Slack conversations.replies read: allowed (no false positive)
-  - Shortcut GET: allowed (no false positive)
-  - execute_approved approve flow: executes, returns output
-  - execute_approved reject flow: does not execute, returns feedback
+- **Iterated on the constraints framing.** Initial draft had "these tendencies aren't
+  defects to be ashamed of" (emotional/protective framing). User flagged potential
+  anthropomorphizing. Revised to mechanistic framing: predictable interaction patterns
+  between tendencies and opportunity shapes. Functional, not motivational.
 
-- **Updated log and MEMORY.md** with hooks findings, test results, and architecture
-  notes. Compaction-sourced claims explicitly caveated.
+- **Discussed ordering.** At <200 lines, attention prominence doesn't matter (instance
+  processes the whole thing). Framing prominence does: first section sets the lens.
+  Current order (thesis > compounding > constraints > collaboration) works because
+  constraints motivate the collaboration section.
 
 ## Key Decisions
 
-- Hook = pure blocker, AgenTerminal = approved execution path. Clean separation of
-  policy and execution.
-- Graceful degradation: deny message works with or without AgenTerminal available.
-- chat.delete gets a special, more stern deny message requiring content save first.
+- Primer is orientation, not rules. It doesn't replace CLAUDE.md, MEMORY.md, or the
+  log. It's the document that makes a fresh instance understand why those other docs
+  have the shape they have.
+- Two classes of examples: tactical ("this worked/failed in this moment") and
+  compounding ("this tool exists because of this past friction"). Both needed.
+- Mechanistic framing over emotional framing for the constraints section.
+  Tendency-opportunity interactions, not protection.
 
 ## Carried Forward
 
 - Fill-cards play on 7 quality-gate failures: SC-15, SC-51, SC-68, SC-90, SC-118,
   SC-131, SC-132
-- No audit script exists. Rebuild from scratch if needed.
-- Hook coverage gap to watch for: mutations through MCP tools (not Bash) are not
-  gated by this hook. Current workflow routes everything through Bash, but if MCP
-  tools for Slack/Shortcut are added later, they'd need their own matchers.
+- Hook coverage gap: MCP tool mutations not gated by PreToolUse hook.
+- Test the primer in practice: does a fresh session that reads it behave differently
+  than one that doesn't?

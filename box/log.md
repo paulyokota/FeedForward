@@ -1468,3 +1468,48 @@ and inference doesn't fire under session pressure. Specific numbers (77 chat.upd
   information was one turn back in context, not a compaction or memory issue. Didn't check
   git state before acting. When asked to do something with files, check `git status` first
   to know whether there's actually work to do.
+
+### 2026-02-13 — Session primer: separating orientation from rules
+
+- **The log outgrew its priming role.** At 1,470+ lines, reading the full log at session
+  start was consuming context for diminishing returns. Most entries didn't matter for the
+  current session's work. The log was created for pattern accumulation and historical
+  record, not orientation. Trimming it would undermine its actual purpose.
+
+- **Three instruction layers were doing different jobs with gaps between them.** CLAUDE.md
+  has operational rules (hard stops, data sources, infrastructure). MEMORY.md has tactical
+  reference (investigation tactics, card formatting, API quirks). Claude in a Box has the
+  origin narrative. What was missing: the thing that makes a fresh instance understand
+  _why_ the rules have the shape they have, not just what they say. The difference between
+  following a ruleset and understanding the approach.
+
+- **The 3 core principles (commit 8065f46) were the right ideas in the wrong location.**
+  Capabilities + Judgment, Reason on Primary Sources, Quality Over Velocity got pulled
+  after one session because they competed for attention with hard stops in CLAUDE.md.
+  Abstract principles didn't activate under pressure when concrete rules were needed.
+  But the principles weren't wrong. They were doing orientation work, placed where
+  operational work needed to happen. A session primer is the right location for them.
+
+- **Two classes of examples serve different purposes in a primer.** "This worked / avoided
+  this pitfall in this moment" teaches a fresh instance what to watch for. "Here's evidence
+  of the thesis of value accumulating over time" teaches it why the whole setup exists.
+  The PostHog catalog, the play checklists, the mutation gate, the search index, the
+  verified explore prompt: each traces from friction-appeared to tool-exists-now. That arc
+  is the compounding argument.
+
+- **The "protect you" framing vs the mechanistic framing.** Initial instinct was to frame
+  constraints as protective ("they're here to keep you from going down bad paths"). User
+  flagged potential anthropomorphizing. The more actionable reframe: constraints exist
+  because specific behavioral tendencies (completion bias, proxy trust, batch execution
+  preference, going dark, confident reconstruction) interact with specific opportunity
+  shapes (production surfaces, plausible intermediaries, irreversible mutations, long
+  operations, post-compaction state) to produce bad outcomes. Understanding the
+  tendency-opportunity interaction lets an instance recognize novel combinations that no
+  existing rule covers. Functional, not motivational.
+
+- **Ordering in a <200 line doc: framing prominence over attention prominence.** At this
+  length, an instance will process the whole thing. But the first section sets the lens
+  for everything after. Thesis first, then compounding, then constraints, then
+  collaboration. Constraints motivate the collaboration section ("going dark breaks the
+  control loop" sets up "the conversation IS the control loop"). Reversing those would
+  lose the flow.
