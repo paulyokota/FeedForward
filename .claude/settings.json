@@ -23,11 +23,22 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash(git push origin main*)",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/block-main-push.sh"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/production-mutation-gate.py"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'POST-COMPACTION REMINDER: You just went through context compaction. Hard stops still apply: (1) Do NOT write to durable storage (Shortcut, Slack, MEMORY.md, log.md) based on the compaction summary alone. Re-verify claims against primary sources first. (2) Do NOT trust that approved text survived compaction. If you need to push content that was previously approved, re-show it and get fresh approval. (3) Do NOT consume temp files from before compaction. Fetch fresh data.'"
           }
         ]
       }

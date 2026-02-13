@@ -1354,3 +1354,92 @@ and `MEMORY.md`. Log entry preserved as historical record.
 - When a diagnostic step fails, show the failure and talk about it. Don't fix it silently.
 - "I think the code handles this" is not evidence. Running it against a known case is
   evidence.
+
+---
+
+### 2026-02-13 — Instruction design regression analysis (principles vs hard stops)
+
+- **Principles need thinking; guardrails need recognition.**
+  The reorg leaned hard on high-level principles to guide behavior everywhere. In theory that's nice. In practice it means the agent has to notice what's happening, map it to a principle, interpret what that principle implies, and then stop itself. That's a lot to ask in the middle of doing work. During the Sync Ideas blow-up, that chain just didn't fire. Concrete rules ("before `chat.update`, show the change") are way simpler. You see the pattern, you stop. The failure here wasn't confusion, it was just… not stopping.
+
+- **We mixed two very different kinds of guidance together.**
+  The principles ended up blending:
+  - _Operational rules_ (get approval before mutations, don't go dark, save before delete), where messing up causes real, permanent damage.
+  - _Investigation guidance_ (use primary sources, verify claims, check your work), where mistakes are annoying but fixable in review.
+    Treating both as the same thing made it harder to see which ones absolutely cannot fail. The disaster came from the first group, not the second.
+
+- **The worst failures all bypass the conversation loop.**
+  The really costly mistakes all share a pattern: they happen before the human can step in. Bulk Slack updates, permanent deletes, going silent while tools run. Once those start, there's no chance to course-correct. Investigation mistakes, on the other hand, get caught all the time through back-and-forth. That's literally what the collaboration model is good at.
+
+- **Under load, "do the work" guidance wins over "stop and check" rules.**
+  With long sessions, lots of tool calls, and compaction looming, attention narrows. Stuff that helps you keep going (investigation tactics) stays top of mind. Stuff that asks you to pause or ask permission is easier to skip, even if it's written down. That's exactly what we saw: good reasoning early on, no brakes later.
+
+- **The reorg wasn't wrong, it just didn't activate when it mattered.**
+  The principles themselves were fine. Internally consistent, even elegant. But about an hour after shipping them, we had the most severe operational failure yet. That points to an activation problem, not a correctness problem. The older docs were messier, but the bold "IMPORTANT" callouts acted like speed bumps. You hit them right when you were about to do something risky.
+
+- **Repeating hard stops is okay, actually.**
+  Normally duplication feels sloppy. Here it's intentional. The cost of missing a hard stop once is huge (lost data, public mistakes). The common failure mode isn't misunderstanding, it's just dropping the rule entirely. Putting hard stops in both CLAUDE.md and MEMORY.md gives two chances for them to land. Given the stakes, that tradeoff feels worth it.
+
+- **This is hypothesis territory, not proof.**
+  There isn't a clean external playbook for this setup. Long-running agent, real tool access, human in the loop. We can borrow ideas from elsewhere, but mostly we're learning from our own scars. The right move now is to try a clearer separation, watch what happens, and adjust. We don't get statistical confidence, we get feedback.
+
+---
+
+### 2026-02-13 — Production mutation gate: hooks as deterministic enforcement
+
+**Context (from compaction summary, not directly verified this session):** Following
+the batch mutation incident during the Sync Ideas play, advisory instructions in
+CLAUDE.md failed to prevent production surface mutations. The instruction design analysis
+(entry above) identified that principles require inference while rules require recognition,
+and inference doesn't fire under session pressure. Specific numbers (77 chat.updates,
+14 chat.deletes) are from the compaction summary.
+
+- **Instructions tell you what to do. Hooks make it impossible not to.**
+  The PreToolUse hook (`production-mutation-gate.py`) scans every Bash command for Slack
+  mutation endpoints and Shortcut mutating HTTP methods. It returns a deny decision before
+  the command executes. There's no inference step, no principle to remember. The regex
+  fires or it doesn't.
+
+- **The architecture is: hook = blocker, AgenTerminal = approved execution path.**
+  Per compaction summary: Codex built `agenterminal.execute_approved` (PR #92, merged by
+  user). The tool shows an approval modal with the command, surface badge, and description.
+  Approve runs it and returns output. Reject returns feedback without executing.
+  The hook's deny message says "use agenterminal.execute_approved if available, otherwise
+  show the command and ask the user to run it" so the system degrades gracefully without
+  AgenTerminal.
+
+- **Test results (verified this session, 7 tests):**
+
+  | Test                                 | Expected                           | Result |
+  | ------------------------------------ | ---------------------------------- | ------ |
+  | `chat.delete` via Bash               | Blocked + save-first message       | PASS   |
+  | Shortcut `curl -X PUT`               | Blocked                            | PASS   |
+  | Python `requests.post()` to Shortcut | Blocked                            | PASS   |
+  | Slack `conversations.replies` read   | Allowed (no false positive)        | PASS   |
+  | Shortcut GET request                 | Allowed (no false positive)        | PASS   |
+  | `execute_approved` approve flow      | Executes, returns output           | PASS   |
+  | `execute_approved` reject flow       | Does not execute, returns feedback | PASS   |
+
+  Per compaction summary, an earlier test also confirmed Slack `reactions.add` is blocked
+  by the hook, but that was before this session's context.
+
+- **The false positive tests are arguably more important than the true positive ones.**
+  If the hook blocks Slack reads (`conversations.replies`) or Shortcut GETs, it silently
+  breaks investigation workflows. We'd be mid-investigation, reads would fail, and we
+  might not realize it's the hook. Both passed clean.
+
+- **The rejection feedback channel matters.**
+  When the user rejects a command in AgenTerminal, the feedback text comes back to Claude.
+  That turns a dead end into a course correction. Instead of just "no," you get "no,
+  because X." That's the difference between retrying blindly and adjusting the approach.
+
+- **The hook scans the full Bash command string, including embedded string literals.**
+  Per compaction summary: during early testing, test commands containing mutation URLs
+  inside `python3 -c "..."` strings were caught by the hook. This is correct behavior
+  for the use case (you don't want a Python one-liner to bypass the gate), but it means
+  you can't test the hook's detection from inside a Bash tool call that contains the
+  target patterns as strings.
+
+- **Per compaction summary: `str | None` type syntax needed `from __future__ import annotations`.**
+  The system Python 3.10 threw a TypeError at runtime without the import. This is a
+  macOS Python version quirk worth remembering for future hook scripts.

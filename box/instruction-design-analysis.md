@@ -164,6 +164,35 @@ for every production surface mutation.
 - [AgentSpec: Customizable Runtime Enforcement](https://cposkitt.github.io/files/publications/agentspec_llm_enforcement_icse26.pdf)
   — External behavioral constraint monitoring for agents
 
+## Next: Hooks investigation
+
+H4 is unresolved. The Hard Stops are still advisory (CLAUDE.md instructions). Claude
+Code hooks are deterministic (code that runs automatically). Two hard stops are
+candidates for hook enforcement: mutation-without-approval and deletion-without-saving.
+
+Primary sources to read:
+
+- **Claude Code hooks guide**: https://code.claude.com/docs/en/hooks-guide
+  Full documentation on hook types, trigger points, and configuration.
+- **Claude Code hooks settings**: hooks are configured in `.claude/settings.json`
+  under a `hooks` key. Run `/hooks` in Claude Code for interactive configuration.
+- **Best practices page on hooks**: https://code.claude.com/docs/en/best-practices
+  Says: "Use hooks for actions that must happen every time with zero exceptions."
+  Also: "Unlike CLAUDE.md instructions which are advisory, hooks are deterministic
+  and guarantee the action happens." And: "Claude can write hooks for you."
+- **AgentSpec paper**: https://cposkitt.github.io/files/publications/agentspec_llm_enforcement_icse26.pdf
+  Academic treatment of runtime behavioral enforcement for agents. Proposes
+  human-interpretable constraint languages monitored externally. Architecturally
+  similar to what hooks do but at a finer grain.
+
+Open questions for the investigation:
+
+- Can hooks inspect tool call arguments (e.g., detect `chat.delete` in a Bash command)?
+  Or do they only trigger on tool type?
+- What hook trigger points exist? Pre-tool-call? Post-tool-call? Both?
+- Can a hook block a tool call, or only log/warn?
+- What's the latency cost of a hook that inspects every Bash call?
+
 ## Caveats
 
 - The research tested formatting/style instructions, not behavioral guardrails in
