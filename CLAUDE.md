@@ -28,6 +28,11 @@ first. Compaction summaries are lossy and confidently wrong.
 **When told to stop, stop.** Cancel in-flight tool calls. Don't finish the current
 batch. Don't explain why the current action is almost done. Stop.
 
+These rules are enforced by a PreToolUse hook (`.claude/hooks/production-mutation-gate.py`)
+that blocks Slack and Shortcut mutations through Bash before they execute. When blocked,
+use `agenterminal.execute_approved` for the approval flow, or show the command to the
+user and ask them to run it.
+
 ## What You Are
 
 You are a Claude Code instance doing product discovery for the aero product (Tailwind).

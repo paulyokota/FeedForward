@@ -408,6 +408,11 @@ for approval.
   before checking the cap.
 - **Human-in-the-loop**: All three plays present items one at a time and wait for
   Paul's decision. Don't batch-execute without review.
+- **Mutation gate**: A PreToolUse hook blocks all Slack mutations (`chat.update`,
+  `chat.postMessage`, `chat.delete`, `reactions.add`, `reactions.remove`) and Shortcut
+  mutations (PUT/POST/DELETE/PATCH) through Bash. Reads pass through. When blocked,
+  route through `agenterminal.execute_approved` or present the command for the user
+  to run manually.
 - **Rate limiting**: 0.5s delay between sequential API calls. Respect `Retry-After`.
 
 ## Intercom Search Patterns
