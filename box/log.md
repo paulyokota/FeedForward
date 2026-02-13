@@ -1081,3 +1081,132 @@ failed_at IS NULL`) makes the queue query fast even as the table grows. Simpler 
   in CLAUDE.md with no defined steps. Created `.claude/skills/session-end/SKILL.md`
   with all 5 steps spelled out. Same pattern as the fill-cards completion checklist:
   codify what we keep forgetting, not what we know.
+
+### 2026-02-12 — Intercom search index: full-text sync + SC-167/SC-169 fill + index gap discovery
+
+- **The search index validated fast on a known case.** Tested the new index against
+  the SC-169 Jam screen recording investigation (which had taken hours of manual
+  Intercom API searching). Full-text search for "screen & recording" returned 20
+  hits instantly. All 3 known Jam conversations were in the index. Mike's canned
+  Jam prompt ("Would you mind taking a screen recording") returned 380 hits — every
+  time he offered Jam across the entire history.
+
+- **But Jam completion markers returned zero results.** "Jam created!" and "View the
+  screen recording here:" — the markers that prove a recording succeeded — had zero
+  matches across 341k conversations. Not truncation (checked a known conversation:
+  52 parts, 4350 chars, not truncated). The text was there in the API but invisible
+  to search.
+
+- **Root cause: `build_full_conversation_text()` only indexes `comment` type parts.**
+  Intercom conversation parts have a `part_type` field. Mike's Jam offers are
+  `assignment` type. Jam completion confirmations are `note` type. Both are dropped
+  by the indexer at line 350: `if part_type != "comment"`. This single filter made
+  an entire category of CS tool usage invisible to search.
+
+- **Data-driven part_type analysis before changing the filter.** Sampled 100+
+  conversations via the Intercom API to get representative part_type distribution.
+  Found 5 types with meaningful body text: `comment` (main messages, already indexed),
+  `assignment` (35% have body, avg 442 chars), `close` (41% have body, avg 390 chars),
+  `open` (85% have body, avg 355 chars), `note` (98% have body, avg 267 chars). All
+  other types (`snoozed`, `timer_unsnooze`, `fin_guidance_applied`, etc.) have
+  literally no body text.
+
+- **Note boilerplate required a second sampling pass.** 38% of `note` bodies are
+  "Insight has been recorded" boilerplate from an internal Intercom tool. 62% are
+  real content (Slack thread links, bug IDs, Jam confirmations, internal CS
+  coordination). Decision: include notes but filter the boilerplate prefix.
+
+- **Cross-agent review via AgenTerminal conversation worked well.** Shared the
+  `digest_extractor.py` change with Codex in an AgenTerminal conversation panel.
+  Codex flagged 5 concerns: denylist vs allowlist, note boilerplate casing/whitespace,
+  part_type casing normalization, missing tests, assignment/close/open content quality.
+  Accepted one (`.strip()` before `startswith`), pushed back on the rest with specific
+  reasoning grounded in our sampling data. The review added value without slowing the
+  change significantly.
+
+- **`--index-only` re-index doesn't hit the Intercom API.** The sync script's Phase 2
+  re-processes cached JSON from the DB. At concurrency 80, it processes ~200
+  conversations/sec with zero API calls. The rate limit discussion in the review was
+  moot for this path, but good to know for future full syncs.
+
+- **API access fumbles cost real time.** Three separate API access issues in one
+  session: (1) `urllib.request` gets HTTP 406 without `Accept: application/json` header
+  (curl works because it sends `Accept: */*`), (2) `source .env` doesn't export for
+  Python subprocesses (need explicit `export`), (3) single quotes in ILIKE patterns
+  cause SQL syntax errors. Each was a 5-10 minute detour. Documented all three in
+  `shortcut-ops.md` API Quirks so future sessions don't repeat them.
+
+- **"Don't use string matching in place of judgment" — twice.** Got redirected twice
+  from trying to programmatically determine Jam success/failure rates by string-matching
+  across 380 conversations. The user's point: string patterns can find candidates, but
+  determining whether a screen recording succeeded requires reading the conversation and
+  understanding context. Same lesson as keyword matching for feature requests, theme
+  classifiers for novel categories, and explore agents for architecture claims. When the
+  question requires judgment, use judgment.
+
+- **The search index naming convention.** "Search index" = `conversation_search_index`
+  table (full-text indexed threads). "Pipeline DB" = the old `intercom_conversations`
+  table. Prevents confusion between sessions.
+
+- **Jam MCP configured for investigation workflows.** Documented the Jam MCP server
+  in `shortcut-ops.md` — 13 tools for extracting structured debug data from screen
+  recordings (console logs, network requests, user events, metadata). During card-fill
+  investigations, when an Intercom conversation references a Jam URL, the MCP can pull
+  the technical root cause without manually opening the recording.
+
+- **`mcp-remote` is required for OAuth-based HTTP MCP servers.** Claude Code's native
+  `-t http` transport registers the server but never completes the OAuth flow — shows
+  "Needs authentication" permanently. The fix: use `mcp-remote` as a stdio proxy
+  (`claude mcp add -s user Jam -- npx -y mcp-remote@latest https://mcp.jam.dev/mcp`).
+  Same pattern as PostHog. `mcp-remote` handles the OAuth browser popup and token
+  caching. This cost two failed attempts to diagnose.
+
+### 2026-02-13 — Documentation optimization: Core Principles extraction
+
+- **Three principles, not four.** Reviewed the full decision record and 1,163 lines of
+  log entries. Every operational rule and process failure traced to one of three principles:
+  (1) Capabilities + Judgment, (2) Reason on Primary Sources, (3) Quality Over Velocity.
+  Considered the iterative tooling philosophy as a fourth but it falls out naturally from
+  the other three. Build from need = quality over velocity applied to tooling. Preserve
+  reasoning = reason on primary sources applied to process design. Don't automate judgment
+  = capabilities + judgment applied to tool selection.
+
+- **The phrasing of Principle 2 matters more than the others.** "Go to primary sources"
+  is a data hygiene instruction that reads like a checklist item. "Reason on primary
+  sources" says what the actual activity is. The distinction matters because the failure
+  mode isn't "I used the wrong data source." It's "I consumed someone else's conclusion
+  instead of reasoning about the raw material myself." The subagent trust errors, the
+  pipeline classification reliance, the compaction summary acceptance: all are cases
+  where reasoning was applied to pre-digested output. The principle needs to name
+  reasoning as the verb, not just source quality as the noun.
+
+- **The Principle 3 revision exposed a defensive instinct.** First draft said "The
+  investigations themselves are fast. Quality comes from the gates, not from going slow."
+  User caught it as taking up space without adding philosophical value. The real content
+  of the principle is that bias toward completion is the specific failure mode. The
+  sentence was reassuring nobody that speed isn't sacrificed, which is defensive, not
+  instructive. Replaced with the actual mechanism: the card feels done so you push it,
+  the subagent report sounds right so you skip verification.
+
+- **Web research validated the approach without changing it.** Human-AI complementarity
+  research distinguishes between-task (AI does A, human does B) and within-task (AI and
+  human collaborate on same task). We're firmly within-task. Intelligence analysis
+  tradecraft on source reliability hierarchies maps to our primary-vs-proxy distinction.
+  Structured system prompt research says explicit sections outperform monolithic prompts.
+  Claude Code docs say MEMORY.md first 200 lines load into system prompt, so that's the
+  budget. None of this changed the principles but it confirmed the structural decisions
+  (principles at top, explicit sections, concise CLAUDE.md with elaborated MEMORY.md).
+
+- **The redundancy question between CLAUDE.md and MEMORY.md resolved cleanly.** Both
+  load at session start. CLAUDE.md gets the concise version (what the principle is, in
+  3-5 lines). MEMORY.md gets the elaborated version (what the principle means you do,
+  with specific operational bullets). They reinforce without duplicating. The concise
+  version orients. The operational version catches the specific failure modes.
+
+- **Folding standalone sections into principles was the right structural move.** "Separation
+  of Concerns," "Communication Rules," and "Shortcut as Production Surface" were all
+  implementations of specific principles. Keeping them as peer-level sections implied they
+  were independent ideas. Folding them in makes the dependency explicit: the approval rule
+  exists because of capabilities + judgment (keep the channel open) AND quality over
+  velocity (don't let completion bias override verification). Rules with visible reasons
+  are more likely to hold under pressure than rules that just say "don't do X."
