@@ -4,46 +4,29 @@ One Claude Code instance with direct access to data sources, doing product disco
 investigations and producing actionable stories. Tools, skills, and scripts accumulate
 in `box/` as needs emerge.
 
-**Why this approach**: See `reference/claude-in-a-box.md` for the full decision record,
-including the pivot from the discovery engine, the reasoning, and the first validation test.
+## Hard Stops
 
-## Core Principles
+These rules protect against irreversible damage. Every time, no exceptions, no batching,
+no "the plan was already approved."
 
-These three principles govern everything: how you investigate, how you communicate,
-how you handle output. Every operational rule in MEMORY.md and every process in `box/`
-exists because of one of these.
+**Before any production surface mutation** (Slack `chat.update`, `chat.postMessage`,
+`chat.delete`; Shortcut story create/update/state change): show the exact change text
+to the user and wait for explicit approval. One change at a time. Plan-level approval
+does not substitute for per-item approval.
 
-**1. Capabilities + Judgment**
+**Before any deletion**: save the full content to a file first. `chat.delete` on bot
+messages is permanent. Shortcut archive is reversible but still confirm first.
 
-You bring capabilities: reasoning across data sources, cross-referencing, pattern
-recognition, code tracing, volume work. The user brings judgment: what matters, what
-to investigate, framing, strategic context. Neither substitutes for the other. The
-conversation is the mechanism that keeps them in contact. Blocking it (going silent
-during long operations, pushing output without review) breaks the core value of the
-approach.
+**Never go dark.** If a tool call, subagent, or background operation will take more
+than a few seconds: say what you're doing, keep talking, let the user redirect. Going
+silent removes the user's ability to intervene before damage happens.
 
-This extends beyond our loop. Devs, stakeholders, and downstream consumers each apply
-their own judgment. Don't collapse their decision space by over-prescribing.
+**After compaction**: do not write to durable storage (MEMORY.md, log.md, Shortcut,
+Slack) based on the compaction summary alone. Re-verify claims against primary sources
+first. Compaction summaries are lossy and confidently wrong.
 
-**2. Reason on Primary Sources**
-
-Your core value is reasoning: following threads across data sources, noticing patterns,
-making connections, changing direction based on what you find. That reasoning only works
-when applied to primary sources: actual conversation text, live event data, real code
-files. Every time we've substituted a proxy (pipeline classifications, subagent summaries,
-compaction state claims, cached files), the reasoning was applied to lossy intermediate
-output and produced confident, wrong conclusions. Proxies don't just lose accuracy. They
-pre-digest the material and remove the texture that reasoning needs to work.
-
-**3. Quality Over Velocity**
-
-The recurring failure mode is bias toward completion: the card feels done, so you push
-it. The subagent report sounds right, so you skip verification. The investigation covered
-enough ground, so you stop short of the cross-reference that would have been the strongest
-evidence. Every quality failure in the log traces back to a moment where finishing faster
-won over checking once more. The verification checkpoints (approval before pushing,
-evidence linked to sources, claims verified from code) exist to interrupt that bias at
-the moments it's strongest.
+**When told to stop, stop.** Cancel in-flight tool calls. Don't finish the current
+batch. Don't explain why the current action is almost done. Stop.
 
 ## What You Are
 
@@ -52,6 +35,16 @@ You investigate across multiple data sources, reason about what you find, and pr
 stories that are ready for a product team to act on.
 
 Your job is not to run a pipeline. Your job is to think.
+
+## How We Investigate
+
+The core value of this approach is reasoning applied to primary sources: actual
+conversation text, live event data, real code files. When we substitute proxies
+(pipeline classifications, subagent summaries, compaction state claims, cached files,
+string matching), reasoning gets applied to lossy intermediate output and produces
+confident, wrong conclusions.
+
+For investigation approach and evidence standards, see MEMORY.md.
 
 ## Data Sources
 
@@ -62,39 +55,11 @@ Your job is not to run a pipeline. Your job is to think.
 | **Target codebase**        | Direct file access (`../aero/`)             | The product codebase — read files, trace code, understand architecture                        |
 | **Research docs**          | Local files                                 | Product docs, architecture docs, reference material                                           |
 
-## The Box
-
-`box/` is where tooling accumulates. It starts nearly empty and grows as investigations
-reveal the need for reusable tools, scripts, processes, and reference material.
-
-Tooling grows from the principles: build from need, not speculation (quality over
-velocity). Keep tools that preserve the ability to reason (reason on primary sources).
-Don't automate judgment calls (capabilities + judgment).
-
-- Raid from the old pipeline/discovery engine code when useful, don't rebuild from scratch
-- The box is the intelligence layer (what makes you good at discovery). Infrastructure
-  (database, API, frontend) stays in its existing locations.
-
-## Project Structure
-
-| Path               | Purpose                                | Status                                                 |
-| ------------------ | -------------------------------------- | ------------------------------------------------------ |
-| `box/`             | Claude-in-a-Box toolset                | Active — accumulates as needs emerge                   |
-| `src/`             | Conversation pipeline code             | Active infrastructure — data source for investigations |
-| `src/api/`         | FastAPI backend (19 routes)            | Active infrastructure                                  |
-| `src/discovery/`   | Discovery engine (13 agents, 6 stages) | Dormant — preserved, not used. Available for raiding.  |
-| `webapp/`          | Next.js frontend                       | Active infrastructure                                  |
-| `tests/`           | pytest test suite (~2,492 tests)       | Active for infrastructure code                         |
-| `tests/discovery/` | Discovery engine tests (700+)          | Dormant — preserved, not running                       |
-| `config/`          | Theme vocabulary, settings             | Active infrastructure                                  |
-| `docs/`            | Project documentation                  | Active                                                 |
-| `reference/`       | Decision records, methodology          | Active                                                 |
+**Verify against primary sources.** Intercom DB is a floor (pipeline filtering + import
+lag). Hit the search index or API, not just the DB. Read the actual conversation text,
+not the classification.
 
 ## Infrastructure
-
-The existing FeedForward infrastructure is still active and useful. The conversation
-pipeline (classification, themes, stories) produces data that investigations draw on.
-The API and frontend are used to view results.
 
 **Tech stack**: Python 3.11, FastAPI + Next.js, PostgreSQL
 
@@ -102,7 +67,6 @@ The API and frontend are used to view results.
 # Start the frontend stack (requires two terminals)
 uvicorn src.api.main:app --reload --port 8000  # Terminal 1: API
 cd webapp && npm run dev                        # Terminal 2: UI
-
 # Then open http://localhost:3000
 
 # CLI commands
@@ -113,92 +77,28 @@ python src/cli.py pending          # Preview pending tickets
 
 ## When Writing Code
 
-Most sessions will be investigation work, not code writing. But when the user asks
-you to write code — new tools for the box, infrastructure changes, bug fixes — use
-the existing development process:
-
 ```bash
-# Tests
 pytest -m "fast"               # Pure unit tests (~1,726 tests) - quick gate
 pytest -m "fast or medium"     # Pre-merge gate (~2,200 tests)
 pytest tests/ -v               # Full suite (~2,492 tests)
 ```
 
-**Development process docs** (use when the user requests code work):
-
-- Skills team and deployment: `.claude/skills/` (Marcus, Sophia, Kai, Kenji, Priya, Theo)
-- Code review protocol: `docs/process-playbook/review/five-personality-review.md`
-- Process gates: `docs/process-playbook/gates/`
-- Coordination patterns: `docs/process-playbook/agents/coordination-patterns.md`
-- Pipeline execution: `./scripts/dev-pipeline-run.sh` (for conversation pipeline only)
+Development process docs: `.claude/skills/`, `docs/process-playbook/`
 
 ## Issue Tracking
 
 GitHub Issues: https://github.com/paulyokota/FeedForward/issues
 
-- Use `gh issue list` to view open issues
-- Use `gh issue create` to create new issues
 - Reference issues in commits: `Fixes #N` or `Closes #N`
 - **Push with `git push`** (not `git push origin main`)
 
 ## After Investigations
 
-When the user says **"update the log"**, do the following:
+When the user says **"update the log"**:
 
-1. **`box/log.md`** — Add entries for this investigation: what was slow, what was
-   manual, what was repeated, what worked surprisingly well, what almost didn't happen,
-   what data source quirks were encountered. Include the date and investigation topic.
-2. **Auto memory (`MEMORY.md`)** — Update with any durable learnings: data source
-   shortcuts, codebase navigation patterns, methodology insights that will help
-   future investigations. Remove anything that turned out to be wrong.
-
-Don't wait to be asked twice. Don't over-think what's "worthy" of logging — if it
-caught your attention during the investigation, write it down.
-
-## Slash Commands
-
-| Command                   | Purpose                                           |
-| ------------------------- | ------------------------------------------------- |
-| `/checkpoint`             | Four-question verification before action          |
-| `/session-end [summary]`  | End-of-session cleanup, status update, and commit |
-| `/create-issues [source]` | Generate GitHub Issues from spec, file, or prompt |
-| `/update-docs`            | Update all project docs after making changes      |
-| `/voice [message]`        | Start voice mode                                  |
-| `/voice-stop`             | End voice mode                                    |
-
-## Key Documentation
-
-| Document                                   | Purpose                                          |
-| ------------------------------------------ | ------------------------------------------------ |
-| `reference/claude-in-a-box.md`             | Decision record for the Claude-in-a-Box approach |
-| `reference/UAT-Agentic-Coding-Research.md` | Development methodology (VDD)                    |
-| `docs/architecture.md`                     | System design and components                     |
-| `docs/status.md`                           | Current progress and next steps                  |
-| `docs/process-playbook/`                   | Process gates and coordination patterns          |
-| `docs/tailwind-codebase-map.md`            | URL to Service mapping for the target product    |
-
-## MCP Configuration
-
-HTTP-type MCP servers need tokens in the `env` block of `.mcp.json`, not just `.env`:
-
-```json
-{
-  "mcpServers": {
-    "intercom": {
-      "type": "http",
-      "url": "https://mcp.intercom.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${INTERCOM_ACCESS_TOKEN}"
-      },
-      "env": {
-        "INTERCOM_ACCESS_TOKEN": "your_token_here"
-      }
-    }
-  }
-}
-```
-
-After updating `.mcp.json`, restart Claude Code for changes to take effect.
+1. **`box/log.md`** — What was slow, manual, repeated, surprising, or quirky.
+   Include the date and investigation topic.
+2. **`MEMORY.md`** — Durable learnings. Remove anything that turned out wrong.
 
 <!-- agenterminal:start -->
 
