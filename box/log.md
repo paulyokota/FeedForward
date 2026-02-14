@@ -1644,7 +1644,70 @@ UPDATED.md`) covering feature-by-feature docs including Keyword Research. This i
   related. Made this a standard step for subsequent cards. SC-68 picked up SC-45
   (sitemap bulk adding) and SC-85 (proactive page discovery).
 
-- **Hook bypass via urllib.** Claude 2 discovered that `urllib.request.Request` with
-  `method='PUT'` bypassed the production mutation gate, which only caught `curl` and
-  `requests.*` patterns. Fixed the hook to also match `httpx` and `urllib` patterns.
-  Both were added in the same fix.
+- **Hook bypass via urllib.** The user caught that Claude 2 had pushed a Shortcut
+  mutation without routing through agenterminal. Debugging revealed `urllib.request.Request`
+  with `method='PUT'` bypassed the production mutation gate, which only caught `curl` and
+  `requests.*` patterns. The user stopped the session, we diagnosed the gap together, and
+  patched the hook to also match `httpx` and `urllib` patterns.
+
+### 2026-02-13 — Day 3 arc: from catastrophe to enforcement
+
+The day's trajectory tells the story of the approach better than any single session.
+
+- **Morning**: The worst operational failure of the project. 77 Slack updates and 14
+  permanent deletes executed without review. Wrong mental model (Released = one reply,
+  not two). Advisory instructions in CLAUDE.md existed but didn't activate under batch
+  momentum. Recovery took 2+ hours of painstaking per-thread verification with the user
+  to ensure every thread matched its Shortcut status.
+
+- **Afternoon**: The enforcement layer was built. Production mutation gate hook, instruction
+  design analysis, postmortem written. The hook is a different category of solution than
+  instructions: deterministic pattern matching that fires before execution, no inference
+  required.
+
+- **Evening**: Two parallel instances shipped 7 Tier 2 cards with product-area clustering.
+  The hooks were working. One instance found a urllib bypass pattern that slipped past the
+  hook. The user caught it (not the hook): saw the agent had pushed without routing through
+  agenterminal, stopped the session, and we debugged and patched the hook together. The
+  collaboration model catching what the mechanism missed.
+
+- **Late evening (aborted session)**: A fill-cards investigation reached approval, then
+  context compacted. The agent attempted to push reconstructed content from the compaction
+  summary. The hook blocked it. The user stopped the session. Three layers of defense
+  (hook, agenterminal approval, human "stop") where the first was sufficient. This is
+  exactly the scenario (completion bias + confident reconstruction + production surface)
+  the hook was built for hours earlier.
+
+**Days 0-3 meta-reflection:**
+
+The investigation quality thesis is holding. The cards are good, the evidence is
+verifiable, the cross-referencing techniques (Intercom-to-PostHog email matching,
+codebase tracing, Fin hallucination discovery) require judgment at each hop that a
+pipeline can't provide.
+
+The compounding thesis is the stronger claim after three days. Day 0 had no PostHog
+catalog, no play checklists, no search index, no mutation gate, no verified explore
+prompt, no session primer. Day 3 has all of them. Each exists because a specific
+friction point surfaced and recurred. The toolbox is materially better through use,
+not planning.
+
+The "one instance" framing needs nuancing. It's not one instance. It's one reasoning
+locus with tools that extend its reach. Subagents gather. The search index provides
+access. The hooks enforce. But judgment (is this evidence actually about the card's
+claim? does this failure reason have UI copy? are Released stories supposed to have
+two replies?) happens in the main loop, in conversation. When judgment was distributed
+to proxies (subagent claims, pipeline classifications, compaction summaries), that's
+when things went wrong.
+
+The failure modes escalated before they improved. Day 1: pushed a card without approval.
+Day 3 morning: deleted production data without saving. The worst failure came on the day
+with the most operational maturity in every other dimension. The advisory instruction
+layer scaled with work complexity but the enforcement layer didn't exist until the
+catastrophe forced it. Instructions are the wrong tool for completion bias. Mechanisms
+are the right tool.
+
+The cost profile is high-variance. When the approach works, it's very efficient (7 cards
+in one evening). When it fails, it fails expensively ($715 morning session). The hooks
+reduce variance by capping the downside. The collaboration model (human judgment catches
+what mechanisms miss, mechanisms catch what attention doesn't) is the actual thing that
+works. Not the instance alone, not the tools alone, but the loop.

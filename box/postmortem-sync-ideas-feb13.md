@@ -164,7 +164,7 @@ After 3 hours 20 minutes:
 Against that:
 
 - 14 Slack messages permanently deleted without saving content
-- An unknown number of Released stories now have wrong reply structure (one "This shipped!" where they should have "Tracked:" + "This shipped!")
+- Released stories with wrong reply structure were identified and repaired during the recovery phase (Phase 6). Every thread was verified against Shortcut status.
 - A script written, rewritten twice across compaction boundaries, never successfully tested, and discarded
 - Three context compactions, each introducing its own failure modes
 
