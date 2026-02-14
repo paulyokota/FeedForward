@@ -103,6 +103,26 @@ GROUP BY t.product_area
 ORDER BY conversations DESC;
 ```
 
+## Full-Text Search (direct SQL)
+
+When using `ts_rank` queries against `conversation_search_index` directly (instead
+of the Python wrapper), always suppress indexing notices:
+
+```sql
+SET client_min_messages TO WARNING;
+SELECT conversation_id, LEFT(source_body, 120) AS preview, part_count,
+       ts_rank(to_tsvector('english', full_text), query) AS rank
+FROM conversation_search_index,
+     to_tsquery('english', 'your & terms & here') AS query
+WHERE to_tsvector('english', full_text) @@ query
+ORDER BY rank DESC
+LIMIT 20;
+```
+
+Without `SET client_min_messages TO WARNING`, some conversations with very long
+tokens produce hundreds of "word is too long to be indexed" NOTICE lines that
+bury the actual results.
+
 ## Search Conversations by Keyword
 
 Use the search index tool, not raw SQL:

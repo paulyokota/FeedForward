@@ -72,9 +72,10 @@ sections when the topic is relevant to your current work.
 
 ### Day 4 (2026-02-14)
 
-| Line | Topic                           | Key lesson                                                                                                                                      |
-| ---- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1767 | Log review + tooling assessment | "Note in the right place" as interception strategy between instructions and hooks; log review caught stale assumptions; session-scoped temp dir |
+| Line | Topic                              | Key lesson                                                                                                                                                   |
+| ---- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1767 | Log review + tooling assessment    | "Note in the right place" as interception strategy between instructions and hooks; log review caught stale assumptions; session-scoped temp dir              |
+| 1807 | Fill-cards batch: SC-176, 175, 174 | Single-instance product-area clustering compounds; shopping intent vs resonance is architectural; SQL NOTICE suppression; brainstorm-origin evidence framing |
 
 ## Entries
 
@@ -1803,3 +1804,43 @@ works. Not the instance alone, not the tools alone, but the loop.
   and one-line key lesson. A fresh instance can scan the index in one read and go deep
   on relevant sections. The original text stays untouched because it was written with
   session context that's gone.
+
+### 2026-02-14 — Fill-cards batch: SC-176, SC-175, SC-174 (Keyword Research cluster)
+
+- **Cluster-by-product-area compounding works from a single instance.** Three cards sharing
+  the Saved Keywords page architecture (SC-176 Pinterest link-out, SC-175 commercial intent,
+  SC-174 URL tooltip). Architecture exploration happened once during pre-flight, then each
+  card drew from the same understanding. SC-176 took the longest (full investigation cycle),
+  SC-175 was faster (reused component knowledge, discovered new architectural distinction),
+  SC-174 was fastest (all infrastructure already mapped). This matches the Day 2 observation
+  about sequential same-area cards compounding, but this time from a single instance rather
+  than the two-instance parallel pattern.
+
+- **Shopping intent vs resonance is an architectural distinction, not just a UI decision.**
+  Resonance score requires search-context-specific data from `pinterest_interest_graph_relevance`
+  (composite PK on searchPhrase + interestName). Shopping intent is intrinsic to a keyword,
+  stored in `pinterest_interests.shoppingIntentScore`. This means shopping intent CAN surface
+  on the Saved Keywords page without the full resonance infrastructure. The existing SC-74
+  (Released) baked shopping intent into the resonance formula rather than exposing it as a
+  separate signal. The cross-database gap (org_keywords in MySQL, pinterest_interests in
+  Postgres, joined by keyword name) is the main implementation constraint.
+
+- **SQL NOTICE messages bury query results from `conversation_search_index`.** First
+  `ts_rank` query produced hundreds of "word is too long to be indexed" lines, hiding actual
+  results. Fix: `SET client_min_messages TO WARNING;` before the query. This was already
+  known in principle (documented in queries.md now) but bit again because the recipe wasn't
+  in place at session start. Another case where the "note in the right place" pattern
+  matters: the recipe needs to be where the query gets written, not just in a reference doc.
+
+- **Shell variable scope in inline Python is a recurring trap.** Bash `for` loop with
+  `$target` variable piped into `python3 -c` fails because Python doesn't inherit shell
+  variables. This is the same class of error as the inline-Python-via-Bash gotcha already
+  documented in tooling-logistics.md. Fix: use `echo` + `head -c` or pass the variable as
+  a command-line argument.
+
+- **"Internally originated, no user demand" is an honest evidence framing.** When multiple
+  cards were created on the same date from the same brainstorm session, searching Intercom
+  for user demand is a waste. The cards came from internal ideation, not user reports.
+  Stating this honestly in the Evidence section and contextualizing with usage numbers for
+  the adjacent feature surface is more useful than padding with irrelevant conversations or
+  leaving the section empty.

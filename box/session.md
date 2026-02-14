@@ -1,45 +1,54 @@
 # Last Session
 
-**Date**: 2026-02-14 (morning)
+**Date**: 2026-02-14 (afternoon)
 **Branch**: main
 
 ## Goal
 
-Day 4 tooling review: step back from investigation work, review the log for
-recurring friction, and decide what (if anything) to build.
+Fill-cards play: batch of 3 Keyword Research cards (SC-176, SC-175, SC-174) that
+share Saved Keywords page architecture. Test the "cluster by product area" pattern
+from a single instance.
 
 ## What Happened
 
-- Read the full investigation log (1,714 lines, 7 Read calls).
-- Identified 7 candidate friction patterns. Verified current state of each
-  against live data (DB schema, file contents, MEMORY.md). Found 3 were
-  already solved (GIN index exists, .env is clean, Shortcut recipes documented).
-- Built 3 things:
-  1. **API recipe interception notes**: added "check tooling-logistics.md"
-     pointers to the fill-cards pre-flight checklist, Play 4 Phase 1, and
-     Play 5 Phase 1. Also added inline-Python-via-Bash gotcha to
-     tooling-logistics.md. Sharpened MEMORY.md reference from passive to active.
-  2. **Session-scoped temp directory**: `/tmp/ff-YYYYMMDD/` pattern documented
-     in tooling-logistics.md, session-end skill updated, MEMORY.md cleanup
-     command updated.
-  3. **Log index**: table of contents at top of box/log.md mapping 28 sections
-     across 3 days to line numbers with one-line key lessons. Original entries
-     untouched.
-- Captured "note in the right place" as a durable meta-pattern (Process
-  Intervention Spectrum in MEMORY.md): three categories of intervention from
-  advisory instructions through well-placed notes to deterministic hooks.
+- Pre-flight: temp dir, Intercom index refresh, PostHog event catalog review,
+  architecture exploration via Explore subagent. Verified subagent claims by reading
+  the actual files (keyword-table.tsx, saved/page.tsx, search/page.tsx, route.ts,
+  types.ts, score-dots.tsx, score-utils.ts, generate-resonance-description.ts,
+  pinterest-interests.sql.ts).
+- **SC-176** (Pinterest search link-out): Internally originated, no Intercom demand.
+  Architecture context: URL column already renders keyword.urls, MdOpenInNew icon
+  already in codebase (27 files). Approved, pushed, story links created.
+- **SC-175** (commercial intent indicator on Saved Keywords): Key finding: shopping
+  intent is intrinsic to a keyword (stored in pinterest_interests.shoppingIntentScore),
+  while resonance requires search-context-specific graph relevance data. This means
+  shopping intent CAN be shown on Saved Keywords without the full resonance
+  infrastructure. Cross-database gap: org_keywords in MySQL, pinterest_interests in
+  Postgres (keyed by name varchar(255)). No Intercom demand. Approved, pushed, story
+  links created.
+- **SC-174** (URL tooltip on Saved Keywords): Lightest card. URL column at lines
+  485-486 renders plain text count, Tooltip already imported (line 20), edit modal
+  already wired. Approved, pushed, story links verified (already existed from SC-175
+  and SC-176 pushes).
+- Retrospective on retries: SQL NOTICE messages, shell/Python variable scope in loops,
+  overly broad Intercom searches for internally originated ideas.
+- Logged durable learnings: SQL notice suppression recipe in queries.md, brainstorm-
+  origin evidence pattern and SQL notice tactic in MEMORY.md.
 
 ## Key Decisions
 
-- "Note in the right place" is a distinct intervention category. Not as strong
-  as hooks, but cheaper and sufficient for non-catastrophic tendencies like
-  re-deriving documented patterns.
-- Log entries are historical snapshots. They don't get updated when the gap
-  they describe is filled. The index helps navigate; verifying current state
-  before acting on old entries is the instance's job.
+- Cluster-by-product-area fill-cards works well from a single instance. Architecture
+  context from SC-176 directly fed SC-175 and SC-174. Each card took less time than
+  the previous.
+- "Internally originated, no user demand" is an honest evidence framing for cards
+  created from a brainstorm session. Don't waste cycles searching Intercom for signal
+  that won't be there.
+- Shopping intent vs resonance distinction is architecturally significant: intrinsic
+  properties can surface on Saved Keywords, search-context-dependent ones cannot.
 
 ## Carried Forward
 
-- SC-175 still needs its fill-cards investigation.
-- The session temp directory convention needs to be used in practice to see if
-  it actually sticks (new convention, not yet battle-tested).
+- SC-173 (edit keyword modal redesign) was deferred from this batch to manage context.
+  It's the largest of the four and involves modal changes.
+- 19 more In Definition cards remain across SmartPin, Turbo, Pin Scheduler, Meta
+  product areas.
