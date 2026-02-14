@@ -19,6 +19,63 @@ Entries accumulate until a pattern emerges across multiple investigations.
 - One-off findings from a specific investigation (those go in the story)
 - Tactical codebase notes (those go in auto memory)
 
+## Index
+
+You don't need to read the full log. Scan this index and read specific
+sections when the topic is relevant to your current work.
+
+### Day 1 (2026-02-11)
+
+| Line | Topic                                    | Key lesson                                                                                                                                |
+| ---- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 24   | First investigation (multi-language AI)  | PostHog event names aren't guessable; pipeline classifications unreliable; always ask "is the denominator right?"                         |
+| 88   | Consolidating assist-bot + find-dupes    | Semantic judgment beats keyword similarity for dupe detection                                                                             |
+| 126  | Fill-cards: SC-117 (summary emails)      | Always hit Intercom API, not just DB; verify data source recommendations before putting them on a card                                    |
+| 203  | Fill-cards: SC-150 (multi-language AI)   | Pushed without approval twice; `user_accounts.language` doesn't exist; don't retrofit when a load-bearing assumption fails                |
+| 285  | Fill-cards: SC-52 (SmartPin filtering)   | "Need Requirements" cards get context, not solution sketches; don't pad evidence with stats the audience knows                            |
+| 337  | Sync Ideas: full run                     | Slack `text` field strips attachments; Released stories need "shipped" replies; bug cards skip blank template sections                    |
+| 399  | Fill-cards: SC-44 + SC-156               | Subagent "customizable frequency" was wrong (hardcoded); prop mutation was SC-156 smoking gun; always finish the play (state + owners)    |
+| 469  | Fill-cards: SC-158 (Chrome ext alt text) | "Chrome extension" means two different things; "infrastructure exists but isn't wired" pattern; minified JS needs Python regex extraction |
+| 510  | New-card: SC-161 (RSS SmartPin)          | DB validates volume but bad for discovery; topic-keyword search wins; always ask "what existing surface is this closest to?"              |
+| 580  | Backlog hygiene: template audit + SC-39  | Sub-tasks look like stories in search; Write docs accessible via API; well-documented stories fill fast                                   |
+| 610  | Fill-cards: SC-97 + SC-108 (billing)     | Sequential same-area cards compound knowledge; external API boundaries as failure source; disproportionality signals beat raw counts      |
+| 696  | Tooling consolidation                    | PostHog catalog, saved queries, play checklists all emerged from log review (this pattern)                                                |
+| 710  | Evidence cleanup                         | Post-compaction pushed unapproved content (third violation); compaction creates false continuity                                          |
+
+### Day 2 (2026-02-12)
+
+| Line | Topic                                            | Key lesson                                                                                                                                                |
+| ---- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 742  | Quality gate: SC-162, SC-46                      | Signup intent data needs careful interpretation; PostHog `feature` property always null; Architecture Context prescription feedback                       |
+| 776  | SC-150 fix + Sync Ideas + Bug discovery (SC-162) | Original numbers were wrong (21-27% vs 15-19%); don't stack unreliable methods; Intercom-to-PostHog email cross-reference is strongest technique          |
+| 848  | Quality gate: Ready to Build cards               | Don't reconstruct timelines from coincidental timestamps; don't accept API failures without debugging; search results are candidates not evidence         |
+| 939  | Verified explore prompt: A/B test                | Custom-prompted agent found `franc` library the Explore agent missed; false negatives harder to catch than hallucinations; tunable prompt is the real win |
+| 975  | Intercom search index design                     | `source.body` only hits opening message; existing plumbing in `intercom_client.py`; two rounds of Codex review improved design                            |
+| 1021 | SC-140 fill + session recovery                   | Compaction summary invented clean ending for in-flight step; stale temp files are a trap; string matching is not classification                           |
+| 1085 | Search index sync + SC-167/SC-169                | `comment`-only filter missed `assignment`/`note` part types; data-driven sampling before changing filter; `mcp-remote` needed for OAuth MCP servers       |
+
+### Day 3 (2026-02-13)
+
+| Line | Topic                                  | Key lesson                                                                                                              |
+| ---- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 1164 | Core Principles extraction             | Three principles not four; phrasing matters ("reason on" vs "go to"); defensive instinct in writing                     |
+| 1216 | **Sync Ideas catastrophe**             | 77 updates + 14 deletes without review; wrong mental model; permanent data loss. Full postmortem.                       |
+| 1298 | Audit script discard                   | Reasoning about code instead of running it; compaction summary as ground truth; solo debugging instead of communicating |
+| 1360 | Instruction design analysis            | Principles need thinking, guardrails need recognition; under load "do the work" wins over "stop and check"              |
+| 1388 | Production mutation gate               | Hook = blocker, agenterminal = approved path; false positive tests matter most; `str \| None` needs `__future__` import |
+| 1447 | Hook docs + Bug Discovery codification | Three key docs didn't mention the hook; Play 5 codified from SC-162 sequence                                            |
+| 1472 | Session primer                         | Log outgrew priming role; three instruction layers with gaps; tendency-opportunity interaction framing                  |
+| 1517 | Fill-cards: SC-15 (Keyword Plan)       | No Intercom signal is a valid finding; URL vs keyword search split in PostHog; story link directionality matters        |
+| 1562 | Quality Gate Audit (batch)             | Architecture Context prescription is most common failure; Open Questions need different fixes per situation             |
+| 1610 | Two-instance parallel fill-cards       | Product-area clustering is right split axis; Fin hallucination is evidence; urllib bypassed hook                        |
+| 1653 | Day 3 arc reflection                   | Days 0-3 meta-reflection on thesis, compounding, failure modes, cost profile                                            |
+
+### Day 4 (2026-02-14)
+
+| Line | Topic                           | Key lesson                                                                                                                                      |
+| ---- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1767 | Log review + tooling assessment | "Note in the right place" as interception strategy between instructions and hooks; log review caught stale assumptions; session-scoped temp dir |
+
 ## Entries
 
 ### 2026-02-11 — First investigation (multi-language AI content generation)
@@ -1711,3 +1768,38 @@ in one evening). When it fails, it fails expensively ($715 morning session). The
 reduce variance by capping the downside. The collaboration model (human judgment catches
 what mechanisms miss, mechanisms catch what attention doesn't) is the actual thing that
 works. Not the instance alone, not the tools alone, but the loop.
+
+### 2026-02-14 — Day 4 log review + tooling assessment
+
+- **"Note in the right place" is an interception strategy between advisory instructions
+  and deterministic hooks.** Advisory instructions (CLAUDE.md rules, MEMORY.md guidance)
+  require the instance to remember to check them. Hooks (production mutation gate) fire
+  mechanically regardless. Between these two is a third category: putting a short reminder
+  at the exact point where a tendency is about to activate. The API recipe re-derivation
+  problem wasn't that the recipes didn't exist (they're in `tooling-logistics.md`). It
+  wasn't that they were hard to find. It's that the moment an instance is about to make a
+  Shortcut API call, it's already in "do the work" mode and doesn't think to consult a
+  reference doc. Putting "check tooling-logistics.md" in the pre-flight checklist and in
+  the play Phase 1 steps intercepts right at the moment of action. Same principle as the
+  hooks, lighter weight: you don't need a mechanism when a well-placed note catches the
+  attention at the right time.
+
+- **Log review with fresh eyes caught stale assumptions.** Three "gaps" identified from
+  the log turned out to already be solved: GIN index exists (the log said it didn't),
+  .env file is clean (the log said `source` breaks on comments), Shortcut recipes are
+  comprehensive in tooling-logistics.md. The log records what was true at the time of
+  writing. It doesn't get updated when the gap is filled. The index layer (added this
+  session) helps by making it easier to find relevant entries, but the entries themselves
+  are historical snapshots, not current state.
+
+- **Session-scoped temp directory replaces scatter-and-glob cleanup.** `/tmp/ff-YYYYMMDD/`
+  instead of individual files in `/tmp/`. Session-end cleanup becomes one `rm -rf`.
+  The stale temp file incident (Day 2, consuming `/tmp/slack_threads2.json` from a
+  previous session) is the motivating case. Scoping by date means files from today are
+  yours, files from yesterday are not.
+
+- **Log index preserves the original while adding navigability.** The log is 1,765+ lines.
+  Reading it took 7 Read calls. An index at the top maps each section to its line number
+  and one-line key lesson. A fresh instance can scan the index in one read and go deep
+  on relevant sections. The original text stays untouched because it was written with
+  session context that's gone.

@@ -290,6 +290,9 @@ for explicit go-ahead.
    extension when possible. Identify the closest existing feature surface.
 5. Check `box/posthog-events.md` for already-discovered event names in this
    product area. Check `box/queries.md` for saved SQL patterns.
+   **Before your first API call**, check `memory/tooling-logistics.md` for
+   tested recipes (token loading, Shortcut search, Intercom curl, temp file
+   payloads). Don't re-derive patterns that are already documented.
 6. **Refresh the Intercom search index** so full-text search covers recent
    conversations. Run from the FeedForward repo root:
    ```
@@ -377,8 +380,8 @@ codebase patterns, competitive gaps) would have different discovery phases.
    6 from fill-cards). Fall back to the Intercom API `source.body` search for
    opening-message-only queries when needed.
 2. Check hit counts to gauge volume. Filter out spam-heavy topics.
-3. For each promising topic, search Shortcut (`GET /api/v3/search/stories?query=...`)
-   to confirm it's not already tracked.
+3. For each promising topic, search Shortcut to confirm it's not already tracked.
+   (See `memory/tooling-logistics.md` for tested Shortcut API recipes.)
 4. DB can validate volume (GROUP BY issue_signature, COUNT DISTINCT contact_email)
    but is bad for discovery. Most themes are bugs, not feature requests.
 
@@ -437,6 +440,7 @@ using symptom language.
    instance is 6+ months old, flag as historical and deprioritize. Bugs that
    stopped being reported may already be fixed.
 4. Check Shortcut to confirm the bug isn't already tracked.
+   (See `memory/tooling-logistics.md` for tested Shortcut API recipes.)
 5. Don't stack unreliable methods. DB theme classifications + keyword matching
    against Shortcut titles compounds error. Go to primary sources and use reasoning.
 

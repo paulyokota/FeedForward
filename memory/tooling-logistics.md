@@ -86,14 +86,14 @@ payload = {
         'value_id': '698b5277-edf5-424f-84f3-89dc57c3115c'  # e.g. TURBO
     }]
 }
-with open('/tmp/sc_payload.json', 'w') as f:
+with open('/tmp/ff-YYYYMMDD/sc_payload.json', 'w') as f:
     json.dump(payload, f)
 "
 
 # Step 2: Push with curl
 curl -s -X PUT -H "Content-Type: application/json" \
   -H "Shortcut-Token: $SHORTCUT_API_TOKEN" \
-  -d @/tmp/sc_payload.json \
+  -d @/tmp/ff-YYYYMMDD/sc_payload.json \
   "https://api.app.shortcut.com/api/v3/stories/{ID}"
 ```
 
@@ -106,6 +106,9 @@ curl -s -X PUT -H "Content-Type: application/json" \
   Don't forget the state change.
 - Always set Product Area (`custom_fields`) in the same PUT. We've shipped
   cards without it and had to go back.
+- **Don't write inline Python via Bash.** Bash `!` history expansion breaks
+  `!=` inside double quotes, `$` interpolation eats Python variables, and
+  quoting gets unmanageable. Write a temp `.py` file and run it instead.
 
 ### Workspace constants
 
@@ -215,3 +218,16 @@ for m in re.finditer(r'.{0,200}KEYWORD.{0,200}', text):
 - Session notes: `box/session.md`
 - Investigation log: `box/log.md`
 - NOT `docs/session/last-session.md` (overwritten by Developer Kit Stop hook)
+
+### Session temp directory
+
+Use `/tmp/ff-YYYYMMDD/` for all session artifacts (payloads, intermediate
+data, exports). Create at start, clean up at end:
+
+```bash
+mkdir -p /tmp/ff-$(date +%Y%m%d)    # Session start
+rm -rf /tmp/ff-$(date +%Y%m%d)      # Session end (or /session-end does it)
+```
+
+All temp file paths in recipes below (e.g. `/tmp/ff-YYYYMMDD/sc_payload.json`) should
+use this directory instead: `/tmp/ff-YYYYMMDD/sc_payload.json`.

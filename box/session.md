@@ -1,34 +1,45 @@
 # Last Session
 
-**Date**: 2026-02-13 (late evening)
+**Date**: 2026-02-14 (morning)
 **Branch**: main
 
 ## Goal
 
-Post-abort cleanup and Day 3 debrief.
+Day 4 tooling review: step back from investigation work, review the log for
+recurring friction, and decide what (if anything) to build.
 
 ## What Happened
 
-- Checked state after aborted session. No damage: hooks blocked the post-compaction
-  push attempt, user stopped the session before any mutations reached production.
-- Committed 4 files from the successful two-instance session that missed their
-  end-of-session commit (hook urllib/httpx fix, log entries, queries update, session
-  notes).
-- Cleaned ~130 temp files from /tmp/ accumulated over Days 1-3.
-- Debriefed the full Day 3 arc and Days 0-3 meta-reflection with the user.
-- Corrected two factual errors: (1) urllib bypass was caught by the user, not the
-  hook. (2) Released story thread state was fully recovered during the painstaking
-  Phase 6 audit, not left in an unknown state.
-- Wrote Day 3 arc log entry with Days 0-3 thesis reflection.
+- Read the full investigation log (1,714 lines, 7 Read calls).
+- Identified 7 candidate friction patterns. Verified current state of each
+  against live data (DB schema, file contents, MEMORY.md). Found 3 were
+  already solved (GIN index exists, .env is clean, Shortcut recipes documented).
+- Built 3 things:
+  1. **API recipe interception notes**: added "check tooling-logistics.md"
+     pointers to the fill-cards pre-flight checklist, Play 4 Phase 1, and
+     Play 5 Phase 1. Also added inline-Python-via-Bash gotcha to
+     tooling-logistics.md. Sharpened MEMORY.md reference from passive to active.
+  2. **Session-scoped temp directory**: `/tmp/ff-YYYYMMDD/` pattern documented
+     in tooling-logistics.md, session-end skill updated, MEMORY.md cleanup
+     command updated.
+  3. **Log index**: table of contents at top of box/log.md mapping 28 sections
+     across 3 days to line numbers with one-line key lessons. Original entries
+     untouched.
+- Captured "note in the right place" as a durable meta-pattern (Process
+  Intervention Spectrum in MEMORY.md): three categories of intervention from
+  advisory instructions through well-placed notes to deterministic hooks.
 
 ## Key Decisions
 
-- The "one instance" thesis needs nuancing: it's one reasoning locus with tools that
-  extend its reach. Judgment stays in the main loop. When judgment was distributed to
-  proxies, that's when things went wrong.
-- The collaboration model (human judgment + mechanisms + conversation) is the actual
-  thing that works. Not any single layer alone.
+- "Note in the right place" is a distinct intervention category. Not as strong
+  as hooks, but cheaper and sufficient for non-catastrophic tendencies like
+  re-deriving documented patterns.
+- Log entries are historical snapshots. They don't get updated when the gap
+  they describe is filled. The index helps navigate; verifying current state
+  before acting on old entries is the instance's job.
 
 ## Carried Forward
 
-- SC-175 still needs its fill-cards investigation (aborted session's unfinished work).
+- SC-175 still needs its fill-cards investigation.
+- The session temp directory convention needs to be used in practice to see if
+  it actually sticks (new convention, not yet battle-tested).

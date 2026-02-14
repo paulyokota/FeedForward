@@ -27,14 +27,15 @@ End-of-session cleanup, documentation, and commit.
    navigation patterns, methodology insights. Remove anything that turned out to be
    wrong.
 
-4. **Delete temp files.** Clean up investigation artifacts in `/tmp/`:
+4. **Delete session temp directory.** All session artifacts should be in
+   `/tmp/ff-YYYYMMDD/`. Clean up:
 
    ```bash
-   rm /tmp/slack_* /tmp/needs_shipped* /tmp/sc_payload* 2>/dev/null
+   rm -rf /tmp/ff-$(date +%Y%m%d)
    ```
 
-   Also delete any other temp files created during this session. Stale temp files
-   from previous sessions cause silent errors when consumed as if current.
+   Also check for any stray files in `/tmp/` (slack\__, sc_payload_, etc.)
+   from before the session directory convention was adopted.
 
 5. **Stage and commit.** Stage changed files (`box/session.md`, `box/log.md`,
    memory files, any other changes). Commit with a descriptive message.
