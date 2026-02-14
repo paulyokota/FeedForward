@@ -1,54 +1,45 @@
 # Last Session
 
-**Date**: 2026-02-14 (afternoon)
+**Date**: 2026-02-14 (late evening)
 **Branch**: main
 
 ## Goal
 
-Fill-cards play: batch of 3 Keyword Research cards (SC-176, SC-175, SC-174) that
-share Saved Keywords page architecture. Test the "cluster by product area" pattern
-from a single instance.
+Tag-team fill-cards again (2 cards per agent, 4 cards total). Before starting, reviewed
+the previous tag-team session's compaction failures to understand what happened and
+whether intervention was needed.
 
 ## What Happened
 
-- Pre-flight: temp dir, Intercom index refresh, PostHog event catalog review,
-  architecture exploration via Explore subagent. Verified subagent claims by reading
-  the actual files (keyword-table.tsx, saved/page.tsx, search/page.tsx, route.ts,
-  types.ts, score-dots.tsx, score-utils.ts, generate-resonance-description.ts,
-  pinterest-interests.sql.ts).
-- **SC-176** (Pinterest search link-out): Internally originated, no Intercom demand.
-  Architecture context: URL column already renders keyword.urls, MdOpenInNew icon
-  already in codebase (27 files). Approved, pushed, story links created.
-- **SC-175** (commercial intent indicator on Saved Keywords): Key finding: shopping
-  intent is intrinsic to a keyword (stored in pinterest_interests.shoppingIntentScore),
-  while resonance requires search-context-specific graph relevance data. This means
-  shopping intent CAN be shown on Saved Keywords without the full resonance
-  infrastructure. Cross-database gap: org_keywords in MySQL, pinterest_interests in
-  Postgres (keyed by name varchar(255)). No Intercom demand. Approved, pushed, story
-  links created.
-- **SC-174** (URL tooltip on Saved Keywords): Lightest card. URL column at lines
-  485-486 renders plain text count, Tooltip already imported (line 20), edit modal
-  already wired. Approved, pushed, story links verified (already existed from SC-175
-  and SC-176 pushes).
-- Retrospective on retries: SQL NOTICE messages, shell/Python variable scope in loops,
-  overly broad Intercom searches for internally originated ideas.
-- Logged durable learnings: SQL notice suppression recipe in queries.md, brainstorm-
-  origin evidence pattern and SQL notice tactic in MEMORY.md.
+- Read Claude 2's full transcript from the previous session to reconstruct the compaction
+  timeline. Found that `box/session.md` itself contained post-compaction claims (the
+  "2-card-per-instance limit" recommendation) that couldn't be verified as pre-compaction
+  work. The file was written post-intervention with Paul dictating content, so the final
+  version was safe, but the provenance question surfaced a deeper issue.
+- Discussed whether compaction needs a mechanical intervention (hook) or process-level
+  mitigation. Concluded that compaction is structurally different from other failure modes:
+  the agent can't self-correct because its ability to recognize the problem is degraded
+  by the problem itself. Advisory mitigations compete against the continuation summary.
+- Explored lateral solutions: context usage visibility (opaque, no signal available),
+  incremental checkpointing (reduces blast radius, doesn't prevent failure), surviving
+  agent writes debrief (specific to tag-team format, not general).
+- Documented compaction as an open structural risk in MEMORY.md with observed failures,
+  current partial mitigations, and an explicit statement that no known solution exists.
+- Did not get to actual fill-cards work this session.
 
 ## Key Decisions
 
-- Cluster-by-product-area fill-cards works well from a single instance. Architecture
-  context from SC-176 directly fed SC-175 and SC-174. Each card took less time than
-  the previous.
-- "Internally originated, no user demand" is an honest evidence framing for cards
-  created from a brainstorm session. Don't waste cycles searching Intercom for signal
-  that won't be there.
-- Shopping intent vs resonance distinction is architecturally significant: intrinsic
-  properties can surface on Saved Keywords, search-context-dependent ones cannot.
+- Compaction risk documented as open structural problem, not solved with a hook.
+- 2-card limit for fill-cards investigations accepted as empirically reasonable (from
+  Paul's memory of last session), but not overgeneralized beyond the fill-cards shape.
+- Play 3a (Tag-Team Fill Cards) still needs to be written from scratch in shortcut-ops.md.
 
 ## Carried Forward
 
-- SC-173 (edit keyword modal redesign) was deferred from this batch to manage context.
-  It's the largest of the four and involves modal changes.
-- 19 more In Definition cards remain across SmartPin, Turbo, Pin Scheduler, Meta
-  product areas.
+- Write Play 3a in shortcut-ops.md (tag-team fill-cards variant)
+- Log entry from previous tag-team session was reverted and never rewritten
+- MEMORY.md updates from previous session (Intercom link format, owner exception for
+  PR-backed cards) still not captured
+- SC-173 (edit keyword modal redesign) still deferred
+- 19 In Definition cards remain across product areas
+- Actual tag-team fill-cards run: pick 4 cards, split, execute

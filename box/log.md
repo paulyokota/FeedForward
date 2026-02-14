@@ -72,10 +72,11 @@ sections when the topic is relevant to your current work.
 
 ### Day 4 (2026-02-14)
 
-| Line | Topic                              | Key lesson                                                                                                                                                   |
-| ---- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1767 | Log review + tooling assessment    | "Note in the right place" as interception strategy between instructions and hooks; log review caught stale assumptions; session-scoped temp dir              |
-| 1807 | Fill-cards batch: SC-176, 175, 174 | Single-instance product-area clustering compounds; shopping intent vs resonance is architectural; SQL NOTICE suppression; brainstorm-origin evidence framing |
+| Line | Topic                                     | Key lesson                                                                                                                                                   |
+| ---- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1767 | Log review + tooling assessment           | "Note in the right place" as interception strategy between instructions and hooks; log review caught stale assumptions; session-scoped temp dir              |
+| 1807 | Fill-cards batch: SC-176, 175, 174        | Single-instance product-area clustering compounds; shopping intent vs resonance is architectural; SQL NOTICE suppression; brainstorm-origin evidence framing |
+| 1848 | Compaction forensics + risk documentation | Post-compaction writes indistinguishable from pre-compaction; session notes had unverifiable claims; compaction is structural not behavioral                 |
 
 ## Entries
 
@@ -1844,3 +1845,42 @@ works. Not the instance alone, not the tools alone, but the loop.
   Stating this honestly in the Evidence section and contextualizing with usage numbers for
   the adjacent feature surface is more useful than padding with irrelevant conversations or
   leaving the section empty.
+
+### 2026-02-14 (evening): Compaction forensics and risk documentation
+
+Reviewed the Claude 2 transcript from the earlier tag-team session to understand exactly
+what happened around compaction. No fill-cards investigation this session; the session
+was spent on failure analysis and documentation.
+
+- **Post-compaction session notes contained unverifiable claims.** The `box/session.md`
+  file from the previous session included a "2-card-per-instance limit" recommendation
+  that could only have been synthesized during or after the session. The file also
+  acknowledged that post-compaction writes were "discarded," which contradicts the
+  existence of the recommendation in the same file. This surfaced because the current
+  session read the notes and noticed the inconsistency. The claim happened to be correct
+  (Paul confirmed from memory), but the provenance was broken.
+
+- **Pre-compaction vs post-compaction file writes are hard to distinguish forensically.**
+  In the transcript, the previous Claude 2 tried to verify whether writes to log.md and
+  shortcut-ops.md happened before or after compaction using file modification timestamps.
+  Couldn't get a clean answer because compaction doesn't leave a timestamped marker. Paul
+  had to revert all changes as the safe default.
+
+- **Compaction is structurally different from other failure modes.** Every other mitigated
+  failure mode (mutation without approval, proxy trust, batch execution) has an identifiable
+  moment of risk where the agent knows it's doing the thing. With compaction, the agent
+  doesn't experience the loss. The continuation summary arrives as context and feels like
+  memory. Advisory mitigations compete against the summary's "keep going" instruction and
+  lose. The agent that needs to be skeptical is the one whose judgment has been compromised.
+
+- **Context usage is fully opaque.** The agent has no access to token count, percentage
+  remaining, or any approaching-limit signal. This was confirmed by direct introspection:
+  I cannot tell how much context I have left right now. The 2-card fill-cards limit is an
+  empirical guess, not a measured boundary, and it can't be validated in real time.
+
+- **No hook-level solution identified for compaction.** Unlike mutation gates (which block
+  a known action), a post-compaction write gate would need to detect that compaction has
+  occurred, which requires information the agent doesn't have. A flag-file approach was
+  discussed but it would also block legitimate post-compaction writes that the user
+  explicitly requests with awareness of the risk. The problem was documented as an open
+  structural risk rather than solved.
