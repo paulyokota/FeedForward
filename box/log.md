@@ -1513,3 +1513,48 @@ and inference doesn't fire under session pressure. Specific numbers (77 chat.upd
   collaboration. Constraints motivate the collaboration section ("going dark breaks the
   control loop" sets up "the conversation IS the control loop"). Reversing those would
   lose the flow.
+
+### 2026-02-13 — Fill-cards play: SC-15 (Keyword Plan)
+
+- **No GIN index on `conversation_search_index.full_text`.** Full-text search
+  (`to_tsvector/to_tsquery`) on 341k rows without a GIN index just hangs. ILIKE is
+  faster for simple pattern matching on unindexed columns, but proper full-text search
+  needs the index. Every `ts_rank` query timed out; every ILIKE query returned in
+  seconds. If full-text search is going to be a routine tool, the index needs to exist.
+
+- **Bash `!` escaping inside Python strings is a recurring pain.** Bash history
+  expansion interprets `!` inside double-quoted strings, breaking inline Python that
+  uses `!=`. Writing a temp `.py` file and running it is the reliable workaround.
+  Happened three times in one session before switching to the file approach.
+
+- **"No Intercom signal" is a valid evidence finding.** First instinct was to keep
+  searching for user language that maps to "keyword plan." User corrected: if there's
+  no signal in a channel, say that. The absence is informative. An internally originated
+  feature request with no user-reported demand is a different risk profile than one with
+  3+ distinct users asking. Honesty in the Evidence section is more useful than padding.
+
+- **PostHog `Searched keywords` event has a `query` property that distinguishes URL
+  vs seed keyword searches.** `query LIKE 'http%'` cleanly splits the two modes.
+  15.4% URL-based is a surprisingly high adoption rate for what's essentially an
+  undifferentiated input field (the search box accepts both keywords and URLs). This
+  became the strongest evidence point on the card.
+
+- **Explore subagent output format is hard to consume.** The output file is raw JSON
+  conversation transcript, not a clean summary. Grepping it for specific claims returned
+  "[Omitted long matching line]" for every hit. The useful pattern was: let the agent
+  finish, skim the final summary in the TaskOutput, then verify specific claims by
+  reading the actual files. Don't try to extract intermediate findings from the raw
+  output.
+
+- **Story link relationships need directional thinking, not reflexive "relates to."**
+  Initial instinct was to mark everything as "relates to." User caught that SC-45
+  (sitemap discovery) is a genuine blocker for SC-15, not just related. The test: "could
+  SC-15 ship without SC-45 being done?" If no, it's "blocks." If yes but they share
+  infrastructure, it's "relates to."
+
+- **Product documentation as a reference source.** User shared a complete product
+  documentation file (`context/product/Tailwind Product Documentation - COMPLETE
+UPDATED.md`) covering feature-by-feature docs including Keyword Research. This is a
+  primary source for how features are described to users and what the product team
+  considers the current scope. Useful for fill-cards investigations to understand the
+  "what exists" framing.

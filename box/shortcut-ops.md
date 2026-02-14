@@ -45,6 +45,7 @@ detailed procedural skills that generated this knowledge are archived at
 | BILLING          | `698b5277-fa07-4751-8ac6-b6d86f2ca2de` |
 | API/MCP          | `698b5277-43c1-411a-9b32-d39bcfd1c2cc` |
 | M4U              | `698e9253-c138-4e96-9dd3-7c732aff37fd` |
+| GHOSTWRITER      | `698fb17d-1494-418b-ab46-aee08fe9bfff` |
 
 ### Slack
 
@@ -322,6 +323,19 @@ sure the facts underneath the solution are correct before presenting.
 
 **Quality gate**: Run the Card Quality Gate (above) before presenting draft
 for approval.
+
+**Story links**: After filling a card, search Shortcut for non-archived cards that
+share infrastructure, prerequisites, or overlapping scope. Propose links with the
+right verb:
+
+| Verb         | Direction                 | When to use                                                                                                               |
+| ------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `blocks`     | Subject blocks Object     | Object cannot ship without Subject being done first. Test: "Could Object ship if Subject didn't exist?" If no, it blocks. |
+| `relates to` | Bidirectional             | Cards share infrastructure, overlap in scope, or inform each other, but neither is a prerequisite.                        |
+| `duplicates` | Subject duplicates Object | Used in Find Dupes play. Subject is the loser (gets archived).                                                            |
+
+Default to `relates to` unless there's a genuine prerequisite dependency. Present
+proposed links alongside the card draft for approval.
 
 **Idempotency**:
 
@@ -631,7 +645,7 @@ For inferring Product Area when creating new cards from Slack ideas.
 | Product Area     | Keywords / signals                                                                                                                                       |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SMARTPIN         | smartpin, smart pin, template, pin generation, AI pin, design customization, text overlay, branded color, style tone, URL page, sitemap, bulk activation |
-| PIN SCHEDULER    | scheduler, schedule pin, bulk edit, bulk delete, ghostwriter, pin draft, date range, carousel, image grid, pin from URL, alt text, SEO filename          |
+| PIN SCHEDULER    | scheduler, schedule pin, bulk edit, bulk delete, pin draft, date range, carousel, image grid, pin from URL, alt text, SEO filename                       |
 | TURBO            | turbo, boost, engagement, turbo feed, turbo queue, turbo onboarding, auto-queue, auto-renew, moderation                                                  |
 | KEYWORD RESEARCH | keyword, keyword search, keyword plan, commercial intent, CSV import, saved keywords                                                                     |
 | EXTENSION        | extension, browser extension, visit site, outbound click, turbo extension                                                                                |
@@ -641,5 +655,6 @@ For inferring Product Area when creating new cards from Slack ideas.
 | BILLING          | billing, subscription, cancel, past-due, invoice                                                                                                         |
 | API/MCP          | API, MCP, ChatGPT, integration, workflow, app store                                                                                                      |
 | M4U              | made for you, generate a pin, pin from URL, URL scrape, labs, ghostwriter pin                                                                            |
+| GHOSTWRITER      | ghostwriter, ghost writer, GW, bulk ghostwriter, AI generation stuck, generation failed                                                                  |
 
-**Tie-break priority** (most specific wins): EXTENSION > TURBO, KEYWORD RESEARCH > SMARTPIN > M4U > PIN SCHEDULER, CREDITS > BILLING. When ambiguous, propose best guess and flag it.
+**Tie-break priority** (most specific wins): GHOSTWRITER > PIN SCHEDULER (for ghostwriter-specific issues), EXTENSION > TURBO, KEYWORD RESEARCH > SMARTPIN > M4U > PIN SCHEDULER, CREDITS > BILLING. When ambiguous, propose best guess and flag it.

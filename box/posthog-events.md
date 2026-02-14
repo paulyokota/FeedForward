@@ -16,12 +16,14 @@ Project ID: `161414`
 
 ### AI Generation (SmartPin, Ghostwriter, Keyword Research, Made For You)
 
-| Event Name                            | Used In | Notes                                              |
-| ------------------------------------- | ------- | -------------------------------------------------- |
-| `Generated SmartContent descriptions` | SC-150  | SmartPin AI generation. NOT `smart_pin_generated`. |
-| `Generated Ghostwriter Content`       | SC-150  | Ghostwriter text generation                        |
-| `Clicked Generate Pin`                | SC-150  | User initiates AI pin creation                     |
-| `Generated Made for You Content`      | SC-150  | Blog-to-pin AI generation                          |
+| Event Name                              | Used In        | Notes                                                                                                                                                                           |
+| --------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Generated SmartContent descriptions`   | SC-150         | SmartPin AI generation. NOT `smart_pin_generated`.                                                                                                                              |
+| `Generated Ghostwriter Content`         | SC-150, SC-179 | Ghostwriter text generation (success)                                                                                                                                           |
+| `Failed Ghostwriter Content Generation` | SC-179         | Ghostwriter generation failure. 101 in 90d. Key property: `error` (reason string). Dominant: "Generation job has failed" (58/101), null (30/101), "Failed to poll job" (7/101). |
+| `Queued Ghostwriter Generation`         | SC-179         | Job queued to SQS. Frontend-fired.                                                                                                                                              |
+| `Clicked Generate Pin`                  | SC-150         | User initiates AI pin creation                                                                                                                                                  |
+| `Generated Made for You Content`        | SC-150         | Blog-to-pin AI generation                                                                                                                                                       |
 
 ### SmartPin
 
@@ -67,17 +69,29 @@ Key finding: EU users are ~10% of paying base but ~37% of statement downloads.
 
 ### Keyword Research
 
-| Event Name           | Used In | Notes                                                                       |
-| -------------------- | ------- | --------------------------------------------------------------------------- |
-| `Searched keywords`  | SC-46   | Main search event. 53,677 in 90d (~3,800/week, 600-1,500 unique users/week) |
-| `Clicked Keyword`    | SC-46   | User clicks a keyword result                                                |
-| `Saved Keyword List` | SC-46   | User saves a keyword list                                                   |
+| Event Name                        | Used In   | Notes                                                                                                                                                                                                                                                                    |
+| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Searched keywords`               | SC-46, 15 | Main search event. 54,003 in 90d (~3,800/week, 600-1,500 unique users/week). Key properties: `query` (search term or URL), `isFreshSearch`, `resultCount`, `category`, `language`. 15.4% of searches are URL-based (`query LIKE 'http%'`): 8,314 from 2,501 unique orgs. |
+| `Clicked Keyword`                 | SC-46     | User clicks a keyword result                                                                                                                                                                                                                                             |
+| `Saved Keyword List`              | SC-46     | User saves a keyword list                                                                                                                                                                                                                                                |
+| `Copied keyword`                  | SC-15     | User copies a keyword from results                                                                                                                                                                                                                                       |
+| `Saved keyword`                   | SC-15     | User saves a keyword                                                                                                                                                                                                                                                     |
+| `Removed keyword`                 | SC-15     | User removes a saved keyword                                                                                                                                                                                                                                             |
+| `Sorted keywords`                 | SC-15     | User sorts keyword results                                                                                                                                                                                                                                               |
+| `Updated keyword URLs`            | SC-15     | User updates URL associations for a keyword                                                                                                                                                                                                                              |
+| `Bulk added keyword URLs`         | SC-15     | User bulk-adds URL associations                                                                                                                                                                                                                                          |
+| `Clicked recent keyword search`   | SC-15     | User clicks a recent search suggestion                                                                                                                                                                                                                                   |
+| `Cleared recent keyword searches` | SC-15     | User clears search history                                                                                                                                                                                                                                               |
 
 Saved insights (SC-46):
 
 - [Keyword Search Usage (90d)](https://us.posthog.com/project/161414/insights/YFPxKCsI)
 - [Keyword Feature Engagement (90d)](https://us.posthog.com/project/161414/insights/nueAQ5UK)
 - [Keyword Search by Subscription State (90d)](https://us.posthog.com/project/161414/insights/saG6PGLz)
+
+Saved insights (SC-15):
+
+- [SC-15: URL vs Keyword Search Split (90d)](https://us.posthog.com/project/161414/insights/py2jrdGj)
 
 Key finding: ~49% of keyword searchers are active subscribers, ~45% null (likely free). Currently costs 0 credits (`WEBSITE_KEYWORDS: 0` in cost table).
 
@@ -120,6 +134,16 @@ Saved insights (SC-162):
 - [Publish Failures by Reason (Weekly Trend)](https://us.posthog.com/project/161414/insights/ony5syZ4)
 
 Key failure reasons (90d): `expired_token` (41k, 904 users), `pin_not_found` (23k, 1,393 users), `stuck_in_queue` (12k, 768 users, NO UI COPY), `board_not_found` (11k, 804 users), `blocked_spam` (8k, 804 users). `stuck_in_queue`, `forbidden_resource`, and `invalid_parameters` have no entry in `failure-reasons.ts`.
+
+### Ghostwriter
+
+Saved insights (SC-179):
+
+- [Ghostwriter Failures vs Successes (90d weekly)](https://us.posthog.com/project/161414/insights/EIbt6OZm)
+- [Ghostwriter Failure Reasons Breakdown (90d)](https://us.posthog.com/project/161414/insights/hkqzN2G6)
+- [Ghostwriter Events for Intercom Reporters (orgId cross-ref)](https://us.posthog.com/project/161414/insights/wytuAfYT)
+
+Key finding: 101 tracked failures / ~7,000 successes (~1.4% failure rate) over 90d, steady ~7/week. But Intercom reporters describing "stuck spinner" have zero failure events, indicating an uninstrumented failure mode separate from the tracked population.
 
 ## Useful Person Properties
 
