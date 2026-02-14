@@ -62,10 +62,18 @@ def detect_shortcut_mutation(command: str) -> str | None:
         method_match = re.search(SHORTCUT_MUTATING_METHOD, command)
         if method_match:
             return method_match.group(1)
-        # Python requests/urllib might not use -X explicitly
+        # Python HTTP libraries might not use -X explicitly.
         # Check for requests.put/post/delete patterns
         if re.search(r"requests\.(put|post|delete|patch)\s*\(", command):
             method_match = re.search(r"requests\.(put|post|delete|patch)", command)
+            return method_match.group(1).upper() if method_match else None
+        # Check for httpx.put/post/delete patterns
+        if re.search(r"httpx\.(put|post|delete|patch)\s*\(", command):
+            method_match = re.search(r"httpx\.(put|post|delete|patch)", command)
+            return method_match.group(1).upper() if method_match else None
+        # Check for urllib.request with method= specifying a mutating method
+        if re.search(r"method\s*=\s*['\"]?(PUT|POST|DELETE|PATCH)", command, re.IGNORECASE):
+            method_match = re.search(r"method\s*=\s*['\"]?(PUT|POST|DELETE|PATCH)", command, re.IGNORECASE)
             return method_match.group(1).upper() if method_match else None
         # If it's just a curl with no -X and hitting shortcut, check for -d/--data
         # which implies POST

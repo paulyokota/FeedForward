@@ -105,21 +105,18 @@ ORDER BY conversations DESC;
 
 ## Search Conversations by Keyword
 
-When looking for specific topics in conversation text. Useful for feature
-request discovery when the themes table doesn't surface what you need.
+Use the search index tool, not raw SQL:
 
-```sql
-SELECT
-    c.id,
-    c.contact_email,
-    c.created_at,
-    LEFT(c.source_body, 300) AS snippet
-FROM conversations c
-WHERE c.source_body ILIKE '%KEYWORD%'
-ORDER BY c.created_at DESC
-LIMIT 20;
+```bash
+python3 box/intercom-search.py "keyword"                    # Ranked full-text search
+python3 box/intercom-search.py "pins disappeared" --since 90  # Last 90 days
+python3 box/intercom-search.py "invoice" --email "%@de"      # Filter by email
+python3 box/intercom-search.py --count "smartpin"            # Just count matches
 ```
 
-**Remember:** `source_body` is the opening message only. For full conversation
-text, check `support_insights->>'full_conversation'` (populated by the
-classification pipeline, not available for all conversations).
+This searches all conversation parts (replies, notes, assignments), not just
+opening messages. Results are ranked by relevance via a GIN-indexed tsvector
+column. Falls back to ILIKE automatically if the query syntax trips up tsquery.
+
+The old `conversations.source_body` ILIKE pattern only hits opening messages
+in the pipeline DB. The search index has 341k conversations with full threads.

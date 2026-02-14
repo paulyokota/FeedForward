@@ -1606,3 +1606,45 @@ UPDATED.md`) covering feature-by-feature docs including Keyword Research. This i
   (outside the pushed content) mentioned "was X, now Y" for evidence numbers. User flagged
   this as noise for a dev picking up the card. The actual card content was clean, but
   the instinct to document editorial history should stay in the log, not on the card.
+
+### 2026-02-13 (evening) — Two-instance parallel fill-cards (Tier 2 completion)
+
+- **Two Claude instances on the same card set worked.** Split 7 Tier 2 cards between
+  two instances: Claude 1 got the SmartPin cluster (SC-135, SC-51, SC-68, SC-132),
+  Claude 2 got the mixed bag (SC-90, SC-118, SC-131). Coordinated via agenterminal
+  conversation thread. Each instance stayed in its own main session for tool calls.
+  The conversation thread was for briefing, status sync, and convergence on documentation.
+  All 7 cards shipped.
+
+- **Product-area clustering is the right split axis.** Claude 1's SmartPin cluster meant
+  architecture knowledge compounded across cards: the design tier system, Scooby scraper,
+  Jimp compositing, brand preferences, generation pipeline. By card 3, the architecture
+  context sections were faster to write because the mental model was already built. A
+  random split would have lost this.
+
+- **Fin AI hallucination is a new evidence category.** On SC-132 (logos/watermarks),
+  found conversation 215472992737269 where Fin told a user "SmartPin uses your brand info
+  and logos if you've set them up in Brand Settings." This is false: zero connection
+  between brand preferences and the SmartPin generation pipeline. This isn't user demand.
+  It's active damage from the feature gap: users are being told a capability exists,
+  trying to use it, and finding it doesn't work. Different risk profile than a feature
+  nobody asked for.
+
+- **"Feature not live" makes Intercom evidence meaningless for demand, but still useful
+  for adjacent signal.** All 4 SmartPin v2 feature cards (SC-51, SC-68, SC-132, SC-135)
+  had zero Intercom demand. Because SmartPin v2 isn't shipped yet, users literally can't
+  request improvements to it. Stating this honestly on the card is better than either
+  padding evidence with tangential conversations or hiding the gap. The Fin hallucination
+  on SC-132 was the one exception: Intercom was useful not for demand but for documenting
+  a false promise.
+
+- **Story link discovery requires scanning the full product area.** On SC-51, user asked
+  "card relationships?" which I'd skipped. Searched all non-archived SMARTPIN cards and
+  found SC-99 (broader style preferences vision, In Definition), SC-130, SC-132 as
+  related. Made this a standard step for subsequent cards. SC-68 picked up SC-45
+  (sitemap bulk adding) and SC-85 (proactive page discovery).
+
+- **Hook bypass via urllib.** Claude 2 discovered that `urllib.request.Request` with
+  `method='PUT'` bypassed the production mutation gate, which only caught `curl` and
+  `requests.*` patterns. Fixed the hook to also match `httpx` and `urllib` patterns.
+  Both were added in the same fix.
