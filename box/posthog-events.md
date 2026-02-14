@@ -135,6 +135,25 @@ Saved insights (SC-162):
 
 Key failure reasons (90d): `expired_token` (41k, 904 users), `pin_not_found` (23k, 1,393 users), `stuck_in_queue` (12k, 768 users, NO UI COPY), `board_not_found` (11k, 804 users), `blocked_spam` (8k, 804 users). `stuck_in_queue`, `forbidden_resource`, and `invalid_parameters` have no entry in `failure-reasons.ts`.
 
+### Turbo
+
+| Event Name                                 | Used In | Notes                                                |
+| ------------------------------------------ | ------- | ---------------------------------------------------- |
+| `Turbo: Pin engaged`                       | SC-32   | User engages with a pin in the Turbo feed. ~120k/90d |
+| `Turbo: Pin received engagement`           | SC-32   | Pin receives engagement from others. ~100k/90d       |
+| `Turbo: Pin added`                         | SC-32   | Pin added to Turbo queue. ~3.5k/90d                  |
+| `Turbo: Tier changed`                      | SC-32   | User changes credit tier on a pin. ~11k/90d          |
+| `Turbo: Pin clicked`                       | SC-32   | Pin clicked in feed. ~7.9k/90d                       |
+| `Turbo: Pin activated`                     |         | Pin moves from queued to active                      |
+| `Turbo: Slot unlocked`                     |         | New slot earned via engagement                       |
+| `Turbo: Turbo Queue rotation days changed` |         | User changes rotation period                         |
+
+Saved insights (SC-32):
+
+- [Turbo Engagement Overview (90d)](https://us.posthog.com/project/161414/insights/NHG2HzFV)
+
+Key finding: 34x gap between engagement events (120k) and pins actually added to Turbo (3.5k). Manual queue management is a likely bottleneck. A `turboQueueAutoAddPublishedPins` toggle exists in the UI but has no server-side consumer.
+
 ### Ghostwriter
 
 Saved insights (SC-179):

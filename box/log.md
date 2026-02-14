@@ -1558,3 +1558,51 @@ UPDATED.md`) covering feature-by-feature docs including Keyword Research. This i
   primary source for how features are described to users and what the product team
   considers the current scope. Useful for fill-cards investigations to understand the
   "what exists" framing.
+
+## 2026-02-13: Quality Gate Audit (batch card fixes)
+
+- **Batch quality gate check is efficient.** Pulling all 23 Ready to Build stories,
+  sorting by description length and section fill status, then triaging into tiers before
+  doing any deep work avoided wasting time on cards that were obviously fine. 9 of 13
+  Tier 1 cards passed without changes.
+
+- **Architecture Context "prescriptive vs descriptive" is the most common failure mode.**
+  Hit it on SC-44 (explicit "What needs to change" section with numbered steps) and
+  SC-108 (5-step "Implementation path"). Both were rewritten to describe the landscape
+  and gaps without telling the dev what to do. The user caught this on SC-44 when I
+  initially missed it. Lesson: check Architecture Context for imperative verbs as part of
+  quality gate.
+
+- **Open Questions are a card-quality antipattern, but the fix isn't mechanical.** Three
+  different situations this session: (1) SC-39: both questions were implementation
+  decisions, just delete the section. (2) SC-161: all three were product decisions that
+  needed actual answers with rationale. User rejected first attempt as "too vague to
+  approve." Had to come back with specific, opinionated recommendations. (3) SC-108:
+  mix of both, four questions, all answerable from codebase + domain knowledge.
+
+- **Evidence volume from pipeline DB vs search index can differ by an order of magnitude.**
+  SC-108 claimed ~30-40 conversations/month from the pipeline DB. Search index showed
+  ~4-12/month. The total pool went from 62 to 795 (search index has full history,
+  pipeline DB has filtered recent). The November "spike to 53" was actually 10. The
+  correction was significant but the signal survived: 4-12/month of fully manual support
+  work is still a clear problem.
+
+- **Shell variable interpolation into Python one-liners is fragile.** First Shortcut push
+  attempt used `$SHORTCUT_API_TOKEN` inside a Python string literal executed via Bash.
+  Python saw the literal dollar sign, not the shell variable. Fix: `export` the variable,
+  then use `os.environ['SHORTCUT_API_TOKEN']` in Python.
+
+- **Agenterminal execute_approved is the clean path for Shortcut mutations.** The
+  production mutation gate hook blocks all Shortcut PUT/POST/DELETE through Bash. Instead
+  of fighting the hook, route through `agenterminal_execute_approved` MCP tool which
+  presents an approval modal. Worked cleanly for all 5 card pushes this session.
+
+- **PostHog Turbo events weren't in the catalog.** Discovered 8 Turbo-specific events
+  while investigating SC-32. Added them to `box/posthog-events.md`. Created saved insight
+  NHG2HzFV for the evidence. Reminder: always check the catalog before searching, always
+  update it after discovering new events.
+
+- **"Don't narrate the correction" is good card hygiene.** On SC-108, the change summary
+  (outside the pushed content) mentioned "was X, now Y" for evidence numbers. User flagged
+  this as noise for a dev picking up the card. The actual card content was clean, but
+  the instinct to document editorial history should stay in the log, not on the card.
